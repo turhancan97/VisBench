@@ -15,10 +15,10 @@
 
 ---
 
-> **Status: v0.1.0.dev0 — v0.1 scope complete.** Both backbones (DINOv2, CLIP)
-> and all three tasks (classification, retrieval, correspondence) run
-> end-to-end on a local image folder, dependencies are locked, and `run()` does
-> the whole path in one call. See [Build order](#build-order).
+> **Status: v0.1.0.** Both backbones (DINOv2, CLIP) and all three tasks
+> (classification, retrieval, correspondence) run end-to-end on a local image
+> folder, dependencies are locked, and `run()` does the whole path in one call.
+> Not yet on PyPI. See [Build order](#build-order).
 
 ## What it is
 

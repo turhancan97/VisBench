@@ -19,7 +19,7 @@ from typing import Any
 from visbench import registry
 from visbench.types import FeatureDict, FeatureMode, Pooling
 
-__version__ = "0.1.0.dev0"
+__version__ = "0.1.0"
 
 __all__ = [
     "get_backbone",
