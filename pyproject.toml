@@ -79,4 +79,6 @@ select = ["E", "F", "I", "UP", "B"]
 
 [tool.mypy]
 python_version = "3.9"
+# torch, timm and open_clip ship partial or absent stubs; checking against them
+# produces noise about library internals rather than about this code.
 ignore_missing_imports = true

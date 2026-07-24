@@ -21,6 +21,18 @@ __all__ = ["PairDataset", "HomographyPairDataset"]
 class PairDataset(BaseDataset):
     """Yields ``(image_0, image_1, geometry)`` for correspondence evaluation.
 
+    .. warning::
+       This deliberately widens :meth:`BaseDataset.__getitem__` from a 2-tuple
+       to a 3-tuple, which is a Liskov violation and is why
+       :meth:`FeatureCache.extract_dataset` rejects a ``PairDataset`` outright
+       rather than unpacking it. Anything written against ``BaseDataset`` would
+       otherwise read ``item[0]`` and quietly discard the second view.
+
+       It inherits from ``BaseDataset`` for ``fingerprint`` and ``describe``,
+       which correspondence records need. Splitting the base into a labelled
+       and an unlabelled half would be cleaner; that is a v0.3 refactor, not
+       something to do underneath the dense tasks.
+
     ``geometry`` carries whatever the evaluation protocol needs to verify a
     match — for a depth-and-pose dataset that is depth maps, relative pose and
     intrinsics; for a keypoint dataset, annotated point pairs. Kept as an
@@ -34,8 +46,13 @@ class PairDataset(BaseDataset):
     def __len__(self) -> int:
         raise NotImplementedError
 
-    def __getitem__(self, index: int) -> tuple[Any, Any, dict]:
-        """Return ``(pil_image_0, pil_image_1, geometry_dict)``."""
+    def __getitem__(self, index: int) -> tuple[Any, Any, dict]:  # type: ignore[override]
+        """Return ``(pil_image_0, pil_image_1, geometry_dict)``.
+
+        The ``type: ignore`` marks the widening described in the class
+        docstring: a real Liskov violation, kept deliberately and guarded by
+        ``extract_dataset`` refusing this type rather than unpacking it.
+        """
         raise NotImplementedError
 
     def labels(self) -> list:
@@ -155,7 +172,7 @@ class HomographyPairDataset(PairDataset):
         top = (height - side) // 2
         square = image.crop((left, top, left + side, top + side))
         if square.size != (self.image_size, self.image_size):
-            square = square.resize((self.image_size, self.image_size), Image.BICUBIC)
+            square = square.resize((self.image_size, self.image_size), Image.Resampling.BICUBIC)
         return square
 
     def _homography(self, index: int, width: int, height: int) -> torch.Tensor:
@@ -170,7 +187,7 @@ class HomographyPairDataset(PairDataset):
         offsets = (torch.rand(4, 2, generator=generator, dtype=torch.float64) * 2 - 1) * scale
         return _solve_homography(corners, corners + offsets)
 
-    def __getitem__(self, index: int) -> tuple[Image.Image, Image.Image, dict]:
+    def __getitem__(self, index: int) -> tuple[Image.Image, Image.Image, dict]:  # type: ignore[override]
         image = self._to_frame(self._source[index][0])
         width, height = image.size
         homography = self._homography(index, width, height)
@@ -180,7 +197,10 @@ class HomographyPairDataset(PairDataset):
         inverse = torch.linalg.inv(homography)
         coefficients = (inverse / inverse[2, 2]).flatten()[:8].tolist()
         warped = image.transform(
-            (width, height), Image.PERSPECTIVE, coefficients, resample=Image.BICUBIC
+            (width, height),
+            Image.Transform.PERSPECTIVE,
+            coefficients,
+            resample=Image.Resampling.BICUBIC,
         )
 
         return image, warped, {"homography": homography, "size": (width, height)}

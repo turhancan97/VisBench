@@ -183,6 +183,7 @@ class ClassificationTask(BaseTask):
                 f"{head.in_features}; train and test features must come from the same backbone."
             )
         if self.standardize:
+            assert self._mean is not None and self._std is not None  # set by fit()
             pooled = (pooled - self._mean) / self._std
 
         return head(pooled)

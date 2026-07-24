@@ -18,7 +18,7 @@ __all__ = [
 ]
 
 
-class FeatureDict(TypedDict):
+class FeatureDict(TypedDict, total=False):
     """Return value of :meth:`BaseBackbone.extract_features`.
 
     Every backbone returns both representations from a single forward pass;
@@ -37,11 +37,17 @@ class FeatureDict(TypedDict):
     grid_hw:
         ``(H, W)`` of the dense grid, so callers can reshape/unflatten without
         re-deriving patch size from the model.
+    cls:
+        Present only when ``feature_mode="dense_plus_cls"``: the global CLS
+        vector, ``(B, C)``, kept apart from the grid so a head can fuse them
+        where it chooses. Absent otherwise, so a task that never asks for the
+        mode cannot accidentally read a stale one.
     """
 
     dense: torch.Tensor
     pooled: torch.Tensor
     grid_hw: tuple[int, int]
+    cls: torch.Tensor
 
 
 class Pooling:

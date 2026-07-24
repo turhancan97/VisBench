@@ -62,8 +62,9 @@ def make_key(
     backbone_key: str,
     layer: Optional[int],
     pooling: str,
+    feature_mode: str = "dense_only",
 ) -> str:
-    """Build the cache key for one (image, backbone, layer, pooling) combination.
+    """Build the cache key for one (image, backbone, layer, pooling, mode) entry.
 
     ``backbone_key`` comes from :meth:`BaseBackbone.cache_key` and must encode
     the weights and input resolution, not just the model family.
@@ -73,11 +74,25 @@ def make_key(
     as ``"-"``, which is distinct from ``"0"`` — otherwise "the default layer"
     and "layer 0" would share an entry.
 
+    ``feature_mode`` is in the key because the three modes produce genuinely
+    different ``dense`` tensors from one forward pass — ``dense_cls_broadcast``
+    has twice the channels of ``dense_only`` — and serving one for the other
+    would be a shape error at best and a wrong feature map at worst.
+
+    The consequence is that sweeping modes over one dataset stores each
+    separately. That is the honest trade: the alternative is caching the
+    primitive grid plus CLS and re-assembling on read, which saves disk at the
+    cost of the cache no longer holding what it hands back.
+
     The backbone key comes first so :meth:`FeatureCache.clear` can select a
     whole backbone by prefix.
     """
-    for field, value in (("backbone_key", backbone_key), ("pooling", pooling)):
+    for field, value in (
+        ("backbone_key", backbone_key),
+        ("pooling", pooling),
+        ("feature_mode", feature_mode),
+    ):
         if SEPARATOR in value:
             raise ValueError(f"{field} must not contain {SEPARATOR!r}: {value!r}")
     layer_field = "-" if layer is None else str(layer)
-    return SEPARATOR.join([backbone_key, layer_field, pooling, image_hash])
+    return SEPARATOR.join([backbone_key, layer_field, pooling, feature_mode, image_hash])

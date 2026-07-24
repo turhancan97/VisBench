@@ -478,3 +478,71 @@ def test_stats_counts_hits_and_misses(tmp_path):
     assert stats["misses"] == 1
     assert stats["entries"] == 1
     assert stats["bytes"] > 0
+
+
+class TestFeatureModeKeying:
+    """The modes produce different dense tensors from one forward pass."""
+
+    def test_modes_do_not_share_entries(self, tmp_path, fake_vit, solid_images):
+        """dense_cls_broadcast has twice the channels; serving one for the other
+        would be a shape error at best and a wrong feature map at worst."""
+        cache = make_cache(tmp_path)
+        cache.extract_dataset(fake_vit, solid_images, keep="dense")
+        assert fake_vit.call_count == 1
+
+        cache.extract_dataset(
+            fake_vit, solid_images, keep="dense", feature_mode="dense_cls_broadcast"
+        )
+        assert fake_vit.call_count == 2
+
+    def test_broadcast_survives_a_cache_hit(self, tmp_path, fake_vit, solid_images):
+        cache = make_cache(tmp_path)
+        first = cache.extract_dataset(
+            fake_vit, solid_images, keep="dense", feature_mode="dense_cls_broadcast"
+        )
+        second = cache.extract_dataset(
+            fake_vit, solid_images, keep="dense", feature_mode="dense_cls_broadcast"
+        )
+        assert fake_vit.call_count == 1
+        assert torch.equal(first["dense"], second["dense"])
+        assert first["dense"].shape[1] == 2 * fake_vit.embed_dim
+
+    def test_cls_survives_a_cache_hit(self, tmp_path, fake_vit, solid_images):
+        """The bug this guards: cls is produced by extraction but was not stored,
+        so it existed on a miss and vanished on the next hit."""
+        cache = make_cache(tmp_path)
+        first = cache.extract_dataset(
+            fake_vit, solid_images, keep="dense", feature_mode="dense_plus_cls"
+        )
+        assert "cls" in first
+
+        second = cache.extract_dataset(
+            fake_vit, solid_images, keep="dense", feature_mode="dense_plus_cls"
+        )
+        assert fake_vit.call_count == 1, "should have been a hit"
+        assert "cls" in second, "cls vanished on the cache hit"
+        assert torch.equal(first["cls"], second["cls"])
+
+    def test_key_includes_the_mode(self):
+        base = dict(image_hash="abc", backbone_key="b", layer=None, pooling=Pooling.CLS)
+        assert make_key(**base, feature_mode="dense_only") != make_key(
+            **base, feature_mode="dense_plus_cls"
+        )
+
+
+def test_pair_dataset_is_refused(tmp_path, fake_vit):
+    """It yields (image_0, image_1, geometry); unpacking would take image_0 and
+    silently drop the second view and the geometry."""
+    import numpy as np
+
+    from visbench.data.pair_dataset import HomographyPairDataset
+
+    root = tmp_path / "pairs"
+    root.mkdir()
+    for i in range(2):
+        Image.fromarray(np.random.RandomState(i).randint(0, 255, (64, 64, 3), dtype=np.uint8)).save(
+            root / f"{i}.png"
+        )
+
+    with pytest.raises(TypeError, match="does not take a PairDataset"):
+        make_cache(tmp_path).extract_dataset(fake_vit, HomographyPairDataset(root, image_size=64))

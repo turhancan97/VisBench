@@ -102,9 +102,9 @@ def test_task_drives_pooling_choice(fake_vit, solid_images, tmp_path):
     requested = []
     original = fake_vit.extract_features
 
-    def spy(image, pooling=Pooling.DEFAULT, layers=None):
+    def spy(image, pooling=Pooling.DEFAULT, layers=None, **kwargs):
         requested.append(pooling)
-        return original(image, pooling=pooling, layers=layers)
+        return original(image, pooling=pooling, layers=layers, **kwargs)
 
     fake_vit.extract_features = spy
 

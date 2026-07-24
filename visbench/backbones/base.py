@@ -6,13 +6,20 @@ the whole point of this class (CLAUDE.md, "Feature extraction design").
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, cast
 
 import torch
 import torch.nn as nn
 
-from visbench.backbones.pooling import pool_tokens, tokens_to_grid
-from visbench.types import POOLING_CHOICES, FeatureDict, LayerSpec, Pooling
+from visbench.backbones.pooling import apply_feature_mode, pool_tokens, tokens_to_grid
+from visbench.types import (
+    FEATURE_MODE_CHOICES,
+    POOLING_CHOICES,
+    FeatureDict,
+    FeatureMode,
+    LayerSpec,
+    Pooling,
+)
 from visbench.utils.device import resolve_device
 
 __all__ = ["BaseBackbone"]
@@ -74,6 +81,7 @@ class BaseBackbone(nn.Module, ABC):
         image: torch.Tensor,
         pooling: str = Pooling.DEFAULT,
         layers: LayerSpec = None,
+        feature_mode: str = FeatureMode.DENSE_ONLY,
     ) -> FeatureDict:
         """Extract dense and pooled features in a single forward pass.
 
@@ -89,14 +97,35 @@ class BaseBackbone(nn.Module, ABC):
             Indices for multi-layer extraction. Accepted from v0.1 so the
             signature never changes, but only single-layer extraction is wired
             up until v0.2 — passing more than one layer raises until then.
+        feature_mode:
+            How ``dense`` is assembled, one of
+            :data:`visbench.types.FEATURE_MODE_CHOICES`:
+
+            ``dense_only``
+                the patch grid alone, ``(B, C, H, W)``. The default.
+            ``dense_cls_broadcast``
+                CLS repeated at every location, ``(B, C + C_cls, H, W)``.
+            ``dense_plus_cls``
+                grid and CLS kept separate; ``dense`` is the grid and the CLS
+                vector is returned under ``cls``, for a head that fuses them at
+                a bottleneck rather than at every pixel.
+
+            ``pooled`` is unaffected — it answers a different question, and a
+            task wanting mean-pooled patches with a broadcast dense grid must
+            be able to ask for both.
 
         Returns
         -------
         FeatureDict
-            ``{"dense": (B, C, H, W), "pooled": (B, C), "grid_hw": (H, W)}``.
+            ``{"dense": ..., "pooled": (B, C), "grid_hw": (H, W)}``, plus
+            ``cls`` when ``feature_mode="dense_plus_cls"``.
         """
         if pooling not in POOLING_CHOICES:
             raise ValueError(f"Unknown pooling {pooling!r}; expected one of {POOLING_CHOICES}")
+        if feature_mode not in FEATURE_MODE_CHOICES:
+            raise ValueError(
+                f"Unknown feature_mode {feature_mode!r}; expected one of {FEATURE_MODE_CHOICES}"
+            )
         if not isinstance(image, torch.Tensor):
             raise TypeError(
                 f"extract_features expects a preprocessed tensor, got {type(image).__name__}. "
@@ -118,12 +147,26 @@ class BaseBackbone(nn.Module, ABC):
         image = image.to(self.device)
 
         patch_tokens, cls_token, grid_hw = self._forward_features(image, layers)
+        grid = tokens_to_grid(patch_tokens, grid_hw)
 
-        return {
-            "dense": tokens_to_grid(patch_tokens, grid_hw),
+        features: FeatureDict = {
             "pooled": pool_tokens(patch_tokens, cls_token, resolved),
             "grid_hw": grid_hw,
         }
+        assembled = apply_feature_mode(grid, cls_token, feature_mode)
+        if feature_mode == FeatureMode.DENSE_PLUS_CLS:
+            # The one mode that returns two things: keeping them separate is
+            # the point, so `cls` is a distinct key rather than a tuple the
+            # caller has to unpack differently from every other mode.
+            # apply_feature_mode's return type depends on the *value* of
+            # feature_mode, which the type system cannot express, and it has
+            # already rejected a missing CLS token for this mode.
+            dense, cls_vector = cast(tuple[torch.Tensor, torch.Tensor], assembled)
+            features["dense"] = dense
+            features["cls"] = cls_vector
+        else:
+            features["dense"] = cast(torch.Tensor, assembled)
+        return features
 
     @abstractmethod
     def _forward_features(

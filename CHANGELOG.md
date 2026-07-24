@@ -29,8 +29,31 @@ so it stands on its own rather than assuming you have read the ones above it.
 - `visbench.register_backbone` / `register_task` are public, so a
   `BaseBackbone` subclass outside this package can claim a registry name.
 
-Still to come in v0.2: custom `nn.Module` backbones, dense mid-level tasks,
-pluggable heads, multi-layer extraction, CLI.
+- `extract_features` takes **`feature_mode`**, so `dense_cls_broadcast` and
+  `dense_plus_cls` are reachable through the public API. They were declared,
+  implemented and tested in v0.1 but `apply_feature_mode` had zero callers and
+  no parameter exposed them — a DPT head is exactly the consumer that wants
+  `dense_plus_cls`, so this had to exist before heads were designed against it.
+  `dense_plus_cls` returns the global vector under a new `cls` key, and the
+  cache both keys on the mode and stores `cls`.
+
+### Fixed
+
+- `FeatureCache.extract_dataset` refused nothing when handed a `PairDataset`:
+  it read `item[0]` and silently discarded the second view and the geometry,
+  returning features for half the data. It now raises.
+- `cls` was produced by extraction with `dense_plus_cls` but never stored, so it
+  existed on a cache miss and vanished on the next hit.
+
+### Changed
+
+- mypy is **gating** in CI. It had `continue-on-error` from when everything was
+  stubs, which made it a check that could never fail; 19 errors had accumulated,
+  including the `PairDataset` variance violation above. Now clean.
+- Removed the unused `visbench.utils.device.batched` helper.
+
+Still to come in v0.2: dense mid-level tasks, pluggable heads, multi-layer
+extraction, CLI.
 
 ## [0.1.0] — 2026-07-24
 

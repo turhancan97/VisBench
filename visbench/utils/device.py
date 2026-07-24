@@ -1,11 +1,10 @@
 """Device selection and batching helpers."""
 
-from collections.abc import Iterator, Sequence
 from typing import Optional
 
 import torch
 
-__all__ = ["resolve_device", "batched"]
+__all__ = ["resolve_device"]
 
 
 def resolve_device(device: Optional[str] = None) -> str:
@@ -20,11 +19,3 @@ def resolve_device(device: Optional[str] = None) -> str:
     if getattr(torch.backends, "mps", None) is not None and torch.backends.mps.is_available():
         return "mps"
     return "cpu"
-
-
-def batched(items: Sequence, batch_size: int) -> Iterator[Sequence]:
-    """Yield consecutive slices of ``items``, the last possibly short."""
-    if batch_size < 1:
-        raise ValueError(f"batch_size must be >= 1, got {batch_size}")
-    for start in range(0, len(items), batch_size):
-        yield items[start : start + batch_size]

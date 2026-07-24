@@ -18,16 +18,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install "ruff>=0.4,<1.0" "mypy>=1.8,<2.0"
+      - run: pip install "ruff>=0.4,<1.0" "mypy>=1.8,<2.0" torch torchvision numpy pillow scikit-learn --extra-index-url https://download.pytorch.org/whl/cpu
       - name: ruff check
         run: ruff check visbench/ tests/ conftest.py
       - name: ruff format --check
         run: ruff format --check visbench/ tests/ conftest.py
       - name: mypy
-        run: mypy visbench/
-        # Stubs raise NotImplementedError, so type coverage is thin until the
-        # bodies land; surface problems without gating the build for now.
-        continue-on-error: true
+        # Gating. It was continue-on-error while everything was stubs, which
+        # made it a check that could never fail -- worse than not running it.
+        run: mypy visbench/ --ignore-missing-imports
 
   test:
     runs-on: ubuntu-latest

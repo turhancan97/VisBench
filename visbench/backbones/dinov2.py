@@ -144,11 +144,11 @@ class DINOv2(BaseBackbone):
         variant has them, are dropped here.
         """
         _, _, height, width = image.shape
-        if height % self.patch_size or width % self.patch_size:
-            raise ValueError(
-                f"Input {height}x{width} is not a multiple of patch size {self.patch_size}"
-            )
-        grid_hw = (height // self.patch_size, width // self.patch_size)
+        patch = self.patch_size
+        assert patch is not None  # set in __init__; Optional only on the base class
+        if height % patch or width % patch:
+            raise ValueError(f"Input {height}x{width} is not a multiple of patch size {patch}")
+        grid_hw = (height // patch, width // patch)
 
         # `layers=None` means "the last block". Negative indices are resolved
         # here because get_intermediate_layers compares against range(depth).

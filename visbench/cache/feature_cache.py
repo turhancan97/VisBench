@@ -13,12 +13,12 @@ import shutil
 import tempfile
 from collections.abc import Iterable, Iterator
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, cast
 
 import torch
 
 from visbench.cache.keys import SEPARATOR, hash_image, make_key
-from visbench.types import FeatureDict, Pooling
+from visbench.types import FeatureDict, FeatureMode, Pooling
 
 __all__ = ["FeatureCache", "DEFAULT_CACHE_DIR"]
 
@@ -53,6 +53,19 @@ def _identified_items(dataset: Iterable) -> Iterator[tuple[Optional[str], Callab
     Returning a thunk rather than the image is the whole point: it lets the
     caller decide, per item, whether decoding is necessary at all.
     """
+    from visbench.data.pair_dataset import PairDataset
+
+    if isinstance(dataset, PairDataset):
+        # A pair dataset yields (image_0, image_1, geometry). The unpacking
+        # below would take image_0 and drop the second view and the geometry
+        # without a word, handing back features for half the data. Refuse
+        # instead: this is the shape of silence the cache is built to avoid.
+        raise TypeError(
+            "extract_dataset does not take a PairDataset: it yields "
+            "(image_0, image_1, geometry), and only the first view would be "
+            "extracted. Extract each view yourself — see examples/correspond.py."
+        )
+
     indexed = (
         hasattr(dataset, "cache_identity")
         and hasattr(dataset, "__len__")
@@ -60,8 +73,12 @@ def _identified_items(dataset: Iterable) -> Iterator[tuple[Optional[str], Callab
     )
 
     if indexed:
-        for index in range(len(dataset)):  # type: ignore[arg-type]
-            yield dataset.cache_identity(index), functools.partial(_load_indexed, dataset, index)
+        indexed_dataset = cast(Any, dataset)
+        for index in range(len(indexed_dataset)):
+            yield (
+                indexed_dataset.cache_identity(index),
+                functools.partial(_load_indexed, indexed_dataset, index),
+            )
         return
 
     for item in dataset:
@@ -169,10 +186,10 @@ class FeatureCache:
             return None
 
         self._hits += 1
-        result: FeatureDict = {"grid_hw": tuple(entry["grid_hw"])}  # type: ignore[typeddict-item]
-        for part in ("dense", "pooled"):
+        result: FeatureDict = {"grid_hw": tuple(entry["grid_hw"])}
+        for part in ("dense", "pooled", "cls"):
             if part in entry:
-                result[part] = entry[part]
+                result[part] = entry[part]  # type: ignore[literal-required]
         return result
 
     def put(self, key: str, features: FeatureDict, store: str = "both") -> None:
@@ -190,13 +207,19 @@ class FeatureCache:
         path = self._path(key)
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        payload = {
+        payload: dict[str, Any] = {
             # Saved as a list: weights_only=True unpickles lists but not tuples
             # of arbitrary origin. Restored to a tuple on read.
             "grid_hw": list(features["grid_hw"]),
         }
         for part in _parts(store):
-            payload[part] = features[part].detach().cpu()
+            payload[part] = features[part].detach().cpu()  # type: ignore[literal-required]
+        # feature_mode="dense_plus_cls" returns the global vector separately.
+        # Without this it would survive extraction and vanish on the next cache
+        # hit — the caller would get a dict missing a key it explicitly asked
+        # for, which is exactly the kind of silence `require` exists to prevent.
+        if "cls" in features:
+            payload["cls"] = features["cls"].detach().cpu()
 
         # Same directory as the target, so os.replace stays on one filesystem
         # and is therefore atomic.
@@ -263,6 +286,7 @@ class FeatureCache:
         batch_size: int = 32,
         keep: str = "both",
         store: Optional[str] = None,
+        feature_mode: str = FeatureMode.DENSE_ONLY,
     ) -> FeatureDict:
         """Extract (or load) features for a whole dataset.
 
@@ -289,6 +313,10 @@ class FeatureCache:
             ``"pooled"`` or ``"dense"``. ``dense`` is the memory risk — 5k
             images at 16x16x768 is roughly 4 GB in fp32 — so a task needing
             only pooled features should say so.
+        feature_mode:
+            Passed through to :meth:`BaseBackbone.extract_features` and part of
+            the cache key, since the modes produce different ``dense`` tensors
+            from the same forward pass.
         store:
             Which outputs to write to disk; defaults to ``keep``. Dense
             features are ~250x the size of pooled ones, so storing them for a
@@ -307,9 +335,19 @@ class FeatureCache:
         backbone_key = backbone.cache_key()
         layers = None if layer is None else [layer]
         required = _parts(keep)
+        if feature_mode == FeatureMode.DENSE_PLUS_CLS:
+            required = required + ("cls",)
+        key_of = functools.partial(
+            make_key,
+            backbone_key=backbone_key,
+            layer=layer,
+            pooling=pooling,
+            feature_mode=feature_mode,
+        )
 
         dense_chunks: list[torch.Tensor] = []
         pooled_chunks: list[torch.Tensor] = []
+        cls_chunks: list[torch.Tensor] = []
         grids: set = set()
         count = 0
 
@@ -325,7 +363,7 @@ class FeatureCache:
                     keys.append(None)
                     entries.append(None)
                     continue
-                key = make_key(image_hash, backbone_key, layer, pooling)
+                key = key_of(image_hash)
                 keys.append(key)
                 entries.append(self.get(key, require=required))
 
@@ -341,20 +379,28 @@ class FeatureCache:
                 if keys[index] is None:
                     image_hash = hash_image(image)
                     self._remember_hash(identity, image_hash)
-                    keys[index] = make_key(image_hash, backbone_key, layer, pooling)
-                    entries[index] = self.get(keys[index], require=required)
+                    resolved_key = key_of(image_hash)
+                    keys[index] = resolved_key
+                    entries[index] = self.get(resolved_key, require=required)
 
             missing = [i for i, entry in enumerate(entries) if entry is None]
             if missing:
+                # Pass 2 assigned a key for every entry it could not resolve,
+                # so nothing still missing has a None key.
+                assert all(keys[i] is not None for i in missing)
                 tensor_batch = backbone.preprocess([images[i] for i in missing])
-                features = backbone.extract_features(tensor_batch, pooling=pooling, layers=layers)
+                features = backbone.extract_features(
+                    tensor_batch, pooling=pooling, layers=layers, feature_mode=feature_mode
+                )
                 for position, index in enumerate(missing):
                     single: FeatureDict = {
                         "dense": features["dense"][position : position + 1].cpu(),
                         "pooled": features["pooled"][position : position + 1].cpu(),
                         "grid_hw": features["grid_hw"],
                     }
-                    self.put(keys[index], single, store=store)
+                    if "cls" in features:
+                        single["cls"] = features["cls"][position : position + 1].cpu()
+                    self.put(keys[index], single, store=store)  # type: ignore[arg-type]
                     entries[index] = single
 
             for entry in entries:
@@ -365,6 +411,8 @@ class FeatureCache:
                     dense_chunks.append(entry["dense"])
                 if keep in ("both", "pooled"):
                     pooled_chunks.append(entry["pooled"])
+                if "cls" in entry:
+                    cls_chunks.append(entry["cls"])
 
         if count == 0:
             raise ValueError("Cannot extract features from an empty dataset")
@@ -379,6 +427,8 @@ class FeatureCache:
             result["dense"] = torch.cat(dense_chunks)
         if keep in ("both", "pooled"):
             result["pooled"] = torch.cat(pooled_chunks)
+        if cls_chunks:
+            result["cls"] = torch.cat(cls_chunks)
         return result
 
     # -- maintenance ---------------------------------------------------------

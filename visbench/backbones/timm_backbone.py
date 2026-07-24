@@ -15,7 +15,7 @@ The module is ``timm_backbone`` rather than ``timm`` so it cannot shadow the
 package it imports.
 """
 
-from typing import Optional, Union
+from typing import Callable, Optional, Union, cast
 
 import torch
 from PIL import Image
@@ -107,9 +107,14 @@ class TimmBackbone(BaseBackbone):
             ) from exc
 
         spec = f"{model_name}.{pretrained_tag}" if pretrained_tag else model_name
-        self.model = timm.create_model(spec, pretrained=True, num_classes=0)
+        model = timm.create_model(spec, pretrained=True, num_classes=0)
+        # Read config off the local before assigning: once it is an attribute of
+        # an nn.Module, __getattr__ widens every lookup to Tensor | Module.
+        pretrained_cfg: dict = dict(getattr(model, "pretrained_cfg", {}))
+        num_features = int(getattr(model, "num_features", 0))
+        self.model = model
 
-        config = resolve_data_config({}, model=self.model)
+        config = resolve_data_config({}, model=model)
         if image_size is not None:
             config["input_size"] = (3, image_size, image_size)
         self.image_size = config["input_size"][-1]
@@ -119,8 +124,8 @@ class TimmBackbone(BaseBackbone):
         self.model_name = model_name
         # Resolved rather than echoed: passing None means "timm's default", and
         # the record has to say which weights that actually was.
-        self.pretrained_tag = self.model.pretrained_cfg.get("tag") or "default"
-        self.embed_dim = self.model.num_features
+        self.pretrained_tag = pretrained_cfg.get("tag") or "default"
+        self.embed_dim = num_features
 
         # timm knows each model's own normalisation, crop ratio and
         # interpolation; a shared transform would silently mis-preprocess
@@ -140,7 +145,8 @@ class TimmBackbone(BaseBackbone):
         round-trip costs nothing next to a forward pass and keeps
         ``extract_features`` free of any ``if is_vit``.
         """
-        feature_map = self.model.forward_features(image)
+        forward_features = cast(Callable[[torch.Tensor], torch.Tensor], self.model.forward_features)
+        feature_map = forward_features(image)
 
         if feature_map.ndim != 4:
             raise NotImplementedError(

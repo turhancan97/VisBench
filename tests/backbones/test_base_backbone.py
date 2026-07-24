@@ -170,3 +170,59 @@ def test_tokens_to_grid_rejects_unstripped_cls():
 
     with pytest.raises(ValueError, match="CLS or register token"):
         tokens_to_grid(torch.rand(1, 17, 8), (4, 4))
+
+
+class TestFeatureModeThroughExtractFeatures:
+    """The seam heads plug into.
+
+    All three modes existed and were tested from v0.1, but `extract_features`
+    had no `feature_mode` parameter, so `apply_feature_mode` had zero callers
+    and modes 2 and 3 were unreachable through the public API. A DPT head is
+    exactly the consumer that wants `dense_plus_cls`.
+    """
+
+    def test_default_is_dense_only(self, fake_vit):
+        features = fake_vit.extract_features(torch.rand(2, 3, 64, 64))
+        assert features["dense"].shape == (2, fake_vit.embed_dim, 4, 4)
+        assert "cls" not in features
+
+    def test_broadcast_widens_the_channel_dim(self, fake_vit):
+        features = fake_vit.extract_features(
+            torch.rand(2, 3, 64, 64), feature_mode=FeatureMode.DENSE_CLS_BROADCAST
+        )
+        assert features["dense"].shape == (2, 2 * fake_vit.embed_dim, 4, 4)
+        assert "cls" not in features
+
+    def test_plus_cls_returns_the_vector_separately(self, fake_vit):
+        features = fake_vit.extract_features(
+            torch.rand(2, 3, 64, 64), feature_mode=FeatureMode.DENSE_PLUS_CLS
+        )
+        assert features["dense"].shape == (2, fake_vit.embed_dim, 4, 4)
+        assert features["cls"].shape == (2, fake_vit.embed_dim)
+
+    def test_pooled_is_unaffected_by_the_mode(self, fake_vit):
+        """pooled answers a different question; a task may want both."""
+        batch = torch.rand(2, 3, 64, 64)
+        baseline = fake_vit.extract_features(batch)["pooled"]
+        for mode in (FeatureMode.DENSE_CLS_BROADCAST, FeatureMode.DENSE_PLUS_CLS):
+            assert torch.allclose(
+                fake_vit.extract_features(batch, feature_mode=mode)["pooled"], baseline
+            )
+
+    def test_mean_pooling_composes_with_a_dense_mode(self, fake_vit):
+        features = fake_vit.extract_features(
+            torch.rand(2, 3, 64, 64),
+            pooling=Pooling.MEAN,
+            feature_mode=FeatureMode.DENSE_PLUS_CLS,
+        )
+        assert features["pooled"].shape == (2, fake_vit.embed_dim)
+        assert "cls" in features
+
+    def test_cnn_cannot_use_a_cls_mode(self, fake_cnn):
+        for mode in (FeatureMode.DENSE_CLS_BROADCAST, FeatureMode.DENSE_PLUS_CLS):
+            with pytest.raises(ValueError, match="needs a CLS token"):
+                fake_cnn.extract_features(torch.rand(1, 3, 64, 64), feature_mode=mode)
+
+    def test_unknown_mode_raises(self, fake_vit):
+        with pytest.raises(ValueError, match="Unknown feature_mode"):
+            fake_vit.extract_features(torch.rand(1, 3, 64, 64), feature_mode="dense_and_vibes")
