@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# Tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# VisBench artifacts
+.visbench_cache/
+results/*.jsonl
+checkpoints/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
