@@ -22,7 +22,7 @@ import torch
 
 from visbench.types import MetricsDict
 
-__all__ = ["nn_match", "ratio_test", "correspondence_recall", "error_auc"]
+__all__ = ["nn_match", "ratio_test", "correspondence_recall", "error_auc", "format_threshold"]
 
 
 def nn_match(
@@ -80,22 +80,40 @@ def ratio_test(distances: torch.Tensor, threshold: float = 0.9) -> torch.Tensor:
     return nearest < threshold * runner_up
 
 
+def format_threshold(threshold: float, unit: str) -> str:
+    """Metric-name suffix for a threshold, e.g. ``"5px"`` or ``"1p"``.
+
+    ``%g`` so that ``1.0`` reads as ``1`` and ``0.5`` survives.
+    """
+    return f"{threshold:g}{unit}"
+
+
 def correspondence_recall(
     errors: torch.Tensor,
-    thresholds: Sequence[float] = (1, 2, 5, 10),
+    thresholds: Sequence[float] = (0.5, 1, 2, 4),
+    unit: str = "p",
 ) -> MetricsDict:
-    """Fraction of correspondences within each pixel-error threshold."""
+    """Fraction of correspondences within each error threshold.
+
+    ``unit`` only names the metric; ``errors`` and ``thresholds`` must already
+    share a scale. See :class:`CorrespondenceTask` for why the default is patch
+    widths rather than pixels.
+    """
     if errors.numel() == 0:
         # Every match was rejected. 0.0 is the honest score: the backbone
         # produced no usable correspondence, which is a result, not an error.
-        return {f"recall@{threshold}px": 0.0 for threshold in thresholds}
+        return {f"recall@{format_threshold(t, unit)}": 0.0 for t in thresholds}
     return {
-        f"recall@{threshold}px": (errors <= threshold).float().mean().item()
-        for threshold in thresholds
+        f"recall@{format_threshold(t, unit)}": (errors <= t).float().mean().item()
+        for t in thresholds
     }
 
 
-def error_auc(errors: torch.Tensor, thresholds: Sequence[float]) -> MetricsDict:
+def error_auc(
+    errors: torch.Tensor,
+    thresholds: Sequence[float],
+    unit: str = "p",
+) -> MetricsDict:
     """Area under the cumulative error curve up to each threshold.
 
     Summarises the whole error distribution rather than a single cut-off, which
@@ -114,7 +132,7 @@ def error_auc(errors: torch.Tensor, thresholds: Sequence[float]) -> MetricsDict:
     one would not be comparable with any published result.
     """
     if errors.numel() == 0:
-        return {f"auc@{threshold}px": 0.0 for threshold in thresholds}
+        return {f"auc@{format_threshold(t, unit)}": 0.0 for t in thresholds}
 
     ordered = torch.sort(errors.flatten().float()).values
     # Recall after each match, i.e. the y value the curve steps up to.
@@ -122,9 +140,10 @@ def error_auc(errors: torch.Tensor, thresholds: Sequence[float]) -> MetricsDict:
 
     results: MetricsDict = {}
     for threshold in thresholds:
+        name = f"auc@{format_threshold(threshold, unit)}"
         below = ordered <= threshold
         if not below.any():
-            results[f"auc@{threshold}px"] = 0.0
+            results[name] = 0.0
             continue
         # (0,0) -> each error at its recall -> (threshold, final recall). The
         # final point carries the last recall flat out to the threshold, so
@@ -139,5 +158,5 @@ def error_auc(errors: torch.Tensor, thresholds: Sequence[float]) -> MetricsDict:
         ys = torch.cat(
             [torch.zeros(1, dtype=torch.float64), recall[below], recall[below][-1:].clone()]
         )
-        results[f"auc@{threshold}px"] = (torch.trapz(ys, xs) / threshold).item()
+        results[name] = (torch.trapz(ys, xs) / threshold).item()
     return results

@@ -37,7 +37,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-warp", type=float, default=0.2, help="corner shift, 0-0.5")
     parser.add_argument("--num-corr", type=int, default=1000)
     parser.add_argument("--ratio", type=float, default=0.9, help="Lowe ratio threshold")
-    parser.add_argument("--thresholds", type=float, nargs="+", default=[1, 2, 5, 10])
+    parser.add_argument(
+        "--units", default="patch", choices=("patch", "pixel"), help="threshold units"
+    )
+    parser.add_argument(
+        "--thresholds",
+        type=float,
+        nargs="+",
+        default=None,
+        help="default: 0.5 1 2 4 patch widths, or 1 2 5 10 pixels",
+    )
     parser.add_argument("--limit", type=int, default=200, help="number of pairs")
     parser.add_argument("--image-size", type=int, default=224, help="must match the backbone")
     parser.add_argument("--seed", type=int, default=0)
@@ -67,7 +76,8 @@ def main() -> None:
         "correspondence",
         num_corr=args.num_corr,
         ratio_threshold=args.ratio,
-        thresholds=tuple(args.thresholds),
+        thresholds=tuple(args.thresholds) if args.thresholds else None,
+        threshold_units=args.units,
     )
     cache = FeatureCache(root=args.cache)
     started = time.perf_counter()
@@ -103,9 +113,11 @@ def main() -> None:
     print(f"  {'metric':<14}{'score':>9}{'ceiling':>10}")
     for name, value in sorted(metrics.items()):
         print(f"  {name:<14}{value:>9.4f}{ceiling[name]:>10.4f}")
+    unit = "patch widths" if args.units == "patch" else "pixels"
     print(
-        f"\n  ceiling is what a perfect matcher scores: patches are {spacing:.0f}px apart,\n"
-        f"  so a target between two of them cannot be hit exactly."
+        f"\n  thresholds are in {unit}; patches are {spacing:.0f}px apart.\n"
+        f"  ceiling is what a perfect matcher scores: a target between two\n"
+        f"  patch centres cannot be hit exactly."
     )
     print(
         f"\n  {matches} matches kept across {len(dataset)} pairs "

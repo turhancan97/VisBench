@@ -25,7 +25,7 @@ from visbench.registry import register_task
 from visbench.tasks.base import BaseTask
 from visbench.types import FeatureMode, MetricsDict
 
-__all__ = ["CorrespondenceTask", "patch_centers"]
+__all__ = ["CorrespondenceTask", "patch_centers", "patch_spacing"]
 
 
 def patch_centers(grid_hw: tuple[int, int], size: tuple[int, int]) -> torch.Tensor:
@@ -42,6 +42,18 @@ def patch_centers(grid_hw: tuple[int, int], size: tuple[int, int]) -> torch.Tens
     xs = (torch.arange(grid_w, dtype=torch.float64) + 0.5) * width / grid_w
     grid_y, grid_x = torch.meshgrid(ys, xs, indexing="ij")
     return torch.stack([grid_x.flatten(), grid_y.flatten()], dim=1)
+
+
+def patch_spacing(grid_hw: tuple[int, int], size: tuple[int, int]) -> float:
+    """Mean distance in pixels between neighbouring patch centres.
+
+    The quantisation floor of the whole protocol: no match can be more precise
+    than this, whatever the features are. Averaged over the two axes, which are
+    equal for a square input and close to it otherwise.
+    """
+    grid_h, grid_w = grid_hw
+    width, height = size
+    return float((width / grid_w + height / grid_h) / 2)
 
 
 @register_task("correspondence")
@@ -61,20 +73,51 @@ class CorrespondenceTask(BaseTask):
         self,
         num_corr: int = 1000,
         ratio_threshold: float = 0.9,
-        thresholds: tuple = (1, 2, 5, 10),
+        thresholds: Optional[tuple] = None,
+        threshold_units: str = "patch",
     ) -> None:
-        """Configure how many correspondences to keep and the error thresholds scored."""
+        """Configure how many correspondences to keep and the error thresholds scored.
+
+        Parameters
+        ----------
+        threshold_units:
+            ``"patch"`` (default) measures error in patch widths; ``"pixel"``
+            in raw pixels of the input frame.
+
+            Patch widths are the default because a match can only land on a
+            patch centre, so patch spacing sets a hard floor on achievable
+            error. In pixels that floor moves with every configuration: at 224px
+            a ``recall@1px`` on DINOv2 ViT-S/14 has a *ceiling* of 0.015, so the
+            metric reports patch size rather than feature quality. It also makes
+            comparisons invalid — DINOv2's 14px patches against CLIP ViT-B/16's
+            16px are different yardsticks wearing the same name, and doubling
+            input resolution changes the meaning again.
+
+            In patch widths every threshold lands in a usable range and the
+            numbers are comparable across resolutions and architectures, which
+            is the point of a benchmark. Use ``"pixel"`` to compare against a
+            published number that used them.
+        thresholds:
+            Defaults to ``(0.5, 1, 2, 4)`` patch widths, or ``(1, 2, 5, 10)``
+            pixels, matching the chosen unit.
+        """
         if num_corr < 1:
             raise ValueError(f"num_corr must be >= 1, got {num_corr}")
         if not 0 < ratio_threshold <= 1:
             raise ValueError(f"ratio_threshold must be in (0, 1], got {ratio_threshold}")
+        if threshold_units not in ("patch", "pixel"):
+            raise ValueError(f"threshold_units must be 'patch' or 'pixel', got {threshold_units!r}")
+        if thresholds is None:
+            thresholds = (0.5, 1, 2, 4) if threshold_units == "patch" else (1, 2, 5, 10)
         if not thresholds:
             raise ValueError("thresholds must contain at least one value")
 
         self.name = "correspondence"
         self.num_corr = num_corr
         self.ratio_threshold = ratio_threshold
+        self.threshold_units = threshold_units
         self.thresholds = tuple(sorted(thresholds))
+        self._unit = "p" if threshold_units == "patch" else "px"
 
     def fit(self, features: Any, labels: Optional[Any] = None) -> "CorrespondenceTask":
         """No-op — correspondence is zero-shot. Returns ``self``."""
@@ -163,7 +206,17 @@ class CorrespondenceTask(BaseTask):
 
         # Where view 0's patch centres *should* land in view 1.
         expected = apply_homography(geometry["homography"], centres_0)
-        return (centres_1 - expected).norm(dim=1)
+        return self._scale((centres_1 - expected).norm(dim=1), grid_1, size)
+
+    def _scale(self, errors: torch.Tensor, grid_hw: tuple, size: tuple) -> torch.Tensor:
+        """Convert pixel errors to the configured unit.
+
+        Done per pair, before pooling: two pairs at different resolutions have
+        different patch spacings, so converting afterwards would mix scales.
+        """
+        if self.threshold_units == "pixel":
+            return errors
+        return errors / patch_spacing(grid_hw, size)
 
     @staticmethod
     def _grid_hw(features: Any) -> tuple[int, int]:
@@ -200,8 +253,8 @@ class CorrespondenceTask(BaseTask):
             ]
         )
 
-        metrics: MetricsDict = dict(correspondence_recall(errors, self.thresholds))
-        metrics.update(error_auc(errors, self.thresholds))
+        metrics: MetricsDict = dict(correspondence_recall(errors, self.thresholds, unit=self._unit))
+        metrics.update(error_auc(errors, self.thresholds, unit=self._unit))
         metrics["num_matches"] = float(len(errors))
         return metrics
 
@@ -242,17 +295,18 @@ class CorrespondenceTask(BaseTask):
             candidates = patch_centers(self._grid_hw(pair[1]), size)
 
             expected = apply_homography(geometry["homography"], centres_0)
-            errors.append(torch.cdist(expected, candidates).min(dim=1).values)
+            best = torch.cdist(expected, candidates).min(dim=1).values
+            errors.append(self._scale(best, self._grid_hw(pair[1]), size))
 
         if not errors:
             return {
-                **correspondence_recall(torch.zeros(0), self.thresholds),
-                **error_auc(torch.zeros(0), self.thresholds),
+                **correspondence_recall(torch.zeros(0), self.thresholds, unit=self._unit),
+                **error_auc(torch.zeros(0), self.thresholds, unit=self._unit),
             }
 
         pooled = torch.cat(errors)
-        metrics: MetricsDict = dict(correspondence_recall(pooled, self.thresholds))
-        metrics.update(error_auc(pooled, self.thresholds))
+        metrics: MetricsDict = dict(correspondence_recall(pooled, self.thresholds, unit=self._unit))
+        metrics.update(error_auc(pooled, self.thresholds, unit=self._unit))
         return metrics
 
     def describe(self) -> dict:
@@ -261,5 +315,6 @@ class CorrespondenceTask(BaseTask):
             "num_corr": self.num_corr,
             "ratio_threshold": self.ratio_threshold,
             "thresholds": list(self.thresholds),
+            "threshold_units": self.threshold_units,
         }
         return described

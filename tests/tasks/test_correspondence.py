@@ -23,7 +23,14 @@ from visbench.tasks.mid_level.correspondence import patch_centers
 
 @pytest.fixture
 def probe():
+    """Default probe: thresholds in patch widths."""
     return visbench.get_probe("correspondence")
+
+
+@pytest.fixture
+def pixel_probe():
+    """Explicit pixel units, for the cases that reason in raw pixels."""
+    return visbench.get_probe("correspondence", threshold_units="pixel")
 
 
 # -- matching primitives -----------------------------------------------------
@@ -79,7 +86,7 @@ def test_ratio_test_needs_two_neighbours():
 
 def test_correspondence_recall_hand_computed():
     errors = torch.tensor([0.5, 1.5, 3.0, 20.0])
-    metrics = correspondence_recall(errors, thresholds=(1, 2, 5))
+    metrics = correspondence_recall(errors, thresholds=(1, 2, 5), unit="px")
 
     assert metrics["recall@1px"] == 0.25
     assert metrics["recall@2px"] == 0.5
@@ -87,13 +94,13 @@ def test_correspondence_recall_hand_computed():
 
 
 def test_perfect_matches_score_one():
-    metrics = correspondence_recall(torch.zeros(10), thresholds=(1,))
+    metrics = correspondence_recall(torch.zeros(10), thresholds=(1,), unit="px")
     assert metrics["recall@1px"] == 1.0
-    assert error_auc(torch.zeros(10), thresholds=(1,))["auc@1px"] == pytest.approx(1.0)
+    assert error_auc(torch.zeros(10), thresholds=(1,), unit="px")["auc@1px"] == pytest.approx(1.0)
 
 
 def test_auc_is_zero_when_everything_misses():
-    assert error_auc(torch.full((5,), 99.0), thresholds=(1, 5))["auc@5px"] == 0.0
+    assert error_auc(torch.full((5,), 99.0), thresholds=(1, 5), unit="px")["auc@5px"] == 0.0
 
 
 def test_auc_hand_computed():
@@ -104,14 +111,16 @@ def test_auc_hand_computed():
     Treating it as a step function instead would give 0.5, which is why this
     is pinned — the choice is invisible in the output and changes every number.
     """
-    assert error_auc(torch.tensor([2.0]), thresholds=(4,))["auc@4px"] == pytest.approx(0.75)
+    assert error_auc(torch.tensor([2.0]), thresholds=(4,), unit="px")["auc@4px"] == pytest.approx(
+        0.75
+    )
 
 
 def test_auc_convention_matches_the_reference():
     """Spot-check against the published formulation on a second case."""
     # Errors 1 and 3 under a 4px threshold: (0,0) -> (1,0.5) -> (3,1) -> (4,1).
     # Area = 0.25 + 1.5 + 1 = 2.75, normalised by 4 = 0.6875.
-    result = error_auc(torch.tensor([1.0, 3.0]), thresholds=(4,))["auc@4px"]
+    result = error_auc(torch.tensor([1.0, 3.0]), thresholds=(4,), unit="px")["auc@4px"]
     assert result == pytest.approx(0.6875)
 
 
@@ -120,15 +129,19 @@ def test_auc_separates_distributions_recall_cannot():
     tight = torch.tensor([0.1, 0.1, 0.1, 0.1])
     loose = torch.tensor([4.9, 4.9, 4.9, 4.9])
 
-    assert correspondence_recall(tight, (5,)) == correspondence_recall(loose, (5,))
-    assert error_auc(tight, (5,))["auc@5px"] > error_auc(loose, (5,))["auc@5px"]
+    assert correspondence_recall(tight, (5,), unit="px") == correspondence_recall(
+        loose, (5,), unit="px"
+    )
+    assert (
+        error_auc(tight, (5,), unit="px")["auc@5px"] > error_auc(loose, (5,), unit="px")["auc@5px"]
+    )
 
 
 def test_no_matches_scores_zero_not_nan():
     """A backbone that produces no usable match scored 0, which is a result."""
     empty = torch.zeros(0)
-    assert correspondence_recall(empty, (1,))["recall@1px"] == 0.0
-    assert error_auc(empty, (1,))["auc@1px"] == 0.0
+    assert correspondence_recall(empty, (1,), unit="px")["recall@1px"] == 0.0
+    assert error_auc(empty, (1,), unit="px")["auc@1px"] == 0.0
 
 
 # -- patch geometry ----------------------------------------------------------
@@ -165,8 +178,8 @@ def test_identical_views_match_exactly(probe):
     identity = {"homography": torch.eye(3, dtype=torch.float64), "size": (64, 64)}
     metrics = probe.evaluate([pair], [identity])
 
-    assert metrics["recall@1px"] == 1.0
-    assert metrics["auc@1px"] == pytest.approx(1.0)
+    assert metrics["recall@0.5p"] == 1.0
+    assert metrics["auc@0.5p"] == pytest.approx(1.0)
     assert metrics["num_matches"] == 16
 
 
@@ -185,7 +198,7 @@ def test_shuffled_features_score_badly(probe):
 
     identity = {"homography": torch.eye(3, dtype=torch.float64), "size": (96, 96)}
     metrics = probe.evaluate([(_feature_dict(dense), _feature_dict(permuted))], [identity])
-    assert metrics["recall@1px"] < 0.2
+    assert metrics["recall@0.5p"] < 0.2
 
 
 def test_num_corr_caps_the_matches(probe_factory=None):
@@ -209,7 +222,7 @@ def test_errors_pool_across_pairs(probe):
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="needs a GPU")
-def test_features_straight_off_a_gpu_backbone(probe):
+def test_features_straight_off_a_gpu_backbone(pixel_probe):
     """Features from a CUDA backbone must work without a manual .cpu().
 
     They previously did not: match() returned CUDA indices and the geometry is
@@ -220,8 +233,8 @@ def test_features_straight_off_a_gpu_backbone(probe):
     pair = (_feature_dict(dense), _feature_dict(dense.clone()))
     identity = {"homography": torch.eye(3, dtype=torch.float64), "size": (64, 64)}
 
-    assert probe.evaluate([pair], [identity])["recall@1px"] == 1.0
-    assert probe.evaluate_ceiling([pair], [identity])["recall@1px"] == 1.0
+    assert pixel_probe.evaluate([pair], [identity])["recall@1px"] == 1.0
+    assert pixel_probe.evaluate_ceiling([pair], [identity])["recall@1px"] == 1.0
 
 
 def test_batched_features_are_rejected(probe):
@@ -274,30 +287,34 @@ def test_invalid_configuration_raises():
 class TestCeiling:
     """Patch quantisation caps what any matcher can score.
 
+    Stated in pixels throughout, so these use the explicit pixel probe: the
+    cases are "shift by 3px against a 28px grid", which patch units would
+    obscure.
+
     Without this, a low recall@1px reads as "the backbone failed" when it
     actually means "patches are 14px apart".
     """
 
-    def test_identity_warp_has_a_perfect_ceiling(self, probe):
+    def test_identity_warp_has_a_perfect_ceiling(self, pixel_probe):
         """No warp: every target lands exactly on a patch centre."""
         dense = torch.randn(1, 8, 4, 4)
         pair = (_feature_dict(dense), _feature_dict(dense))
         identity = {"homography": torch.eye(3, dtype=torch.float64), "size": (64, 64)}
 
-        ceiling = probe.evaluate_ceiling([pair], [identity])
+        ceiling = pixel_probe.evaluate_ceiling([pair], [identity])
         assert ceiling["recall@1px"] == 1.0
 
-    def test_ceiling_is_below_one_for_a_real_warp(self, probe):
+    def test_ceiling_is_below_one_for_a_real_warp(self, pixel_probe):
         """A shifted target falls between patch centres and cannot be hit."""
         shift = torch.eye(3, dtype=torch.float64)
         shift[0, 2] = 7.0  # half a patch on a 64px image with a 4x4 grid
         dense = torch.randn(1, 8, 4, 4)
         pair = (_feature_dict(dense), _feature_dict(dense))
 
-        ceiling = probe.evaluate_ceiling([pair], [{"homography": shift, "size": (64, 64)}])
+        ceiling = pixel_probe.evaluate_ceiling([pair], [{"homography": shift, "size": (64, 64)}])
         assert ceiling["recall@1px"] < 1.0
 
-    def test_score_never_exceeds_its_ceiling(self, probe):
+    def test_score_never_exceeds_its_ceiling(self, pixel_probe):
         """The invariant that makes the ceiling meaningful."""
         torch.manual_seed(0)
         warp = torch.eye(3, dtype=torch.float64)
@@ -307,13 +324,13 @@ class TestCeiling:
         pair = (_feature_dict(dense_0), _feature_dict(dense_1))
         geometry = [{"homography": warp, "size": (112, 112)}]
 
-        scored = probe.evaluate([pair], geometry)
-        ceiling = probe.evaluate_ceiling([pair], geometry)
+        scored = pixel_probe.evaluate([pair], geometry)
+        ceiling = pixel_probe.evaluate_ceiling([pair], geometry)
         for threshold in (1, 2, 5, 10):
             key = f"recall@{threshold}px"
             assert scored[key] <= ceiling[key] + 1e-9, f"{key} beat its own ceiling"
 
-    def test_ceiling_covers_only_the_kept_matches(self, probe):
+    def test_ceiling_covers_only_the_kept_matches(self, pixel_probe):
         """The bug this guards: averaging over different populations.
 
         The ratio test discards most patches, and it keeps the distinctive
@@ -328,11 +345,11 @@ class TestCeiling:
         pair = (_feature_dict(dense), _feature_dict(dense.clone()))
         geometry = [{"homography": torch.eye(3, dtype=torch.float64), "size": (112, 112)}]
 
-        kept, _ = probe.match(pair[0], pair[1])
+        kept, _ = pixel_probe.match(pair[0], pair[1])
         assert 0 < len(kept) < 64, "fixture must trigger a partial selection"
 
-        scored = probe.evaluate([pair], geometry)
-        ceiling = probe.evaluate_ceiling([pair], geometry)
+        scored = pixel_probe.evaluate([pair], geometry)
+        ceiling = pixel_probe.evaluate_ceiling([pair], geometry)
 
         # Both averages must be over the same denominator.
         assert scored["num_matches"] == len(kept)
@@ -340,16 +357,16 @@ class TestCeiling:
             key = f"recall@{threshold}px"
             assert scored[key] <= ceiling[key] + 1e-9
 
-    def test_ceiling_with_no_surviving_matches(self, probe):
+    def test_ceiling_with_no_surviving_matches(self, pixel_probe):
         """Constant features: everything is rejected, so both sides report 0."""
         dense = torch.ones(1, 8, 4, 4)
         pair = (_feature_dict(dense), _feature_dict(dense.clone()))
         geometry = [{"homography": torch.eye(3, dtype=torch.float64), "size": (64, 64)}]
 
-        assert probe.evaluate([pair], geometry)["num_matches"] == 0
-        assert probe.evaluate_ceiling([pair], geometry)["recall@1px"] == 0.0
+        assert pixel_probe.evaluate([pair], geometry)["num_matches"] == 0
+        assert pixel_probe.evaluate_ceiling([pair], geometry)["recall@1px"] == 0.0
 
-    def test_finer_grid_raises_the_ceiling(self, probe):
+    def test_finer_grid_raises_the_ceiling(self, pixel_probe):
         """More patches, smaller spacing, more of the fine thresholds reachable.
 
         The shift has to exceed half the fine grid's spacing for this to show
@@ -364,10 +381,110 @@ class TestCeiling:
         coarse = (_feature_dict(torch.randn(1, 8, 4, 4)),) * 2
         fine = (_feature_dict(torch.randn(1, 8, 28, 28)),) * 2
 
-        assert probe.evaluate_ceiling([coarse], geometry)["recall@5px"] == 0.0
+        assert pixel_probe.evaluate_ceiling([coarse], geometry)["recall@5px"] == 0.0
         # Not 1.0: patches near the right edge shift outside the grid entirely,
         # so their true target has no candidate near it. 26 of 28 columns.
-        assert probe.evaluate_ceiling([fine], geometry)["recall@5px"] == pytest.approx(26 / 28)
+        assert pixel_probe.evaluate_ceiling([fine], geometry)["recall@5px"] == pytest.approx(
+            26 / 28
+        )
+
+
+class TestThresholdUnits:
+    """Why patch widths are the default.
+
+    In pixels the quantisation floor moves with input resolution and with the
+    backbone's patch size, so the same metric name means different things and
+    cross-configuration comparison is invalid. That is the opposite of what a
+    benchmark is for.
+    """
+
+    def _pair_and_geometry(self, grid: int, size: int, shift: float):
+        torch.manual_seed(0)
+        dense = torch.randn(1, 16, grid, grid)
+        warp = torch.eye(3, dtype=torch.float64)
+        warp[0, 2] = shift
+        return (
+            [(_feature_dict(dense), _feature_dict(dense.clone()))],
+            [{"homography": warp, "size": (size, size)}],
+        )
+
+    def test_default_unit_is_patches(self, probe):
+        assert probe.threshold_units == "patch"
+        assert probe.thresholds == (0.5, 1, 2, 4)
+
+    def test_metric_names_carry_the_unit(self, probe, pixel_probe):
+        pairs, geometry = self._pair_and_geometry(4, 64, 0.0)
+        assert "recall@1p" in probe.evaluate(pairs, geometry)
+        assert "recall@1px" in pixel_probe.evaluate(pairs, geometry)
+
+    def test_patch_units_are_resolution_invariant(self, probe, pixel_probe):
+        """Same content, twice the resolution: patch units agree, pixels do not.
+
+        A 16x16 grid over 112px and a 16x16 grid over 224px have the same
+        *relative* sampling, so a fixed fraction-of-a-patch error is the same
+        result. In pixels it silently halves.
+        """
+        small_pairs, small_geom = self._pair_and_geometry(16, 112, 3.5)
+        large_pairs, large_geom = self._pair_and_geometry(16, 224, 7.0)
+
+        in_patches = (
+            probe.evaluate(small_pairs, small_geom)["recall@1p"],
+            probe.evaluate(large_pairs, large_geom)["recall@1p"],
+        )
+        assert in_patches[0] == in_patches[1]
+
+        in_pixels = (
+            pixel_probe.evaluate(small_pairs, small_geom)["recall@5px"],
+            pixel_probe.evaluate(large_pairs, large_geom)["recall@5px"],
+        )
+        assert in_pixels[0] != in_pixels[1]
+
+    def test_patch_units_compare_across_patch_sizes(self, probe):
+        """DINOv2's 14px patches against CLIP ViT-B/16's 16px.
+
+        Both sample the image at 1/16 of its width, so an error of half a patch
+        is the same quality. Pixels would call them different.
+        """
+        dinov2_like, dinov2_geom = self._pair_and_geometry(16, 224, 7.0)  # 14px patches
+        clip_like, clip_geom = self._pair_and_geometry(14, 224, 8.0)  # 16px patches
+
+        assert (
+            probe.evaluate(dinov2_like, dinov2_geom)["recall@1p"]
+            == probe.evaluate(clip_like, clip_geom)["recall@1p"]
+        )
+
+    def test_pixel_thresholds_are_near_unreachable_at_this_grid(self, pixel_probe):
+        """The concrete reason for the change: a ceiling of ~1%.
+
+        A metric whose maximum achievable value is 0.015 reports patch size,
+        not feature quality.
+        """
+        pairs, geometry = self._pair_and_geometry(16, 224, 7.0)
+        assert pixel_probe.evaluate_ceiling(pairs, geometry)["recall@1px"] < 0.05
+
+    def test_patch_thresholds_land_in_a_usable_range(self, probe):
+        pairs, geometry = self._pair_and_geometry(16, 224, 7.0)
+        ceiling = probe.evaluate_ceiling(pairs, geometry)
+        assert ceiling["recall@1p"] > 0.5
+
+    def test_unit_is_recorded(self, probe, pixel_probe):
+        assert probe.describe()["task_params"]["threshold_units"] == "patch"
+        assert pixel_probe.describe()["task_params"]["threshold_units"] == "pixel"
+
+    def test_unknown_unit_raises(self):
+        with pytest.raises(ValueError, match="threshold_units"):
+            visbench.get_probe("correspondence", threshold_units="metres")
+
+    def test_explicit_thresholds_override_the_default(self):
+        probe = visbench.get_probe("correspondence", thresholds=(0.25, 3))
+        assert probe.thresholds == (0.25, 3)
+
+
+def test_patch_spacing_hand_computed():
+    from visbench.tasks.mid_level.correspondence import patch_spacing
+
+    assert patch_spacing((16, 16), (224, 224)) == 14.0
+    assert patch_spacing((14, 14), (224, 224)) == 16.0
 
 
 def test_end_to_end_with_a_real_warp(tmp_path, fake_vit, probe):
@@ -390,5 +507,5 @@ def test_end_to_end_with_a_real_warp(tmp_path, fake_vit, probe):
         )
 
     metrics = probe.evaluate(pairs, dataset.labels())
-    assert set(metrics) >= {"recall@1px", "recall@10px", "auc@10px", "num_matches"}
+    assert set(metrics) >= {"recall@0.5p", "recall@4p", "auc@4p", "num_matches"}
     assert all(isinstance(value, float) for value in metrics.values())
