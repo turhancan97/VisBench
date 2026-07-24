@@ -78,13 +78,19 @@ class BaseTask(ABC):
         return True
 
     def describe(self) -> dict:
-        """Task metadata (name, level, pooling, feature mode) for the result record."""
+        """Task metadata (name, level, pooling, feature mode) for the result record.
+
+        ``task_params`` is always present, empty by default: a caller building
+        a record should never have to ask whether this particular task has
+        hyperparameters. Trained probes override it with theirs.
+        """
         return {
             "task": self.name,
             "level": self.level,
             "pooling": self.pooling,
             "feature_mode": self.feature_mode,
             "zero_shot": self.zero_shot,
+            "task_params": {},
         }
 
     # -- shared helpers ------------------------------------------------------

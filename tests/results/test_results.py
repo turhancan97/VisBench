@@ -155,9 +155,22 @@ def test_non_integer_schema_version_is_rejected():
 
 def test_new_records_carry_dataset_identity():
     payload = make_record(dataset_size=8, dataset_fingerprint="abc123").to_dict()
-    assert payload["schema_version"] == 2
+    assert payload["schema_version"] == SCHEMA_VERSION
     assert payload["dataset_size"] == 8
     assert payload["dataset_fingerprint"] == "abc123"
+
+
+def test_task_params_round_trip():
+    """A trained probe's hyperparameters must survive the file, or the number
+    it sits next to is not reproducible."""
+    params = {"optimizer": "adamw", "lr": 0.01, "epochs": 200}
+    record = make_record(task="classification", task_params=params)
+    assert ResultRecord.from_dict(record.to_dict()).task_params == params
+
+
+def test_task_params_defaults_to_empty():
+    """Zero-shot tasks have no hyperparameters; the field must not be None."""
+    assert make_record().task_params == {}
 
 
 def test_unknown_field_is_rejected():

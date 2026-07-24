@@ -15,9 +15,10 @@
 
 ---
 
-> **Status: v0.1.0.dev0 — first task runs end-to-end.** DINOv2, the feature
-> cache, and zero-shot retrieval work on a local image folder. Classification
-> and correspondence are next. See [Build order](#build-order).
+> **Status: v0.1.0.dev0 — two of three v0.1 tasks work.** DINOv2, the feature
+> cache, zero-shot retrieval and the classification linear probe all run
+> end-to-end on a local image folder. Correspondence and CLIP are next. See
+> [Build order](#build-order).
 
 ## What it is
 
@@ -47,13 +48,22 @@ Re-running that is free: the second call reads every feature from disk and the
 backbone never executes. Results go to JSONL through
 `visbench.results.ResultWriter`, under one schema from the first record.
 
-The rest of the target API, as tasks land:
+Trained probes follow the same shape, with a `fit` on the training split. A
+train/test split is just two datasets, so each half carries its own
+fingerprint into its own record:
 
 ```python
-probe = visbench.get_probe("classification")           # build step 4
-probe.fit(train_features, train_labels)
-metrics = probe.evaluate(test_features, test_labels)   # {"top1": ..., "top5": ...}
+probe = visbench.get_probe("classification")
+probe.fit(train_features, train_dataset.labels())
+probe.evaluate(test_features, test_dataset.labels())   # {"top1": ..., "top5": ...}
+
+probe.train_top1     # 0.99 — if this is low, the probe underfitted,
+                     # not the backbone. Raise `lr` or `epochs`.
 ```
+
+The linear probe trains with AdamW on cached features, so its hyperparameters
+are part of the reported number and travel with it in the record's
+`task_params`.
 
 Sibling project to [vismatch](https://github.com/gmberton/vismatch) — same
 ergonomic philosophy, applied to representation probing instead of image
@@ -99,7 +109,8 @@ This is a multi-month roadmap, built one reviewed step at a time.
 - [x] **1. Scaffold** — every folder and module, docstrings and stubs, no logic
 - [x] **2.** `BaseBackbone` + feature cache + DINOv2, with tests
 - [x] **3.** `BaseTask` + one task end-to-end on a local image folder
-- [ ] **4.** Next task, then next backbone
+- [ ] **4.** Next task, then next backbone — classification done; correspondence
+      and CLIP remain
 - [ ] **5.** v0.2 scope — only once all of v0.1 is implemented, tested, reviewed
 
 ## Roadmap

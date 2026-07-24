@@ -40,6 +40,28 @@ def image_folder(tmp_path):
     return root
 
 
+@pytest.fixture
+def split_folders(tmp_path):
+    """root/train/<class>/… and root/val/<class>/… — two independent datasets.
+
+    No splitting machinery: a train/test split is two ImageFolderDatasets, so
+    each half gets its own fingerprint in its own record.
+    """
+    root = tmp_path / "split"
+    palette = {"red": (200, 30, 30), "blue": (30, 30, 200), "green": (30, 200, 30)}
+    # Disjoint jitter ranges. Overlapping them would make some val images
+    # byte-identical to train ones — leakage, and the content-addressed cache
+    # would correctly collapse them into shared entries.
+    for split, offsets in [("train", range(6)), ("val", range(10, 13))]:
+        for class_name, colour in palette.items():
+            directory = root / split / class_name
+            directory.mkdir(parents=True)
+            for i in offsets:
+                jitter = tuple(min(255, c + i * 4) for c in colour)
+                Image.new("RGB", (64, 64), jitter).save(directory / f"{i:02d}.png")
+    return root / "train", root / "val"
+
+
 def run_probe(backbone, dataset, cache, probe, seed=0):
     """Extract, evaluate, and build the record — the shape a CLI would take.
 
@@ -155,6 +177,106 @@ def test_changing_pooling_changes_the_record(tmp_path, image_folder, fake_vit):
     assert cls_record.pooling == "cls"
     assert mean_record.pooling == "mean"
     assert fake_vit.call_count == 2, "different pooling must re-extract"
+
+
+def run_trained_probe(backbone, train_dataset, test_dataset, cache, probe, seed=0):
+    """Fit on one split, score on another — the shape retrieval never exercises."""
+    used_seed = set_seed(seed)
+    started = time.perf_counter()
+
+    train_features = cache.extract_dataset(
+        backbone, train_dataset, pooling=probe.pooling, keep="pooled"
+    )
+    test_features = cache.extract_dataset(
+        backbone, test_dataset, pooling=probe.pooling, keep="pooled"
+    )
+
+    probe.fit(train_features, train_dataset.labels())
+    metrics = probe.evaluate(test_features, test_dataset.labels())
+
+    described = {**test_dataset.describe(), **probe.describe()}
+    return metrics, ResultRecord(
+        backbone=backbone.name,
+        backbone_key=backbone.cache_key(),
+        task=described["task"],
+        level=described["level"],
+        dataset=described["dataset"],
+        split=described["split"],
+        dataset_size=described["dataset_size"],
+        dataset_fingerprint=described["dataset_fingerprint"],
+        pooling=described["pooling"],
+        feature_mode=described["feature_mode"],
+        task_params=described["task_params"],
+        metrics=metrics,
+        timestamp=utc_timestamp(),
+        visbench_version=visbench.__version__,
+        seed=used_seed,
+        duration_seconds=time.perf_counter() - started,
+    )
+
+
+def test_classification_train_test_to_record(tmp_path, split_folders, fake_vit):
+    train_root, val_root = split_folders
+    train = ImageFolderDataset(train_root, split="train")
+    test = ImageFolderDataset(val_root, split="val")
+    cache = FeatureCache(root=tmp_path / "cache")
+    probe = visbench.get_probe("classification", device="cpu")
+
+    metrics, record = run_trained_probe(fake_vit, train, test, cache, probe)
+
+    assert "top1" in metrics
+    assert record.task == "classification"
+    assert record.split == "val", "the record must describe the split that was scored"
+    assert record.dataset_size == 9
+    assert record.seed == 0
+    assert record.task_params["optimizer"] == "adamw"
+
+    path = tmp_path / "results.jsonl"
+    with ResultWriter(path) as writer:
+        writer.write(record)
+    (loaded,) = read_records(path)
+    assert loaded.task_params == record.task_params
+
+
+def test_train_and_test_features_are_cached_separately(tmp_path, split_folders, fake_vit):
+    """Different images, so no train feature may be served for a test image."""
+    train_root, val_root = split_folders
+    train = ImageFolderDataset(train_root, split="train")
+    test = ImageFolderDataset(val_root, split="val")
+    cache = FeatureCache(root=tmp_path / "cache")
+
+    cache.extract_dataset(fake_vit, train, keep="pooled")
+    cache.extract_dataset(fake_vit, test, keep="pooled")
+
+    assert cache.stats()["entries"] == len(train) + len(test)
+
+
+def test_the_two_splits_have_different_fingerprints(split_folders):
+    train_root, val_root = split_folders
+    train = ImageFolderDataset(train_root, split="train")
+    test = ImageFolderDataset(val_root, split="val")
+    assert train.fingerprint() != test.fingerprint()
+
+
+@pytest.mark.slow
+def test_classification_with_real_dinov2(tmp_path, split_folders):
+    """Colour-separable classes, so a converged linear probe should be exact."""
+    train_root, val_root = split_folders
+    backbone = visbench.get_backbone("dinov2_vits14", device="cpu")
+    cache = FeatureCache(root=tmp_path / "cache")
+    probe = visbench.get_probe("classification", device="cpu")
+
+    metrics, record = run_trained_probe(
+        backbone,
+        ImageFolderDataset(train_root, split="train"),
+        ImageFolderDataset(val_root, split="val"),
+        cache,
+        probe,
+    )
+
+    assert probe.train_top1 == 1.0, "the probe did not converge on the training split"
+    assert metrics["top1"] == 1.0
+    assert record.backbone == "dinov2_vits14"
 
 
 @pytest.mark.slow

@@ -117,7 +117,12 @@ def test_get_probe_forwards_kwargs():
     assert probe.metric == "l2"
 
 
+def test_classification_is_registered():
+    assert "classification" in visbench.list_probes()
+
+
 def test_unregistered_task_fails_informatively():
-    """Classification lands at build step 4; until then the error must say so."""
-    with pytest.raises(KeyError, match="Unknown task"):
-        visbench.get_probe("classification")
+    """Correspondence is still a stub; the error must list what does exist."""
+    with pytest.raises(KeyError, match="Unknown task") as excinfo:
+        visbench.get_probe("correspondence")
+    assert "retrieval" in str(excinfo.value)

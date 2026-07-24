@@ -6,7 +6,7 @@ additively; renaming or removing one is a breaking change to every historical
 record.
 """
 
-from dataclasses import MISSING, asdict, dataclass, fields
+from dataclasses import MISSING, asdict, dataclass, field, fields
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -20,7 +20,11 @@ __all__ = ["ResultRecord", "SCHEMA_VERSION", "utc_timestamp"]
 #: 2. Added ``dataset_size`` and ``dataset_fingerprint``. Without them, two
 #:    runs over different folders that happen to share a name produced records
 #:    that were byte-identical and meant different things.
-SCHEMA_VERSION = 2
+#: 3. Added ``task_params``. Trained probes have hyperparameters, and an
+#:    accuracy reported without the optimiser settings that produced it is not
+#:    reproducible. Deliberately one open dict rather than a column per
+#:    setting, so a new task never forces another schema bump.
+SCHEMA_VERSION = 3
 
 
 @dataclass
@@ -51,6 +55,10 @@ class ResultRecord:
         From :func:`visbench.utils.set_seed`, which returns the seed it used
         even when the caller passed ``None``. Irrelevant for zero-shot tasks;
         required to reproduce anything that trains.
+    task_params:
+        Task-specific settings from :meth:`BaseTask.describe` — for a trained
+        probe, the optimiser, learning rate, epochs and so on. Empty for
+        zero-shot tasks, which have none.
     """
 
     backbone: str
@@ -67,6 +75,7 @@ class ResultRecord:
     schema_version: int = SCHEMA_VERSION
     dataset_size: Optional[int] = None
     dataset_fingerprint: Optional[str] = None
+    task_params: dict = field(default_factory=dict)
     layer: Optional[int] = None
     seed: Optional[int] = None
     duration_seconds: Optional[float] = None
@@ -104,13 +113,15 @@ class ResultRecord:
                 "newer file needs a newer VisBench."
             )
 
-        known = {field.name for field in fields(cls)}
+        known = {f.name for f in fields(cls)}
         unknown = set(payload) - known
         if unknown:
             raise ValueError(
                 f"Unknown fields for schema_version {SCHEMA_VERSION}: {sorted(unknown)}"
             )
-        missing = {f.name for f in fields(cls) if f.default is MISSING} - set(payload)
+        missing = {
+            f.name for f in fields(cls) if f.default is MISSING and f.default_factory is MISSING
+        } - set(payload)
         if missing:
             raise ValueError(f"Missing required fields: {sorted(missing)}")
 
