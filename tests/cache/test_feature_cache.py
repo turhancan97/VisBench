@@ -11,6 +11,7 @@ their line count suggests:
 * An interrupted write leaves no readable entry (atomic writes).
 """
 
+import pytest
 import torch
 from PIL import Image
 
@@ -174,15 +175,141 @@ def test_keep_dense_skips_pooled(tmp_path, fake_vit, solid_images):
     assert "pooled" not in features
 
 
-def test_keep_still_caches_both(tmp_path, fake_vit, solid_images):
-    """keep= controls RAM, not the cache: a later keep='both' must still hit."""
+def test_store_defaults_to_keep(tmp_path, fake_vit, solid_images):
+    """Storing dense for a task that never reads it turned a 20 MB cache into 5 GB."""
+    cache = make_cache(tmp_path)
+    cache.extract_dataset(fake_vit, solid_images, keep="pooled")
+
+    entry = torch.load(next((tmp_path / "cache").rglob("*.pt")), weights_only=True)
+    assert "pooled" in entry
+    assert "dense" not in entry
+
+
+def test_incomplete_entry_is_a_miss_not_a_broken_hit(tmp_path, fake_vit, solid_images):
+    """A leaner cache must cost re-extraction, never a dict with a missing key."""
     cache = make_cache(tmp_path)
     cache.extract_dataset(fake_vit, solid_images, keep="pooled")
     assert fake_vit.call_count == 1
 
     both = cache.extract_dataset(fake_vit, solid_images, keep="both")
-    assert fake_vit.call_count == 1
+    assert fake_vit.call_count == 2, "pooled-only entries must not satisfy keep='both'"
     assert both["dense"].shape[0] == 4
+    assert both["pooled"].shape[0] == 4
+
+
+def test_store_both_serves_a_later_pooled_only_run(tmp_path, fake_vit, solid_images):
+    """Storing more than you keep is allowed, and pays off on the next task."""
+    cache = make_cache(tmp_path)
+    cache.extract_dataset(fake_vit, solid_images, keep="pooled", store="both")
+    assert fake_vit.call_count == 1
+
+    cache.extract_dataset(fake_vit, solid_images, keep="both")
+    assert fake_vit.call_count == 1
+
+
+def test_unknown_store_raises(tmp_path, fake_vit, solid_images):
+    with pytest.raises(ValueError, match="store must be one of"):
+        make_cache(tmp_path).extract_dataset(fake_vit, solid_images, store="everything")
+
+
+# -- resolving a cached image without decoding it ----------------------------
+
+
+class TestIdentityMemo:
+    """A cached run must not re-read the images.
+
+    Measured on Imagenette before this existed: a fully cached run still cost
+    ~113 s, almost all of it decoding 13,394 JPEGs to compute hashes the cache
+    had already seen.
+    """
+
+    @pytest.fixture
+    def folder(self, tmp_path):
+        from visbench.data import ImageFolderDataset
+
+        root = tmp_path / "imgs" / "cls"
+        root.mkdir(parents=True)
+        for i in range(4):
+            Image.new("RGB", (64, 64), (i * 50, 10, 10)).save(root / f"{i}.png")
+        return ImageFolderDataset(tmp_path / "imgs")
+
+    def decode_count(self, monkeypatch):
+        import visbench.data.image_folder as module
+
+        calls = []
+        original = module.load_image
+        monkeypatch.setattr(
+            module, "load_image", lambda path: (calls.append(path), original(path))[1]
+        )
+        return calls
+
+    def test_cold_run_decodes(self, tmp_path, fake_vit, folder, monkeypatch):
+        calls = self.decode_count(monkeypatch)
+        make_cache(tmp_path).extract_dataset(fake_vit, folder, keep="pooled")
+        assert len(calls) == 4
+
+    def test_cached_run_decodes_nothing(self, tmp_path, fake_vit, folder, monkeypatch):
+        cache = make_cache(tmp_path)
+        cache.extract_dataset(fake_vit, folder, keep="pooled")
+
+        calls = self.decode_count(monkeypatch)
+        cache.extract_dataset(fake_vit, folder, keep="pooled")
+        assert calls == [], "a fully cached run re-read the images"
+        assert fake_vit.call_count == 1
+
+    def test_results_are_identical_either_way(self, tmp_path, fake_vit, folder):
+        cache = make_cache(tmp_path)
+        first = cache.extract_dataset(fake_vit, folder, keep="pooled")
+        second = cache.extract_dataset(fake_vit, folder, keep="pooled")
+        assert torch.equal(first["pooled"], second["pooled"])
+
+    def test_edited_file_is_not_served_from_the_memo(self, tmp_path, fake_vit, folder):
+        """The memo keys on size and mtime, so changed bytes must miss."""
+        from visbench.data import ImageFolderDataset
+
+        cache = make_cache(tmp_path)
+        before = cache.extract_dataset(fake_vit, folder, keep="pooled")
+
+        target = folder.paths[0]
+        Image.new("RGB", (64, 64), (7, 200, 7)).save(target)
+        reloaded = ImageFolderDataset(target.parent.parent)
+        after = cache.extract_dataset(fake_vit, reloaded, keep="pooled")
+
+        assert not torch.equal(before["pooled"][0], after["pooled"][0])
+
+    def test_copied_file_still_shares_the_entry(self, tmp_path, fake_vit, folder):
+        """A new identity, same pixels: content addressing must still win.
+
+        The memo is an optimisation over hashing, never a replacement for it.
+        """
+        from visbench.data import ImageFolderDataset
+
+        cache = make_cache(tmp_path)
+        cache.extract_dataset(fake_vit, folder, keep="pooled")
+        entries_before = cache.stats()["entries"]
+
+        copy_root = tmp_path / "copy" / "cls"
+        copy_root.mkdir(parents=True)
+        for path in folder.paths:
+            copy_root.joinpath(path.name).write_bytes(path.read_bytes())
+
+        cache.extract_dataset(fake_vit, ImageFolderDataset(tmp_path / "copy"), keep="pooled")
+        assert fake_vit.call_count == 1, "identical pixels re-ran the backbone"
+        assert cache.stats()["entries"] == entries_before
+
+    def test_plain_image_list_still_works(self, tmp_path, fake_vit, solid_images):
+        """No identity available: correctness must not depend on the memo."""
+        cache = make_cache(tmp_path)
+        first = cache.extract_dataset(fake_vit, solid_images, keep="pooled")
+        second = cache.extract_dataset(fake_vit, solid_images, keep="pooled")
+
+        assert fake_vit.call_count == 1
+        assert torch.equal(first["pooled"], second["pooled"])
+
+    def test_memo_does_not_count_as_a_feature_entry(self, tmp_path, fake_vit, folder):
+        cache = make_cache(tmp_path)
+        cache.extract_dataset(fake_vit, folder, keep="pooled")
+        assert cache.stats()["entries"] == 4
 
 
 def test_unknown_keep_raises(tmp_path, fake_vit, solid_images):

@@ -54,6 +54,23 @@ class BaseDataset(ABC):
         """
         raise NotImplementedError
 
+    def cache_identity(self, index: int) -> Optional[str]:
+        """Cheap stable token for item ``index``, or ``None`` if unavailable.
+
+        Lets :meth:`FeatureCache.extract_dataset` decide whether an item is
+        already cached **without decoding it**. On a fully cached dataset that
+        is the difference between reading thousands of JPEGs and reading none.
+
+        This does not replace content hashing: the cache key is still derived
+        from decoded pixels, so the same image under two filenames shares one
+        entry. This only memoises "which content hash did this file last
+        produce", and must therefore change whenever the file's bytes might
+        have (size and mtime, not path alone).
+
+        Returning ``None`` is always safe — it simply costs a decode.
+        """
+        return None
+
     def fingerprint(self) -> Optional[str]:
         """Short hash identifying *which* data this is, for the result record.
 

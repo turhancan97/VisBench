@@ -44,12 +44,19 @@ probe.evaluate(features, dataset.labels())
 # {"recall@1": 0.94, "recall@5": 0.99, "mAP": 0.87}
 ```
 
-Re-running is much cheaper: the second call reads every feature from disk and
-the backbone never executes. On Imagenette (13,394 images, DINOv2 ViT-S, one
-V100) a cold run takes ~4 min and a fully cached one ~113 s — cheaper, not
-free, because the cache still decodes each image to compute its content hash.
-Results go to JSONL through `visbench.results.ResultWriter`, under one schema
-from the first record.
+Re-running is cheap. On Imagenette (13,394 images, DINOv2 ViT-S, one V100):
+
+| | cold | cached |
+|---|---|---|
+| wall time | 208 s | **26 s** |
+| on-disk cache | 107 MB | — |
+| val top1 | 0.9939 | 0.9939 |
+
+A cached image is resolved from its file identity and never decoded, and
+`keep="pooled"` also stops dense features being written — storing them for a
+task that never reads them cost 5 GB instead of 107 MB. Results go to JSONL
+through `visbench.results.ResultWriter`, under one schema from the first
+record.
 
 Trained probes follow the same shape, with a `fit` on the training split. A
 train/test split is just two datasets, so each half carries its own

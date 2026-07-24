@@ -82,6 +82,21 @@ class ImageFolderDataset(BaseDataset):
         """Class indices in index order. No image is opened."""
         return list(self._labels)
 
+    def cache_identity(self, index: int) -> str:
+        """``"<abs path>|<size>|<mtime_ns>"`` — changes if the file could have.
+
+        mtime is deliberately included here although it is deliberately
+        *excluded* from :meth:`fingerprint`. The two answer different
+        questions: the fingerprint asks "is this the same dataset", where a
+        re-copy must not invalidate past records; this asks "might these bytes
+        have changed since I last hashed them", where a re-copy must invalidate
+        the memo. Being wrong here would serve one image's features for
+        another.
+        """
+        path = self.paths[index]
+        stat = path.stat()
+        return f"{path.resolve()}|{stat.st_size}|{stat.st_mtime_ns}"
+
     def fingerprint(self) -> str:
         """Short hash over the file list: relative paths, sizes and labels.
 

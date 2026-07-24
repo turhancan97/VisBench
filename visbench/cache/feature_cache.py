@@ -5,6 +5,7 @@ Mandatory in v0.1, not an optional speed-up bolted on later (CLAUDE.md,
 **at most once per image per backbone**.
 """
 
+import functools
 import hashlib
 import itertools
 import os
@@ -26,8 +27,55 @@ DEFAULT_CACHE_DIR = Path(".visbench_cache")
 
 _ENTRY_SUFFIX = ".pt"
 
-#: Which outputs :meth:`FeatureCache.extract_dataset` accumulates in memory.
+#: Which outputs :meth:`FeatureCache.extract_dataset` accumulates in memory,
+#: and which it writes to disk.
 _KEEP_CHOICES = ("both", "pooled", "dense")
+
+#: Subdirectory holding the identity -> content-hash memo. Underscore-prefixed
+#: so it cannot collide with a sanitised backbone key.
+_IDENTITY_DIR = "_identity"
+
+
+def _parts(choice: str) -> tuple[str, ...]:
+    """Map a ``keep``/``store`` choice to the feature keys it covers."""
+    return ("dense", "pooled") if choice == "both" else (choice,)
+
+
+def _identified_items(dataset: Iterable) -> Iterator[tuple[Optional[str], Callable[[], Any]]]:
+    """Yield ``(identity, load)`` pairs, deferring the image load.
+
+    Two shapes of input reach here. An indexed dataset exposing
+    ``cache_identity`` is walked by index, so ``load`` is only called for items
+    the cache could not already resolve — that is what avoids decoding a
+    cached image. A plain iterable of images has no identity and is already
+    materialised item by item, so ``load`` just hands the image back.
+
+    Returning a thunk rather than the image is the whole point: it lets the
+    caller decide, per item, whether decoding is necessary at all.
+    """
+    indexed = (
+        hasattr(dataset, "cache_identity")
+        and hasattr(dataset, "__len__")
+        and hasattr(dataset, "__getitem__")
+    )
+
+    if indexed:
+        for index in range(len(dataset)):  # type: ignore[arg-type]
+            yield dataset.cache_identity(index), functools.partial(_load_indexed, dataset, index)
+        return
+
+    for item in dataset:
+        image = item[0] if isinstance(item, (tuple, list)) else item
+        yield None, functools.partial(_identity_fn, image)
+
+
+def _load_indexed(dataset: Any, index: int) -> Any:
+    item = dataset[index]
+    return item[0] if isinstance(item, (tuple, list)) else item
+
+
+def _identity_fn(image: Any) -> Any:
+    return image
 
 
 def _chunks(items: Iterable, size: int) -> Iterator[list]:
@@ -89,8 +137,16 @@ class FeatureCache:
 
     # -- single entries ------------------------------------------------------
 
-    def get(self, key: str) -> Optional[FeatureDict]:
-        """Return the cached entry, or ``None`` on a miss."""
+    def get(
+        self, key: str, require: tuple[str, ...] = ("dense", "pooled")
+    ) -> Optional[FeatureDict]:
+        """Return the cached entry, or ``None`` on a miss.
+
+        ``require`` names the parts the caller needs. An entry written by a
+        run that stored only ``pooled`` is a **miss** for a caller that needs
+        ``dense`` — returning it would silently hand back a feature dict with
+        a missing key, which fails much further from the cause.
+        """
         if not self.enabled:
             self._misses += 1
             return None
@@ -108,16 +164,26 @@ class FeatureCache:
             self._misses += 1
             return None
 
-        self._hits += 1
-        return {
-            "dense": entry["dense"],
-            "pooled": entry["pooled"],
-            "grid_hw": tuple(entry["grid_hw"]),
-        }
+        if any(part not in entry for part in require):
+            self._misses += 1
+            return None
 
-    def put(self, key: str, features: FeatureDict) -> None:
+        self._hits += 1
+        result: FeatureDict = {"grid_hw": tuple(entry["grid_hw"])}  # type: ignore[typeddict-item]
+        for part in ("dense", "pooled"):
+            if part in entry:
+                result[part] = entry[part]
+        return result
+
+    def put(self, key: str, features: FeatureDict, store: str = "both") -> None:
         """Write an entry. Writes atomically so an interrupted run cannot leave
-        a half-written file that later reads as a corrupt hit."""
+        a half-written file that later reads as a corrupt hit.
+
+        ``store`` selects which parts reach disk. Dense features are roughly
+        250x the size of pooled ones — 390 KB against 1.5 KB for DINOv2 ViT-S
+        at 224 — so writing them for a task that only reads pooled vectors
+        costs gigabytes and buys nothing.
+        """
         if not self.enabled:
             return
 
@@ -125,12 +191,12 @@ class FeatureCache:
         path.parent.mkdir(parents=True, exist_ok=True)
 
         payload = {
-            "dense": features["dense"].detach().cpu(),
-            "pooled": features["pooled"].detach().cpu(),
             # Saved as a list: weights_only=True unpickles lists but not tuples
             # of arbitrary origin. Restored to a tuple on read.
             "grid_hw": list(features["grid_hw"]),
         }
+        for part in _parts(store):
+            payload[part] = features[part].detach().cpu()
 
         # Same directory as the target, so os.replace stays on one filesystem
         # and is therefore atomic.
@@ -138,6 +204,40 @@ class FeatureCache:
         try:
             with os.fdopen(fd, "wb") as handle:
                 torch.save(payload, handle)
+            os.replace(tmp_name, path)
+        except BaseException:
+            Path(tmp_name).unlink(missing_ok=True)
+            raise
+
+    # -- identity memo -------------------------------------------------------
+
+    def _identity_path(self, identity: str) -> Path:
+        digest = hashlib.sha256(identity.encode()).hexdigest()[:32]
+        return self.root / _IDENTITY_DIR / digest[:2] / f"{digest}.txt"
+
+    def _remembered_hash(self, identity: Optional[str]) -> Optional[str]:
+        """Content hash this identity last produced, or ``None``.
+
+        This is a memo of a computation, never a substitute for it: a hit here
+        still yields the same content-derived key the decode would have.
+        """
+        if identity is None or not self.enabled:
+            return None
+        path = self._identity_path(identity)
+        try:
+            return path.read_text().strip() or None
+        except OSError:
+            return None
+
+    def _remember_hash(self, identity: Optional[str], image_hash: str) -> None:
+        if identity is None or not self.enabled:
+            return
+        path = self._identity_path(identity)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd, tmp_name = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w") as handle:
+                handle.write(image_hash)
             os.replace(tmp_name, path)
         except BaseException:
             Path(tmp_name).unlink(missing_ok=True)
@@ -162,6 +262,7 @@ class FeatureCache:
         layer: Optional[int] = None,
         batch_size: int = 32,
         keep: str = "both",
+        store: Optional[str] = None,
     ) -> FeatureDict:
         """Extract (or load) features for a whole dataset.
 
@@ -175,34 +276,75 @@ class FeatureCache:
         ``__getitem__`` never holds more than ``batch_size`` images in memory,
         which is what makes a 50k-image run possible at all.
 
+        When the dataset implements :meth:`BaseDataset.cache_identity`, an
+        already-cached image is resolved from that token alone and **never
+        decoded**. Measured on Imagenette (13,394 images), that is the
+        difference between a fully cached run costing ~113 s and costing
+        almost nothing.
+
         Parameters
         ----------
         keep:
-            Which outputs to accumulate: ``"both"``, ``"pooled"`` or ``"dense"``.
-            ``dense`` is the memory risk — 5k images at 16x16x768 is roughly
-            4 GB in fp32 — so a task needing only pooled features should say so
-            and never materialise the rest. The *cache* always stores both,
-            since they come from one forward pass; ``keep`` only controls what
-            is held in RAM and returned.
+            Which outputs to accumulate in memory and return: ``"both"``,
+            ``"pooled"`` or ``"dense"``. ``dense`` is the memory risk — 5k
+            images at 16x16x768 is roughly 4 GB in fp32 — so a task needing
+            only pooled features should say so.
+        store:
+            Which outputs to write to disk; defaults to ``keep``. Dense
+            features are ~250x the size of pooled ones, so storing them for a
+            task that never reads them turned a 20 MB pooled cache into 5 GB.
+            An entry stored without a part is treated as a miss by a later run
+            that needs it, so a leaner cache costs re-extraction, never
+            silently wrong features.
         """
         if keep not in _KEEP_CHOICES:
             raise ValueError(f"keep must be one of {_KEEP_CHOICES}, got {keep!r}")
+        if store is None:
+            store = keep
+        if store not in _KEEP_CHOICES:
+            raise ValueError(f"store must be one of {_KEEP_CHOICES}, got {store!r}")
 
         backbone_key = backbone.cache_key()
         layers = None if layer is None else [layer]
+        required = _parts(keep)
 
         dense_chunks: list[torch.Tensor] = []
         pooled_chunks: list[torch.Tensor] = []
         grids: set = set()
         count = 0
 
-        for batch_items in _chunks(dataset, batch_size):
-            images = [item[0] if isinstance(item, (tuple, list)) else item for item in batch_items]
-            keys = [make_key(hash_image(img), backbone_key, layer, pooling) for img in images]
+        for batch_items in _chunks(_identified_items(dataset), batch_size):
+            entries: list[Optional[FeatureDict]] = []
+            keys: list[Optional[str]] = []
 
-            entries: list[Optional[FeatureDict]] = [self.get(key) for key in keys]
+            # Pass 1: resolve anything whose content hash we already know for
+            # this exact file. A hit here never touches the image.
+            for identity, _ in batch_items:
+                image_hash = self._remembered_hash(identity)
+                if image_hash is None:
+                    keys.append(None)
+                    entries.append(None)
+                    continue
+                key = make_key(image_hash, backbone_key, layer, pooling)
+                keys.append(key)
+                entries.append(self.get(key, require=required))
+
+            # Pass 2: decode whatever pass 1 could not resolve, and hash it.
+            # This may still hit — a copied file has a new identity but the
+            # same pixels, which is exactly what content addressing is for.
+            images: dict[int, Any] = {}
+            for index, (identity, load) in enumerate(batch_items):
+                if entries[index] is not None:
+                    continue
+                image = load()
+                images[index] = image
+                if keys[index] is None:
+                    image_hash = hash_image(image)
+                    self._remember_hash(identity, image_hash)
+                    keys[index] = make_key(image_hash, backbone_key, layer, pooling)
+                    entries[index] = self.get(keys[index], require=required)
+
             missing = [i for i, entry in enumerate(entries) if entry is None]
-
             if missing:
                 tensor_batch = backbone.preprocess([images[i] for i in missing])
                 features = backbone.extract_features(tensor_batch, pooling=pooling, layers=layers)
@@ -212,7 +354,7 @@ class FeatureCache:
                         "pooled": features["pooled"][position : position + 1].cpu(),
                         "grid_hw": features["grid_hw"],
                     }
-                    self.put(keys[index], single)
+                    self.put(keys[index], single, store=store)
                     entries[index] = single
 
             for entry in entries:
