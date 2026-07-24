@@ -23,15 +23,11 @@ deliberately deferred to v0.2, once the Python API has settled (CLAUDE.md,
 
 import argparse
 import json
-import time
 from pathlib import Path
 
 import visbench
 from visbench.cache import FeatureCache
 from visbench.data import ImageFolderDataset
-from visbench.results import ResultRecord, ResultWriter
-from visbench.results.schema import utc_timestamp
-from visbench.utils import set_seed
 
 
 def parse_args() -> argparse.Namespace:
@@ -78,7 +74,6 @@ def load_split(root: Path, split: str, limit: int = None) -> ImageFolderDataset:
 
 def main() -> None:
     args = parse_args()
-    seed = set_seed(args.seed)
 
     train = load_split(args.data, "train", args.limit)
     test = load_split(args.data, "val", args.limit)
@@ -86,6 +81,10 @@ def main() -> None:
     print(f"val:   {len(test)} images")
 
     backbone = visbench.get_backbone(args.backbone, device=args.device)
+    cache = FeatureCache(root=args.cache)
+
+    # Configured up front and passed as an object: `device` means the backbone
+    # in run()'s signature, so the probe's own device has to come this way.
     probe = visbench.get_probe(
         "classification",
         num_classes=len(train.classes),
@@ -94,63 +93,34 @@ def main() -> None:
         weight_decay=args.weight_decay,
         standardize=args.standardize,
         device=args.device,
+        pooling=args.pooling or "default",
     )
-    # Resolve "default" to what the backbone actually does, so the record says
-    # "cls" rather than a word whose meaning depends on the architecture.
-    pooling = args.pooling or probe.pooling
-    if pooling == "default":
-        pooling = backbone.default_pooling()
-    cache = FeatureCache(root=args.cache)
 
-    started = time.perf_counter()
-    print(f"\nextracting with {backbone.name} (pooling={pooling})...")
-    train_features = cache.extract_dataset(
-        backbone, train, pooling=pooling, batch_size=args.batch_size, keep="pooled"
+    print(f"\nextracting with {backbone.name} and fitting the probe...")
+    result = visbench.run(
+        backbone,
+        probe,
+        test,
+        train_dataset=train,
+        cache=cache,
+        results=args.results,
+        batch_size=args.batch_size,
+        seed=args.seed,
     )
-    test_features = cache.extract_dataset(
-        backbone, test, pooling=pooling, batch_size=args.batch_size, keep="pooled"
-    )
+
     stats = cache.stats()
     print(f"cache: {stats['hits']} hits, {stats['misses']} misses")
-    print(f"features: {tuple(train_features['pooled'].shape)}")
-
-    print(f"\ntraining linear probe ({args.epochs} epochs, lr={args.lr})...")
-    probe.fit(train_features, train.labels())
-    metrics = probe.evaluate(test_features, test.labels())
-    duration = time.perf_counter() - started
-
-    print(f"\ntrain top1: {probe.train_top1:.4f}   (loss {probe.train_loss:.4f})")
-    for name, value in metrics.items():
+    print(f"\ntrain top1: {result.probe.train_top1:.4f}   (loss {result.probe.train_loss:.4f})")
+    for name, value in result.metrics.items():
         print(f"val   {name}: {value:.4f}")
-    if probe.train_top1 < 0.9:
+    if result.probe.train_top1 < 0.9:
         print(
             "\n  note: training accuracy is low, so the probe underfitted rather than\n"
             "  the backbone being weak. Try --epochs 500 --lr 0.05, or --standardize."
         )
 
-    described = {**test.describe(), **probe.describe()}
-    record = ResultRecord(
-        backbone=backbone.name,
-        backbone_key=backbone.cache_key(),
-        task=described["task"],
-        level=described["level"],
-        dataset=args.data.name,
-        split=described["split"],
-        dataset_size=described["dataset_size"],
-        dataset_fingerprint=described["dataset_fingerprint"],
-        pooling=pooling,
-        feature_mode=described["feature_mode"],
-        task_params=described["task_params"],
-        metrics=metrics,
-        timestamp=utc_timestamp(),
-        visbench_version=visbench.__version__,
-        seed=seed,
-        duration_seconds=duration,
-    )
-    with ResultWriter(args.results) as writer:
-        writer.write(record)
     print(f"\nwrote {args.results}")
-    print(json.dumps(record.to_dict(), indent=2, sort_keys=True))
+    print(json.dumps(result.record.to_dict(), indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

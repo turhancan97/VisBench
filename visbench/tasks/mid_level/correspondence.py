@@ -68,6 +68,7 @@ class CorrespondenceTask(BaseTask):
     level = "mid_level"
     feature_mode = FeatureMode.DENSE_ONLY
     zero_shot = True
+    uses_dense = True
 
     def __init__(
         self,

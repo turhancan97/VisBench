@@ -26,6 +26,7 @@ __all__ = [
     "get_probe",
     "list_backbones",
     "list_probes",
+    "run",
     "FeatureDict",
     "FeatureMode",
     "Pooling",
@@ -84,3 +85,15 @@ def list_backbones() -> list[str]:
 def list_probes() -> list[str]:
     """Names accepted by :func:`get_probe`."""
     return registry.list_tasks()
+
+
+def run(*args: Any, **kwargs: Any) -> Any:
+    """Backbone + task + data -> scored, logged result. See :mod:`visbench.runner`.
+
+    Imported lazily so that ``import visbench`` stays cheap; the module pulls in
+    the cache and result writer, which a caller reaching only for
+    ``get_backbone`` does not need.
+    """
+    from visbench.runner import run as _run
+
+    return _run(*args, **kwargs)

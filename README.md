@@ -15,33 +15,46 @@
 
 ---
 
-> **Status: v0.1.0.dev0 — feature complete bar the lockfile.** Both backbones
-> (DINOv2, CLIP) and all three tasks (classification, retrieval,
-> correspondence) run end-to-end on a local image folder. See
-> [Build order](#build-order).
+> **Status: v0.1.0.dev0 — v0.1 scope complete.** Both backbones (DINOv2, CLIP)
+> and all three tasks (classification, retrieval, correspondence) run
+> end-to-end on a local image folder, dependencies are locked, and `run()` does
+> the whole path in one call. See [Build order](#build-order).
 
 ## What it is
 
 VisBench answers one question with as little ceremony as possible: *what does
 this vision backbone actually encode?*
 
-Working today — folder to scored metrics, on any image folder laid out as
-`root/<class_name>/<image>`:
+Working today — folder to scored, logged metrics, on any image folder laid out
+as `root/<class_name>/<image>`:
 
 ```python
 import visbench
-from visbench.cache import FeatureCache
 from visbench.data import ImageFolderDataset
+
+result = visbench.run(
+    "dinov2_vitb14",
+    "retrieval",
+    ImageFolderDataset("data/tiny", split="val"),
+    results="results/visbench.jsonl",
+)
+result.metrics    # {"recall@1": 0.94, "recall@5": 0.99, "mAP": 0.87}
+result.record     # the ResultRecord that says exactly how they were produced
+```
+
+`run()` resolves pooling, extracts through the cache, fits the probe if it
+trains, evaluates, and appends the record. The pieces are public if you want
+them separately:
+
+```python
+from visbench.cache import FeatureCache
 
 backbone = visbench.get_backbone("dinov2_vitb14")      # frozen, eval mode
 probe    = visbench.get_probe("retrieval")             # zero-shot
-dataset  = ImageFolderDataset("data/tiny", split="val")
-
 features = FeatureCache().extract_dataset(
     backbone, dataset, pooling=probe.pooling, keep="pooled"
 )                                                      # one forward pass per image
 probe.evaluate(features, dataset.labels())
-# {"recall@1": 0.94, "recall@5": 0.99, "mAP": 0.87}
 ```
 
 Re-running is cheap. On Imagenette (13,394 images, DINOv2 ViT-S, one V100):
@@ -58,18 +71,21 @@ task that never reads them cost 5 GB instead of 107 MB. Results go to JSONL
 through `visbench.results.ResultWriter`, under one schema from the first
 record.
 
-Trained probes follow the same shape, with a `fit` on the training split. A
-train/test split is just two datasets, so each half carries its own
-fingerprint into its own record:
+Trained probes take the same call with a training split. A train/test split is
+just two datasets, so each half carries its own fingerprint:
 
 ```python
-probe = visbench.get_probe("classification")
-probe.fit(train_features, train_dataset.labels())
-probe.evaluate(test_features, test_dataset.labels())   # {"top1": ..., "top5": ...}
-
-probe.train_top1     # 0.99 — if this is low, the probe underfitted,
-                     # not the backbone. Raise `lr` or `epochs`.
+result = visbench.run(
+    "dinov2_vitb14", "classification", val_dataset, train_dataset=train_dataset
+)
+result.metrics             # {"top1": ..., "top5": ...}
+result.probe.train_top1    # 0.99 — if this is low, the probe underfitted,
+                           # not the backbone. Raise `lr` or `epochs`.
 ```
+
+Passing `train_dataset` to a zero-shot task raises rather than being ignored:
+silently dropping it would leave the caller's intent and the result
+disagreeing.
 
 The linear probe trains with AdamW on cached features, so its hyperparameters
 are part of the reported number and travel with it in the record's
@@ -120,7 +136,7 @@ This is a multi-month roadmap, built one reviewed step at a time.
 - [x] **2.** `BaseBackbone` + feature cache + DINOv2, with tests
 - [x] **3.** `BaseTask` + one task end-to-end on a local image folder
 - [x] **4.** Next task, then next backbone — all three v0.1 tasks, both v0.1
-      backbones; only the lockfile remains
+      backbones, `uv.lock`, and the `run()` entry point
 - [ ] **5.** v0.2 scope — only once all of v0.1 is implemented, tested, reviewed
 
 ## Roadmap
@@ -135,9 +151,17 @@ This is a multi-month roadmap, built one reviewed step at a time.
 
 Every run logs a structured JSON record — backbone, weights key, task, dataset,
 pooling, feature mode, metrics, seed, timestamp — under one schema from v0.1,
-so leaderboard tooling never needs a retrofit. Dependencies are pinned via a
-lockfile; ranges in `pyproject.toml` carry upper bounds so a minor dependency
-release cannot quietly move reported numbers.
+so leaderboard tooling never needs a retrofit. Dependencies are pinned in
+[`uv.lock`](uv.lock) — exact versions and hashes for every platform, covering
+the `clip` and `dev` extras too — and CI fails if it drifts from
+`pyproject.toml`. The ranges in `pyproject.toml` carry upper bounds so that a
+minor dependency release cannot quietly move reported numbers even when
+installing without the lock:
+
+```bash
+uv sync --all-extras     # exact locked versions
+pip install -e ".[dev,clip]"   # ranges, for day-to-day work
+```
 
 Backbone weights are pinned the same way. DINOv2 loads from a fixed upstream
 commit rather than the default branch, and that ref is part of the cache key —

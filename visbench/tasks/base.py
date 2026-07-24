@@ -41,6 +41,12 @@ class BaseTask(ABC):
     #: True for tasks where :meth:`fit` is a no-op.
     zero_shot: bool = False
 
+    #: Whether the task reads the dense grid rather than the pooled vector.
+    #: Declared, not inferred: it tells the cache which half of the extraction
+    #: to keep and store, and dense features are ~250x the size of pooled ones,
+    #: so guessing it from the task's level would be an expensive guess.
+    uses_dense: bool = False
+
     def fit(self, features: Any, labels: Optional[Any] = None) -> "BaseTask":
         """Train the probe head on cached features.
 

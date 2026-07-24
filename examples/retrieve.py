@@ -19,15 +19,11 @@ This is an example, not the CLI, which stays deferred to v0.2.
 
 import argparse
 import json
-import time
 from pathlib import Path
 
 import visbench
 from visbench.cache import FeatureCache
 from visbench.data import ImageFolderDataset
-from visbench.results import ResultRecord, ResultWriter
-from visbench.results.schema import utc_timestamp
-from visbench.utils import set_seed
 
 
 def parse_args() -> argparse.Namespace:
@@ -65,26 +61,12 @@ def load(root: Path, split: str, limit: int = None) -> ImageFolderDataset:
 
 def main() -> None:
     args = parse_args()
-    seed = set_seed(args.seed)
 
     dataset = load(args.data, args.split, args.limit)
     print(f"{len(dataset)} images, {len(dataset.classes)} classes")
 
     backbone = visbench.get_backbone(args.backbone, device=args.device)
-    probe = visbench.get_probe("retrieval", topk=tuple(args.topk), metric=args.metric)
-    pooling = args.pooling or probe.pooling
-    if pooling == "default":
-        pooling = backbone.default_pooling()
-
     cache = FeatureCache(root=args.cache)
-    started = time.perf_counter()
-
-    print(f"\nextracting with {backbone.name} (pooling={pooling})...")
-    features = cache.extract_dataset(
-        backbone, dataset, pooling=pooling, batch_size=args.batch_size, keep="pooled"
-    )
-    stats = cache.stats()
-    print(f"cache: {stats['hits']} hits, {stats['misses']} misses")
 
     # Leave-one-out ranking is an N x N score matrix; at 50k images that is
     # ~10 GB, so warn rather than let it fail deep inside torch.
@@ -95,38 +77,29 @@ def main() -> None:
             f"score matrix (~{pairs * 4 / 1e9:.1f} GB). Consider --limit."
         )
 
-    print(f"\nranking ({args.metric}, leave-one-out)...")
-    metrics = probe.fit(features).evaluate(features, dataset.labels())
-    duration = time.perf_counter() - started
+    print(f"\nextracting with {backbone.name} and ranking ({args.metric})...")
+    result = visbench.run(
+        backbone,
+        "retrieval",
+        dataset,
+        cache=cache,
+        results=args.results,
+        batch_size=args.batch_size,
+        seed=args.seed,
+        topk=tuple(args.topk),
+        metric=args.metric,
+        pooling=args.pooling or "default",
+    )
 
-    for name, value in metrics.items():
+    stats = cache.stats()
+    print(f"cache: {stats['hits']} hits, {stats['misses']} misses")
+    for name, value in result.metrics.items():
         print(f"  {name}: {value:.4f}")
     chance = 1.0 / len(dataset.classes)
     print(f"\n  (chance recall@1 for {len(dataset.classes)} classes is ~{chance:.4f})")
 
-    described = {**dataset.describe(), **probe.describe()}
-    record = ResultRecord(
-        backbone=backbone.name,
-        backbone_key=backbone.cache_key(),
-        task=described["task"],
-        level=described["level"],
-        dataset=args.data.name,
-        split=described["split"],
-        dataset_size=described["dataset_size"],
-        dataset_fingerprint=described["dataset_fingerprint"],
-        pooling=pooling,
-        feature_mode=described["feature_mode"],
-        task_params={"metric": args.metric, "topk": list(args.topk)},
-        metrics=metrics,
-        timestamp=utc_timestamp(),
-        visbench_version=visbench.__version__,
-        seed=seed,
-        duration_seconds=duration,
-    )
-    with ResultWriter(args.results) as writer:
-        writer.write(record)
     print(f"\nwrote {args.results}")
-    print(json.dumps(record.to_dict(), indent=2, sort_keys=True))
+    print(json.dumps(result.record.to_dict(), indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

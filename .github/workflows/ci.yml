@@ -51,6 +51,16 @@ jobs:
       - name: pytest
         run: pytest tests/ -v
 
+  lock:
+    # A lockfile that has drifted from pyproject.toml is worse than none: it
+    # looks like a reproducibility guarantee and is not one.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: uv.lock matches pyproject.toml
+        run: uv lock --check
+
   build:
     # Guards the PyPI target: catches a broken pyproject (missing LICENSE,
     # bad metadata) long before a release is attempted.
