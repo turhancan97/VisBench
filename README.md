@@ -15,9 +15,9 @@
 
 ---
 
-> **Status: v0.1.0.dev0 — all three v0.1 tasks work.** DINOv2, the feature
-> cache, and classification / retrieval / correspondence all run end-to-end on
-> a local image folder. CLIP and the lockfile close out v0.1. See
+> **Status: v0.1.0.dev0 — feature complete bar the lockfile.** Both backbones
+> (DINOv2, CLIP) and all three tasks (classification, retrieval,
+> correspondence) run end-to-end on a local image folder. See
 > [Build order](#build-order).
 
 ## What it is
@@ -119,8 +119,8 @@ This is a multi-month roadmap, built one reviewed step at a time.
 - [x] **1. Scaffold** — every folder and module, docstrings and stubs, no logic
 - [x] **2.** `BaseBackbone` + feature cache + DINOv2, with tests
 - [x] **3.** `BaseTask` + one task end-to-end on a local image folder
-- [x] **4.** Next task, then next backbone — all three v0.1 tasks done; CLIP
-      and the lockfile remain
+- [x] **4.** Next task, then next backbone — all three v0.1 tasks, both v0.1
+      backbones; only the lockfile remains
 - [ ] **5.** v0.2 scope — only once all of v0.1 is implemented, tested, reviewed
 
 ## Roadmap
@@ -143,7 +143,15 @@ Backbone weights are pinned the same way. DINOv2 loads from a fixed upstream
 commit rather than the default branch, and that ref is part of the cache key —
 so bumping it invalidates every stale entry instead of silently serving
 features from the old weights. Pass `checkpoint=` to load local weights; the
-cache key then carries a hash of that file instead.
+cache key then carries a hash of that file instead. CLIP's cache key carries
+its pretrained tag, since `openai` and `laion2b` are different models behind
+one name.
+
+CLIP returns the **pre-projection** CLS token by default, not the 512-d
+image-text embedding. The projection is trained to discard whatever does not
+help match a caption, which is exactly what a mid-level probe measures, and
+DINOv2 has no equivalent head to compare against. `use_projection=True` gets
+the projected vector, under its own cache key.
 
 ## Prior art
 
@@ -169,7 +177,7 @@ Development:
 git clone https://github.com/turhancan97/VisBench && cd VisBench
 pip install -e ".[dev,clip]"
 pytest              # fast tests, no weights downloaded
-pytest -m slow      # also runs the real DINOv2 checkpoint against torch.hub
+pytest -m slow      # also runs the real DINOv2 and CLIP checkpoints
 ```
 
 ## Try it on your own data
@@ -222,20 +230,26 @@ the backbone failed.
 
 ### Measured on Imagenette
 
-DINOv2 ViT-S/14, CLS pooling, one V100:
+Both v0.1 backbones, CLS pooling, one V100. Classification and retrieval on the
+full 3,925-image val split; correspondence on 50 pairs at `max_warp=0.2`.
 
-| task | pooling | metric | score | ceiling |
-|---|---|---|---|---|
-| classification (linear probe) | cls | top1 | 0.9939 | — |
-| retrieval (zero-shot) | cls | recall@1 | 0.9921 | — |
-| retrieval (zero-shot) | cls | mAP | 0.8893 | — |
-| retrieval (zero-shot) | mean | recall@1 | 0.9740 | — |
-| retrieval (zero-shot) | mean | mAP | 0.8314 | — |
-| correspondence (zero-shot) | dense | recall@0.5p | 0.4584 | 0.7398 |
-| correspondence (zero-shot) | dense | recall@1p | 0.7650 | 0.9408 |
-| correspondence (zero-shot) | dense | recall@2p | 0.9174 | 0.9840 |
+| task | metric | DINOv2 ViT-S/14 | CLIP ViT-B/16 |
+|---|---|---|---|
+| classification (linear probe) | top1 | 0.9939 | **0.9954** |
+| retrieval (zero-shot) | recall@1 | **0.9921** | 0.9893 |
+| retrieval (zero-shot) | mAP | 0.8893 | **0.9102** |
+| correspondence (zero-shot) | recall@1p | **0.7650** | 0.6993 |
+| correspondence (zero-shot) | ceiling | 0.9408 | 0.9505 |
 
-Correspondence used 50 pairs at `max_warp=0.2`, 16x16 patches.
+The split is the interesting part: CLIP is ahead on the two semantic tasks and
+clearly behind on the geometric one, despite a *higher* ceiling (its 14x14 grid
+quantises less than DINOv2's 16x16 at this resolution). That is the high-level
+vs mid-level distinction the task taxonomy exists to expose, and it only shows
+up because correspondence measures error in patch widths — in pixels the two
+grids would have been measured with different rulers.
+
+Retrieval with `--pooling mean` instead of CLS costs DINOv2 about 1.8 points of
+recall@1 (0.9740, mAP 0.8314).
 
 **Correspondence thresholds are in patch widths (`p`), not pixels.** A match
 can only land on a patch centre, so patch spacing is a hard floor on
