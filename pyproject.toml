@@ -62,6 +62,9 @@ packages = ["visbench"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Deselected by default so a plain `pytest` never downloads weights. An explicit
+# `-m slow` on the command line overrides this, since pytest honours the last -m.
+addopts = "-m 'not slow'"
 markers = [
     "slow: requires downloading backbone weights or a GPU",
 ]

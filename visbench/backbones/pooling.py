@@ -7,9 +7,11 @@ probing-mid-level-vision (Chen, Marks & Cheng, arXiv:2411.17474), whose
 and :attr:`FeatureMode.DENSE_CLS_BROADCAST` here.
 """
 
-from typing import Optional
+from typing import Optional, Union
 
 import torch
+
+from visbench.types import FEATURE_MODE_CHOICES, FeatureMode, Pooling
 
 __all__ = ["pool_tokens", "tokens_to_grid", "apply_feature_mode"]
 
@@ -37,7 +39,24 @@ def pool_tokens(
         If ``pooling="cls"`` is requested from a backbone with no CLS token —
         an explicit failure is better than silently falling back to mean.
     """
-    raise NotImplementedError
+    if pooling == Pooling.CLS:
+        if cls_token is None:
+            raise ValueError(
+                "pooling='cls' requested from a backbone with no CLS token. "
+                "Use pooling='mean', or pooling='default' to get this "
+                "architecture's appropriate default."
+            )
+        return cls_token
+    if pooling == Pooling.MEAN:
+        return patch_tokens.mean(dim=1)
+    if pooling == Pooling.DEFAULT:
+        raise ValueError(
+            "pooling='default' must be resolved by the caller "
+            "(BaseBackbone.default_pooling) before reaching pool_tokens()"
+        )
+    raise ValueError(
+        f"Unknown pooling {pooling!r}; expected one of {Pooling.CLS!r}, {Pooling.MEAN!r}"
+    )
 
 
 def tokens_to_grid(
@@ -49,14 +68,26 @@ def tokens_to_grid(
     Asserts ``N == H * W`` so that an unstripped CLS or register token surfaces
     as a loud error rather than a silently misaligned feature map.
     """
-    raise NotImplementedError
+    if patch_tokens.ndim != 3:
+        raise ValueError(
+            f"Expected patch tokens of shape (B, N, C), got {tuple(patch_tokens.shape)}"
+        )
+    b, n, c = patch_tokens.shape
+    h, w = grid_hw
+    if n != h * w:
+        raise ValueError(
+            f"Token count {n} does not match grid {h}x{w} = {h * w}. "
+            "A CLS or register token was probably left in the sequence."
+        )
+    # transpose gives a non-contiguous view, so reshape (not view) is required.
+    return patch_tokens.transpose(1, 2).reshape(b, c, h, w)
 
 
 def apply_feature_mode(
     dense: torch.Tensor,
     cls_token: Optional[torch.Tensor],
     mode: str,
-):
+) -> Union[torch.Tensor, tuple[torch.Tensor, Optional[torch.Tensor]]]:
     """Assemble the representation a dense task head receives.
 
     Returns
@@ -69,6 +100,30 @@ def apply_feature_mode(
         ``((B, C, H, W), (B, C_cls))`` — kept separate; the head decides how to
         fuse them. No prior-art implementation to follow; design deliberately.
 
-    Only ``dense_only`` is enabled in v0.1; the others raise until v0.2.
+    All three modes work from v0.1 so the interface never has to change, but
+    ``dense_only`` is the only one any v0.1 task requests; the other two exist
+    for the dense-prediction heads landing in v0.2 (CLAUDE.md, "Dense-task
+    feature modes").
     """
-    raise NotImplementedError
+    if mode == FeatureMode.DENSE_ONLY:
+        return dense
+
+    if mode == FeatureMode.DENSE_CLS_BROADCAST:
+        if cls_token is None:
+            raise ValueError(
+                f"feature_mode={mode!r} needs a CLS token, but this backbone has none. "
+                f"Use {FeatureMode.DENSE_ONLY!r}."
+            )
+        b, _, h, w = dense.shape
+        broadcast = cls_token[:, :, None, None].expand(b, cls_token.shape[1], h, w)
+        return torch.cat([dense, broadcast], dim=1)
+
+    if mode == FeatureMode.DENSE_PLUS_CLS:
+        if cls_token is None:
+            raise ValueError(
+                f"feature_mode={mode!r} needs a CLS token, but this backbone has none. "
+                f"Use {FeatureMode.DENSE_ONLY!r}."
+            )
+        return dense, cls_token
+
+    raise ValueError(f"Unknown feature mode {mode!r}; expected one of {FEATURE_MODE_CHOICES}")

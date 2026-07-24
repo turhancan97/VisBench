@@ -1,36 +1,278 @@
-"""Contract tests for the feature cache — filled in at build step 2.
+"""Contract tests for the feature cache.
 
 The cache is the piece most likely to fail silently, so these matter more than
 their line count suggests:
 
 * A second extraction of the same image hits the cache; the backbone forward
-  runs exactly once (assert via a call-counting fake backbone).
+  runs exactly once (asserted via the call-counting fake backbone).
 * Changing any key component — image, backbone key, layer, pooling — misses.
 * Two identical images under different filenames share one entry.
 * ``enabled=False`` always misses without changing call sites.
 * An interrupted write leaves no readable entry (atomic writes).
 """
 
-import pytest
+import torch
+from PIL import Image
 
-pytestmark = pytest.mark.skip(reason="Scaffold only — implemented at build step 2.")
+from visbench.cache import FeatureCache, hash_image, make_key
+from visbench.types import Pooling
+from visbench.utils.image import load_image
 
 
-def test_second_extraction_hits_cache():
-    raise NotImplementedError
+def make_cache(tmp_path, **kwargs):
+    return FeatureCache(root=tmp_path / "cache", **kwargs)
+
+
+def features(value: float = 1.0):
+    return {
+        "dense": torch.full((1, 8, 4, 4), value),
+        "pooled": torch.full((1, 8), value),
+        "grid_hw": (4, 4),
+    }
+
+
+# -- round trip --------------------------------------------------------------
+
+
+def test_put_then_get_round_trips(tmp_path):
+    cache = make_cache(tmp_path)
+    cache.put("k", features(3.0))
+    got = cache.get("k")
+
+    assert torch.equal(got["dense"], features(3.0)["dense"])
+    assert torch.equal(got["pooled"], features(3.0)["pooled"])
+    assert got["grid_hw"] == (4, 4)
+
+
+def test_grid_hw_survives_as_a_tuple(tmp_path):
+    """Stored as a list for weights_only=True; a task unpacking it needs a tuple."""
+    cache = make_cache(tmp_path)
+    cache.put("k", features())
+    assert isinstance(cache.get("k")["grid_hw"], tuple)
+
+
+def test_miss_returns_none(tmp_path):
+    assert make_cache(tmp_path).get("absent") is None
+
+
+def test_entries_are_stored_on_cpu(tmp_path):
+    """A cache written on a GPU box must be readable on a laptop."""
+    cache = make_cache(tmp_path)
+    cache.put("k", features())
+    assert cache.get("k")["dense"].device.type == "cpu"
+
+
+# -- the central claim: one forward pass per image per backbone --------------
+
+
+def test_second_extraction_hits_cache(tmp_path, fake_vit, solid_images):
+    cache = make_cache(tmp_path)
+
+    first = cache.extract_dataset(fake_vit, solid_images)
+    assert fake_vit.call_count == 1
+
+    second = cache.extract_dataset(fake_vit, solid_images)
+    assert fake_vit.call_count == 1, "second pass re-ran the backbone"
+    assert torch.equal(first["pooled"], second["pooled"])
+
+
+def test_only_missing_images_are_recomputed(tmp_path, fake_vit, solid_images):
+    cache = make_cache(tmp_path)
+    cache.extract_dataset(fake_vit, solid_images[:2], batch_size=8)
+    assert fake_vit.call_count == 1
+
+    cache.extract_dataset(fake_vit, solid_images, batch_size=8)
+    # One more batch, containing only the two new images.
+    assert fake_vit.call_count == 2
+
+
+def test_get_or_compute_computes_once(tmp_path):
+    cache = make_cache(tmp_path)
+    calls = []
+
+    def compute():
+        calls.append(1)
+        return features()
+
+    cache.get_or_compute("k", compute)
+    cache.get_or_compute("k", compute)
+    assert len(calls) == 1
+
+
+def test_extract_dataset_preserves_order(tmp_path, fake_vit, solid_images):
+    cache = make_cache(tmp_path)
+    batched = cache.extract_dataset(fake_vit, solid_images, batch_size=2)
+    one_at_a_time = torch.cat(
+        [
+            make_cache(tmp_path / str(i)).extract_dataset(fake_vit, [img])["pooled"]
+            for i, img in enumerate(solid_images)
+        ]
+    )
+    assert torch.allclose(batched["pooled"], one_at_a_time)
+
+
+def test_extract_dataset_accepts_image_label_pairs(tmp_path, fake_vit, solid_images):
+    cache = make_cache(tmp_path)
+    labelled = [(img, i) for i, img in enumerate(solid_images)]
+    assert cache.extract_dataset(fake_vit, labelled)["pooled"].shape[0] == 4
+
+
+# -- key identity ------------------------------------------------------------
 
 
 def test_key_components_all_affect_identity():
-    raise NotImplementedError
+    base = dict(image_hash="abc", backbone_key="dinov2/vitb14/224", layer=None, pooling=Pooling.CLS)
+    key = make_key(**base)
+
+    assert make_key(**{**base, "image_hash": "def"}) != key
+    assert make_key(**{**base, "backbone_key": "clip/vitb16/224"}) != key
+    assert make_key(**{**base, "layer": 11}) != key
+    assert make_key(**{**base, "pooling": Pooling.MEAN}) != key
 
 
-def test_identical_images_share_entry():
-    raise NotImplementedError
+def test_default_layer_is_distinct_from_layer_zero():
+    """`None` and `0` must not collide, or v0.2 entries would poison v0.1 ones."""
+    base = dict(image_hash="abc", backbone_key="b", pooling=Pooling.CLS)
+    assert make_key(**base, layer=None) != make_key(**base, layer=0)
 
 
-def test_disabled_cache_always_misses():
-    raise NotImplementedError
+def test_pooling_change_misses(tmp_path, fake_vit, solid_images):
+    cache = make_cache(tmp_path)
+    cache.extract_dataset(fake_vit, solid_images, pooling=Pooling.CLS)
+    assert fake_vit.call_count == 1
+
+    cache.extract_dataset(fake_vit, solid_images, pooling=Pooling.MEAN)
+    assert fake_vit.call_count == 2, "different pooling must not reuse the entry"
 
 
-def test_partial_write_is_not_a_hit():
-    raise NotImplementedError
+def test_backbone_key_with_separator_is_rejected():
+    """A '|' in a backbone key would make the composite key ambiguous."""
+    import pytest
+
+    with pytest.raises(ValueError, match="must not contain"):
+        make_key("abc", "dinov2|vitb14", None, Pooling.CLS)
+
+
+# -- image hashing -----------------------------------------------------------
+
+
+def test_identical_images_share_entry(tmp_path, solid_images):
+    red = solid_images[0]
+    (tmp_path / "a").mkdir()
+    (tmp_path / "b").mkdir()
+    red.save(tmp_path / "a" / "first.png")
+    red.save(tmp_path / "b" / "second.png")
+
+    assert hash_image(load_image(tmp_path / "a" / "first.png")) == hash_image(
+        load_image(tmp_path / "b" / "second.png")
+    )
+
+
+def test_different_images_hash_differently(solid_images):
+    assert len({hash_image(img) for img in solid_images}) == len(solid_images)
+
+
+def test_transposed_dimensions_hash_differently():
+    """Raw bytes alone cannot tell a 2x3 image from a 3x2 one."""
+    assert hash_image(Image.new("RGB", (2, 3))) != hash_image(Image.new("RGB", (3, 2)))
+
+
+def test_hash_accepts_tensors():
+    assert hash_image(torch.zeros(3, 4, 4)) != hash_image(torch.ones(3, 4, 4))
+
+
+# -- disabled cache ----------------------------------------------------------
+
+
+def test_disabled_cache_always_misses(tmp_path):
+    cache = make_cache(tmp_path, enabled=False)
+    cache.put("k", features())
+    assert cache.get("k") is None
+
+
+def test_disabled_cache_still_extracts(tmp_path, fake_vit, solid_images):
+    """enabled=False changes performance, never call sites or results."""
+    disabled = make_cache(tmp_path, enabled=False)
+    enabled = make_cache(tmp_path, enabled=True)
+
+    without = disabled.extract_dataset(fake_vit, solid_images)
+    with_cache = enabled.extract_dataset(fake_vit, solid_images)
+    assert torch.allclose(without["pooled"], with_cache["pooled"])
+
+
+def test_disabled_cache_writes_nothing(tmp_path):
+    cache = make_cache(tmp_path, enabled=False)
+    cache.put("k", features())
+    assert not (tmp_path / "cache").exists()
+
+
+# -- durability --------------------------------------------------------------
+
+
+def test_partial_write_is_not_a_hit(tmp_path):
+    """A truncated file must read as a miss, never as corrupt features."""
+    cache = make_cache(tmp_path)
+    cache.put("k", features())
+
+    entry = next((tmp_path / "cache").rglob("*.pt"))
+    entry.write_bytes(entry.read_bytes()[: len(entry.read_bytes()) // 2])
+
+    assert cache.get("k") is None
+
+
+def test_failed_write_leaves_no_temp_file(tmp_path, monkeypatch):
+    cache = make_cache(tmp_path)
+
+    def explode(*args, **kwargs):
+        raise RuntimeError("disk full")
+
+    monkeypatch.setattr("visbench.cache.feature_cache.torch.save", explode)
+    try:
+        cache.put("k", features())
+    except RuntimeError:
+        pass
+
+    assert list((tmp_path / "cache").rglob("*.tmp")) == []
+    assert cache.get("k") is None
+
+
+def test_corrupt_entry_self_heals(tmp_path):
+    cache = make_cache(tmp_path)
+    cache.put("k", features(1.0))
+    next((tmp_path / "cache").rglob("*.pt")).write_bytes(b"garbage")
+
+    cache.put("k", features(2.0))
+    assert cache.get("k")["pooled"][0, 0] == 2.0
+
+
+# -- maintenance -------------------------------------------------------------
+
+
+def test_clear_by_backbone_leaves_others(tmp_path):
+    cache = make_cache(tmp_path)
+    cache.put(make_key("img", "dinov2/vitb14/224", None, Pooling.CLS), features())
+    cache.put(make_key("img", "clip/vitb16/224", None, Pooling.CLS), features())
+
+    assert cache.clear("dinov2/vitb14/224") == 1
+    assert cache.stats()["entries"] == 1
+
+
+def test_clear_all(tmp_path):
+    cache = make_cache(tmp_path)
+    cache.put("a", features())
+    cache.put("b", features())
+    assert cache.clear() == 2
+    assert cache.stats()["entries"] == 0
+
+
+def test_stats_counts_hits_and_misses(tmp_path):
+    cache = make_cache(tmp_path)
+    cache.get("absent")
+    cache.put("k", features())
+    cache.get("k")
+
+    stats = cache.stats()
+    assert stats["hits"] == 1
+    assert stats["misses"] == 1
+    assert stats["entries"] == 1
+    assert stats["bytes"] > 0

@@ -15,20 +15,34 @@
 
 ---
 
-> **Status: v0.1.0.dev0 — scaffold only.** The structure below is in place;
-> every function raises `NotImplementedError`. See [Build order](#build-order).
+> **Status: v0.1.0.dev0 — feature extraction works.** Backbones, pooling and the
+> feature cache are implemented and tested; tasks are still stubs. See
+> [Build order](#build-order).
 
 ## What it is
 
 VisBench answers one question with as little ceremony as possible: *what does
 this vision backbone actually encode?*
 
+Working today:
+
 ```python
 import visbench
+from visbench.cache import FeatureCache
 
-backbone = visbench.get_backbone("dinov2_vitb14")
-probe    = visbench.get_probe("classification")
+backbone = visbench.get_backbone("dinov2_vitb14")     # frozen, eval mode
+cache    = FeatureCache()
 
+features = cache.extract_dataset(backbone, images)     # one forward pass per image
+features["pooled"]    # (N, 768) — CLS by default for a ViT
+features["dense"]     # (N, 768, 16, 16)
+features["grid_hw"]   # (16, 16)
+```
+
+The rest of the target API, once tasks land at build step 3:
+
+```python
+probe = visbench.get_probe("classification")
 probe.fit(train_features, train_labels)
 metrics = probe.evaluate(test_features, test_labels)   # {"top1": ..., "top5": ...}
 ```
@@ -75,7 +89,7 @@ membership.
 This is a multi-month roadmap, built one reviewed step at a time.
 
 - [x] **1. Scaffold** — every folder and module, docstrings and stubs, no logic
-- [ ] **2.** `BaseBackbone` + feature cache + DINOv2, with tests
+- [x] **2.** `BaseBackbone` + feature cache + DINOv2, with tests
 - [ ] **3.** `BaseTask` + one task end-to-end on a local image folder
 - [ ] **4.** Next task, then next backbone
 - [ ] **5.** v0.2 scope — only once all of v0.1 is implemented, tested, reviewed
@@ -119,7 +133,8 @@ Development:
 ```bash
 git clone https://github.com/turhancan97/VisBench && cd VisBench
 pip install -e ".[dev,clip]"
-pytest
+pytest              # fast tests, no weights downloaded
+pytest -m slow      # also runs the real DINOv2 checkpoint against torch.hub
 ```
 
 ## License

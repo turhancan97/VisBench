@@ -8,5 +8,8 @@ backbones (arbitrary ``nn.Module`` + preprocessing fn) arrive in v0.2.
 """
 
 from visbench.backbones.base import BaseBackbone
+from visbench.backbones.dinov2 import DINOv2
 
-__all__ = ["BaseBackbone", "DINOv2", "CLIP"]
+# CLIP is added here once it is implemented; importing an unimplemented module
+# would register a name that cannot be constructed.
+__all__ = ["BaseBackbone", "DINOv2"]

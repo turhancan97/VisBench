@@ -1,0 +1,114 @@
+"""Shared test fixtures.
+
+The fake backbones here exist so the :class:`BaseBackbone` contract and the
+feature cache can be tested without downloading weights. A test that needs the
+real DINOv2 checkpoint is marked ``slow`` and lives beside these.
+"""
+
+from typing import Optional
+
+import pytest
+import torch
+from PIL import Image
+
+from visbench.backbones.base import BaseBackbone
+
+
+class FakeViT(BaseBackbone):
+    """ViT-shaped backbone with deterministic features and a call counter.
+
+    Features are derived from the input, not random, so a cached value and a
+    recomputed one can be compared for equality.
+    """
+
+    has_cls_token = True
+
+    def __init__(self, device: Optional[str] = "cpu", embed_dim: int = 8, patch_size: int = 16):
+        super().__init__(device)
+        self.name = "fake_vit"
+        self.embed_dim = embed_dim
+        self.patch_size = patch_size
+        self.image_size = 64
+        #: Incremented on every forward, so tests can assert the cache actually
+        #: prevented a second extraction.
+        self.call_count = 0
+        # One real parameter, so freeze/eval assertions have something to check.
+        self.proj = torch.nn.Linear(3, embed_dim)
+        self._finalize()
+
+    def _forward_features(self, image, layers):
+        self.call_count += 1
+        b, _, h, w = image.shape
+        grid_hw = (h // self.patch_size, w // self.patch_size)
+        n = grid_hw[0] * grid_hw[1]
+        # Deterministic in the input: mean colour per image, projected, then
+        # varied per token so mean-pooling and CLS differ.
+        base = self.proj(image.mean(dim=(2, 3)))
+        offsets = torch.arange(n, dtype=base.dtype).view(1, n, 1)
+        patch_tokens = base.unsqueeze(1) + offsets
+        cls_token = base * 2.0
+        return patch_tokens, cls_token, grid_hw
+
+    def preprocess(self, images):
+        if isinstance(images, Image.Image):
+            images = [images]
+        tensors = []
+        for img in images:
+            resized = img.convert("RGB").resize((self.image_size, self.image_size))
+            # bytearray, not bytes: frombuffer warns on a read-only buffer.
+            array = torch.frombuffer(bytearray(resized.tobytes()), dtype=torch.uint8)
+            tensors.append(
+                array.view(self.image_size, self.image_size, 3).permute(2, 0, 1).float() / 255
+            )
+        return torch.stack(tensors)
+
+    def cache_key(self) -> str:
+        return f"fake_vit/{self.embed_dim}/{self.image_size}"
+
+
+class FakeCNN(BaseBackbone):
+    """CNN-shaped backbone: no CLS token, conv map flattened to tokens.
+
+    Present to prove the base class needs no ``if is_vit`` branch — the same
+    ``extract_features`` serves both families.
+    """
+
+    has_cls_token = False
+
+    def __init__(self, device: Optional[str] = "cpu", embed_dim: int = 8):
+        super().__init__(device)
+        self.name = "fake_cnn"
+        self.embed_dim = embed_dim
+        self.patch_size = None
+        self.image_size = 64
+        self.conv = torch.nn.Conv2d(3, embed_dim, kernel_size=8, stride=8)
+        self._finalize()
+
+    def _forward_features(self, image, layers):
+        feature_map = self.conv(image)
+        b, c, h, w = feature_map.shape
+        # The flatten a real CNN subclass performs; CLS is None.
+        return feature_map.flatten(2).transpose(1, 2), None, (h, w)
+
+    def preprocess(self, images):
+        raise NotImplementedError("Not needed for these tests")
+
+    def cache_key(self) -> str:
+        return f"fake_cnn/{self.embed_dim}/{self.image_size}"
+
+
+@pytest.fixture
+def fake_vit():
+    return FakeViT()
+
+
+@pytest.fixture
+def fake_cnn():
+    return FakeCNN()
+
+
+@pytest.fixture
+def solid_images():
+    """Four distinguishable 64x64 images."""
+    colours = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (128, 128, 128)]
+    return [Image.new("RGB", (64, 64), colour) for colour in colours]

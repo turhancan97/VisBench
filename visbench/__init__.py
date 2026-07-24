@@ -16,6 +16,7 @@ protocols for depth, surface normal and correspondence follow probe3d
 
 from typing import Any
 
+from visbench import registry
 from visbench.types import FeatureDict, FeatureMode, Pooling
 
 __version__ = "0.1.0.dev0"
@@ -48,7 +49,7 @@ def get_backbone(name: str, **kwargs: Any) -> "Any":
     BaseBackbone
         A frozen, eval-mode backbone exposing ``.extract_features()``.
     """
-    raise NotImplementedError
+    return registry.build_backbone(name, **kwargs)
 
 
 def get_probe(name: str, **kwargs: Any) -> "Any":
@@ -66,15 +67,20 @@ def get_probe(name: str, **kwargs: Any) -> "Any":
     -------
     BaseTask
         A task exposing ``.fit()`` / ``.predict()`` / ``.evaluate()``.
+
+    Notes
+    -----
+    No task is registered yet — tasks land at build step 3, so this currently
+    raises ``KeyError`` for every name.
     """
-    raise NotImplementedError
+    return registry.build_task(name, **kwargs)
 
 
 def list_backbones() -> list[str]:
     """Names accepted by :func:`get_backbone`."""
-    raise NotImplementedError
+    return registry.list_backbones()
 
 
 def list_probes() -> list[str]:
     """Names accepted by :func:`get_probe`."""
-    raise NotImplementedError
+    return registry.list_tasks()

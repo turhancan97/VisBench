@@ -2,6 +2,14 @@
 
 Keeping registration decoupled from the public API means adding a backbone or
 task is a one-decorator change in that module, with no edits to __init__.py.
+
+One class may claim several names. DINOv2 registers both ``dinov2_vits14`` and
+``dinov2_vitb14``, differing only by constructor kwargs, so an entry is
+``(class, default_kwargs)`` rather than a bare class. That is also why
+registration does **not** write ``cls.name``: with two names on one class the
+last decorator would win and every instance would misreport itself — and
+``name`` feeds the cache key, so the damage would be silently-wrong features,
+not a crash. Instances set their own ``name`` in ``__init__``.
 """
 
 from typing import Any, Callable
@@ -13,50 +21,134 @@ __all__ = [
     "get_task_class",
     "list_backbones",
     "list_tasks",
+    "build_backbone",
+    "build_task",
 ]
 
-_BACKBONES: dict[str, type] = {}
-_TASKS: dict[str, type] = {}
+#: name -> (class, default constructor kwargs)
+_BACKBONES: dict[str, tuple[type, dict]] = {}
+_TASKS: dict[str, tuple[type, dict]] = {}
 
 
-def register_backbone(name: str) -> Callable[[type], type]:
+def _register(
+    registry: dict[str, tuple[type, dict]],
+    kind: str,
+    name: str,
+    defaults: dict,
+) -> Callable[[type], type]:
+    def decorator(cls: type) -> type:
+        if name in registry:
+            existing = registry[name][0]
+            raise ValueError(
+                f"{kind} name {name!r} is already registered to "
+                f"{existing.__module__}.{existing.__qualname__}; "
+                f"cannot re-register it for {cls.__module__}.{cls.__qualname__}"
+            )
+        registry[name] = (cls, defaults)
+        return cls
+
+    return decorator
+
+
+def register_backbone(name: str, **default_kwargs: Any) -> Callable[[type], type]:
     """Class decorator registering a :class:`BaseBackbone` subclass under ``name``.
+
+    ``default_kwargs`` are passed to the constructor when the backbone is built
+    through :func:`visbench.get_backbone`, and are overridden by anything the
+    caller passes explicitly.
 
     Raises on duplicate names rather than silently overwriting, so a typo in a
     new backbone cannot shadow an existing one.
     """
-    raise NotImplementedError
+    return _register(_BACKBONES, "Backbone", name, default_kwargs)
 
 
-def register_task(name: str) -> Callable[[type], type]:
+def register_task(name: str, **default_kwargs: Any) -> Callable[[type], type]:
     """Class decorator registering a :class:`BaseTask` subclass under ``name``."""
-    raise NotImplementedError
+    return _register(_TASKS, "Task", name, default_kwargs)
+
+
+def _lookup(
+    registry: dict[str, tuple[type, dict]],
+    kind: str,
+    name: str,
+) -> tuple[type, dict]:
+    _ensure_imported()
+    if name not in registry:
+        known = ", ".join(sorted(registry)) or "(none registered)"
+        raise KeyError(f"Unknown {kind} {name!r}. Available: {known}")
+    return registry[name]
 
 
 def get_backbone_class(name: str) -> type:
     """Look up a registered backbone class, with a helpful error listing known names."""
-    raise NotImplementedError
+    return _lookup(_BACKBONES, "backbone", name)[0]
 
 
 def get_task_class(name: str) -> type:
     """Look up a registered task class, with a helpful error listing known names."""
-    raise NotImplementedError
+    return _lookup(_TASKS, "task", name)[0]
+
+
+def build_backbone(name: str, **kwargs: Any) -> Any:
+    """Instantiate a registered backbone, merging registered defaults with ``kwargs``."""
+    cls, defaults = _lookup(_BACKBONES, "backbone", name)
+    return cls(**{**defaults, **kwargs})
+
+
+def build_task(name: str, **kwargs: Any) -> Any:
+    """Instantiate a registered task, merging registered defaults with ``kwargs``."""
+    cls, defaults = _lookup(_TASKS, "task", name)
+    return cls(**{**defaults, **kwargs})
 
 
 def list_backbones() -> list[str]:
     """Return the sorted names of all registered backbones."""
-    raise NotImplementedError
+    _ensure_imported()
+    return sorted(_BACKBONES)
 
 
 def list_tasks() -> list[str]:
     """Return the sorted names of all registered tasks."""
-    raise NotImplementedError
+    _ensure_imported()
+    return sorted(_TASKS)
 
 
-def _ensure_imported() -> Any:
+#: Modules whose import side effect is registration. Optional-dependency
+#: backbones are imported tolerantly below.
+_REGISTRATION_MODULES = (
+    "visbench.backbones.dinov2",
+    "visbench.backbones.clip",
+    "visbench.tasks.high_level.classification",
+    "visbench.tasks.high_level.retrieval",
+    "visbench.tasks.mid_level.correspondence",
+)
+
+_IMPORTED = False
+
+
+def _ensure_imported() -> None:
     """Import the backbone/task subpackages so their decorators have run.
 
     Called by the lookup helpers; keeps registration lazy enough that importing
     ``visbench`` does not pull in every optional dependency.
+
+    A module whose optional dependency is missing (e.g. CLIP without
+    ``open_clip_torch``) is skipped rather than fatal — the cost of a missing
+    extra should be that one name is absent from :func:`list_backbones`, not
+    that the whole library fails to import.
     """
-    raise NotImplementedError
+    global _IMPORTED
+    if _IMPORTED:
+        return
+    # Set first: a module that imports the registry during its own import must
+    # not re-enter this function.
+    _IMPORTED = True
+
+    import importlib
+
+    for module in _REGISTRATION_MODULES:
+        try:
+            importlib.import_module(module)
+        except ImportError:
+            continue

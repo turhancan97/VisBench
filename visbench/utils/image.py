@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+from PIL import Image, ImageOps
+
 __all__ = ["load_image", "IMAGENET_MEAN", "IMAGENET_STD", "CLIP_MEAN", "CLIP_STD"]
 
 #: Standard ImageNet normalisation, used by DINOv2 among others.
@@ -14,10 +16,14 @@ CLIP_MEAN: tuple[float, float, float] = (0.48145466, 0.4578275, 0.40821073)
 CLIP_STD: tuple[float, float, float] = (0.26862954, 0.26130258, 0.27577711)
 
 
-def load_image(path: Path):
+def load_image(path: Path) -> Image.Image:
     """Load an image as RGB PIL, applying EXIF orientation.
 
     EXIF handling matters for the feature cache: the same photo loaded with and
     without orientation applied hashes differently and gives different features.
     """
-    raise NotImplementedError
+    with Image.open(path) as img:
+        # exif_transpose before convert: the orientation tag lives on the file,
+        # and convert("RGB") drops it.
+        img = ImageOps.exif_transpose(img)
+        return img.convert("RGB")

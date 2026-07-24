@@ -11,7 +11,9 @@ from typing import Optional
 import torch
 import torch.nn as nn
 
-from visbench.types import FeatureDict, LayerSpec, Pooling
+from visbench.backbones.pooling import pool_tokens, tokens_to_grid
+from visbench.types import POOLING_CHOICES, FeatureDict, LayerSpec, Pooling
+from visbench.utils.device import resolve_device
 
 __all__ = ["BaseBackbone"]
 
@@ -27,7 +29,9 @@ class BaseBackbone(nn.Module, ABC):
     task asks for and hold no opinion about which representation a task needs.
     """
 
-    #: Registered name, set by the ``@register_backbone`` decorator.
+    #: Registered name. Set per instance in ``__init__`` rather than by the
+    #: ``@register_backbone`` decorator, because one class may serve several
+    #: registered names (see :mod:`visbench.registry`).
     name: str = ""
 
     #: Whether the architecture exposes a CLS token. Drives the default pooling
@@ -41,8 +45,28 @@ class BaseBackbone(nn.Module, ABC):
     patch_size: Optional[int] = None
 
     def __init__(self, device: Optional[str] = None) -> None:
-        """Load weights, freeze all parameters, and put the module in eval mode."""
-        raise NotImplementedError
+        """Record the target device. Subclasses load weights, then call
+        :meth:`_finalize` to freeze, ``eval()`` and move the module.
+
+        Freezing cannot happen here: at this point the subclass has not built
+        its weights yet, so there is nothing to freeze.
+        """
+        super().__init__()
+        self.device = resolve_device(device)
+
+    def _finalize(self) -> None:
+        """Freeze every parameter, switch to eval mode, move to the device.
+
+        Called by subclasses at the end of ``__init__``. Probing evaluates
+        *frozen* representations, so a backbone that arrives in train mode
+        (BatchNorm updating, dropout active) silently changes the numbers it
+        reports — hence one shared implementation rather than per-backbone
+        boilerplate.
+        """
+        for param in self.parameters():
+            param.requires_grad_(False)
+        self.eval()
+        self.to(self.device)
 
     @torch.no_grad()
     def extract_features(
@@ -71,16 +95,57 @@ class BaseBackbone(nn.Module, ABC):
         FeatureDict
             ``{"dense": (B, C, H, W), "pooled": (B, C), "grid_hw": (H, W)}``.
         """
-        raise NotImplementedError
+        if pooling not in POOLING_CHOICES:
+            raise ValueError(f"Unknown pooling {pooling!r}; expected one of {POOLING_CHOICES}")
+        if not isinstance(image, torch.Tensor):
+            raise TypeError(
+                f"extract_features expects a preprocessed tensor, got {type(image).__name__}. "
+                "Call backbone.preprocess(images) first."
+            )
+        if image.ndim != 4:
+            raise ValueError(
+                f"Expected a batch of shape (B, 3, H, W), got {tuple(image.shape)}. "
+                "For a single image use image.unsqueeze(0)."
+            )
+        if layers is not None and len(layers) > 1:
+            raise NotImplementedError(
+                f"Multi-layer extraction is wired up in v0.2; got layers={layers}. "
+                "The single-layer path must be proven first (CLAUDE.md, "
+                '"Multi-layer extraction").'
+            )
+
+        resolved = self.default_pooling() if pooling == Pooling.DEFAULT else pooling
+        image = image.to(self.device)
+
+        patch_tokens, cls_token, grid_hw = self._forward_features(image, layers)
+
+        return {
+            "dense": tokens_to_grid(patch_tokens, grid_hw),
+            "pooled": pool_tokens(patch_tokens, cls_token, resolved),
+            "grid_hw": grid_hw,
+        }
 
     @abstractmethod
-    def _forward_features(self, image: torch.Tensor, layers: LayerSpec):
-        """Architecture-specific forward returning raw tokens/maps plus CLS.
+    def _forward_features(
+        self,
+        image: torch.Tensor,
+        layers: LayerSpec,
+    ) -> tuple[torch.Tensor, Optional[torch.Tensor], tuple[int, int]]:
+        """Architecture-specific forward returning ``(patch_tokens, cls, grid_hw)``.
 
-        Implementations return whatever their family produces natively; the
-        base class normalises it into a :class:`FeatureDict`. ViTs return the
-        patch-token sequence ``(B, N, C)`` and the CLS token ``(B, C)``; CNNs
-        return the last conv map ``(B, C, H, W)`` and ``None``.
+        Every family normalises to a **token sequence** here: ``patch_tokens``
+        is ``(B, N, C)`` with ``N == grid_h * grid_w``, ``cls`` is ``(B, C)`` or
+        ``None``. ViTs return this natively; CNN subclasses (v0.2) flatten their
+        ``(B, C, H, W)`` conv map into it and return ``None`` for CLS.
+
+        Making the *subclass* do that flattening — rather than having the base
+        class branch on architecture family — is what keeps
+        :meth:`extract_features` a single code path. The flatten/unflatten
+        round-trip costs nothing next to a forward pass, and the alternative
+        puts an ``if is_vit`` in the one method that exists to hide that
+        distinction.
+
+        Register tokens, if the variant has them, must be stripped here.
         """
         raise NotImplementedError
 
@@ -89,25 +154,33 @@ class BaseBackbone(nn.Module, ABC):
 
         CLS when :attr:`has_cls_token`, mean-pooling otherwise.
         """
-        raise NotImplementedError
+        return Pooling.CLS if self.has_cls_token else Pooling.MEAN
 
-    def preprocess(self, images):
+    @abstractmethod
+    def preprocess(self, images) -> torch.Tensor:
         """Convert PIL image(s) into a normalised, resized batch tensor.
 
         Each backbone owns its own normalisation constants and input
         resolution, so preprocessing lives with the backbone rather than in a
         shared transform.
+
+        Accepts a single PIL image or a sequence of them; always returns
+        ``(B, 3, H, W)``.
         """
         raise NotImplementedError
 
+    @abstractmethod
     def cache_key(self) -> str:
         """Stable identifier for this backbone + weights, used in cache keys.
 
         Must change whenever the weights or extraction behaviour change, or
-        stale cached features would be silently reused.
+        stale cached features would be silently reused. Abstract rather than
+        defaulted: a plausible-looking inherited key that does not actually
+        track the weights is exactly how one model's features get served as
+        another's.
         """
         raise NotImplementedError
 
     def forward(self, image: torch.Tensor) -> FeatureDict:
         """Alias for :meth:`extract_features` with default pooling."""
-        raise NotImplementedError
+        return self.extract_features(image)
