@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install "ruff>=0.4,<1.0" "mypy>=1.8,<2.0"
+      - name: ruff check
+        run: ruff check visbench/ tests/ conftest.py
+      - name: ruff format --check
+        run: ruff format --check visbench/ tests/ conftest.py
+      - name: mypy
+        run: mypy visbench/
+        # Stubs raise NotImplementedError, so type coverage is thin until the
+        # bodies land; surface problems without gating the build for now.
+        continue-on-error: true
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Both ends of the supported range from pyproject `requires-python`.
+        python-version: ["3.9", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install (CPU-only torch)
+        # The GPU wheels are ~2 GB and CI never runs a backbone forward pass.
+        run: |
+          pip install --upgrade pip
+          pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+          pip install -e ".[dev]"
+      - name: pytest
+        run: pytest tests/ -v
+
+  build:
+    # Guards the PyPI target: catches a broken pyproject (missing LICENSE,
+    # bad metadata) long before a release is attempted.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install build twine
+      - run: python -m build
+      - run: twine check dist/*

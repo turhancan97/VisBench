@@ -7,7 +7,6 @@ v0.2 for the dense variant; the classification task's linear layer in v0.1 is
 deliberately self-contained and does not depend on this module.
 """
 
-
 import torch
 
 from visbench.heads.base import BaseHead

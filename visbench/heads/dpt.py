@@ -8,7 +8,6 @@ Genuinely multiscale, so this head is the reason multi-layer extraction must be
 wired up in v0.2: it consumes features from several backbone depths at once.
 """
 
-
 import torch
 
 from visbench.heads.base import BaseHead

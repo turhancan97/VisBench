@@ -1,0 +1,42 @@
+# Third-party attribution
+
+VisBench is MIT licensed (see LICENSE). It reuses evaluation protocols — and
+in places, adapted code — from the projects below. All are permissively
+licensed and MIT-compatible. Where a protocol or implementation is borrowed,
+the borrowing module cites it in a docstring or comment as well; this file is
+the consolidated list, not the only record.
+
+## probe3d — MIT
+
+El Banani, Raza, Qian, Rodriguez, Kanazawa, Owens, Johnson et al.,
+"Probing the 3D Awareness of Visual Foundation Models", CVPR 2024.
+https://arxiv.org/abs/2404.08476 · https://github.com/mbanani/probe3d
+Copyright (c) 2024 Mohamed El Banani
+
+Used for: depth, surface normal, and geometric correspondence evaluation
+protocols and metrics.
+
+## Probing the Mid-level Vision Capabilities of Self-Supervised Learning — MIT
+
+Chen, Marks & Cheng.
+https://arxiv.org/abs/2411.17474 · https://github.com/mid-vision/midvision-probe
+Copyright (c) 2024 Mohamed El Banani, Xuweiyi Chen
+
+Used for: the high-/mid-/low-level task categorization, and the feature output
+modes in `visbench/backbones/pooling.py` (adapted from `tokens_to_output`).
+
+## vismatch — BSD-3-Clause
+
+https://github.com/gmberton/vismatch
+
+Used for: API ergonomics, and the conceptual shape of the dense feature
+matching path in `visbench/tasks/mid_level/correspondence.py`.
+
+## Model weights
+
+Backbone checkpoints are downloaded at runtime and are NOT redistributed by
+VisBench. They carry their own terms:
+
+- DINOv2 (facebookresearch/dinov2) — Apache-2.0
+- OpenCLIP (mlfoundations/open_clip) — see that repository; individual
+  pretrained weights carry separate terms depending on the training data.

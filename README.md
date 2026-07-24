@@ -7,6 +7,12 @@
   <em>Probe any vision backbone across high-, mid- and low-level computer vision tasks.</em>
 </p>
 
+<p align="center">
+  <a href="https://github.com/turhancan97/VisBench/actions/workflows/ci.yml"><img src="https://github.com/turhancan97/VisBench/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
+  <img src="https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12-blue.svg" alt="Python 3.9+">
+</p>
+
 ---
 
 > **Status: v0.1.0.dev0 — scaffold only.** The structure below is in place;
@@ -115,3 +121,12 @@ git clone https://github.com/turhancan97/VisBench && cd VisBench
 pip install -e ".[dev,clip]"
 pytest
 ```
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+VisBench borrows evaluation protocols from prior work, all permissively
+licensed and MIT-compatible; [NOTICE](NOTICE) records what came from where.
+Backbone weights are downloaded at runtime, never redistributed here, and
+carry their own upstream terms.
