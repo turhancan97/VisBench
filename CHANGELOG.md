@@ -20,6 +20,14 @@ so it stands on its own rather than assuming you have read the ones above it.
   extra.
 - Cache keys carry the timm pretrained tag: `resnet50.a1_in1k` and
   `resnet50.a3_in1k` are different weights under one architecture name.
+- **`CustomBackbone`** — wrap any `nn.Module` plus a preprocessing callable.
+  The grid is read from the module's output shape, `embed_dim` from the first
+  forward pass, and the cache key from a hash of the weights, so a fine-tuned
+  checkpoint cannot reuse its parent's cached features. Ambiguous output shapes
+  raise rather than guess: a square token *count* from a non-square layout
+  would otherwise misplace every patch silently.
+- `visbench.register_backbone` / `register_task` are public, so a
+  `BaseBackbone` subclass outside this package can claim a registry name.
 
 Still to come in v0.2: custom `nn.Module` backbones, dense mid-level tasks,
 pluggable heads, multi-layer extraction, CLI.

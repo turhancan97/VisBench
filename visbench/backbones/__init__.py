@@ -8,9 +8,10 @@ backbones (arbitrary ``nn.Module`` + preprocessing fn) arrive in v0.2.
 """
 
 from visbench.backbones.base import BaseBackbone
+from visbench.backbones.custom import CustomBackbone
 from visbench.backbones.dinov2 import DINOv2
 
-__all__ = ["BaseBackbone", "DINOv2", "CLIP", "TimmBackbone"]
+__all__ = ["BaseBackbone", "CustomBackbone", "DINOv2", "CLIP", "TimmBackbone"]
 
 
 #: Backbones behind an optional extra, imported only on attribute access so a

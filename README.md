@@ -90,6 +90,31 @@ The linear probe trains with AdamW on cached features, so its hyperparameters
 are part of the reported number and travel with it in the record's
 `task_params`.
 
+### Your own model
+
+Any `nn.Module` works, without adding anything to this package:
+
+```python
+from torchvision.models import convnext_tiny, ConvNeXt_Tiny_Weights
+
+weights = ConvNeXt_Tiny_Weights.IMAGENET1K_V1
+backbone = visbench.CustomBackbone(
+    convnext_tiny(weights=weights).features,
+    preprocess=weights.transforms(),
+    name="convnext_tiny",
+)
+visbench.run(backbone, "retrieval", dataset)
+```
+
+The grid comes from the module's output shape, `embed_dim` from the first
+forward pass, and the cache key from a hash of the weights — so a fine-tuned
+checkpoint never reuses its parent's cached features. Where the output shape is
+genuinely ambiguous VisBench raises rather than guesses; pass `patch_size=`,
+`has_cls_token=` or a `feature_fn=` to say what it cannot infer.
+
+To give a custom backbone a registry name, subclass `BaseBackbone` and apply
+`@visbench.register_backbone("my_model")` — the same path the built-ins use.
+
 Sibling project to [vismatch](https://github.com/gmberton/vismatch) — same
 ergonomic philosophy, applied to representation probing instead of image
 matching.

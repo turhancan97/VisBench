@@ -17,6 +17,8 @@ protocols for depth, surface normal and correspondence follow probe3d
 from typing import Any
 
 from visbench import registry
+from visbench.backbones.custom import CustomBackbone
+from visbench.registry import register_backbone, register_task
 from visbench.types import FeatureDict, FeatureMode, Pooling
 
 __version__ = "0.1.0"
@@ -27,6 +29,9 @@ __all__ = [
     "list_backbones",
     "list_probes",
     "run",
+    "register_backbone",
+    "register_task",
+    "CustomBackbone",
     "FeatureDict",
     "FeatureMode",
     "Pooling",
