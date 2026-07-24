@@ -32,6 +32,13 @@ predate both papers.
 The same applies to any future backbone: CroCo cannot be vendored into
 VisBench under these terms, only loaded from the user's own installation.
 
+Not every part of probe3d is affected. `evals/models/probes.py`, which holds
+the DPT and linear head implementations, carries no separate licence header and
+so falls under that repository's MIT licence — adapting it would have been
+permitted. VisBench's heads are written from the architecture descriptions
+anyway, so that the whole package is uniform on the question, but contributors
+should know the distinction rather than assume all of probe3d is off limits.
+
 ## Probing the Mid-level Vision Capabilities of Self-Supervised Learning — MIT
 
 Chen, Marks & Cheng.

@@ -52,8 +52,17 @@ so it stands on its own rather than assuming you have read the ones above it.
   including the `PairDataset` variance violation above. Now clean.
 - Removed the unused `visbench.utils.device.batched` helper.
 
-Still to come in v0.2: dense mid-level tasks, pluggable heads, multi-layer
-extraction, CLI.
+- **Pluggable task heads**, selectable by name per run (`visbench.heads`):
+  `LinearHead` (1x1 convolution over the dense grid, upsampled) and `DPTHead`
+  (RefineNet-style multiscale fusion, following probe3d and Ranftl et al.).
+  `register_head` makes this a real extension point. A head declares which
+  feature modes it consumes and `check_feature_mode` rejects a mismatch at
+  construction rather than as a shape error partway through training.
+  `DPTHead` refuses a single feature map: fed one layer it is not multiscale,
+  and duplicating the input would report a single-layer result as a DPT number.
+
+Still to come in v0.2: multi-layer extraction (which `DPTHead` needs before it
+has anything real to consume), dense mid-level tasks, CLI.
 
 ## [0.1.0] — 2026-07-24
 

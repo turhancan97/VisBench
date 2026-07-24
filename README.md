@@ -163,14 +163,14 @@ This is a multi-month roadmap, built one reviewed step at a time.
       backbones, `uv.lock`, and the `run()` entry point
 - [x] **5a.** ResNet/timm backbone — the first non-ViT, validating the CNN half
       of `BaseBackbone`
-- [ ] **5b.** rest of v0.2 — custom backbones, dense mid-level tasks, pluggable
-      heads, multi-layer extraction, CLI
+- [x] **5b.** custom `nn.Module` backbones, and pluggable heads (linear + DPT)
+- [ ] **5c.** rest of v0.2 — multi-layer extraction, dense mid-level tasks, CLI
 
 ## Roadmap
 
 **v0.1** — prove the abstraction. DINOv2 + CLIP. Zero-shot or linear-probe-on-cached-features only; no fine-tuning, no dense training loops. Deferred: CLI, custom backbones, ResNet/timm, multi-layer extraction.
 
-**v0.2** — ResNet/timm + custom backbones, dense mid-level tasks (probe3d protocols), pluggable heads (linear + DPT), multi-layer extraction, CLI.
+**v0.2** — ResNet/timm + custom backbones *(done)*, pluggable heads (linear + DPT) *(done)*, dense mid-level tasks (probe3d protocols), multi-layer extraction, CLI.
 
 **v0.3** — opt-in fine-tuning of the last N blocks, detection groundwork, HF Hub probe sharing and a public leaderboard.
 
