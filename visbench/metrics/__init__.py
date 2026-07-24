@@ -7,6 +7,20 @@ Every function returns a flat dict (or a scalar), matching the contract of
 """
 
 from visbench.metrics.classification import top_k_accuracy
+from visbench.metrics.correspondence import (
+    correspondence_recall,
+    error_auc,
+    nn_match,
+    ratio_test,
+)
 from visbench.metrics.retrieval import mean_average_precision, recall_at_k
 
-__all__ = ["top_k_accuracy", "recall_at_k", "mean_average_precision"]
+__all__ = [
+    "top_k_accuracy",
+    "recall_at_k",
+    "mean_average_precision",
+    "nn_match",
+    "ratio_test",
+    "correspondence_recall",
+    "error_auc",
+]

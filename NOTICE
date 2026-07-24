@@ -16,6 +16,22 @@ Copyright (c) 2024 Mohamed El Banani
 Used for: depth, surface normal, and geometric correspondence evaluation
 protocols and metrics.
 
+IMPORTANT — not all of probe3d is MIT. Parts of it derive from Meta Platforms
+code carrying "Original code is licensed under CC BY-NC 4.0", including
+`evals/utils/correspondence.py` (the ratio test, faiss kNN matching and
+error-AUC helpers) and the whole `evals/models/croco_models/` tree.
+
+CC BY-NC forbids commercial use and is incompatible with an MIT PyPI package.
+VisBench therefore implements these evaluation protocols **from their
+published descriptions rather than by adapting that code**, and no line of it
+is copied here. The protocols themselves — nearest-neighbour matching with a
+ratio test, thresholded correspondence recall, area under the cumulative error
+curve — are standard methods from the local-feature matching literature that
+predate both papers.
+
+The same applies to any future backbone: CroCo cannot be vendored into
+VisBench under these terms, only loaded from the user's own installation.
+
 ## Probing the Mid-level Vision Capabilities of Self-Supervised Learning — MIT
 
 Chen, Marks & Cheng.

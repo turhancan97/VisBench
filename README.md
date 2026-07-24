@@ -15,9 +15,9 @@
 
 ---
 
-> **Status: v0.1.0.dev0 — two of three v0.1 tasks work.** DINOv2, the feature
-> cache, zero-shot retrieval and the classification linear probe all run
-> end-to-end on a local image folder. Correspondence and CLIP are next. See
+> **Status: v0.1.0.dev0 — all three v0.1 tasks work.** DINOv2, the feature
+> cache, and classification / retrieval / correspondence all run end-to-end on
+> a local image folder. CLIP and the lockfile close out v0.1. See
 > [Build order](#build-order).
 
 ## What it is
@@ -119,8 +119,8 @@ This is a multi-month roadmap, built one reviewed step at a time.
 - [x] **1. Scaffold** — every folder and module, docstrings and stubs, no logic
 - [x] **2.** `BaseBackbone` + feature cache + DINOv2, with tests
 - [x] **3.** `BaseTask` + one task end-to-end on a local image folder
-- [ ] **4.** Next task, then next backbone — classification done; correspondence
-      and CLIP remain
+- [x] **4.** Next task, then next backbone — all three v0.1 tasks done; CLIP
+      and the lockfile remain
 - [ ] **5.** v0.2 scope — only once all of v0.1 is implemented, tested, reviewed
 
 ## Roadmap
@@ -207,17 +207,37 @@ python examples/retrieve.py --data /path/to/dataset --split val --pooling mean
 Both examples share one cache, so running retrieval after classification on
 the same split costs nothing but the ranking.
 
+[`examples/correspond.py`](examples/correspond.py) runs the mid-level task —
+also zero-shot, and needing no annotation at all, since each image is warped by
+a known homography:
+
+```bash
+python examples/correspond.py --data /path/to/folder --limit 50
+```
+
+It reports a **ceiling** beside every score: matches can only land on patch
+centres, so with 14px patches a target falling between them cannot be hit
+exactly. A low `recall@1px` almost always means the grid is coarse, not that
+the backbone failed.
+
 ### Measured on Imagenette
 
 DINOv2 ViT-S/14, CLS pooling, one V100:
 
-| task | pooling | metric | score |
-|---|---|---|---|
-| classification (linear probe) | cls | top1 | 0.9939 |
-| retrieval (zero-shot) | cls | recall@1 | 0.9921 |
-| retrieval (zero-shot) | cls | mAP | 0.8893 |
-| retrieval (zero-shot) | mean | recall@1 | 0.9740 |
-| retrieval (zero-shot) | mean | mAP | 0.8314 |
+| task | pooling | metric | score | ceiling |
+|---|---|---|---|---|
+| classification (linear probe) | cls | top1 | 0.9939 | — |
+| retrieval (zero-shot) | cls | recall@1 | 0.9921 | — |
+| retrieval (zero-shot) | cls | mAP | 0.8893 | — |
+| retrieval (zero-shot) | mean | recall@1 | 0.9740 | — |
+| retrieval (zero-shot) | mean | mAP | 0.8314 | — |
+| correspondence (zero-shot) | dense | recall@10px | 0.6379 | 0.8656 |
+| correspondence (zero-shot) | dense | recall@5px | 0.2909 | 0.3415 |
+| correspondence (zero-shot) | dense | recall@2px | 0.0547 | 0.0540 |
+
+Correspondence used 50 pairs at `max_warp=0.2`, 16x16 patches. Read it against
+the ceiling: DINOv2 is essentially *at* the achievable limit for tight
+thresholds and reaches 74% of it at 10px.
 
 Chance recall@1 is 0.10. Retrieval reused the classification cache: 3,925
 hits, 0 misses, 8 s end to end. Switching to `--pooling mean` is a genuine
