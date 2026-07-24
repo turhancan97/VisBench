@@ -6,10 +6,11 @@ Mandatory in v0.1, not an optional speed-up bolted on later (CLAUDE.md,
 """
 
 import hashlib
+import itertools
 import os
 import shutil
 import tempfile
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import Any, Callable, Optional
 
@@ -17,7 +18,6 @@ import torch
 
 from visbench.cache.keys import SEPARATOR, hash_image, make_key
 from visbench.types import FeatureDict, Pooling
-from visbench.utils.device import batched
 
 __all__ = ["FeatureCache", "DEFAULT_CACHE_DIR"]
 
@@ -25,6 +25,26 @@ __all__ = ["FeatureCache", "DEFAULT_CACHE_DIR"]
 DEFAULT_CACHE_DIR = Path(".visbench_cache")
 
 _ENTRY_SUFFIX = ".pt"
+
+#: Which outputs :meth:`FeatureCache.extract_dataset` accumulates in memory.
+_KEEP_CHOICES = ("both", "pooled", "dense")
+
+
+def _chunks(items: Iterable, size: int) -> Iterator[list]:
+    """Yield lists of at most ``size`` items, pulling from ``items`` lazily.
+
+    Distinct from :func:`visbench.utils.device.batched`, which slices a
+    ``Sequence`` and therefore needs the whole thing in memory first. Here the
+    point is precisely that it never is.
+    """
+    if size < 1:
+        raise ValueError(f"batch_size must be >= 1, got {size}")
+    iterator = iter(items)
+    while True:
+        chunk = list(itertools.islice(iterator, size))
+        if not chunk:
+            return
+        yield chunk
 
 
 class FeatureCache:
@@ -141,6 +161,7 @@ class FeatureCache:
         pooling: str = Pooling.DEFAULT,
         layer: Optional[int] = None,
         batch_size: int = 32,
+        keep: str = "both",
     ) -> FeatureDict:
         """Extract (or load) features for a whole dataset.
 
@@ -149,48 +170,74 @@ class FeatureCache:
         order.
 
         ``dataset`` may yield PIL images or ``(image, label)`` pairs; labels are
-        ignored here, since a task reads them from the dataset directly.
+        ignored here, since a task reads them from the dataset directly. It is
+        consumed lazily, one batch at a time — a dataset that decodes on
+        ``__getitem__`` never holds more than ``batch_size`` images in memory,
+        which is what makes a 50k-image run possible at all.
 
-        Returns one :class:`FeatureDict` for the whole dataset, with ``dense``
-        ``(N, C, H, W)`` and ``pooled`` ``(N, C)``. ``dense`` is the memory
-        risk — a 5k-image dataset at 16x16x768 is roughly 4 GB in fp32 — so a
-        task that only needs ``pooled`` should keep just that and drop the rest.
+        Parameters
+        ----------
+        keep:
+            Which outputs to accumulate: ``"both"``, ``"pooled"`` or ``"dense"``.
+            ``dense`` is the memory risk — 5k images at 16x16x768 is roughly
+            4 GB in fp32 — so a task needing only pooled features should say so
+            and never materialise the rest. The *cache* always stores both,
+            since they come from one forward pass; ``keep`` only controls what
+            is held in RAM and returned.
         """
-        images = [item[0] if isinstance(item, (tuple, list)) else item for item in dataset]
-        if not images:
-            raise ValueError("Cannot extract features from an empty dataset")
+        if keep not in _KEEP_CHOICES:
+            raise ValueError(f"keep must be one of {_KEEP_CHOICES}, got {keep!r}")
 
         backbone_key = backbone.cache_key()
-        keys = [make_key(hash_image(img), backbone_key, layer, pooling) for img in images]
-
-        results: list[Optional[FeatureDict]] = [self.get(key) for key in keys]
-        missing = [i for i, entry in enumerate(results) if entry is None]
-
         layers = None if layer is None else [layer]
-        for chunk in batched(missing, batch_size):
-            batch = backbone.preprocess([images[i] for i in chunk])
-            features = backbone.extract_features(batch, pooling=pooling, layers=layers)
-            for position, index in enumerate(chunk):
-                single: FeatureDict = {
-                    "dense": features["dense"][position : position + 1].cpu(),
-                    "pooled": features["pooled"][position : position + 1].cpu(),
-                    "grid_hw": features["grid_hw"],
-                }
-                self.put(keys[index], single)
-                results[index] = single
 
-        grids = {entry["grid_hw"] for entry in results}  # type: ignore[index]
+        dense_chunks: list[torch.Tensor] = []
+        pooled_chunks: list[torch.Tensor] = []
+        grids: set = set()
+        count = 0
+
+        for batch_items in _chunks(dataset, batch_size):
+            images = [item[0] if isinstance(item, (tuple, list)) else item for item in batch_items]
+            keys = [make_key(hash_image(img), backbone_key, layer, pooling) for img in images]
+
+            entries: list[Optional[FeatureDict]] = [self.get(key) for key in keys]
+            missing = [i for i, entry in enumerate(entries) if entry is None]
+
+            if missing:
+                tensor_batch = backbone.preprocess([images[i] for i in missing])
+                features = backbone.extract_features(tensor_batch, pooling=pooling, layers=layers)
+                for position, index in enumerate(missing):
+                    single: FeatureDict = {
+                        "dense": features["dense"][position : position + 1].cpu(),
+                        "pooled": features["pooled"][position : position + 1].cpu(),
+                        "grid_hw": features["grid_hw"],
+                    }
+                    self.put(keys[index], single)
+                    entries[index] = single
+
+            for entry in entries:
+                assert entry is not None  # every miss was filled above
+                grids.add(entry["grid_hw"])
+                count += 1
+                if keep in ("both", "dense"):
+                    dense_chunks.append(entry["dense"])
+                if keep in ("both", "pooled"):
+                    pooled_chunks.append(entry["pooled"])
+
+        if count == 0:
+            raise ValueError("Cannot extract features from an empty dataset")
         if len(grids) > 1:
             raise ValueError(
                 f"Dataset produced more than one dense grid shape ({sorted(grids)}); "
                 "features cannot be stacked. Use a fixed input resolution."
             )
 
-        return {
-            "dense": torch.cat([entry["dense"] for entry in results]),  # type: ignore[index]
-            "pooled": torch.cat([entry["pooled"] for entry in results]),  # type: ignore[index]
-            "grid_hw": grids.pop(),
-        }
+        result: FeatureDict = {"grid_hw": grids.pop()}  # type: ignore[typeddict-item]
+        if keep in ("both", "dense"):
+            result["dense"] = torch.cat(dense_chunks)
+        if keep in ("both", "pooled"):
+            result["pooled"] = torch.cat(pooled_chunks)
+        return result
 
     # -- maintenance ---------------------------------------------------------
 

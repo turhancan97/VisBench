@@ -57,6 +57,50 @@ def test_registration_does_not_write_class_name():
     assert registry._BACKBONES["dinov2_vits14"][0] is registry._BACKBONES["dinov2_vitb14"][0]
 
 
+class TestImportTolerance:
+    """A missing extra hides one name; a real bug must not hide as one.
+
+    The failure mode being guarded: a typo'd import inside dinov2.py used to
+    surface as "Unknown backbone 'dinov2_vitb14'", which sends the reader into
+    the registry looking for a registration bug that isn't there.
+    """
+
+    def _arrange(self, monkeypatch, optional_dependency, missing_name):
+        """Point the registry at one module whose import fails on ``missing_name``."""
+        import importlib
+
+        module = "visbench._fake_module"
+        monkeypatch.setattr(registry, "_REGISTRATION_MODULES", {module: optional_dependency})
+        monkeypatch.setattr(registry, "_IMPORTED", False)
+
+        def fake_import_module(name, *args, **kwargs):
+            if name == module:
+                raise ImportError(f"No module named {missing_name!r}", name=missing_name)
+            return importlib.__dict__["__original_import_module"](name, *args, **kwargs)
+
+        importlib.__dict__["__original_import_module"] = importlib.import_module
+        monkeypatch.setattr(importlib, "import_module", fake_import_module)
+
+    def test_missing_optional_dependency_is_skipped(self, monkeypatch):
+        self._arrange(monkeypatch, optional_dependency="open_clip", missing_name="open_clip")
+        registry._ensure_imported()  # must not raise
+
+    def test_missing_submodule_of_optional_dep_is_skipped(self, monkeypatch):
+        self._arrange(monkeypatch, optional_dependency="open_clip", missing_name="open_clip.model")
+        registry._ensure_imported()  # must not raise
+
+    def test_real_import_error_propagates(self, monkeypatch):
+        """A typo'd import inside the module is a bug, not a missing extra."""
+        self._arrange(monkeypatch, optional_dependency="open_clip", missing_name="torhc")
+        with pytest.raises(ImportError, match="real import error"):
+            registry._ensure_imported()
+
+    def test_module_without_optional_dep_must_import(self, monkeypatch):
+        self._arrange(monkeypatch, optional_dependency=None, missing_name="open_clip")
+        with pytest.raises(ImportError, match="real import error"):
+            registry._ensure_imported()
+
+
 def test_no_probes_registered_until_step_three():
     assert visbench.list_probes() == []
 

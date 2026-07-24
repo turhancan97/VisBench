@@ -12,7 +12,7 @@ last decorator would win and every instance would misreport itself — and
 not a crash. Instances set their own ``name`` in ``__init__``.
 """
 
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 __all__ = [
     "register_backbone",
@@ -114,15 +114,15 @@ def list_tasks() -> list[str]:
     return sorted(_TASKS)
 
 
-#: Modules whose import side effect is registration. Optional-dependency
-#: backbones are imported tolerantly below.
-_REGISTRATION_MODULES = (
-    "visbench.backbones.dinov2",
-    "visbench.backbones.clip",
-    "visbench.tasks.high_level.classification",
-    "visbench.tasks.high_level.retrieval",
-    "visbench.tasks.mid_level.correspondence",
-)
+#: module -> the optional third-party package it needs, or ``None`` if it has
+#: no optional dependency and must therefore always import cleanly.
+_REGISTRATION_MODULES: dict[str, Optional[str]] = {
+    "visbench.backbones.dinov2": None,
+    "visbench.backbones.clip": "open_clip",
+    "visbench.tasks.high_level.classification": None,
+    "visbench.tasks.high_level.retrieval": None,
+    "visbench.tasks.mid_level.correspondence": None,
+}
 
 _IMPORTED = False
 
@@ -133,10 +133,15 @@ def _ensure_imported() -> None:
     Called by the lookup helpers; keeps registration lazy enough that importing
     ``visbench`` does not pull in every optional dependency.
 
-    A module whose optional dependency is missing (e.g. CLIP without
+    A module whose *declared* optional dependency is missing (e.g. CLIP without
     ``open_clip_torch``) is skipped rather than fatal — the cost of a missing
     extra should be that one name is absent from :func:`list_backbones`, not
     that the whole library fails to import.
+
+    Any other ImportError propagates. A blanket ``except ImportError`` here
+    would turn a typo'd import inside a backbone module into "Unknown backbone
+    'dinov2_vitb14'", sending the reader hunting through the registry for a
+    registration bug that does not exist.
     """
     global _IMPORTED
     if _IMPORTED:
@@ -147,8 +152,21 @@ def _ensure_imported() -> None:
 
     import importlib
 
-    for module in _REGISTRATION_MODULES:
+    for module, optional_dependency in _REGISTRATION_MODULES.items():
         try:
             importlib.import_module(module)
-        except ImportError:
-            continue
+        except ImportError as exc:
+            missing = getattr(exc, "name", None)
+            if optional_dependency is not None and _is_missing(missing, optional_dependency):
+                continue
+            raise ImportError(
+                f"Failed to import {module}, so its backbones/tasks are not registered. "
+                f"This is a real import error, not a missing optional dependency."
+            ) from exc
+
+
+def _is_missing(missing: Optional[str], optional_dependency: str) -> bool:
+    """Whether ``missing`` is ``optional_dependency`` or a submodule of it."""
+    if missing is None:
+        return False
+    return missing == optional_dependency or missing.startswith(f"{optional_dependency}.")

@@ -117,6 +117,81 @@ def test_extract_dataset_accepts_image_label_pairs(tmp_path, fake_vit, solid_ima
     assert cache.extract_dataset(fake_vit, labelled)["pooled"].shape[0] == 4
 
 
+def test_empty_dataset_raises(tmp_path, fake_vit):
+    import pytest
+
+    with pytest.raises(ValueError, match="empty dataset"):
+        make_cache(tmp_path).extract_dataset(fake_vit, [])
+
+
+# -- streaming and memory ----------------------------------------------------
+
+
+def test_dataset_is_consumed_lazily(tmp_path, fake_vit, solid_images):
+    """A dataset that decodes on access must never be fully materialised.
+
+    This is what bounds memory on a 50k-image run: at most ``batch_size``
+    images are alive at once.
+    """
+    pulled = []
+
+    def generator():
+        for img in solid_images:
+            pulled.append(len(pulled))
+            yield img
+
+    cache = make_cache(tmp_path)
+    high_water = []
+
+    original = fake_vit.preprocess
+
+    def spy(images):
+        high_water.append(len(pulled))
+        return original(images)
+
+    fake_vit.preprocess = spy
+    cache.extract_dataset(fake_vit, generator(), batch_size=2)
+
+    # First forward happens after only the first 2 images have been pulled.
+    assert high_water[0] == 2
+    assert len(pulled) == 4
+
+
+def test_keep_pooled_skips_dense(tmp_path, fake_vit, solid_images):
+    cache = make_cache(tmp_path)
+    features = cache.extract_dataset(fake_vit, solid_images, keep="pooled")
+
+    assert "pooled" in features
+    assert "dense" not in features
+    assert features["grid_hw"] == (4, 4)
+
+
+def test_keep_dense_skips_pooled(tmp_path, fake_vit, solid_images):
+    cache = make_cache(tmp_path)
+    features = cache.extract_dataset(fake_vit, solid_images, keep="dense")
+
+    assert "dense" in features
+    assert "pooled" not in features
+
+
+def test_keep_still_caches_both(tmp_path, fake_vit, solid_images):
+    """keep= controls RAM, not the cache: a later keep='both' must still hit."""
+    cache = make_cache(tmp_path)
+    cache.extract_dataset(fake_vit, solid_images, keep="pooled")
+    assert fake_vit.call_count == 1
+
+    both = cache.extract_dataset(fake_vit, solid_images, keep="both")
+    assert fake_vit.call_count == 1
+    assert both["dense"].shape[0] == 4
+
+
+def test_unknown_keep_raises(tmp_path, fake_vit, solid_images):
+    import pytest
+
+    with pytest.raises(ValueError, match="keep must be one of"):
+        make_cache(tmp_path).extract_dataset(fake_vit, solid_images, keep="everything")
+
+
 # -- key identity ------------------------------------------------------------
 
 

@@ -110,6 +110,12 @@ so leaderboard tooling never needs a retrofit. Dependencies are pinned via a
 lockfile; ranges in `pyproject.toml` carry upper bounds so a minor dependency
 release cannot quietly move reported numbers.
 
+Backbone weights are pinned the same way. DINOv2 loads from a fixed upstream
+commit rather than the default branch, and that ref is part of the cache key —
+so bumping it invalidates every stale entry instead of silently serving
+features from the old weights. Pass `checkpoint=` to load local weights; the
+cache key then carries a hash of that file instead.
+
 ## Prior art
 
 VisBench reuses established protocols rather than re-deriving them, and cites

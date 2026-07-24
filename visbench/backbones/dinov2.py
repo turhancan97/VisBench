@@ -4,6 +4,8 @@ Weights via torch.hub (facebookresearch/dinov2). Register tokens are stripped
 before pooling or grid reshaping when the variant has them.
 """
 
+import hashlib
+from pathlib import Path
 from typing import Optional, Union
 
 import torch
@@ -15,7 +17,7 @@ from visbench.registry import register_backbone
 from visbench.types import LayerSpec
 from visbench.utils.image import IMAGENET_MEAN, IMAGENET_STD
 
-__all__ = ["DINOv2"]
+__all__ = ["DINOv2", "HUB_REF"]
 
 #: Registered name -> (torch.hub entrypoint, embed dim, patch size, n registers).
 _VARIANTS = {
@@ -24,6 +26,26 @@ _VARIANTS = {
 }
 
 _HUB_REPO = "facebookresearch/dinov2"
+
+#: Pinned upstream commit. torch.hub defaults to the repository's default
+#: branch, which means the weights behind ``dinov2_vitb14`` can change under a
+#: fixed VisBench version — and because the ref is part of :meth:`cache_key`,
+#: an unpinned load would let already-cached features from the old weights be
+#: served for the new ones with nothing to indicate it. Pinning is what makes
+#: a reported number reproducible from the record that logged it.
+#:
+#: Upstream publishes no tags, so this is a commit SHA. Bump it deliberately;
+#: every cache entry and result record carries the short ref with it.
+HUB_REF = "7764ea0f912e53c92e82eb78a2a1631e92725fc8"
+
+
+def _file_digest(path: Path) -> str:
+    """Short content hash of a checkpoint file, for the cache key."""
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for block in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()[:12]
 
 
 @register_backbone("dinov2_vits14", variant="dinov2_vits14")
@@ -42,8 +64,23 @@ class DINOv2(BaseBackbone):
         variant: str = "dinov2_vitb14",
         device: Optional[str] = None,
         image_size: int = 224,
+        hub_ref: str = HUB_REF,
+        checkpoint: Optional[Union[str, Path]] = None,
     ) -> None:
-        """Load the hub checkpoint for ``variant``, freeze it, set eval mode."""
+        """Load the hub checkpoint for ``variant``, freeze it, set eval mode.
+
+        Parameters
+        ----------
+        hub_ref:
+            Upstream git ref to load from. Defaults to the pinned
+            :data:`HUB_REF`; override only to test against a newer upstream,
+            and expect a different :meth:`cache_key`.
+        checkpoint:
+            Path to a local ``state_dict``, loaded instead of reaching the
+            network. The architecture still comes from torch.hub (cached after
+            one download), so this covers a pinned local copy of the weights
+            rather than a fully offline install.
+        """
         super().__init__(device)
 
         if variant not in _VARIANTS:
@@ -64,8 +101,35 @@ class DINOv2(BaseBackbone):
         self.patch_size = patch_size
         self.num_registers = num_registers
         self.image_size = image_size
+        self.hub_ref = hub_ref
+        self.checkpoint = Path(checkpoint) if checkpoint is not None else None
 
-        self.model = torch.hub.load(_HUB_REPO, entrypoint)
+        # trust_repo=True is defensible precisely because the ref is pinned:
+        # the code being executed is a fixed commit, not whatever landed on the
+        # default branch today.
+        self.model = torch.hub.load(
+            f"{_HUB_REPO}:{hub_ref}",
+            entrypoint,
+            pretrained=self.checkpoint is None,
+            trust_repo=True,
+        )
+        if self.checkpoint is not None:
+            state = torch.load(self.checkpoint, map_location="cpu", weights_only=True)
+            # Accept both a bare state_dict and a wrapped training checkpoint.
+            state = state.get("model", state) if isinstance(state, dict) else state
+            self.model.load_state_dict(state)
+
+        # Built once: preprocess() runs it per image, and rebuilding a Compose
+        # inside that loop is pure waste.
+        self._transform = transforms.Compose(
+            [
+                transforms.Resize(image_size, interpolation=transforms.InterpolationMode.BICUBIC),
+                transforms.CenterCrop(image_size),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
+            ]
+        )
+
         self._finalize()
 
     def _forward_features(
@@ -129,23 +193,20 @@ class DINOv2(BaseBackbone):
             images = [images]
         return torch.stack([self._transform(img.convert("RGB")) for img in images])
 
-    @property
-    def _transform(self) -> transforms.Compose:
-        return transforms.Compose(
-            [
-                transforms.Resize(
-                    self.image_size, interpolation=transforms.InterpolationMode.BICUBIC
-                ),
-                transforms.CenterCrop(self.image_size),
-                transforms.ToTensor(),
-                transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
-            ]
-        )
-
     def cache_key(self) -> str:
-        """``"dinov2/<variant>/<resolution>"`` — changes if weights or input size change.
+        """``"dinov2/<variant>/<resolution>/<ref>"`` — every input to the features.
 
         Built from ``self.variant``, not ``self.name``: both are equal today,
         but only ``variant`` is guaranteed to select the weights.
+
+        The weights ref is in the key because it has to be. Without it, bumping
+        :data:`HUB_REF` leaves every existing cache entry looking valid while
+        describing the old model — a silently wrong number, not a crash. A local
+        ``checkpoint`` replaces the ref with a hash of the file for the same
+        reason.
         """
-        return f"dinov2/{self.variant}/{self.image_size}"
+        if self.checkpoint is not None:
+            weights = "local-" + _file_digest(self.checkpoint)
+        else:
+            weights = self.hub_ref[:12]
+        return f"dinov2/{self.variant}/{self.image_size}/{weights}"

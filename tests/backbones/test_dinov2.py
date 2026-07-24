@@ -14,6 +14,7 @@ DINOv2 features separate images the way a probe would need them to.
 
 import pytest
 import torch
+from PIL import Image
 
 import visbench
 from visbench.types import Pooling
@@ -104,6 +105,44 @@ def test_cache_key_distinguishes_variants():
     small = visbench.get_backbone("dinov2_vits14", device="cpu")
     base = visbench.get_backbone("dinov2_vitb14", device="cpu")
     assert small.cache_key() != base.cache_key()
+
+
+def test_hub_ref_is_pinned(dinov2):
+    """Unpinned weights would let upstream change what a cached feature means."""
+    from visbench.backbones.dinov2 import HUB_REF
+
+    assert len(HUB_REF) == 40, "expected a commit SHA; upstream publishes no tags"
+    assert dinov2.hub_ref == HUB_REF
+
+
+def test_cache_key_includes_the_weights_ref(dinov2):
+    from visbench.backbones.dinov2 import HUB_REF
+
+    assert HUB_REF[:12] in dinov2.cache_key()
+
+
+def test_cache_key_changes_with_the_ref(dinov2, monkeypatch):
+    """Bumping HUB_REF must invalidate every existing cache entry."""
+    before = dinov2.cache_key()
+    monkeypatch.setattr(dinov2, "hub_ref", "0" * 40)
+    assert dinov2.cache_key() != before
+
+
+def test_local_checkpoint_gets_its_own_cache_key(tmp_path, dinov2):
+    """Local weights are not the pinned hub weights and must not share entries."""
+    path = tmp_path / "weights.pth"
+    torch.save(dinov2.model.state_dict(), path)
+
+    local = visbench.get_backbone("dinov2_vits14", device="cpu", checkpoint=path)
+    assert local.cache_key() != dinov2.cache_key()
+    assert "local-" in local.cache_key()
+
+    # Same architecture and same weights, so the features must still match.
+    batch = dinov2.preprocess([Image.new("RGB", (64, 64), (120, 60, 30))])
+    assert torch.allclose(
+        local.extract_features(batch)["pooled"],
+        dinov2.extract_features(batch)["pooled"],
+    )
 
 
 def test_end_to_end_through_the_cache(tmp_path, dinov2, solid_images):
