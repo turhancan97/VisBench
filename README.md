@@ -44,9 +44,12 @@ probe.evaluate(features, dataset.labels())
 # {"recall@1": 0.94, "recall@5": 0.99, "mAP": 0.87}
 ```
 
-Re-running that is free: the second call reads every feature from disk and the
-backbone never executes. Results go to JSONL through
-`visbench.results.ResultWriter`, under one schema from the first record.
+Re-running is much cheaper: the second call reads every feature from disk and
+the backbone never executes. On Imagenette (13,394 images, DINOv2 ViT-S, one
+V100) a cold run takes ~4 min and a fully cached one ~113 s — cheaper, not
+free, because the cache still decodes each image to compute its content hash.
+Results go to JSONL through `visbench.results.ResultWriter`, under one schema
+from the first record.
 
 Trained probes follow the same shape, with a `fit` on the training split. A
 train/test split is just two datasets, so each half carries its own
@@ -161,6 +164,33 @@ pip install -e ".[dev,clip]"
 pytest              # fast tests, no weights downloaded
 pytest -m slow      # also runs the real DINOv2 checkpoint against torch.hub
 ```
+
+## Try it on your own data
+
+[`examples/classify.py`](examples/classify.py) runs the whole path on any
+folder laid out as `<data>/train/<class>/…` and `<data>/val/<class>/…`:
+
+```bash
+pip install -e .                                   # required: the script imports visbench
+python examples/classify.py --data /path/to/dataset
+python examples/classify.py --data /path/to/dataset --limit 20   # 20 images per class, quick
+```
+
+The first run extracts features; every later run on the same data reads them
+from disk and the backbone never executes, so sweeping probe settings costs
+only the probe:
+
+```bash
+python examples/classify.py --data /path/to/dataset --epochs 500 --lr 0.05
+```
+
+It prints `train top1` next to the validation score. If the validation number
+is low *and* `train top1` is low, the probe underfitted — raise `--lr` or
+`--epochs`. If `train top1` is near 1.0, the backbone genuinely does not
+separate those classes.
+
+This is an example, not the CLI: the packaged `visbench` command stays
+deferred to v0.2 until the Python API settles.
 
 ## License
 
