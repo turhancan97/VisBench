@@ -6,10 +6,11 @@ additively; renaming or removing one is a breaking change to every historical
 record.
 """
 
-from dataclasses import dataclass
+from dataclasses import MISSING, asdict, dataclass, fields
+from datetime import datetime, timezone
 from typing import Optional
 
-__all__ = ["ResultRecord", "SCHEMA_VERSION"]
+__all__ = ["ResultRecord", "SCHEMA_VERSION", "utc_timestamp"]
 
 #: Bumped whenever the record shape changes, so consumers can migrate.
 SCHEMA_VERSION = 1
@@ -59,9 +60,41 @@ class ResultRecord:
         Retained rather than dropped so every record has identical keys, which
         keeps downstream tabular loading trivial.
         """
-        raise NotImplementedError
+        payload = asdict(self)
+        # Metrics arrive from evaluate() and are the one field a task fills
+        # freely; coerce here so a stray tensor or numpy float cannot make a
+        # whole results file unreadable.
+        payload["metrics"] = {key: float(value) for key, value in self.metrics.items()}
+        return payload
 
     @classmethod
     def from_dict(cls, payload: dict) -> "ResultRecord":
         """Rebuild a record, rejecting unknown ``schema_version`` values."""
-        raise NotImplementedError
+        version = payload.get("schema_version")
+        if version != SCHEMA_VERSION:
+            raise ValueError(
+                f"Unsupported schema_version {version!r}; this VisBench reads "
+                f"version {SCHEMA_VERSION}. Records are additive-only, so a "
+                "newer file needs a newer VisBench."
+            )
+
+        known = {field.name for field in fields(cls)}
+        unknown = set(payload) - known
+        if unknown:
+            raise ValueError(
+                f"Unknown fields for schema_version {SCHEMA_VERSION}: {sorted(unknown)}"
+            )
+        missing = {f.name for f in fields(cls) if f.default is MISSING} - set(payload)
+        if missing:
+            raise ValueError(f"Missing required fields: {sorted(missing)}")
+
+        return cls(**payload)
+
+
+def utc_timestamp() -> str:
+    """ISO 8601 UTC timestamp, e.g. ``2026-07-24T09:15:04+00:00``.
+
+    UTC always: a leaderboard aggregating runs from several machines cannot
+    order local timestamps.
+    """
+    return datetime.now(timezone.utc).isoformat()

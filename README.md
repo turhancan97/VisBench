@@ -15,34 +15,42 @@
 
 ---
 
-> **Status: v0.1.0.dev0 — feature extraction works.** Backbones, pooling and the
-> feature cache are implemented and tested; tasks are still stubs. See
-> [Build order](#build-order).
+> **Status: v0.1.0.dev0 — first task runs end-to-end.** DINOv2, the feature
+> cache, and zero-shot retrieval work on a local image folder. Classification
+> and correspondence are next. See [Build order](#build-order).
 
 ## What it is
 
 VisBench answers one question with as little ceremony as possible: *what does
 this vision backbone actually encode?*
 
-Working today:
+Working today — folder to scored metrics, on any image folder laid out as
+`root/<class_name>/<image>`:
 
 ```python
 import visbench
 from visbench.cache import FeatureCache
+from visbench.data import ImageFolderDataset
 
-backbone = visbench.get_backbone("dinov2_vitb14")     # frozen, eval mode
-cache    = FeatureCache()
+backbone = visbench.get_backbone("dinov2_vitb14")      # frozen, eval mode
+probe    = visbench.get_probe("retrieval")             # zero-shot
+dataset  = ImageFolderDataset("data/tiny", split="val")
 
-features = cache.extract_dataset(backbone, images)     # one forward pass per image
-features["pooled"]    # (N, 768) — CLS by default for a ViT
-features["dense"]     # (N, 768, 16, 16)
-features["grid_hw"]   # (16, 16)
+features = FeatureCache().extract_dataset(
+    backbone, dataset, pooling=probe.pooling, keep="pooled"
+)                                                      # one forward pass per image
+probe.evaluate(features, dataset.labels())
+# {"recall@1": 0.94, "recall@5": 0.99, "mAP": 0.87}
 ```
 
-The rest of the target API, once tasks land at build step 3:
+Re-running that is free: the second call reads every feature from disk and the
+backbone never executes. Results go to JSONL through
+`visbench.results.ResultWriter`, under one schema from the first record.
+
+The rest of the target API, as tasks land:
 
 ```python
-probe = visbench.get_probe("classification")
+probe = visbench.get_probe("classification")           # build step 4
 probe.fit(train_features, train_labels)
 metrics = probe.evaluate(test_features, test_labels)   # {"top1": ..., "top5": ...}
 ```
@@ -90,7 +98,7 @@ This is a multi-month roadmap, built one reviewed step at a time.
 
 - [x] **1. Scaffold** — every folder and module, docstrings and stubs, no logic
 - [x] **2.** `BaseBackbone` + feature cache + DINOv2, with tests
-- [ ] **3.** `BaseTask` + one task end-to-end on a local image folder
+- [x] **3.** `BaseTask` + one task end-to-end on a local image folder
 - [ ] **4.** Next task, then next backbone
 - [ ] **5.** v0.2 scope — only once all of v0.1 is implemented, tested, reviewed
 

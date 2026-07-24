@@ -7,6 +7,7 @@ the same dataset object to feed DINOv2 and CLIP unchanged.
 """
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from typing import Any
 
 __all__ = ["BaseDataset"]
@@ -35,6 +36,24 @@ class BaseDataset(ABC):
         """Return ``(pil_image, label)``. ``label`` is ``None`` for unlabeled data."""
         raise NotImplementedError
 
+    def __iter__(self) -> Iterator[tuple[Any, Any]]:
+        """Iterate in index order.
+
+        Defined explicitly rather than relying on the old ``__getitem__``
+        iteration protocol, so that ``FeatureCache.extract_dataset`` gets a
+        lazy, one-item-at-a-time read and never materialises the whole folder.
+        """
+        for index in range(len(self)):
+            yield self[index]
+
+    def labels(self) -> list:
+        """All labels in index order, without decoding any image.
+
+        Tasks need labels alongside cached features; loading every image to get
+        them would defeat the cache entirely.
+        """
+        raise NotImplementedError
+
     def describe(self) -> dict:
         """Dataset metadata (name, split, size) for the result record."""
-        raise NotImplementedError
+        return {"dataset": self.name, "split": self.split, "size": len(self)}

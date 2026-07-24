@@ -9,6 +9,8 @@ never choose. This keeps that decision in one place and backbones swappable
 from abc import ABC, abstractmethod
 from typing import Any, Optional
 
+import torch
+
 from visbench.types import FeatureMode, MetricsDict, Pooling
 
 __all__ = ["BaseTask"]
@@ -21,7 +23,8 @@ class BaseTask(ABC):
     (retrieval, correspondence) simply no-op in :meth:`fit`.
     """
 
-    #: Registered name, set by the ``@register_task`` decorator.
+    #: Registered name. Set per instance in ``__init__``, matching the backbone
+    #: convention (see :mod:`visbench.registry`).
     name: str = ""
 
     #: ``"high_level"`` | ``"mid_level"`` | ``"low_level"`` — recorded in the
@@ -45,7 +48,11 @@ class BaseTask(ABC):
         Features arrive pre-extracted and cached — a task never runs a backbone
         forward pass itself.
         """
-        raise NotImplementedError
+        if self.zero_shot:
+            return self
+        raise NotImplementedError(
+            f"{type(self).__name__} is not zero-shot and must implement fit()"
+        )
 
     @abstractmethod
     def predict(self, features: Any) -> Any:
@@ -63,9 +70,65 @@ class BaseTask(ABC):
         raise NotImplementedError
 
     def requires_labels(self) -> bool:
-        """Whether :meth:`evaluate` needs ground-truth labels."""
-        raise NotImplementedError
+        """Whether :meth:`evaluate` needs ground-truth labels.
+
+        Note this is not the same question as :attr:`zero_shot`: retrieval
+        needs no *training* labels but cannot be scored without them.
+        """
+        return True
 
     def describe(self) -> dict:
         """Task metadata (name, level, pooling, feature mode) for the result record."""
-        raise NotImplementedError
+        return {
+            "task": self.name,
+            "level": self.level,
+            "pooling": self.pooling,
+            "feature_mode": self.feature_mode,
+            "zero_shot": self.zero_shot,
+        }
+
+    # -- shared helpers ------------------------------------------------------
+
+    @staticmethod
+    def _as_pooled(features: Any) -> torch.Tensor:
+        """Accept a :class:`FeatureDict` or a bare tensor, return ``(N, C)``.
+
+        Tasks are handed whatever ``FeatureCache.extract_dataset`` returned, but
+        are also useful on raw tensors in tests and notebooks; normalising here
+        keeps that branch out of every task.
+        """
+        if isinstance(features, dict):
+            if "pooled" not in features:
+                raise KeyError(
+                    "Feature dict has no 'pooled' entry. If it came from "
+                    "extract_dataset(keep='dense'), re-extract with "
+                    "keep='both' or keep='pooled'."
+                )
+            pooled = features["pooled"]
+        else:
+            pooled = features
+
+        if not isinstance(pooled, torch.Tensor):
+            raise TypeError(f"Expected pooled features as a tensor, got {type(pooled).__name__}")
+        if pooled.ndim != 2:
+            raise ValueError(f"Expected pooled features of shape (N, C), got {tuple(pooled.shape)}")
+        return pooled
+
+    @staticmethod
+    def _as_label_tensor(labels: Any) -> torch.Tensor:
+        """Coerce a list of labels to a 1-D tensor, rejecting missing entries."""
+        if labels is None:
+            raise ValueError("This task requires labels; got None")
+        if isinstance(labels, torch.Tensor):
+            tensor = labels
+        else:
+            values = list(labels)
+            if any(value is None for value in values):
+                raise ValueError(
+                    "Labels contain None. An unlabeled ImageFolderDataset "
+                    "(labeled=False) cannot be scored."
+                )
+            tensor = torch.as_tensor(values)
+        if tensor.ndim != 1:
+            raise ValueError(f"Expected labels of shape (N,), got {tuple(tensor.shape)}")
+        return tensor

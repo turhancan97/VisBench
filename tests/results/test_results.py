@@ -1,0 +1,163 @@
+"""The structured result record and its JSONL writer.
+
+One schema from the first task, not retrofitted later — so these tests are
+mostly about the guarantees a future leaderboard will depend on: identical keys
+on every record, additive-only evolution, and a file that survives a crashed
+run.
+"""
+
+import json
+
+import pytest
+
+from visbench.results import SCHEMA_VERSION, ResultRecord, ResultWriter, read_records
+from visbench.results.schema import utc_timestamp
+
+
+def make_record(**overrides) -> ResultRecord:
+    payload = dict(
+        backbone="dinov2_vitb14",
+        backbone_key="dinov2/dinov2_vitb14/224/7764ea0f912e",
+        task="retrieval",
+        level="high_level",
+        dataset="tiny",
+        split="val",
+        pooling="cls",
+        feature_mode="dense_only",
+        metrics={"recall@1": 0.5, "mAP": 0.25},
+        timestamp=utc_timestamp(),
+        visbench_version="0.1.0.dev0",
+    )
+    payload.update(overrides)
+    return ResultRecord(**payload)
+
+
+def test_round_trip(tmp_path):
+    path = tmp_path / "r.jsonl"
+    record = make_record()
+
+    with ResultWriter(path) as writer:
+        writer.write(record)
+
+    assert read_records(path) == [record]
+
+
+def test_none_fields_are_retained(tmp_path):
+    """Every record must have identical keys, or tabular loading gets painful."""
+    payload = make_record().to_dict()
+    assert payload["seed"] is None
+    assert payload["layer"] is None
+    assert set(payload) == set(make_record(seed=7, layer=11).to_dict())
+
+
+def test_appends_rather_than_overwrites(tmp_path):
+    path = tmp_path / "r.jsonl"
+    with ResultWriter(path) as writer:
+        writer.write(make_record(task="retrieval"))
+    with ResultWriter(path) as writer:
+        writer.write(make_record(task="classification"))
+
+    assert [r.task for r in read_records(path)] == ["retrieval", "classification"]
+
+
+def test_one_record_per_line(tmp_path):
+    path = tmp_path / "r.jsonl"
+    with ResultWriter(path) as writer:
+        for _ in range(3):
+            writer.write(make_record())
+
+    assert len(path.read_text().strip().splitlines()) == 3
+
+
+def test_partial_file_is_still_readable(tmp_path):
+    """A crashed run keeps every completed result."""
+    path = tmp_path / "r.jsonl"
+    writer = ResultWriter(path)
+    writer.write(make_record())
+    # No close(): flush + fsync on write is what makes this survive.
+
+    assert len(read_records(path)) == 1
+
+
+def test_blank_lines_are_skipped(tmp_path):
+    path = tmp_path / "r.jsonl"
+    with ResultWriter(path) as writer:
+        writer.write(make_record())
+    with open(path, "a") as handle:
+        handle.write("\n\n")
+
+    assert len(read_records(path)) == 1
+
+
+def test_parent_directories_are_created(tmp_path):
+    path = tmp_path / "deep" / "nested" / "r.jsonl"
+    with ResultWriter(path) as writer:
+        writer.write(make_record())
+    assert path.exists()
+
+
+# -- schema guarantees -------------------------------------------------------
+
+
+def test_schema_version_is_stamped():
+    assert make_record().to_dict()["schema_version"] == SCHEMA_VERSION
+
+
+def test_future_schema_version_is_rejected():
+    """A newer file needs a newer VisBench; guessing would corrupt a leaderboard."""
+    payload = make_record().to_dict()
+    payload["schema_version"] = SCHEMA_VERSION + 1
+
+    with pytest.raises(ValueError, match="Unsupported schema_version"):
+        ResultRecord.from_dict(payload)
+
+
+def test_unknown_field_is_rejected():
+    payload = make_record().to_dict()
+    payload["accuracy_but_typoed"] = 1.0
+
+    with pytest.raises(ValueError, match="Unknown fields"):
+        ResultRecord.from_dict(payload)
+
+
+def test_missing_required_field_is_rejected():
+    payload = make_record().to_dict()
+    del payload["backbone_key"]
+
+    with pytest.raises(ValueError, match="Missing required fields"):
+        ResultRecord.from_dict(payload)
+
+
+def test_metrics_are_coerced_to_float():
+    """evaluate() is the one field a task fills freely; a tensor must not
+    make the whole results file unreadable."""
+    import torch
+
+    record = make_record(metrics={"recall@1": torch.tensor(0.5)})
+    assert record.to_dict()["metrics"]["recall@1"] == 0.5
+    json.dumps(record.to_dict())
+
+
+def test_records_are_json_object_per_line(tmp_path):
+    path = tmp_path / "r.jsonl"
+    with ResultWriter(path) as writer:
+        writer.write(make_record())
+
+    line = path.read_text().strip()
+    assert json.loads(line)["task"] == "retrieval"
+
+
+def test_corrupt_line_names_the_line_number(tmp_path):
+    path = tmp_path / "r.jsonl"
+    with ResultWriter(path) as writer:
+        writer.write(make_record())
+    with open(path, "a") as handle:
+        handle.write("{not json}\n")
+
+    with pytest.raises(ValueError, match=":2 is not valid JSON"):
+        read_records(path)
+
+
+def test_timestamp_is_utc():
+    """A leaderboard aggregating machines cannot order local timestamps."""
+    assert utc_timestamp().endswith("+00:00")

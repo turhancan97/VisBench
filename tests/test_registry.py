@@ -101,10 +101,23 @@ class TestImportTolerance:
             registry._ensure_imported()
 
 
-def test_no_probes_registered_until_step_three():
-    assert visbench.list_probes() == []
+def test_retrieval_is_registered():
+    assert "retrieval" in visbench.list_probes()
 
 
-def test_get_probe_fails_informatively():
+def test_get_probe_builds_a_task():
+    probe = visbench.get_probe("retrieval")
+    assert probe.name == "retrieval"
+    assert probe.level == "high_level"
+
+
+def test_get_probe_forwards_kwargs():
+    probe = visbench.get_probe("retrieval", topk=(1, 3), metric="l2")
+    assert probe.topk == (1, 3)
+    assert probe.metric == "l2"
+
+
+def test_unregistered_task_fails_informatively():
+    """Classification lands at build step 4; until then the error must say so."""
     with pytest.raises(KeyError, match="Unknown task"):
         visbench.get_probe("classification")
