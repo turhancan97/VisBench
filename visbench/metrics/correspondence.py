@@ -72,9 +72,12 @@ def ratio_test(distances: torch.Tensor, threshold: float = 0.9) -> torch.Tensor:
             f"The ratio test needs at least 2 neighbours, got {tuple(distances.shape)}"
         )
     nearest, runner_up = distances[:, 0], distances[:, 1]
-    # A zero runner-up means both neighbours are identical to the query, so the
-    # match carries no information; clamp keeps the ratio at 1 and rejects it.
-    return nearest < threshold * runner_up.clamp(min=1e-12)
+    # No clamp on runner_up. When both neighbours are at distance 0 — a
+    # constant feature region, where the match carries no information at all —
+    # a clamped floor turns the test into `0 < 0.9e-12`, which is *true*, and
+    # the most ambiguous matches in the image get kept. Plain `0 < 0` is false
+    # and rejects them, which is the intent.
+    return nearest < threshold * runner_up
 
 
 def correspondence_recall(

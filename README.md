@@ -231,13 +231,25 @@ DINOv2 ViT-S/14, CLS pooling, one V100:
 | retrieval (zero-shot) | cls | mAP | 0.8893 | — |
 | retrieval (zero-shot) | mean | recall@1 | 0.9740 | — |
 | retrieval (zero-shot) | mean | mAP | 0.8314 | — |
-| correspondence (zero-shot) | dense | recall@10px | 0.6379 | 0.8656 |
-| correspondence (zero-shot) | dense | recall@5px | 0.2909 | 0.3415 |
-| correspondence (zero-shot) | dense | recall@2px | 0.0547 | 0.0540 |
+| correspondence (zero-shot) | dense | recall@10px | 0.6379 | 0.9217 |
+| correspondence (zero-shot) | dense | recall@5px | 0.2909 | 0.3977 |
+| correspondence (zero-shot) | dense | recall@2px | 0.0547 | 0.0693 |
 
 Correspondence used 50 pairs at `max_warp=0.2`, 16x16 patches. Read it against
-the ceiling: DINOv2 is essentially *at* the achievable limit for tight
-thresholds and reaches 74% of it at 10px.
+the ceiling: DINOv2 reaches 69–79% of what patch quantisation allows, fairly
+evenly across thresholds.
+
+Degradation with viewpoint is gradual — 50 pairs, recall@10px as
+score/ceiling:
+
+| `max_warp` | 0.05 | 0.1 | 0.2 | 0.3 | 0.4 |
+|---|---|---|---|---|---|
+| recall@10px | 0.761 | 0.688 | 0.653 | 0.626 | 0.580 |
+| % of ceiling | 77% | 72% | 71% | 70% | 68% |
+| matches kept / pair | 164 | 148 | 121 | 91 | 59 |
+
+The ratio test rejects more as the warp grows (164 → 59 matches), which is the
+behaviour it exists for: fewer, and still mostly correct.
 
 Chance recall@1 is 0.10. Retrieval reused the classification cache: 3,925
 hits, 0 misses, 8 s end to end. Switching to `--pooling mean` is a genuine

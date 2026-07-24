@@ -207,24 +207,42 @@ class CorrespondenceTask(BaseTask):
         image the spacing is 14px, which makes ``recall@1px`` almost
         unreachable no matter how good the features are.
 
-        This computes, for every source patch, the error of the *closest patch
-        centre to the true target* — the best any matcher could do. Report it
-        beside :meth:`evaluate` or the raw numbers invite the wrong conclusion:
-        a low ``recall@1px`` usually means the grid is coarse, not that the
-        backbone failed.
+        For each match the task actually kept, this computes the error of the
+        *closest patch centre to the true target* — the best that match could
+        possibly have scored. Report it beside :meth:`evaluate` or the raw
+        numbers invite the wrong conclusion: a low ``recall@1px`` usually means
+        the grid is coarse, not that the backbone failed.
+
+        Crucially this is restricted to the **same matches** :meth:`evaluate`
+        scores, not to every patch. Scoring all patches instead makes the two
+        numbers averages over different populations, and the "ceiling" stops
+        being a bound: the ratio test keeps distinctive patches, which are also
+        the easier ones to localise, so a real run reported 127% of its own
+        ceiling. Restricted this way, ``score <= ceiling`` holds by
+        construction — the match chosen is one of the candidates the minimum
+        is taken over.
         """
         if labels is None:
             raise ValueError("Correspondence needs geometry to score against; got None")
 
         errors = []
         for pair, geometry in zip(features, labels):
-            grid_0 = self._grid_hw(pair[0])
-            grid_1 = self._grid_hw(pair[1])
-            size = geometry["size"]
+            source_idx, _ = self.match(pair[0], pair[1])
+            if len(source_idx) == 0:
+                continue
 
-            expected = apply_homography(geometry["homography"], patch_centers(grid_0, size))
-            candidates = patch_centers(grid_1, size)
+            size = geometry["size"]
+            centres_0 = patch_centers(self._grid_hw(pair[0]), size)[source_idx]
+            candidates = patch_centers(self._grid_hw(pair[1]), size)
+
+            expected = apply_homography(geometry["homography"], centres_0)
             errors.append(torch.cdist(expected, candidates).min(dim=1).values)
+
+        if not errors:
+            return {
+                **correspondence_recall(torch.zeros(0), self.thresholds),
+                **error_auc(torch.zeros(0), self.thresholds),
+            }
 
         pooled = torch.cat(errors)
         metrics: MetricsDict = dict(correspondence_recall(pooled, self.thresholds))

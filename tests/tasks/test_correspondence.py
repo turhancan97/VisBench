@@ -60,6 +60,15 @@ def test_ratio_test_rejects_a_tie():
     assert ratio_test(torch.tensor([[0.4, 0.4]]), 0.9).tolist() == [False]
 
 
+def test_ratio_test_rejects_a_zero_tie():
+    """A constant feature region ties at distance 0 and must also be rejected.
+
+    Flooring the runner-up to avoid a zero turns this into `0 < 0.9e-12`, which
+    is true — so the single most ambiguous case in an image would be kept.
+    """
+    assert ratio_test(torch.tensor([[0.0, 0.0]]), 0.9).tolist() == [False]
+
+
 def test_ratio_test_needs_two_neighbours():
     with pytest.raises(ValueError, match="at least 2 neighbours"):
         ratio_test(torch.tensor([[0.1]]))
@@ -287,6 +296,42 @@ class TestCeiling:
         for threshold in (1, 2, 5, 10):
             key = f"recall@{threshold}px"
             assert scored[key] <= ceiling[key] + 1e-9, f"{key} beat its own ceiling"
+
+    def test_ceiling_covers_only_the_kept_matches(self, probe):
+        """The bug this guards: averaging over different populations.
+
+        The ratio test discards most patches, and it keeps the distinctive
+        ones — which are also easier to localise. A ceiling averaged over
+        *every* patch is therefore not a bound at all, and a real Imagenette
+        run reported 127% of it.
+        """
+        torch.manual_seed(0)
+        # Half the grid is constant, so the ratio test rejects it wholesale.
+        dense = torch.randn(1, 16, 8, 8)
+        dense[:, :, 4:, :] = 1.0
+        pair = (_feature_dict(dense), _feature_dict(dense.clone()))
+        geometry = [{"homography": torch.eye(3, dtype=torch.float64), "size": (112, 112)}]
+
+        kept, _ = probe.match(pair[0], pair[1])
+        assert 0 < len(kept) < 64, "fixture must trigger a partial selection"
+
+        scored = probe.evaluate([pair], geometry)
+        ceiling = probe.evaluate_ceiling([pair], geometry)
+
+        # Both averages must be over the same denominator.
+        assert scored["num_matches"] == len(kept)
+        for threshold in (1, 2, 5, 10):
+            key = f"recall@{threshold}px"
+            assert scored[key] <= ceiling[key] + 1e-9
+
+    def test_ceiling_with_no_surviving_matches(self, probe):
+        """Constant features: everything is rejected, so both sides report 0."""
+        dense = torch.ones(1, 8, 4, 4)
+        pair = (_feature_dict(dense), _feature_dict(dense.clone()))
+        geometry = [{"homography": torch.eye(3, dtype=torch.float64), "size": (64, 64)}]
+
+        assert probe.evaluate([pair], geometry)["num_matches"] == 0
+        assert probe.evaluate_ceiling([pair], geometry)["recall@1px"] == 0.0
 
     def test_finer_grid_raises_the_ceiling(self, probe):
         """More patches, smaller spacing, more of the fine thresholds reachable.
