@@ -196,8 +196,37 @@ is low *and* `train top1` is low, the probe underfitted — raise `--lr` or
 `--epochs`. If `train top1` is near 1.0, the backbone genuinely does not
 separate those classes.
 
-This is an example, not the CLI: the packaged `visbench` command stays
-deferred to v0.2 until the Python API settles.
+[`examples/retrieve.py`](examples/retrieve.py) does the zero-shot version —
+no training at all, every image queries every other by cosine similarity:
+
+```bash
+python examples/retrieve.py --data /path/to/dataset --split val
+python examples/retrieve.py --data /path/to/dataset --split val --pooling mean
+```
+
+Both examples share one cache, so running retrieval after classification on
+the same split costs nothing but the ranking.
+
+### Measured on Imagenette
+
+DINOv2 ViT-S/14, CLS pooling, one V100:
+
+| task | pooling | metric | score |
+|---|---|---|---|
+| classification (linear probe) | cls | top1 | 0.9939 |
+| retrieval (zero-shot) | cls | recall@1 | 0.9921 |
+| retrieval (zero-shot) | cls | mAP | 0.8893 |
+| retrieval (zero-shot) | mean | recall@1 | 0.9740 |
+| retrieval (zero-shot) | mean | mAP | 0.8314 |
+
+Chance recall@1 is 0.10. Retrieval reused the classification cache: 3,925
+hits, 0 misses, 8 s end to end. Switching to `--pooling mean` is a genuine
+re-extraction (3,925 misses, 56 s) because pooling is part of the cache key —
+and it costs about 1.8 points of recall@1 here, which is the sort of question
+these two lines of CLI exist to answer.
+
+These examples are not the CLI: the packaged `visbench` command stays deferred
+to v0.2 until the Python API settles.
 
 ## License
 
