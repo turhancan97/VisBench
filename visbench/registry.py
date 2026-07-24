@@ -119,6 +119,7 @@ def list_tasks() -> list[str]:
 _REGISTRATION_MODULES: dict[str, Optional[str]] = {
     "visbench.backbones.dinov2": None,
     "visbench.backbones.clip": "open_clip",
+    "visbench.backbones.timm_backbone": "timm",
     "visbench.tasks.high_level.classification": None,
     "visbench.tasks.high_level.retrieval": None,
     "visbench.tasks.mid_level.correspondence": None,

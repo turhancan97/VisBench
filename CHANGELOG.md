@@ -9,9 +9,20 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
-Nothing yet. v0.2 scope — CLI, ResNet/timm and custom backbones, dense
-mid-level tasks, pluggable heads, multi-layer extraction — starts once v0.1 has
-been reviewed.
+### Added
+
+- **timm CNN backbones** (`resnet18`, `resnet50`, or any timm CNN via
+  `TimmBackbone(model_name=...)`) — the first non-ViT family. Dense features
+  are the last conv map before global pooling, flattened to a token sequence so
+  `extract_features` needs no branch on architecture. Mean-pooling those tokens
+  reproduces a ResNet's own `global_pool` output exactly, so the pooled vector
+  means the same thing for a CNN as a CLS token does for a ViT. Behind a `timm`
+  extra.
+- Cache keys carry the timm pretrained tag: `resnet50.a1_in1k` and
+  `resnet50.a3_in1k` are different weights under one architecture name.
+
+Still to come in v0.2: custom `nn.Module` backbones, dense mid-level tasks,
+pluggable heads, multi-layer extraction, CLI.
 
 ## [0.1.0] — 2026-07-24
 

@@ -15,10 +15,9 @@
 
 ---
 
-> **Status: v0.1.0.** Both backbones (DINOv2, CLIP) and all three tasks
-> (classification, retrieval, correspondence) run end-to-end on a local image
-> folder, dependencies are locked, and `run()` does the whole path in one call.
-> Not yet on PyPI. See [Build order](#build-order).
+> **Status: v0.1.0 released; v0.2 in progress.** Three backbone families
+> (DINOv2, CLIP, timm CNNs) and all three v0.1 tasks run end-to-end on a local
+> image folder. Not yet on PyPI. See [Build order](#build-order).
 
 ## What it is
 
@@ -137,7 +136,10 @@ This is a multi-month roadmap, built one reviewed step at a time.
 - [x] **3.** `BaseTask` + one task end-to-end on a local image folder
 - [x] **4.** Next task, then next backbone — all three v0.1 tasks, both v0.1
       backbones, `uv.lock`, and the `run()` entry point
-- [ ] **5.** v0.2 scope — only once all of v0.1 is implemented, tested, reviewed
+- [x] **5a.** ResNet/timm backbone — the first non-ViT, validating the CNN half
+      of `BaseBackbone`
+- [ ] **5b.** rest of v0.2 — custom backbones, dense mid-level tasks, pluggable
+      heads, multi-layer extraction, CLI
 
 ## Roadmap
 
@@ -259,23 +261,33 @@ the backbone failed.
 
 ### Measured on Imagenette
 
-Both v0.1 backbones, CLS pooling, one V100. Classification and retrieval on the
-full 3,925-image val split; correspondence on 50 pairs at `max_warp=0.2`.
+3,925-image val split, one V100. Correspondence on 50 pairs at `max_warp=0.2`.
 
-| task | metric | DINOv2 ViT-S/14 | CLIP ViT-B/16 |
-|---|---|---|---|
-| classification (linear probe) | top1 | 0.9939 | **0.9954** |
-| retrieval (zero-shot) | recall@1 | **0.9921** | 0.9893 |
-| retrieval (zero-shot) | mAP | 0.8893 | **0.9102** |
-| correspondence (zero-shot) | recall@1p | **0.7650** | 0.6993 |
-| correspondence (zero-shot) | ceiling | 0.9408 | 0.9505 |
+| task | metric | DINOv2 ViT-S/14 | CLIP ViT-B/16 | ResNet-50 |
+|---|---|---|---|---|
+| classification | top1 | 0.9939 | 0.9954 | 0.9980\* |
+| retrieval | recall@1 | 0.9921 | 0.9893 | 0.9901\* |
+| retrieval | mAP | 0.8893 | 0.9102 | 0.9357\* |
+| correspondence | recall@1p | 0.7650 | 0.6993 | 0.8443 |
+| correspondence | ceiling | 0.9408 | 0.9505 | 0.9709 |
+| dense grid @224 | | 16x16 | 14x14 | 7x7 |
 
-The split is the interesting part: CLIP is ahead on the two semantic tasks and
-clearly behind on the geometric one, despite a *higher* ceiling (its 14x14 grid
-quantises less than DINOv2's 16x16 at this resolution). That is the high-level
-vs mid-level distinction the task taxonomy exists to expose, and it only shows
-up because correspondence measures error in patch widths — in pixels the two
-grids would have been measured with different rulers.
+**\* Read the ResNet column with care.** Imagenette's ten classes are ImageNet-1k
+wnids, and `resnet50.a1_in1k` was trained on ImageNet-1k with labels — it has
+seen these exact categories, while DINOv2 is self-supervised and CLIP is
+image-text. Its semantic scores are close to in-distribution recall, not a
+transfer result. This says more about the dataset than the backbone; a
+benchmark comparing supervised against self-supervised features needs data the
+supervised model has not been trained on.
+
+Correspondence is less exposed to that (no labels are used), but comes with its
+own caveat: ResNet's 7x7 grid means matching among 49 candidates against
+DINOv2's 256. Patch-width thresholds make the *error* comparable across grids;
+they do not make the matching problem equally hard.
+
+The DINOv2/CLIP split is the cleaner comparison, and it lands where the task
+taxonomy predicts: CLIP ahead on the semantic tasks, behind on the geometric
+one despite a higher ceiling.
 
 Retrieval with `--pooling mean` instead of CLS costs DINOv2 about 1.8 points of
 recall@1 (0.9740, mAP 0.8314).
