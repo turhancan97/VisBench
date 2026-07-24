@@ -7,6 +7,8 @@ The fake-backbone version runs by default. The same flow against real DINOv2
 weights is marked ``slow``.
 """
 
+import time
+
 import pytest
 import torch
 from PIL import Image
@@ -16,6 +18,7 @@ from visbench.cache import FeatureCache
 from visbench.data import ImageFolderDataset
 from visbench.results import ResultRecord, ResultWriter, read_records
 from visbench.results.schema import utc_timestamp
+from visbench.utils import set_seed
 
 
 @pytest.fixture
@@ -37,8 +40,16 @@ def image_folder(tmp_path):
     return root
 
 
-def run_probe(backbone, dataset, cache, probe):
-    """Extract, evaluate, and build the record — the shape a CLI would take."""
+def run_probe(backbone, dataset, cache, probe, seed=0):
+    """Extract, evaluate, and build the record — the shape a CLI would take.
+
+    Lives in the test rather than the library on purpose: the library helper
+    that replaces it should be designed against a trained task as well as a
+    zero-shot one, which arrives at build step 4.
+    """
+    used_seed = set_seed(seed)
+    started = time.perf_counter()
+
     features = cache.extract_dataset(backbone, dataset, pooling=probe.pooling, keep="pooled")
     metrics = probe.fit(features).evaluate(features, dataset.labels())
 
@@ -50,11 +61,15 @@ def run_probe(backbone, dataset, cache, probe):
         level=described["level"],
         dataset=described["dataset"],
         split=described["split"],
+        dataset_size=described["dataset_size"],
+        dataset_fingerprint=described["dataset_fingerprint"],
         pooling=described["pooling"],
         feature_mode=described["feature_mode"],
         metrics=metrics,
         timestamp=utc_timestamp(),
         visbench_version=visbench.__version__,
+        seed=used_seed,
+        duration_seconds=time.perf_counter() - started,
     )
 
 
@@ -78,6 +93,25 @@ def test_folder_to_record(tmp_path, image_folder, fake_vit):
     assert loaded.split == "val"
     assert loaded.task == "retrieval"
     assert loaded.backbone_key == fake_vit.cache_key()
+    assert loaded.dataset_size == 8
+    assert loaded.dataset_fingerprint
+    assert loaded.seed == 0
+    assert loaded.duration_seconds > 0
+
+
+def test_changing_the_data_changes_the_record(tmp_path, image_folder, fake_vit):
+    """Two runs over different images must not produce identical-looking records."""
+    cache = FeatureCache(root=tmp_path / "cache")
+    probe = visbench.get_probe("retrieval")
+
+    _, before = run_probe(fake_vit, ImageFolderDataset(image_folder), cache, probe)
+
+    Image.new("RGB", (64, 64), (10, 200, 10)).save(image_folder / "red" / "extra.png")
+    _, after = run_probe(fake_vit, ImageFolderDataset(image_folder), cache, probe)
+
+    assert before.dataset == after.dataset, "same folder name, as the scenario requires"
+    assert before.dataset_fingerprint != after.dataset_fingerprint
+    assert (before.dataset_size, after.dataset_size) == (8, 9)
 
 
 def test_second_run_reuses_the_cache(tmp_path, image_folder, fake_vit):

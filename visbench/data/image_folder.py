@@ -6,6 +6,7 @@ proves the full path end-to-end on a **small local image folder**, with no
 dataset-download machinery in the way.
 """
 
+import hashlib
 from pathlib import Path
 from typing import Any, Optional
 
@@ -80,6 +81,27 @@ class ImageFolderDataset(BaseDataset):
     def labels(self) -> list:
         """Class indices in index order. No image is opened."""
         return list(self._labels)
+
+    def fingerprint(self) -> str:
+        """Short hash over the file list: relative paths, sizes and labels.
+
+        Deliberately built from ``stat()`` rather than file contents. Reading
+        every image to fingerprint it would reintroduce, on *every* run, exactly
+        the I/O cost the feature cache exists to avoid — and the fingerprint's
+        job is to distinguish datasets, not to verify them.
+
+        What it catches: images added, removed, renamed, reordered, relabelled,
+        or replaced with a file of a different size. What it misses: an image
+        edited in place to exactly the same byte length. That residual case is
+        caught downstream anyway, because the feature cache keys on decoded
+        pixel content and would treat the edited image as a miss.
+        """
+        digest = hashlib.sha256()
+        digest.update(f"{self.name}|{self.split}|{len(self.paths)}".encode())
+        for path, label in zip(self.paths, self._labels):
+            relative = path.relative_to(self.root).as_posix()
+            digest.update(f"{relative}|{path.stat().st_size}|{label}".encode())
+        return digest.hexdigest()[:16]
 
     @property
     def classes(self) -> list:

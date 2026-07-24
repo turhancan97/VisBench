@@ -105,5 +105,74 @@ def test_empty_folder_raises(tmp_path):
 def test_describe_feeds_the_result_record(folder):
     described = ImageFolderDataset(folder, split="val").describe()
     assert described["split"] == "val"
-    assert described["size"] == 5
+    assert described["dataset_size"] == 5
     assert described["num_classes"] == 2
+    assert described["dataset_fingerprint"]
+
+
+class TestFingerprint:
+    """What the fingerprint must and must not distinguish.
+
+    Its job is telling datasets apart in a result record, cheaply. It reads
+    ``stat()`` only — fingerprinting file contents would repeat, on every run,
+    the I/O the feature cache exists to avoid.
+    """
+
+    def test_is_stable_across_instances(self, folder):
+        assert ImageFolderDataset(folder).fingerprint() == ImageFolderDataset(folder).fingerprint()
+
+    def test_does_not_decode_images(self, folder, monkeypatch):
+        import visbench.data.image_folder as module
+
+        monkeypatch.setattr(
+            module, "load_image", lambda path: pytest.fail("fingerprint decoded an image")
+        )
+        assert ImageFolderDataset(folder).fingerprint()
+
+    def test_added_image_changes_it(self, folder):
+        before = ImageFolderDataset(folder).fingerprint()
+        Image.new("RGB", (32, 32), (7, 7, 7)).save(folder / "cat" / "new.png")
+        assert ImageFolderDataset(folder).fingerprint() != before
+
+    def test_removed_image_changes_it(self, folder):
+        before = ImageFolderDataset(folder).fingerprint()
+        next((folder / "cat").glob("*.png")).unlink()
+        assert ImageFolderDataset(folder).fingerprint() != before
+
+    def test_relabelling_changes_it(self, folder):
+        """Same images, different class assignment, is a different dataset."""
+        before = ImageFolderDataset(folder).fingerprint()
+        moved = next((folder / "cat").glob("*.png"))
+        moved.rename(folder / "dog" / moved.name)
+        assert ImageFolderDataset(folder).fingerprint() != before
+
+    def test_replacing_with_a_different_size_changes_it(self, folder):
+        before = ImageFolderDataset(folder).fingerprint()
+        target = next((folder / "cat").glob("*.png"))
+        Image.new("RGB", (256, 256), (1, 2, 3)).save(target)
+        assert ImageFolderDataset(folder).fingerprint() != before
+
+    def test_split_changes_it(self, folder):
+        assert (
+            ImageFolderDataset(folder, split="train").fingerprint()
+            != ImageFolderDataset(folder, split="val").fingerprint()
+        )
+
+    def test_touching_a_file_does_not_change_it(self, folder):
+        """mtime is not content; re-copying a dataset must not invalidate records."""
+        before = ImageFolderDataset(folder).fingerprint()
+        next((folder / "cat").glob("*.png")).touch()
+        assert ImageFolderDataset(folder).fingerprint() == before
+
+    def test_base_default_is_none_not_a_lie(self):
+        """A subclass with no cheap fingerprint reports nothing, not something wrong."""
+        from visbench.data.base import BaseDataset
+
+        class Minimal(BaseDataset):
+            def __len__(self):
+                return 0
+
+            def __getitem__(self, index):
+                raise IndexError
+
+        assert Minimal().fingerprint() is None

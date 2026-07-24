@@ -13,7 +13,14 @@ from typing import Optional
 __all__ = ["ResultRecord", "SCHEMA_VERSION", "utc_timestamp"]
 
 #: Bumped whenever the record shape changes, so consumers can migrate.
-SCHEMA_VERSION = 1
+#:
+#: History
+#: -------
+#: 1. Initial schema.
+#: 2. Added ``dataset_size`` and ``dataset_fingerprint``. Without them, two
+#:    runs over different folders that happen to share a name produced records
+#:    that were byte-identical and meant different things.
+SCHEMA_VERSION = 2
 
 
 @dataclass
@@ -28,13 +35,22 @@ class ResultRecord:
         pin down what actually ran.
     task / level:
         Registered task name and its level (high/mid/low).
-    dataset:
+    dataset / split:
         Dataset identifier plus split.
+    dataset_size / dataset_fingerprint:
+        How many images, and a short hash of the file list from
+        :meth:`BaseDataset.fingerprint`. The name alone does not identify data
+        — two folders can share one — so without these, a run before and after
+        the images changed produces indistinguishable records.
     pooling / feature_mode:
         Exactly what representation the task requested — without these two the
         metrics are not reproducible.
     metrics:
         The flat dict returned by :meth:`BaseTask.evaluate`.
+    seed:
+        From :func:`visbench.utils.set_seed`, which returns the seed it used
+        even when the caller passed ``None``. Irrelevant for zero-shot tasks;
+        required to reproduce anything that trains.
     """
 
     backbone: str
@@ -49,6 +65,8 @@ class ResultRecord:
     timestamp: str
     visbench_version: str
     schema_version: int = SCHEMA_VERSION
+    dataset_size: Optional[int] = None
+    dataset_fingerprint: Optional[str] = None
     layer: Optional[int] = None
     seed: Optional[int] = None
     duration_seconds: Optional[float] = None
@@ -69,11 +87,19 @@ class ResultRecord:
 
     @classmethod
     def from_dict(cls, payload: dict) -> "ResultRecord":
-        """Rebuild a record, rejecting unknown ``schema_version`` values."""
+        """Rebuild a record, rejecting a ``schema_version`` newer than this one.
+
+        Older versions are read, not rejected: the schema is additive-only, so
+        every field a v1 record has still exists, and the ones it predates come
+        back as ``None``. Refusing them would throw away exactly the history a
+        benchmark library exists to accumulate.
+        """
         version = payload.get("schema_version")
-        if version != SCHEMA_VERSION:
+        if not isinstance(version, int) or isinstance(version, bool):
+            raise ValueError(f"schema_version must be an int, got {version!r}")
+        if version > SCHEMA_VERSION:
             raise ValueError(
-                f"Unsupported schema_version {version!r}; this VisBench reads "
+                f"Unsupported schema_version {version}; this VisBench reads up to "
                 f"version {SCHEMA_VERSION}. Records are additive-only, so a "
                 "newer file needs a newer VisBench."
             )

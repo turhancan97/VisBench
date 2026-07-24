@@ -8,7 +8,7 @@ the same dataset object to feed DINOv2 and CLIP unchanged.
 
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
-from typing import Any
+from typing import Any, Optional
 
 __all__ = ["BaseDataset"]
 
@@ -54,6 +54,24 @@ class BaseDataset(ABC):
         """
         raise NotImplementedError
 
+    def fingerprint(self) -> Optional[str]:
+        """Short hash identifying *which* data this is, for the result record.
+
+        A record naming only ``"imagenette"`` and ``"val"`` cannot distinguish
+        two folders that share a name, so two runs over different images
+        produce records that look identical and mean different things.
+
+        Returns ``None`` when a subclass cannot compute one cheaply — the
+        record then carries no fingerprint, which is honest, rather than a
+        misleading one.
+        """
+        return None
+
     def describe(self) -> dict:
-        """Dataset metadata (name, split, size) for the result record."""
-        return {"dataset": self.name, "split": self.split, "size": len(self)}
+        """Dataset metadata (name, split, size, fingerprint) for the result record."""
+        return {
+            "dataset": self.name,
+            "split": self.split,
+            "dataset_size": len(self),
+            "dataset_fingerprint": self.fingerprint(),
+        }

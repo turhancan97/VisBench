@@ -112,6 +112,54 @@ def test_future_schema_version_is_rejected():
         ResultRecord.from_dict(payload)
 
 
+def test_older_schema_version_is_still_readable():
+    """Additive-only means a v1 record is a v2 record missing two fields.
+
+    Rejecting it would throw away exactly the history this library exists to
+    accumulate.
+    """
+    v1 = {
+        "backbone": "dinov2_vitb14",
+        "backbone_key": "dinov2/dinov2_vitb14/224",
+        "task": "retrieval",
+        "level": "high_level",
+        "dataset": "tiny",
+        "split": "val",
+        "pooling": "cls",
+        "feature_mode": "dense_only",
+        "metrics": {"recall@1": 0.5},
+        "timestamp": "2026-07-24T09:15:04+00:00",
+        "visbench_version": "0.1.0.dev0",
+        "schema_version": 1,
+        "layer": None,
+        "seed": None,
+        "duration_seconds": None,
+        "notes": None,
+    }
+
+    record = ResultRecord.from_dict(v1)
+    assert record.task == "retrieval"
+    assert record.dataset_fingerprint is None
+    assert record.dataset_size is None
+    # Provenance is preserved: this record really was written by a v1 VisBench.
+    assert record.schema_version == 1
+
+
+def test_non_integer_schema_version_is_rejected():
+    payload = make_record().to_dict()
+    payload["schema_version"] = "2"
+
+    with pytest.raises(ValueError, match="must be an int"):
+        ResultRecord.from_dict(payload)
+
+
+def test_new_records_carry_dataset_identity():
+    payload = make_record(dataset_size=8, dataset_fingerprint="abc123").to_dict()
+    assert payload["schema_version"] == 2
+    assert payload["dataset_size"] == 8
+    assert payload["dataset_fingerprint"] == "abc123"
+
+
 def test_unknown_field_is_rejected():
     payload = make_record().to_dict()
     payload["accuracy_but_typoed"] = 1.0
