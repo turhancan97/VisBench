@@ -208,6 +208,22 @@ def test_errors_pool_across_pairs(probe):
     assert two["num_matches"] == 2 * one["num_matches"]
 
 
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="needs a GPU")
+def test_features_straight_off_a_gpu_backbone(probe):
+    """Features from a CUDA backbone must work without a manual .cpu().
+
+    They previously did not: match() returned CUDA indices and the geometry is
+    built on CPU, so this raised. It went unnoticed because the cache hands
+    back CPU tensors, so every example and test took the working path.
+    """
+    dense = torch.randn(1, 16, 4, 4, device="cuda")
+    pair = (_feature_dict(dense), _feature_dict(dense.clone()))
+    identity = {"homography": torch.eye(3, dtype=torch.float64), "size": (64, 64)}
+
+    assert probe.evaluate([pair], [identity])["recall@1px"] == 1.0
+    assert probe.evaluate_ceiling([pair], [identity])["recall@1px"] == 1.0
+
+
 def test_batched_features_are_rejected(probe):
     with pytest.raises(ValueError, match="one at a time"):
         probe.match(_feature_dict(torch.rand(4, 8, 4, 4)), _feature_dict(torch.rand(4, 8, 4, 4)))

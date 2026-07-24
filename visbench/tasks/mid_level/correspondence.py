@@ -125,7 +125,13 @@ class CorrespondenceTask(BaseTask):
         kept_distance = distances[kept_source, 0]
         order = kept_distance.argsort()[: self.num_corr]
         selected = kept_source[order]
-        return selected, indices[selected, 0]
+        # Returned on CPU regardless of where the features live. All the
+        # geometry downstream is float64 on CPU — homographies need the
+        # precision and are tiny — and indexing a CPU tensor with CUDA indices
+        # raises. Features straight off a GPU backbone would otherwise fail
+        # here while the same call through the cache, which returns CPU
+        # tensors, works.
+        return selected.cpu(), indices[selected, 0].cpu()
 
     def predict(self, features: Any) -> Any:
         """Return matched patch-index pairs and their similarity scores.
