@@ -177,6 +177,11 @@ help match a caption, which is exactly what a mid-level probe measures, and
 DINOv2 has no equivalent head to compare against. `use_projection=True` gets
 the projected vector, under its own cache key.
 
+## Changelog
+
+Release notes live in [CHANGELOG.md](CHANGELOG.md); each released section is
+written to stand alone, so it doubles as the GitHub release body.
+
 ## Prior art
 
 VisBench reuses established protocols rather than re-deriving them, and cites
