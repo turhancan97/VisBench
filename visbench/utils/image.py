@@ -22,8 +22,12 @@ def load_image(path: Path) -> Image.Image:
     EXIF handling matters for the feature cache: the same photo loaded with and
     without orientation applied hashes differently and gives different features.
     """
-    with Image.open(path) as img:
+    with Image.open(path) as opened:
         # exif_transpose before convert: the orientation tag lives on the file,
         # and convert("RGB") drops it.
-        img = ImageOps.exif_transpose(img)
-        return img.convert("RGB")
+        #
+        # Bound to a new name rather than reassigning `opened`: that variable is
+        # the context manager's target and is typed ImageFile, while
+        # exif_transpose returns a plain Image.
+        oriented = ImageOps.exif_transpose(opened)
+        return oriented.convert("RGB")

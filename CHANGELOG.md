@@ -71,14 +71,25 @@ so it stands on its own rather than assuming you have read the ones above it.
   `has_cls_token` stayed False.
 
 - CI's mypy step had been failing since it was made gating, and failing in the
-  worst way: `python_version = "3.9"` made mypy parse **torch's own source**
-  under 3.9 grammar, hit the `match` statements torch uses, and stop with
-  "errors prevented further checking" — so it never checked a line of visbench.
-  Raised to 3.10. 3.9 support is still enforced by ruff's `target-version` and
-  by the CI test matrix, both of which check it more directly.
+  worst way: it never checked a line of visbench. mypy parses the
+  *dependencies'* stubs under `python_version` too, and they use newer syntax
+  than this package does — torch has `match` statements (3.10+), numpy 2.x's
+  `__init__.pyi` has PEP 695 `type` statements (3.12+). At `"3.9"` mypy hit a
+  syntax error inside torch and stopped with "errors prevented further
+  checking". Now `"3.12"`, matching the lint job's interpreter; the setting
+  tracks the newest syntax any dependency uses, not this package's floor, and
+  will need raising again as they move.
+
+  3.9 support is still enforced, by two more direct checks: ruff's
+  `target-version = "py39"` and the CI test matrix, which runs the whole suite
+  on 3.9.
+- `load_image` rebound the `with Image.open(...) as img` target, assigning a
+  plain `Image` to a name typed `ImageFile`. Real, and invisible until mypy
+  started running: Pillow 12 types `exif_transpose` precisely enough to catch
+  it, Pillow 11.3 did not.
 - The README's development section now lists the three lint commands verbatim.
-  Running mypy with different flags than CI reads the same `[tool.mypy]` config
-  but checks something else, which is how the above went unnoticed.
+  Running mypy with different flags reads the same `[tool.mypy]` config but
+  checks something else, which is how the above went unnoticed.
 
 ### Known limitations
 
