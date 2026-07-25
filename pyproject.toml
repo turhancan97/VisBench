@@ -78,7 +78,20 @@ target-version = "py39"
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.mypy]
-python_version = "3.9"
+# NOT the 3.9 this package supports, deliberately. mypy follows imports into
+# torch's own source, and torch uses `match` statements (3.10+) in several
+# modules. Under python_version = "3.9" mypy parsed those as a *syntax error*
+# and stopped with "errors prevented further checking" — so the run failed
+# without checking a single line of visbench, and did so for five commits
+# after the check was made gating.
+#
+# 3.9 compatibility is still enforced, and by better means than this setting:
+# ruff's target-version = "py39" rejects newer syntax in our own code, and the
+# CI test matrix runs the whole suite on 3.9, where anything 3.10+ fails at
+# import. Raising this buys back real type checking against torch's actual
+# types — which is what caught the nn.Module.__getattr__ widening in the timm
+# backbone — at the cost of a weaker third layer of version checking.
+python_version = "3.10"
 # torch, timm and open_clip ship partial or absent stubs; checking against them
 # produces noise about library internals rather than about this code.
 ignore_missing_imports = true

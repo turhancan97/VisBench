@@ -70,6 +70,16 @@ so it stands on its own rather than assuming you have read the ones above it.
   a conv map and nothing would notice the CLS token had been dropped while
   `has_cls_token` stayed False.
 
+- CI's mypy step had been failing since it was made gating, and failing in the
+  worst way: `python_version = "3.9"` made mypy parse **torch's own source**
+  under 3.9 grammar, hit the `match` statements torch uses, and stop with
+  "errors prevented further checking" — so it never checked a line of visbench.
+  Raised to 3.10. 3.9 support is still enforced by ruff's `target-version` and
+  by the CI test matrix, both of which check it more directly.
+- The README's development section now lists the three lint commands verbatim.
+  Running mypy with different flags than CI reads the same `[tool.mypy]` config
+  but checks something else, which is how the above went unnoticed.
+
 ### Known limitations
 
 - Dense features are held in memory for training. DINOv2-B at 224 is about

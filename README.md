@@ -239,6 +239,13 @@ git clone https://github.com/turhancan97/VisBench && cd VisBench
 pip install -e ".[dev,clip]"
 pytest              # fast tests, no weights downloaded
 pytest -m slow      # also runs the real DINOv2 and CLIP checkpoints
+
+# The three gating lint steps, exactly as CI runs them. Run them verbatim —
+# mypy in particular reads [tool.mypy] from pyproject.toml, so invoking it
+# with different flags checks something CI does not.
+ruff check visbench/ tests/ conftest.py
+ruff format --check visbench/ tests/ conftest.py
+mypy visbench/ --ignore-missing-imports
 ```
 
 ## Try it on your own data
