@@ -168,7 +168,9 @@ This is a multi-month roadmap, built one reviewed step at a time.
       and the cache, so the DPT head has something real to consume
 - [x] **5d.** depth estimation — the first dense task, end to end on probe3d's
       protocol: dense dataset, metrics, loss, pluggable head
-- [ ] **5e.** rest of v0.2 — surface normals, generic segmentation, semantic
+- [x] **5e.** streaming features from disk, so a dense task can run a dataset
+      larger than memory
+- [ ] **5f.** rest of v0.2 — surface normals, generic segmentation, semantic
       segmentation, mid-level similarity, CLI
 
 ## Roadmap

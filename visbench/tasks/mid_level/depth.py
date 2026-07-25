@@ -20,12 +20,13 @@ Predicting a distribution over depths and taking its expectation lets a
 linear probe is a fair baseline rather than a straw man. The parameterisation
 is AdaBins' (arXiv:2011.14141).
 
-**Memory.** Features are held in RAM: N images at C x H x W floats. DINOv2-B at
-224 is 768 x 16 x 16 x 4 B, about 786 KB per image, so all 24k NYUv2 images
-would need roughly 19 GB. Small splits are fine; a full-size dense run needs
-the cache to stream batches from disk, which it cannot do yet. :meth:`fit`
-raises with that arithmetic rather than letting a run discover it by being
-killed.
+**Memory.** Dense features are large: DINOv2-B at 224 is 768 x 16 x 16 x 4 B,
+about 786 KB per image, so all 24k NYUv2 images come to roughly 19 GB. Pass
+features from :meth:`~visbench.cache.FeatureCache.materialise` and they are
+streamed from disk a batch at a time, with no such limit. Passing an
+already-stacked feature dict still works and is convenient for small splits;
+:meth:`fit` refuses past a ceiling and names the alternative rather than
+letting a run discover the problem by being killed.
 """
 
 import math
@@ -33,7 +34,9 @@ from typing import Any, Optional, Union
 
 import torch
 import torch.nn as nn
+from torch.utils.data import DataLoader, Dataset
 
+from visbench.cache.streaming import CachedFeatures
 from visbench.heads import build_head
 from visbench.metrics.dense import depth_metrics
 from visbench.registry import register_task
@@ -42,6 +45,57 @@ from visbench.types import FeatureMode, MetricsDict, Pooling
 from visbench.utils.device import resolve_device
 
 __all__ = ["DepthTask", "DepthBinPrediction", "depth_loss"]
+
+
+class _MemoryFeatures(Dataset):
+    """Already-stacked features, indexable like the streaming reader.
+
+    Lets an in-memory feature dict go through exactly the same training loop as
+    a :class:`~visbench.cache.CachedFeatures`, instead of the task carrying two.
+    """
+
+    def __init__(
+        self, dense: Union[torch.Tensor, list], targets: Optional[torch.Tensor] = None
+    ) -> None:
+        self.count = len(dense[0]) if isinstance(dense, list) else len(dense)
+        if targets is not None and self.count != len(targets):
+            raise ValueError(f"Got {self.count} feature maps for {len(targets)} targets")
+        self.dense = dense
+        self.targets = targets
+
+    def __len__(self) -> int:
+        return self.count
+
+    def __getitem__(self, index: int) -> Any:
+        if isinstance(self.dense, list):
+            features: Any = [layer[index] for layer in self.dense]
+        else:
+            features = self.dense[index]
+        if self.targets is None:
+            return features
+        return features, self.targets[index]
+
+
+class _WithTargets(Dataset):
+    """Pair a features-only source with targets, by index.
+
+    By index and not by iteration order: that is what keeps each feature map
+    with its own supervision once a loader starts shuffling.
+    """
+
+    def __init__(self, source: Dataset, targets: torch.Tensor) -> None:
+        if len(source) != len(targets):  # type: ignore[arg-type]
+            raise ValueError(
+                f"Got {len(source)} feature maps for {len(targets)} targets"  # type: ignore[arg-type]
+            )
+        self.source = source
+        self.targets = targets
+
+    def __len__(self) -> int:
+        return len(self.targets)
+
+    def __getitem__(self, index: int) -> tuple[Any, torch.Tensor]:
+        return self.source[index], self.targets[index]
 
 
 class DepthBinPrediction(nn.Module):
@@ -246,10 +300,61 @@ class DepthTask(BaseTask):
         #: finding from a representation that does not carry depth.
         self.train_loss: Optional[float] = None
 
-    # -- features ------------------------------------------------------------
+    # -- feature sources -----------------------------------------------------
+
+    def _source(
+        self, features: Any, labels: Optional[Any], targets_required: bool = True
+    ) -> Dataset:
+        """Normalise whatever was passed into one indexable ``(features, target)``.
+
+        Two front doors, one training loop. A
+        :class:`~visbench.cache.CachedFeatures` streams from disk and is used as
+        is; anything already in memory — a feature dict, a bare tensor, a list
+        of per-layer tensors — is wrapped to look the same. The loop below never
+        learns which it got.
+        """
+        if isinstance(features, CachedFeatures):
+            if features.targets is not None:
+                if labels is not None:
+                    raise ValueError(
+                        "These features already carry targets (materialise(targets=...)), "
+                        "so passing labels as well gives two sources of truth for the "
+                        "supervision. Pass one."
+                    )
+                return features
+            if labels is None:
+                if not targets_required:
+                    return features
+                raise ValueError(
+                    "Depth estimation requires target maps. Either pass them here, or "
+                    "build the features with materialise(targets=dataset.target), which "
+                    "keeps each target with its own image."
+                )
+            return _WithTargets(features, self._as_targets(labels))
+
+        dense = self._dense(features)
+        self._check_size(dense)
+        if labels is None and not targets_required:
+            return _MemoryFeatures(dense)
+        return _MemoryFeatures(dense, self._as_targets(labels))
+
+    def _loader(self, source: Dataset, shuffle: bool) -> DataLoader:
+        """Batch a source, reshuffling each epoch when training.
+
+        No explicit generator: without one, ``DataLoader`` seeds its shuffle
+        from the global RNG, which :func:`visbench.utils.set_seed` owns — so the
+        seed recorded next to the metrics still governs the run, exactly as the
+        hand-rolled ``randperm`` it replaced did.
+        """
+        return DataLoader(
+            source,
+            batch_size=self.batch_size,
+            shuffle=shuffle,
+            collate_fn=CachedFeatures.collate,
+        )
 
     def _dense(self, features: Any) -> Union[torch.Tensor, list]:
-        """Pull what the head wants: a list of maps if multiscale, else one."""
+        """Pull what the head wants out of an in-memory feature dict."""
         if isinstance(features, dict):
             if self.layers is not None:
                 if "dense_layers" not in features:
@@ -269,33 +374,45 @@ class DepthTask(BaseTask):
             return [layer.float() for layer in features]
         return features.float()
 
-    @staticmethod
-    def _count(dense: Union[torch.Tensor, list]) -> int:
-        return len(dense[0]) if isinstance(dense, list) else len(dense)
-
-    @staticmethod
-    def _slice(dense: Union[torch.Tensor, list], index: torch.Tensor) -> Any:
-        return [layer[index] for layer in dense] if isinstance(dense, list) else dense[index]
-
     def _check_size(self, dense: Union[torch.Tensor, list]) -> None:
+        """Refuse an in-memory batch too large to hold, and name the way out."""
         maps = dense if isinstance(dense, list) else [dense]
         elements = sum(layer.numel() for layer in maps)
         if elements > self.max_feature_elements:
             raise ValueError(
                 f"These features are about {elements * 4 / 1e9:.1f} GB in float32, over this "
-                f"task's {self.max_feature_elements * 4 / 1e9:.0f} GB ceiling. Dense features "
-                "are held in memory for training; use a smaller split or fewer layers until "
-                "the cache can stream batches from disk. Raise max_feature_elements to "
+                f"task's {self.max_feature_elements * 4 / 1e9:.0f} GB ceiling. Extract with "
+                "FeatureCache.materialise(...) instead of extract_dataset(...) to stream "
+                "them from disk, which has no such limit. Raise max_feature_elements to "
                 "override."
             )
 
-    def _build_head(self, dense: Union[torch.Tensor, list], output_size: int) -> nn.Module:
-        """Instantiate the configured head, sized to these features."""
-        if isinstance(dense, list):
-            channels: Any = [layer.shape[1] for layer in dense]
-            kwargs: dict = {"num_layers": len(dense), "hidden_dim": self.hidden_dim}
+    def _shape_of(self, source: Dataset) -> tuple[Any, int]:
+        """Read channel width(s) and target resolution off the first item.
+
+        Sampled rather than declared: it is the same for a streamed and an
+        in-memory source, so the head is built from what is actually there
+        rather than from two code paths that could disagree.
+        """
+        sample_features, sample_target = source[0]  # type: ignore[index]
+        if isinstance(sample_features, list):
+            channels: Any = [layer.shape[0] for layer in sample_features]
         else:
-            channels = dense.shape[1]
+            channels = int(sample_features.shape[0])
+
+        target = torch.as_tensor(sample_target)
+        if target.ndim != 2 or target.shape[0] != target.shape[1]:
+            raise ValueError(
+                f"Targets are {tuple(target.shape)}; this task assumes square (H, W) maps, "
+                "which is what DenseFolderDataset produces."
+            )
+        return channels, int(target.shape[-1])
+
+    def _build_head(self, channels: Any, output_size: int) -> nn.Module:
+        """Instantiate the configured head, sized to these features."""
+        if isinstance(channels, list):
+            kwargs: dict = {"num_layers": len(channels), "hidden_dim": self.hidden_dim}
+        else:
             kwargs = {}
         kwargs.update(self.head_kwargs)
         return build_head(
@@ -309,47 +426,40 @@ class DepthTask(BaseTask):
     # -- training ------------------------------------------------------------
 
     def fit(self, features: Any, labels: Optional[Any] = None) -> "DepthTask":
-        """Train the head on cached dense features and ``(N, H, W)`` depth targets.
+        """Train the head on dense features and their ``(H, W)`` depth targets.
+
+        ``features`` is either an in-memory feature dict or a streaming
+        :class:`~visbench.cache.CachedFeatures`; the second is what makes a
+        split larger than RAM trainable.
 
         Seeding is the caller's job (:func:`visbench.utils.set_seed`), so the
         seed recorded next to the metrics is the one that governed the run.
         """
-        dense = self._dense(features)
-        self._check_size(dense)
-        targets = self._as_targets(labels)
-        count = self._count(dense)
-        if count != len(targets):
-            raise ValueError(f"Got {count} feature maps for {len(targets)} targets")
+        source = self._source(features, labels)
+        count = len(source)  # type: ignore[arg-type]
+        if count == 0:
+            raise ValueError("Cannot fit on an empty feature set")
 
-        output_size = int(targets.shape[-1])
-        if targets.shape[-2] != output_size:
-            raise ValueError(
-                f"Targets are {tuple(targets.shape[-2:])}; this task assumes square maps, "
-                "which is what DenseFolderDataset produces."
-            )
-
-        self.head = self._build_head(dense, output_size)
+        channels, output_size = self._shape_of(source)
+        self.head = self._build_head(channels, output_size)
         self.head.train()
+
         optimiser = torch.optim.AdamW(
             self.head.parameters(), lr=self.lr, weight_decay=self.weight_decay
         )
-        steps_per_epoch = max(1, math.ceil(count / self.batch_size))
+        loader = self._loader(source, shuffle=True)
+        steps_per_epoch = max(1, len(loader))
         scheduler = torch.optim.lr_scheduler.LambdaLR(
             optimiser, self._schedule(steps_per_epoch * self.epochs, steps_per_epoch)
         )
 
-        targets = targets.to(self.device)
         running = 0.0
         for _ in range(self.epochs):
-            # Reshuffled each epoch; with cached features the permutation is
-            # the only stochasticity, so the caller's seed fully determines it.
-            order = torch.randperm(count)
             running = 0.0
-            for start in range(0, count, self.batch_size):
-                batch = order[start : start + self.batch_size]
+            for batch_features, batch_targets in loader:
                 optimiser.zero_grad()
-                predicted = self._forward(self._slice(dense, batch))
-                loss = depth_loss(predicted, targets[batch].unsqueeze(1))
+                predicted = self._forward(batch_features)
+                loss = depth_loss(predicted, batch_targets.to(self.device).unsqueeze(1))
                 loss.backward()
                 optimiser.step()
                 scheduler.step()
@@ -374,12 +484,12 @@ class DepthTask(BaseTask):
         return multiplier
 
     def _forward(self, dense: Any) -> torch.Tensor:
-        """Features to ``(B, 1, H, W)`` depth."""
+        """A batch of features to ``(B, 1, H, W)`` depth."""
         head = self._require_head()
         if isinstance(dense, list):
-            dense = [layer.to(self.device) for layer in dense]
+            dense = [layer.to(self.device).float() for layer in dense]
         else:
-            dense = dense.to(self.device)
+            dense = dense.to(self.device).float()
         return self.predict_depth(head(dense))
 
     def _require_head(self) -> nn.Module:
@@ -406,24 +516,63 @@ class DepthTask(BaseTask):
     # -- inference -----------------------------------------------------------
 
     @torch.no_grad()
-    def predict(self, features: Any) -> torch.Tensor:
-        """Predicted depth, ``(N, 1, H, W)``, batched to bound memory."""
+    def predict(self, features: Any, labels: Optional[Any] = None) -> torch.Tensor:
+        """Predicted depth for every image, ``(N, 1, H, W)``.
+
+        Holds every prediction in memory, because that is what was asked for —
+        24k NYUv2 images at 224 square is about 4.8 GB. :meth:`evaluate` does
+        not use this; it scores batch by batch and keeps only the running
+        metrics.
+        """
         self._require_head()
-        dense = self._dense(features)
-        count = self._count(dense)
-        outputs = []
-        for start in range(0, count, self.batch_size):
-            index = torch.arange(start, min(start + self.batch_size, count))
-            outputs.append(self._forward(self._slice(dense, index)).cpu())
+        outputs = [
+            self._forward(batch).cpu()
+            for batch, _ in self._iter_batches(features, labels, targets_required=False)
+        ]
         return torch.cat(outputs)
 
+    def _iter_batches(self, features: Any, labels: Optional[Any], targets_required: bool = True):
+        """Yield ``(features, targets_or_None)`` in dataset order.
+
+        Normalised here so callers need not care whether targets were available:
+        ``collate`` returns a bare batch when there are none, and a multi-layer
+        batch is itself a list, so only the tuple marks targets.
+        """
+        source = self._source(features, labels, targets_required=targets_required)
+        for batch in self._loader(source, shuffle=False):
+            if isinstance(batch, tuple):
+                yield batch
+            else:
+                yield batch, None
+
+    @torch.no_grad()
     def evaluate(self, features: Any, labels: Optional[Any] = None) -> MetricsDict:
-        """Return ``{"d1", "d2", "d3", "rmse", "abs_rel"}`` per probe3d."""
-        targets = self._as_targets(labels)
-        predicted = self.predict(features)
-        if len(predicted) != len(targets):
-            raise ValueError(f"Got {len(predicted)} predictions for {len(targets)} targets")
-        return depth_metrics(predicted.squeeze(1), targets, scale_invariant=self.scale_invariant)
+        """Return ``{"d1", "d2", "d3", "rmse", "abs_rel"}`` per probe3d.
+
+        Scored a batch at a time, accumulating per-image totals rather than
+        collecting every prediction first. Because the metrics are already
+        per-image averages, weighting each batch by its size and dividing by the
+        total reproduces the whole-split number exactly, at bounded memory.
+        """
+        self._require_head()
+        totals: dict[str, float] = {}
+        count = 0
+
+        for batch_features, batch_targets in self._iter_batches(features, labels):
+            assert batch_targets is not None  # targets_required defaults to True
+            predicted = self._forward(batch_features).cpu()
+            targets = torch.as_tensor(batch_targets).float()
+            batch_metrics = depth_metrics(
+                predicted.squeeze(1), targets, scale_invariant=self.scale_invariant
+            )
+            size = len(targets)
+            for name, value in batch_metrics.items():
+                totals[name] = totals.get(name, 0.0) + value * size
+            count += size
+
+        if count == 0:
+            raise ValueError("Cannot evaluate on an empty feature set")
+        return {name: total / count for name, total in totals.items()}
 
     # -- provenance ----------------------------------------------------------
 

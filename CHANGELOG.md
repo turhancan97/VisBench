@@ -28,7 +28,6 @@ so it stands on its own rather than assuming you have read the ones above it.
   would otherwise misplace every patch silently.
 - `visbench.register_backbone` / `register_task` are public, so a
   `BaseBackbone` subclass outside this package can claim a registry name.
-
 - `extract_features` takes **`feature_mode`**, so `dense_cls_broadcast` and
   `dense_plus_cls` are reachable through the public API. They were declared,
   implemented and tested in v0.1 but `apply_feature_mode` had zero callers and
@@ -36,72 +35,7 @@ so it stands on its own rather than assuming you have read the ones above it.
   `dense_plus_cls`, so this had to exist before heads were designed against it.
   `dense_plus_cls` returns the global vector under a new `cls` key, and the
   cache both keys on the mode and stores `cls`.
-
-### Fixed
-
-- `FeatureCache.extract_dataset` refused nothing when handed a `PairDataset`:
-  it read `item[0]` and silently discarded the second view and the geometry,
-  returning features for half the data. It now raises.
-- `cls` was produced by extraction with `dense_plus_cls` but never stored, so it
-  existed on a cache miss and vanished on the next hit.
-- `DPTHead(use_cls=True)` sized its CLS projection from the *last* layer's width
-  while injecting the vector at the *first*, so any head built with per-layer
-  `in_channels` raised a matmul shape error. It now follows the stage the vector
-  actually reaches, and checks the vector's width with a message that names the
-  expected one.
-- `DPTHead` read `head((stage0, stage1))` — a tuple of two layers rather than a
-  list — as one dense map plus a CLS vector, and reported it as "got a single
-  tensor" when the caller had passed two. A `(stages, cls)` pair is now
-  identified by its first element being a sequence.
-
-### Changed
-
-- mypy is **gating** in CI. It had `continue-on-error` from when everything was
-  stubs, which made it a check that could never fail; 19 errors had accumulated,
-  including the `PairDataset` variance violation above. Now clean.
-- Removed the unused `visbench.utils.device.batched` helper.
-- `BaseBackbone._forward_features` now returns a **list** of
-  `(patch_tokens, cls, grid_hw)`, one per requested layer, and receives layer
-  indices already resolved. Only affects code subclassing `BaseBackbone`
-  directly; `extract_features` is unchanged for single-layer callers.
-- A timm ViT is rejected when the backbone is constructed rather than at the
-  first extraction. `forward_intermediates` reshapes a ViT's tokens into a grid
-  when asked for NCHW, so from that point the output is indistinguishable from
-  a conv map and nothing would notice the CLS token had been dropped while
-  `has_cls_token` stayed False.
-
-- CI's mypy step had been failing since it was made gating, and failing in the
-  worst way: it never checked a line of visbench. mypy parses the
-  *dependencies'* stubs under `python_version` too, and they use newer syntax
-  than this package does — torch has `match` statements (3.10+), numpy 2.x's
-  `__init__.pyi` has PEP 695 `type` statements (3.12+). At `"3.9"` mypy hit a
-  syntax error inside torch and stopped with "errors prevented further
-  checking". Now `"3.12"`, matching the lint job's interpreter; the setting
-  tracks the newest syntax any dependency uses, not this package's floor, and
-  will need raising again as they move.
-
-  3.9 support is still enforced, by two more direct checks: ruff's
-  `target-version = "py39"` and the CI test matrix, which runs the whole suite
-  on 3.9.
-- `load_image` rebound the `with Image.open(...) as img` target, assigning a
-  plain `Image` to a name typed `ImageFile`. Real, and invisible until mypy
-  started running: Pillow 12 types `exif_transpose` precisely enough to catch
-  it, Pillow 11.3 did not.
-- The README's development section now lists the three lint commands verbatim.
-  Running mypy with different flags reads the same `[tool.mypy]` config but
-  checks something else, which is how the above went unnoticed.
-
-### Known limitations
-
-- Dense features are held in memory for training. DINOv2-B at 224 is about
-  786 KB per image, so all 24k NYUv2 images would need roughly 19 GB.
-  `DepthTask.fit` refuses past a ~8 GB ceiling with that arithmetic rather than
-  letting the OOM killer end a run half an hour in. Lifting it means teaching
-  the cache to stream batches from disk, which it stores per image already but
-  cannot yet iterate.
-
-Still to come in v0.2: surface normals, generic and semantic segmentation,
-mid-level similarity, CLI.
+- **Pluggable task heads**, selectable by name per run (`visbench.heads`):
   `LinearHead` (1x1 convolution over the dense grid, upsampled) and `DPTHead`
   (RefineNet-style multiscale fusion, following probe3d and Ranftl et al.).
   `register_head` makes this a real extension point. A head declares which
@@ -111,7 +45,6 @@ mid-level similarity, CLI.
   and duplicating the input would report a single-layer result as a DPT number.
 - `DPTHead(cls_dim=...)`, for when a backbone's CLS width differs from the
   channel count of the layer the vector is injected alongside.
-
 - **Multi-layer feature extraction.** `extract_features(layers=[2, 5, 8, 11])`
   returns `dense_layers` — one map per requested depth, from a **single**
   forward pass — plus the resolved `layer_indices`. Declared in the interface
@@ -144,7 +77,6 @@ mid-level similarity, CLI.
 - Result schema v4 adds `layers`. A record for a run over four depths is not
   the same run as one over the last, and widening `layer`'s type would have
   changed how every v1–v3 record on disk parses.
-
 - **Depth estimation** (`get_probe("depth")`) — the first dense task, and the
   first thing to use heads, multi-layer extraction and the cache together.
   Reproduces probe3d's configured protocol rather than re-deriving it: 256
@@ -171,6 +103,88 @@ mid-level similarity, CLI.
   with a multiscale head gets the depths it needs from one forward pass. The
   record stores them resolved against the backbone.
 - `examples/depth.py`.
+- **Streaming features from disk**, lifting the memory ceiling that made dense
+  tasks unable to run their own benchmark datasets.
+  `FeatureCache.materialise(...)` runs the same extraction as
+  `extract_dataset(...)` but keeps nothing in memory, returning a
+  `CachedFeatures` — an ordinary `torch.utils.data.Dataset` over the per-image
+  files the cache already writes. Hand it to a `DataLoader` and batching,
+  per-epoch shuffling and worker processes come for free.
+
+  Random access rather than a generator, deliberately: training reshuffles
+  every epoch, and a generator yielding batches in dataset order can only
+  shuffle *within* a batch, which would quietly make a probe worse than the
+  representation it is meant to measure.
+
+  Measured on 1,200 images whose features are 0.63 GB: **10.8 GB peak RSS in
+  memory against 1.7 GB streaming**, and the 1.7 is mostly torch itself.
+- Targets stream through the same index, so `dataset.labels()` no longer stacks
+  every depth map (~4.8 GB for NYUv2). Reading features and supervision by one
+  index also makes it structurally impossible for them to drift apart — a test
+  shuffles the loader and checks every feature still arrives with its own
+  target.
+- `DepthTask` trains and evaluates from either source through one loop, and
+  `evaluate` scores batch by batch rather than collecting every prediction
+  first. `visbench.run()` streams automatically for any task declaring
+  `uses_dense`.
+
+### Fixed
+
+- `FeatureCache.extract_dataset` refused nothing when handed a `PairDataset`:
+  it read `item[0]` and silently discarded the second view and the geometry,
+  returning features for half the data. It now raises.
+- `cls` was produced by extraction with `dense_plus_cls` but never stored, so it
+  existed on a cache miss and vanished on the next hit.
+- `DPTHead(use_cls=True)` sized its CLS projection from the *last* layer's width
+  while injecting the vector at the *first*, so any head built with per-layer
+  `in_channels` raised a matmul shape error. It now follows the stage the vector
+  actually reaches, and checks the vector's width with a message that names the
+  expected one.
+- `DPTHead` read `head((stage0, stage1))` — a tuple of two layers rather than a
+  list — as one dense map plus a CLS vector, and reported it as "got a single
+  tensor" when the caller had passed two. A `(stages, cls)` pair is now
+  identified by its first element being a sequence.
+- CI's mypy step had been failing since it was made gating, and failing in the
+  worst way: it never checked a line of visbench. mypy parses the
+  *dependencies'* stubs under `python_version` too, and they use newer syntax
+  than this package does — torch has `match` statements (3.10+), numpy 2.x's
+  `__init__.pyi` has PEP 695 `type` statements (3.12+). At `"3.9"` mypy hit a
+  syntax error inside torch and stopped with "errors prevented further
+  checking". Now `"3.12"`, matching the lint job's interpreter; the setting
+  tracks the newest syntax any dependency uses, not this package's floor, and
+  will need raising again as they move.
+
+  3.9 support is still enforced, by two more direct checks: ruff's
+  `target-version = "py39"` and the CI test matrix, which runs the whole suite
+  on 3.9.
+- `load_image` rebound the `with Image.open(...) as img` target, assigning a
+  plain `Image` to a name typed `ImageFile`. Real, and invisible until mypy
+  started running: Pillow 12 types `exif_transpose` precisely enough to catch
+  it, Pillow 11.3 did not.
+- `run()` now passes the task's `feature_mode` into extraction. It never had,
+  which no task noticed only because none had yet overridden the default.
+
+### Changed
+
+- mypy is **gating** in CI. It had `continue-on-error` from when everything was
+  stubs, which made it a check that could never fail; 19 errors had accumulated,
+  including the `PairDataset` variance violation above. Now clean.
+- Removed the unused `visbench.utils.device.batched` helper.
+- `BaseBackbone._forward_features` now returns a **list** of
+  `(patch_tokens, cls, grid_hw)`, one per requested layer, and receives layer
+  indices already resolved. Only affects code subclassing `BaseBackbone`
+  directly; `extract_features` is unchanged for single-layer callers.
+- A timm ViT is rejected when the backbone is constructed rather than at the
+  first extraction. `forward_intermediates` reshapes a ViT's tokens into a grid
+  when asked for NCHW, so from that point the output is indistinguishable from
+  a conv map and nothing would notice the CLS token had been dropped while
+  `has_cls_token` stayed False.
+- The README's development section now lists the three lint commands verbatim.
+  Running mypy with different flags reads the same `[tool.mypy]` config but
+  checks something else, which is how the above went unnoticed.
+
+Still to come in v0.2: surface normals, generic and semantic segmentation,
+mid-level similarity, CLI.
 
 ## [0.1.0] — 2026-07-24
 

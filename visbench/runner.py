@@ -57,25 +57,37 @@ def _resolve(backbone: Any, probe: Any) -> str:
     return backbone.default_pooling() if probe.pooling == Pooling.DEFAULT else probe.pooling
 
 
-def _extract(cache: FeatureCache, backbone: Any, dataset: Any, probe: Any, **kwargs: Any) -> Any:
-    """Extract features, asking only for the half the task actually reads.
+def _extract(
+    cache: FeatureCache, backbone: Any, dataset: Any, probe: Any, **kwargs: Any
+) -> tuple[Any, Any]:
+    """Extract features and their labels, in the form this task can afford.
 
-    Dense features are ~250x the size of pooled ones, so a probe that only
-    looks at the pooled vector must not cause them to be held in memory or
-    written to disk.
+    Returns ``(features, labels)``. A pooled task gets everything stacked and a
+    label list; a dense task gets a streaming reader with its targets already
+    paired by index, and ``None`` for labels — nothing about a dense split is
+    small enough to stack, targets included.
     """
-    keep = "dense" if probe.uses_dense else "pooled"
-    return cache.extract_dataset(
-        backbone,
-        dataset,
-        pooling=_resolve(backbone, probe),
-        keep=keep,
+    shared = {
+        "pooling": _resolve(backbone, probe),
         # The task declares which depths it needs — a multiscale head is
         # unusable without them — and asking here means one forward pass
         # covers all of them.
-        layers=probe.layers,
+        "layers": probe.layers,
+        "feature_mode": probe.feature_mode,
         **kwargs,
-    )
+    }
+
+    if not probe.uses_dense:
+        # Pooled features are small enough to hold whole, and every zero-shot
+        # task wants them all at once anyway (retrieval ranks N against N).
+        return cache.extract_dataset(backbone, dataset, keep="pooled", **shared), dataset.labels()
+
+    # Dense features are ~250x larger, so they stream from disk. So do their
+    # targets, through the same index — `dataset.labels()` would stack every
+    # depth map, which for NYUv2 is another ~4.8 GB on top of the features.
+    targets = getattr(dataset, "target", None)
+    features = cache.materialise(backbone, dataset, targets=targets, **shared)
+    return features, (None if targets is not None else dataset.labels())
 
 
 def run(
@@ -141,16 +153,13 @@ def run(
 
     cache = cache if cache is not None else FeatureCache()
 
-    features = _extract(cache, backbone, dataset, task, batch_size=batch_size)
+    features, labels = _extract(cache, backbone, dataset, task, batch_size=batch_size)
     if train_dataset is None:
         task.fit(features)
     else:
-        task.fit(
-            _extract(cache, backbone, train_dataset, task, batch_size=batch_size),
-            train_dataset.labels(),
-        )
+        task.fit(*_extract(cache, backbone, train_dataset, task, batch_size=batch_size))
 
-    metrics = task.evaluate(features, dataset.labels())
+    metrics = task.evaluate(features, labels)
 
     described = {**dataset.describe(), **task.describe()}
     record = ResultRecord(

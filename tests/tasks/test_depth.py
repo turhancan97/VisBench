@@ -420,3 +420,148 @@ class TestThroughRun:
             n_bins=8,
         )
         assert fake_vit.call_count == 2
+
+
+# -- streaming from disk ------------------------------------------------------
+
+
+class TestStreaming:
+    """Training from CachedFeatures, which is what lifts the memory ceiling."""
+
+    def _streamed(self, cache, fake_vit, dataset):
+        return cache.materialise(fake_vit, dataset, pooling="mean", targets=dataset.target)
+
+    def test_fit_from_a_streaming_source(self, tmp_path, fake_vit, depth_folder):
+        dataset = depth_folder(tmp_path / "data", 12, seed=0)
+        cache = FeatureCache(root=tmp_path / "cache")
+        task = DepthTask(epochs=2, warmup_epochs=0, batch_size=4, n_bins=16, max_depth=8.0)
+
+        task.fit(self._streamed(cache, fake_vit, dataset))
+        assert task.train_loss is not None
+        assert task.predict(self._streamed(cache, fake_vit, dataset)).shape == (12, 1, 32, 32)
+
+    def test_the_memory_ceiling_does_not_apply(self, tmp_path, fake_vit, depth_folder):
+        """The whole point: a ceiling that stops the in-memory path must not
+        stop the streaming one, because nothing is being stacked."""
+        dataset = depth_folder(tmp_path / "data", 12, seed=0)
+        cache = FeatureCache(root=tmp_path / "cache")
+        stacked = cache.extract_dataset(fake_vit, dataset, keep="dense", pooling="mean")
+
+        task = DepthTask(epochs=1, warmup_epochs=0, batch_size=4, n_bins=8)
+        task.max_feature_elements = stacked["dense"].numel() - 1
+        with pytest.raises(ValueError, match="materialise"):
+            task.fit(stacked, dataset.targets())
+
+        task.fit(self._streamed(cache, fake_vit, dataset))
+        assert task.train_loss is not None
+
+    def test_evaluate_matches_the_in_memory_path(self, tmp_path, fake_vit, depth_folder):
+        """Scoring batch by batch must give exactly the whole-split number.
+
+        The metrics are per-image averages, so weighting each batch by its size
+        and dividing by the total is the same arithmetic — but only if nothing
+        else differs, which is what this pins.
+        """
+        dataset = depth_folder(tmp_path / "data", 10, seed=3)
+        cache = FeatureCache(root=tmp_path / "cache")
+        stacked = cache.extract_dataset(fake_vit, dataset, keep="dense", pooling="mean")
+
+        task = DepthTask(epochs=2, warmup_epochs=0, batch_size=4, n_bins=16, max_depth=8.0)
+        task.fit(stacked, dataset.targets())
+
+        in_memory = task.evaluate(stacked, dataset.targets())
+        streamed = task.evaluate(self._streamed(cache, fake_vit, dataset))
+        for name, value in in_memory.items():
+            assert streamed[name] == pytest.approx(value, abs=1e-5), name
+
+    def test_batch_size_does_not_change_the_score(self, tmp_path, fake_vit, depth_folder):
+        dataset = depth_folder(tmp_path / "data", 10, seed=4)
+        cache = FeatureCache(root=tmp_path / "cache")
+        task = DepthTask(epochs=1, warmup_epochs=0, batch_size=5, n_bins=8, max_depth=8.0)
+        task.fit(self._streamed(cache, fake_vit, dataset))
+
+        wide = task.evaluate(self._streamed(cache, fake_vit, dataset))
+        task.batch_size = 3
+        narrow = task.evaluate(self._streamed(cache, fake_vit, dataset))
+        for name, value in wide.items():
+            assert narrow[name] == pytest.approx(value, abs=1e-5), name
+
+    def test_multi_layer_streaming(self, tmp_path, fake_vit, depth_folder):
+        dataset = depth_folder(tmp_path / "data", 8, seed=5)
+        cache = FeatureCache(root=tmp_path / "cache")
+        streamed = cache.materialise(
+            fake_vit, dataset, pooling="mean", layers=[2, 5, 8, 11], targets=dataset.target
+        )
+        task = DepthTask(
+            head="dpt",
+            layers=[2, 5, 8, 11],
+            epochs=2,
+            warmup_epochs=0,
+            batch_size=4,
+            n_bins=8,
+            hidden_dim=8,
+        )
+        task.fit(streamed)
+        assert task.predict(streamed).shape == (8, 1, 32, 32)
+
+    def test_targets_given_twice_is_refused(self, tmp_path, fake_vit, depth_folder):
+        """Two sources of truth for the supervision; one of them would win
+        silently."""
+        dataset = depth_folder(tmp_path / "data", 6, seed=6)
+        cache = FeatureCache(root=tmp_path / "cache")
+        with pytest.raises(ValueError, match="two sources of truth"):
+            DepthTask(epochs=1, warmup_epochs=0).fit(
+                self._streamed(cache, fake_vit, dataset), dataset.targets()
+            )
+
+    def test_streaming_without_targets_says_how_to_supply_them(
+        self, tmp_path, fake_vit, depth_folder
+    ):
+        dataset = depth_folder(tmp_path / "data", 6, seed=7)
+        cache = FeatureCache(root=tmp_path / "cache")
+        bare = cache.materialise(fake_vit, dataset, pooling="mean")
+        with pytest.raises(ValueError, match="materialise"):
+            DepthTask(epochs=1, warmup_epochs=0).fit(bare)
+
+    def test_separate_targets_can_still_be_paired(self, tmp_path, fake_vit, depth_folder):
+        dataset = depth_folder(tmp_path / "data", 8, seed=8)
+        cache = FeatureCache(root=tmp_path / "cache")
+        bare = cache.materialise(fake_vit, dataset, pooling="mean")
+
+        task = DepthTask(epochs=1, warmup_epochs=0, batch_size=4, n_bins=8)
+        task.fit(bare, dataset.targets())
+        assert task.train_loss is not None
+
+    def test_run_uses_the_streaming_path(self, tmp_path, fake_vit, depth_folder):
+        """visbench.run() must not stack a dense split, features or targets."""
+        from visbench.cache import CachedFeatures
+
+        train = depth_folder(tmp_path / "train", 8, seed=0)
+        val = depth_folder(tmp_path / "val", 6, seed=1)
+
+        seen = {}
+        original = DepthTask.fit
+
+        def spy(self, features, labels=None):
+            seen["features"] = type(features).__name__
+            seen["labels"] = labels
+            return original(self, features, labels)
+
+        DepthTask.fit = spy
+        try:
+            visbench.run(
+                fake_vit,
+                "depth",
+                val,
+                train_dataset=train,
+                cache=FeatureCache(root=tmp_path / "cache"),
+                epochs=1,
+                warmup_epochs=0,
+                batch_size=4,
+                n_bins=8,
+            )
+        finally:
+            DepthTask.fit = original
+
+        assert seen["features"] == CachedFeatures.__name__
+        assert seen["labels"] is None, "targets should travel with the features"
