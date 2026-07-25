@@ -12,6 +12,7 @@ import os
 import shutil
 import tempfile
 from collections.abc import Iterable, Iterator
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Optional, cast
 
@@ -93,6 +94,38 @@ def _load_indexed(dataset: Any, index: int) -> Any:
 
 def _identity_fn(image: Any) -> Any:
     return image
+
+
+@dataclass(frozen=True)
+class _Plan:
+    """One resolved extraction request.
+
+    Everything that decides correctness — which layer indices a key names, what
+    counts as a hit, what gets written — computed once and shared by both entry
+    points, so the in-memory and streaming paths cannot drift apart on it.
+    """
+
+    backbone_key: str
+    indices: list[int]
+    request: LayerSpec
+    multi: bool
+    pooling: str
+    feature_mode: str
+    required_per_layer: list[tuple[str, ...]]
+    store_per_layer: list[Optional[str]]
+
+    def keys_for(self, image_hash: str) -> list[str]:
+        """One cache key per requested layer, for this image."""
+        return [
+            make_key(
+                image_hash,
+                backbone_key=self.backbone_key,
+                layer=index,
+                pooling=self.pooling,
+                feature_mode=self.feature_mode,
+            )
+            for index in self.indices
+        ]
 
 
 def _chunks(items: Iterable, size: int) -> Iterator[list]:
@@ -277,6 +310,255 @@ class FeatureCache:
 
     # -- datasets ------------------------------------------------------------
 
+    # -- planning and walking, shared by both entry points -------------------
+
+    def _plan(
+        self,
+        backbone: Any,
+        pooling: str,
+        layer: Optional[int],
+        layers: LayerSpec,
+        keep: str,
+        store: str,
+        feature_mode: str,
+        streaming: bool,
+    ) -> "_Plan":
+        """Resolve one request into concrete keys, requirements and storage.
+
+        Shared by :meth:`extract_dataset` and :meth:`materialise` so the two
+        cannot drift on the questions that decide correctness: which layer
+        indices a key names, what counts as a hit, and what gets written.
+        """
+        if layer is not None and layers is not None:
+            raise ValueError(
+                f"Pass layer= or layers=, not both (got layer={layer}, layers={layers}). "
+                "Nothing here can check that they agree."
+            )
+        multi = layers is not None
+        if multi and not streaming and keep == "pooled":
+            raise ValueError(
+                f"layers={layers} with keep='pooled' is a contradiction: the pooled "
+                "vector comes from one layer, so the rest would be extracted and "
+                "discarded. Use layer= for the depth you want pooled from."
+            )
+
+        request: LayerSpec = layers if multi else (None if layer is None else [layer])
+        # Resolved here, not just inside the backbone, because the resolved
+        # index is what goes in the key: layers=[-1] and layers=[11] name one
+        # entry on a 12-block model, and must not occupy two.
+        indices = backbone.resolve_layers(request)
+
+        required_per_layer: list[tuple[str, ...]]
+        store_per_layer: list[Optional[str]]
+        if streaming:
+            # A streaming reader loads `dense` from every layer, so every entry
+            # must hold it — including the deepest, which the in-memory path is
+            # allowed to keep pooled-only.
+            required_per_layer = [("dense",)] * len(indices)
+            store_per_layer = ["dense"] * len(indices)
+        else:
+            # Only the deepest layer carries `pooled` and `cls` — they describe
+            # `dense`, and `dense` is the last requested layer. A shallower entry
+            # holding a `pooled` from some other run's layer choice would be a
+            # different vector under a name that does not say so.
+            last_required = _parts(keep)
+            required_per_layer = [("dense",)] * (len(indices) - 1) + [last_required]
+            # A shallower entry has no pooled vector to write, so it is stored as
+            # dense-only — or not at all, when this run is storing pooled alone.
+            shallow_store = "dense" if store in ("both", "dense") else None
+            store_per_layer = [shallow_store] * (len(indices) - 1) + [store]
+
+        if feature_mode == FeatureMode.DENSE_PLUS_CLS:
+            required_per_layer[-1] = required_per_layer[-1] + ("cls",)
+            if streaming:
+                store_per_layer[-1] = "both"
+
+        return _Plan(
+            backbone_key=backbone.cache_key(),
+            indices=indices,
+            request=request,
+            multi=multi,
+            pooling=pooling,
+            feature_mode=feature_mode,
+            required_per_layer=required_per_layer,
+            store_per_layer=store_per_layer,
+        )
+
+    def _walk(
+        self,
+        backbone: Any,
+        dataset: Iterable,
+        plan: "_Plan",
+        batch_size: int,
+    ) -> Iterator[list[tuple[list[str], list[FeatureDict]]]]:
+        """Yield ``(keys, entries)`` per image, one batch at a time.
+
+        The whole extraction loop lives here: identity resolution, content
+        hashing, batching misses through the backbone, and writing entries. It
+        **yields** rather than accumulating, so a caller that only wants the
+        keys never holds a feature tensor at all.
+        """
+        for batch_items in _chunks(_identified_items(dataset), batch_size):
+            entries: list[Optional[list[FeatureDict]]] = []
+            keys: list[Optional[list[str]]] = []
+
+            # Pass 1: resolve anything whose content hash we already know for
+            # this exact file. A hit here never touches the image.
+            for identity, _ in batch_items:
+                image_hash = self._remembered_hash(identity)
+                if image_hash is None:
+                    keys.append(None)
+                    entries.append(None)
+                    continue
+                batch_keys = plan.keys_for(image_hash)
+                keys.append(batch_keys)
+                entries.append(self._load_entry(batch_keys, plan))
+
+            # Pass 2: decode whatever pass 1 could not resolve, and hash it.
+            # This may still hit — a copied file has a new identity but the
+            # same pixels, which is exactly what content addressing is for.
+            images: dict[int, Any] = {}
+            for index, (identity, load) in enumerate(batch_items):
+                if entries[index] is not None:
+                    continue
+                image = load()
+                images[index] = image
+                if keys[index] is None:
+                    image_hash = hash_image(image)
+                    self._remember_hash(identity, image_hash)
+                    resolved_keys = plan.keys_for(image_hash)
+                    keys[index] = resolved_keys
+                    entries[index] = self._load_entry(resolved_keys, plan)
+
+            missing = [i for i, entry in enumerate(entries) if entry is None]
+            if missing:
+                # Pass 2 assigned keys for every entry it could not resolve,
+                # so nothing still missing has a None key.
+                assert all(keys[i] is not None for i in missing)
+                tensor_batch = backbone.preprocess([images[i] for i in missing])
+                features = backbone.extract_features(
+                    tensor_batch,
+                    pooling=plan.pooling,
+                    layers=plan.request,
+                    feature_mode=plan.feature_mode,
+                )
+                per_layer = features.get("dense_layers") or [features["dense"]]
+                for position, index in enumerate(missing):
+                    image_keys = keys[index]
+                    assert image_keys is not None
+                    single_layers: list[FeatureDict] = []
+                    for depth, dense in enumerate(per_layer):
+                        single: FeatureDict = {
+                            "dense": dense[position : position + 1].cpu(),
+                            "grid_hw": tuple(dense.shape[-2:]),  # type: ignore[typeddict-item]
+                        }
+                        if depth == len(per_layer) - 1:
+                            single["pooled"] = features["pooled"][position : position + 1].cpu()
+                            if "cls" in features:
+                                single["cls"] = features["cls"][position : position + 1].cpu()
+                        layer_store = plan.store_per_layer[depth]
+                        if layer_store is not None:
+                            self.put(image_keys[depth], single, store=layer_store)
+                        single_layers.append(single)
+                    entries[index] = single_layers
+
+            resolved: list[tuple[list[str], list[FeatureDict]]] = []
+            for image_keys, entry in zip(keys, entries):
+                assert image_keys is not None and entry is not None
+                resolved.append((image_keys, entry))
+            yield resolved
+
+    def _load_entry(self, keys: list[str], plan: "_Plan") -> Optional[list[FeatureDict]]:
+        """All layers, or ``None`` — a partial hit is a miss.
+
+        One forward pass produces every layer, so re-running it to fill a gap
+        costs nothing beyond what the missing layer already required.
+        """
+        found = []
+        for key, require in zip(keys, plan.required_per_layer):
+            entry = self.get(key, require=require)
+            if entry is None:
+                return None
+            found.append(entry)
+        return found
+
+    # -- entry points --------------------------------------------------------
+
+    def materialise(
+        self,
+        backbone: Any,
+        dataset: Iterable,
+        pooling: str = Pooling.DEFAULT,
+        layer: Optional[int] = None,
+        layers: LayerSpec = None,
+        batch_size: int = 32,
+        feature_mode: str = FeatureMode.DENSE_ONLY,
+        targets: Optional[Callable[[int], Any]] = None,
+    ) -> Any:
+        """Ensure every entry is on disk, and return a reader over them.
+
+        The streaming counterpart to :meth:`extract_dataset`. It runs the same
+        extraction, but keeps **nothing** in memory: it returns a
+        :class:`~visbench.cache.streaming.CachedFeatures`, which loads each
+        image's features from disk on demand and can be handed straight to a
+        ``torch.utils.data.DataLoader``.
+
+        This is what lets a dense task train on a dataset larger than RAM.
+        ``extract_dataset`` stacks every feature map — 24k NYUv2 images at
+        DINOv2-B is roughly 19 GB — which is fine for pooled features and a
+        hard wall for dense ones.
+
+        Entries are always stored with ``dense``, since that is what the reader
+        loads; ``keep`` and ``store`` have no meaning here because nothing is
+        kept.
+
+        Parameters
+        ----------
+        targets:
+            ``index -> target`` for the supervision paired with each image,
+            typically :meth:`~visbench.data.dense.DenseFolderDataset.target`.
+            Passed here rather than stacked separately so features and targets
+            are read by the same index and cannot drift apart — and because a
+            dense split's targets are themselves too large to stack (24k NYUv2
+            maps at 224 square is another ~4.8 GB).
+        """
+        from visbench.cache.streaming import CachedFeatures
+
+        plan = self._plan(
+            backbone,
+            pooling=pooling,
+            layer=layer,
+            layers=layers,
+            keep="dense",
+            store="dense",
+            feature_mode=feature_mode,
+            streaming=True,
+        )
+
+        keys: list[list[str]] = []
+        grids: list[set] = [set() for _ in plan.indices]
+        for batch in self._walk(backbone, dataset, plan, batch_size):
+            for image_keys, entry in batch:
+                keys.append(image_keys)
+                for depth, layer_entry in enumerate(entry):
+                    grids[depth].add(layer_entry["grid_hw"])
+            # `entry` goes out of scope here: the tensors it holds are the only
+            # thing standing between this and the memory ceiling it exists to
+            # remove, so nothing above may keep a reference to them.
+
+        if not keys:
+            raise ValueError("Cannot extract features from an empty dataset")
+        self._check_grids(grids, plan)
+
+        return CachedFeatures(
+            cache=self,
+            keys=keys,
+            layer_indices=plan.indices,
+            multi=plan.multi,
+            grid_hw=grids[-1].pop(),
+            targets=targets,
+        )
+
     def extract_dataset(
         self,
         backbone: Any,
@@ -289,7 +571,7 @@ class FeatureCache:
         store: Optional[str] = None,
         feature_mode: str = FeatureMode.DENSE_ONLY,
     ) -> FeatureDict:
-        """Extract (or load) features for a whole dataset.
+        """Extract (or load) features for a whole dataset, stacked in memory.
 
         The main entry point tasks use: batches only the cache misses through
         the backbone, then returns features for the full dataset in dataset
@@ -306,6 +588,10 @@ class FeatureCache:
         decoded**. Measured on Imagenette (13,394 images), that is the
         difference between a fully cached run costing ~113 s and costing
         almost nothing.
+
+        The *result* is still held whole in memory, which is fine for pooled
+        features and a hard wall for dense ones. Use :meth:`materialise` for a
+        dense task on anything large.
 
         Parameters
         ----------
@@ -344,136 +630,28 @@ class FeatureCache:
             store = keep
         if store not in _KEEP_CHOICES:
             raise ValueError(f"store must be one of {_KEEP_CHOICES}, got {store!r}")
-        if layer is not None and layers is not None:
-            raise ValueError(
-                f"Pass layer= or layers=, not both (got layer={layer}, layers={layers}). "
-                "Nothing here can check that they agree."
-            )
 
-        backbone_key = backbone.cache_key()
-        multi = layers is not None
-        if multi and keep == "pooled":
-            raise ValueError(
-                f"layers={layers} with keep='pooled' is a contradiction: the pooled "
-                "vector comes from one layer, so the rest would be extracted and "
-                "discarded. Use layer= for the depth you want pooled from."
-            )
-        request: LayerSpec = layers if multi else (None if layer is None else [layer])
-        # Resolved here, not just inside the backbone, because the resolved
-        # index is what goes in the key: layers=[-1] and layers=[11] name one
-        # entry on a 12-block model, and must not occupy two.
-        indices = backbone.resolve_layers(request)
-
-        # Only the deepest layer carries `pooled` and `cls` — they describe
-        # `dense`, and `dense` is the last requested layer. A shallower entry
-        # holding a `pooled` from some other run's layer choice would be a
-        # different vector under a name that does not say so.
-        last_required = _parts(keep)
-        if feature_mode == FeatureMode.DENSE_PLUS_CLS:
-            last_required = last_required + ("cls",)
-        required_per_layer = [("dense",)] * (len(indices) - 1) + [last_required]
-        # A shallower entry has no pooled vector to write, so it is stored as
-        # dense-only — or not at all, when this run is storing pooled alone.
-        shallow_store = "dense" if store in ("both", "dense") else None
-        store_per_layer = [shallow_store] * (len(indices) - 1) + [store]
-
-        def keys_for(image_hash: str) -> list[str]:
-            return [
-                make_key(
-                    image_hash,
-                    backbone_key=backbone_key,
-                    layer=index,
-                    pooling=pooling,
-                    feature_mode=feature_mode,
-                )
-                for index in indices
-            ]
-
-        def load_entry(keys: list[str]) -> Optional[list[FeatureDict]]:
-            """All layers, or ``None`` — a partial hit is a miss.
-
-            One forward pass produces every layer, so re-running it to fill a
-            gap costs nothing beyond what the missing layer already required.
-            """
-            found = []
-            for key, require in zip(keys, required_per_layer):
-                entry = self.get(key, require=require)
-                if entry is None:
-                    return None
-                found.append(entry)
-            return found
+        plan = self._plan(
+            backbone,
+            pooling=pooling,
+            layer=layer,
+            layers=layers,
+            keep=keep,
+            store=store,
+            feature_mode=feature_mode,
+            streaming=False,
+        )
 
         # One accumulator per requested layer; the single-layer case is the
         # list-of-one, so both paths run the same code rather than branching.
-        dense_chunks: list[list[torch.Tensor]] = [[] for _ in indices]
+        dense_chunks: list[list[torch.Tensor]] = [[] for _ in plan.indices]
         pooled_chunks: list[torch.Tensor] = []
         cls_chunks: list[torch.Tensor] = []
-        grids: list[set] = [set() for _ in indices]
+        grids: list[set] = [set() for _ in plan.indices]
         count = 0
 
-        for batch_items in _chunks(_identified_items(dataset), batch_size):
-            entries: list[Optional[list[FeatureDict]]] = []
-            keys: list[Optional[list[str]]] = []
-
-            # Pass 1: resolve anything whose content hash we already know for
-            # this exact file. A hit here never touches the image.
-            for identity, _ in batch_items:
-                image_hash = self._remembered_hash(identity)
-                if image_hash is None:
-                    keys.append(None)
-                    entries.append(None)
-                    continue
-                batch_keys = keys_for(image_hash)
-                keys.append(batch_keys)
-                entries.append(load_entry(batch_keys))
-
-            # Pass 2: decode whatever pass 1 could not resolve, and hash it.
-            # This may still hit — a copied file has a new identity but the
-            # same pixels, which is exactly what content addressing is for.
-            images: dict[int, Any] = {}
-            for index, (identity, load) in enumerate(batch_items):
-                if entries[index] is not None:
-                    continue
-                image = load()
-                images[index] = image
-                if keys[index] is None:
-                    image_hash = hash_image(image)
-                    self._remember_hash(identity, image_hash)
-                    resolved_keys = keys_for(image_hash)
-                    keys[index] = resolved_keys
-                    entries[index] = load_entry(resolved_keys)
-
-            missing = [i for i, entry in enumerate(entries) if entry is None]
-            if missing:
-                # Pass 2 assigned keys for every entry it could not resolve,
-                # so nothing still missing has a None key.
-                assert all(keys[i] is not None for i in missing)
-                tensor_batch = backbone.preprocess([images[i] for i in missing])
-                features = backbone.extract_features(
-                    tensor_batch, pooling=pooling, layers=request, feature_mode=feature_mode
-                )
-                per_layer = features.get("dense_layers") or [features["dense"]]
-                for position, index in enumerate(missing):
-                    image_keys = keys[index]
-                    assert image_keys is not None
-                    single_layers: list[FeatureDict] = []
-                    for depth, dense in enumerate(per_layer):
-                        single: FeatureDict = {
-                            "dense": dense[position : position + 1].cpu(),
-                            "grid_hw": tuple(dense.shape[-2:]),  # type: ignore[typeddict-item]
-                        }
-                        if depth == len(per_layer) - 1:
-                            single["pooled"] = features["pooled"][position : position + 1].cpu()
-                            if "cls" in features:
-                                single["cls"] = features["cls"][position : position + 1].cpu()
-                        layer_store = store_per_layer[depth]
-                        if layer_store is not None:
-                            self.put(image_keys[depth], single, store=layer_store)
-                        single_layers.append(single)
-                    entries[index] = single_layers
-
-            for entry in entries:
-                assert entry is not None  # every miss was filled above
+        for batch in self._walk(backbone, dataset, plan, batch_size):
+            for _, entry in batch:
                 count += 1
                 for depth, layer_entry in enumerate(entry):
                     grids[depth].add(layer_entry["grid_hw"])
@@ -487,28 +665,33 @@ class FeatureCache:
 
         if count == 0:
             raise ValueError("Cannot extract features from an empty dataset")
-        for depth, seen in enumerate(grids):
-            if len(seen) > 1:
-                where = f" at layer {indices[depth]}" if multi else ""
-                raise ValueError(
-                    f"Dataset produced more than one dense grid shape{where} "
-                    f"({sorted(seen)}); features cannot be stacked. Use a fixed "
-                    "input resolution."
-                )
+        self._check_grids(grids, plan)
 
         result: FeatureDict = {"grid_hw": grids[-1].pop()}  # type: ignore[typeddict-item]
         if keep in ("both", "dense"):
             stacked = [torch.cat(chunks) for chunks in dense_chunks]
             result["dense"] = stacked[-1]
-            if multi:
+            if plan.multi:
                 result["dense_layers"] = stacked
         if keep in ("both", "pooled"):
             result["pooled"] = torch.cat(pooled_chunks)
         if cls_chunks:
             result["cls"] = torch.cat(cls_chunks)
-        if multi:
-            result["layer_indices"] = indices
+        if plan.multi:
+            result["layer_indices"] = plan.indices
         return result
+
+    @staticmethod
+    def _check_grids(grids: list[set], plan: "_Plan") -> None:
+        """Every image must produce one grid shape per layer, or nothing stacks."""
+        for depth, seen in enumerate(grids):
+            if len(seen) > 1:
+                where = f" at layer {plan.indices[depth]}" if plan.multi else ""
+                raise ValueError(
+                    f"Dataset produced more than one dense grid shape{where} "
+                    f"({sorted(seen)}); features cannot be stacked. Use a fixed "
+                    "input resolution."
+                )
 
     # -- maintenance ---------------------------------------------------------
 
