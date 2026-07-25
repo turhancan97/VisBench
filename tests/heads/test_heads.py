@@ -44,17 +44,22 @@ def test_duplicate_registration_raises():
 def test_a_contributor_can_add_a_head():
     """The documented extension point."""
 
-    @register_head("test_only_head")
-    class Mine(BaseHead):
-        supported_feature_modes = (FeatureMode.DENSE_ONLY,)
-
-        def forward(self, features):
-            return features
-
-    assert "test_only_head" in list_heads()
     from visbench.heads import base
 
-    del base._HEADS["test_only_head"]
+    try:
+
+        @register_head("test_only_head")
+        class Mine(BaseHead):
+            supported_feature_modes = (FeatureMode.DENSE_ONLY,)
+
+            def forward(self, features):
+                return features
+
+        assert "test_only_head" in list_heads()
+    finally:
+        # Unregister even on failure: a leaked name would make every later
+        # duplicate-registration test fail for the wrong reason.
+        base._HEADS.pop("test_only_head", None)
 
 
 # -- feature-mode contract ----------------------------------------------------
@@ -197,6 +202,52 @@ class TestDPTHead:
                 perturbed = list(stages)
                 perturbed[index] = perturbed[index] + 1.0
                 assert not torch.allclose(head(perturbed), baseline), f"layer {index} ignored"
+
+    def test_a_tuple_of_stages_is_not_mistaken_for_a_cls_pair(self):
+        """``head((s0, s1))`` is two layers, not one layer plus a CLS vector.
+
+        A (stages, cls) pair is recognised by its first element being a
+        sequence; keying off the second would report this call as "got a single
+        tensor" when the caller passed two.
+        """
+        head = DPTHead(in_channels=32, out_channels=1, num_layers=2, hidden_dim=8)
+        stages = self._stages(n=2)
+        assert head(tuple(stages)).shape == head(stages).shape
+
+    def test_output_size_none_leaves_twice_the_grid(self):
+        """Pinned because it differs from LinearHead, which stays on the grid.
+
+        The last fusion block upsamples. A task swapping heads per run must pass
+        output_size, or identical features yield predictions at two scales.
+        """
+        dpt = DPTHead(in_channels=8, out_channels=1, num_layers=3, hidden_dim=8)
+        linear = LinearHead(in_channels=8, out_channels=1)
+        stages = self._stages(n=3, channels=8, size=16)
+        assert dpt(stages).shape[-2:] == (32, 32)
+        assert linear(stages[0]).shape[-2:] == (16, 16)
+
+    def test_cls_width_follows_the_first_layer_not_the_last(self):
+        """The vector is injected at stage 0, so stage 0's width is the default.
+
+        Sizing the projection from the last layer crashes whenever the depths
+        fed in have different channel counts.
+        """
+        head = DPTHead(
+            in_channels=[16, 32, 64], out_channels=1, num_layers=3, hidden_dim=8, use_cls=True
+        )
+        stages = [torch.rand(2, c, 8, 8) for c in (16, 32, 64)]
+        assert head((stages, torch.rand(2, 16))).shape[:2] == (2, 1)
+
+    def test_explicit_cls_dim_is_honoured(self):
+        head = DPTHead(
+            in_channels=8, out_channels=1, num_layers=2, hidden_dim=8, use_cls=True, cls_dim=64
+        )
+        assert head((self._stages(n=2, channels=8, size=8), torch.rand(2, 64))).shape[:2] == (2, 1)
+
+    def test_wrong_cls_width_says_so(self):
+        head = DPTHead(in_channels=8, out_channels=1, num_layers=2, hidden_dim=8, use_cls=True)
+        with pytest.raises(ValueError, match=r"Expected a \(B, 8\) CLS vector"):
+            head((self._stages(n=2, channels=8, size=8), torch.rand(2, 99)))
 
     def test_cls_vector_is_used_when_requested(self):
         torch.manual_seed(0)

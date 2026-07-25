@@ -44,6 +44,15 @@ so it stands on its own rather than assuming you have read the ones above it.
   returning features for half the data. It now raises.
 - `cls` was produced by extraction with `dense_plus_cls` but never stored, so it
   existed on a cache miss and vanished on the next hit.
+- `DPTHead(use_cls=True)` sized its CLS projection from the *last* layer's width
+  while injecting the vector at the *first*, so any head built with per-layer
+  `in_channels` raised a matmul shape error. It now follows the stage the vector
+  actually reaches, and checks the vector's width with a message that names the
+  expected one.
+- `DPTHead` read `head((stage0, stage1))` — a tuple of two layers rather than a
+  list — as one dense map plus a CLS vector, and reported it as "got a single
+  tensor" when the caller had passed two. A `(stages, cls)` pair is now
+  identified by its first element being a sequence.
 
 ### Changed
 
@@ -52,7 +61,8 @@ so it stands on its own rather than assuming you have read the ones above it.
   including the `PairDataset` variance violation above. Now clean.
 - Removed the unused `visbench.utils.device.batched` helper.
 
-- **Pluggable task heads**, selectable by name per run (`visbench.heads`):
+Still to come in v0.2: multi-layer extraction (which `DPTHead` needs before it
+has anything real to consume), dense mid-level tasks, CLI.
   `LinearHead` (1x1 convolution over the dense grid, upsampled) and `DPTHead`
   (RefineNet-style multiscale fusion, following probe3d and Ranftl et al.).
   `register_head` makes this a real extension point. A head declares which
@@ -60,9 +70,8 @@ so it stands on its own rather than assuming you have read the ones above it.
   construction rather than as a shape error partway through training.
   `DPTHead` refuses a single feature map: fed one layer it is not multiscale,
   and duplicating the input would report a single-layer result as a DPT number.
-
-Still to come in v0.2: multi-layer extraction (which `DPTHead` needs before it
-has anything real to consume), dense mid-level tasks, CLI.
+- `DPTHead(cls_dim=...)`, for when a backbone's CLS width differs from the
+  channel count of the layer the vector is injected alongside.
 
 ## [0.1.0] — 2026-07-24
 

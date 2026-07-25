@@ -89,6 +89,14 @@ class DPTHead(BaseHead):
     is the next v0.2 step; until then this head is complete but has nothing real
     to consume.
 
+    **Output resolution differs from** :class:`LinearHead`. The last fusion
+    block upsamples, so with ``output_size=None`` this head returns *twice* the
+    feature-grid resolution where a linear head returns the grid itself — the
+    same relationship DPT has to its backbone, where the pyramid ends one step
+    above the input. Pass ``output_size`` explicitly on any task that swaps
+    heads per run, or the two will produce predictions at different scales from
+    identical features.
+
     Report a headline dense-task number with :class:`LinearHead` as well. A
     deeper head can compensate for a weak feature map and narrow the very gap
     between backbones the probe exists to measure.
@@ -109,6 +117,7 @@ class DPTHead(BaseHead):
         hidden_dim: int = 256,
         output_size: Optional[Union[int, tuple[int, int]]] = None,
         use_cls: bool = False,
+        cls_dim: Optional[int] = None,
     ) -> None:
         """Configure the pyramid.
 
@@ -121,11 +130,21 @@ class DPTHead(BaseHead):
             How many backbone depths this head expects. ``forward`` checks the
             list length against it, so a mismatch fails immediately rather than
             as a shape error inside a fusion block.
+        output_size:
+            Resolution to upsample the prediction to. ``None`` leaves it at
+            twice the feature grid — see the class docstring, and prefer to be
+            explicit when comparing against :class:`LinearHead`.
         use_cls:
             Under ``dense_plus_cls``, add a projection of the global vector to
-            the deepest stage. This is the fusion that mode exists to enable —
+            the coarsest stage. This is the fusion that mode exists to enable —
             at a bottleneck rather than into every pixel of every layer, which
             is what ``dense_cls_broadcast`` already does more cheaply.
+        cls_dim:
+            Width of that global vector, when ``use_cls``. Defaults to the first
+            layer's width, which is right whenever the CLS token and the patch
+            tokens come from the same backbone. Set it when they do not — the
+            CLS width is a property of the backbone, not of whichever layer the
+            vector happens to be injected alongside.
         """
         super().__init__()
         if num_layers < 1:
@@ -155,7 +174,10 @@ class DPTHead(BaseHead):
         #: features for large-scale structure.
         self.scales = [2**-i for i in range(num_layers - 1, -1, -1)]
         self.fusion = nn.ModuleList(FusionBlock(hidden_dim) for _ in range(num_layers))
-        self.cls_project = nn.Linear(widths[-1], hidden_dim) if use_cls else None
+        # Sized from widths[0]: the vector is injected at stage 0, and for a
+        # single backbone every layer shares the CLS width anyway.
+        self.cls_dim = (cls_dim if cls_dim is not None else widths[0]) if use_cls else None
+        self.cls_project = nn.Linear(self.cls_dim, hidden_dim) if self.cls_dim else None
 
         self.output = nn.Sequential(
             nn.Conv2d(hidden_dim, max(hidden_dim // 2, 1), kernel_size=3, padding=1),
@@ -174,6 +196,12 @@ class DPTHead(BaseHead):
             if index == 0 and cls_vector is not None and self.cls_project is not None:
                 # Injected once, at the coarsest stage: a global vector is
                 # global, and adding it at every level would only re-weight it.
+                if cls_vector.ndim != 2 or cls_vector.shape[1] != self.cls_dim:
+                    raise ValueError(
+                        f"Expected a (B, {self.cls_dim}) CLS vector, got "
+                        f"{tuple(cls_vector.shape)}. Pass cls_dim= if the backbone's "
+                        "CLS width differs from its first layer's channel count."
+                    )
                 bias = self.cls_project(cls_vector)[:, :, None, None]
                 projected = projected + bias
             fused = block(projected, fused)
@@ -184,8 +212,15 @@ class DPTHead(BaseHead):
     def _unpack(self, features):
         """Split the input into a per-layer list and an optional CLS vector."""
         cls_vector = None
-        if isinstance(features, tuple) and len(features) == 2 and not isinstance(features[1], list):
-            features, cls_vector = features
+        # A ``(stages, cls)`` pair is identified by its *first* element being a
+        # sequence of maps. Keying off the second element instead would read a
+        # plain two-layer tuple — ``head((stage0, stage1))``, which is how a
+        # caller who did not notice the list/tuple distinction will write it —
+        # as one stage plus a CLS vector, and report the resulting failure as
+        # "got a single tensor" when the caller passed two.
+        if isinstance(features, tuple) and len(features) == 2:
+            if isinstance(features[0], (list, tuple)):
+                features, cls_vector = features
 
         if isinstance(features, torch.Tensor):
             raise TypeError(
