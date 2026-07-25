@@ -127,6 +127,48 @@ so it stands on its own rather than assuming you have read the ones above it.
   `evaluate` scores batch by batch rather than collecting every prediction
   first. `visbench.run()` streams automatically for any task declaring
   `uses_dense`.
+- **Surface normal estimation** (`get_probe("surface_normal")`), the second
+  dense mid-level task, following probe3d's `snorm_dpt.yaml` and its ten-epoch
+  schedule: three direction channels plus an optional kappa, Bae et al.'s
+  uncertainty-aware angular loss, and `evaluate_surface_norm`'s metrics —
+  within-11.25/22.5/30-degree fractions and angular RMSE, plus the mean and
+  median the wider literature reports. Predictions come back L2-normalised, so
+  `predict()` hands over an actual unit normal rather than an unscaled
+  direction.
+
+  `normal_source` is recorded in every result: NYU normals are *derived*, from
+  GeoNet's extraction or Ladicky's rather than from a sensor, and the sources
+  disagree enough that a run which does not say which is not comparable to one
+  that does.
+- `SurfaceNormalTask.fit` **detects kappa collapse and warns**. probe3d's
+  uncertainty-aware loss lets kappa settle wherever the head's accuracy puts it
+  (3.5 at 30 degrees of error, 1.2 at 60, 0.05 at chance), which is the
+  intended behaviour until the head is near chance — there kappa scales the
+  direction's gradient by 1/20, weak supervision keeps accuracy at chance, and
+  the two hold each other down. A real DINOv2 linear probe on a small split
+  does exactly this and reports a chance-level score with no error at all.
+  Whether a run falls in depends on head initialisation, so it is measured per
+  run rather than predicted. The loss is left as probe3d wrote it: switching
+  silently to the plain angular loss would make VisBench's numbers
+  incomparable with the published ones, which is the only reason to have
+  borrowed the protocol.
+- **`DenseTrainingTask`**, the shared body of every trained dense probe —
+  feature sources, batching, head construction, the optimiser and its schedule,
+  the training loop, batch-wise prediction and metric averaging. A subclass
+  supplies four things: `out_channels`, `_activate`, `_loss`, `_batch_metrics`.
+  Lifted out of the working `DepthTask` rather than designed up front, because
+  the second dense task is the first point at which the shared part is
+  knowable. Depth's behaviour is unchanged and its tests pass untouched.
+- `DenseFolderDataset` handles **vector targets**: a `target_loader` returning
+  `(C, H, W)` is resized, cropped and stacked exactly like a scalar map, so
+  surface normals travel the same geometry path depth does. `max_target` now
+  raises on a multi-channel map rather than capping each component
+  independently, which would zero the x component of every steep normal.
+- `load_normal_map` reads `.npy` in either `(3, H, W)` or `(H, W, 3)` layout,
+  and 8-bit RGB under the usual `2 * v / 255 - 1` encoding. Output is
+  L2-normalised, and a pixel with no direction becomes exactly `(0, 0, 0)` —
+  which is what marks it invalid, the role a 0 plays in a depth map.
+- `examples/normals.py`.
 
 ### Fixed
 

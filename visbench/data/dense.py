@@ -29,7 +29,7 @@ from PIL import Image
 from visbench.data.base import BaseDataset
 from visbench.utils.image import load_image
 
-__all__ = ["DenseFolderDataset", "load_depth_map"]
+__all__ = ["DenseFolderDataset", "load_depth_map", "load_normal_map"]
 
 #: Target file suffixes understood without a custom ``target_loader``.
 _TARGET_SUFFIXES = (".npy", ".png", ".tiff", ".tif")
@@ -62,6 +62,48 @@ def load_depth_map(path: Path, scale: float = 1.0) -> torch.Tensor:
     if scale != 1.0:
         depth = depth / scale
     return depth
+
+
+def load_normal_map(path: Path) -> torch.Tensor:
+    """Read a surface-normal map as a ``(3, H, W)`` float32 tensor.
+
+    ``.npy`` is taken at face value, in whatever layout it is stored —
+    ``(3, H, W)`` or ``(H, W, 3)``, disambiguated by which axis has length 3.
+    An image file is read as 8-bit RGB and mapped ``2 * v / 255 - 1``, the
+    encoding GeoNet and every other published NYU normal set uses.
+
+    Vectors are L2-normalised, and any whose length is too small to have a
+    meaningful direction becomes exactly ``(0, 0, 0)`` — the convention the
+    metric and the loss both read as "no ground truth here", matching the role
+    a zero plays in a depth map. That threshold is not fussy: in the 8-bit
+    encoding an invalid pixel is stored as ``(128, 128, 128)``, decoding to a
+    length of about 0.007, while a genuine unit normal decodes to within a
+    percent of 1.
+    """
+    if path.suffix.lower() == ".npy":
+        array = np.load(path).astype(np.float32)
+        normals = torch.from_numpy(array)
+    else:
+        with Image.open(path) as handle:
+            rgb = handle.convert("RGB")
+            array = np.array(rgb).astype(np.float32)
+        normals = torch.from_numpy(array) * (2.0 / 255.0) - 1.0
+
+    if normals.ndim != 3:
+        raise ValueError(
+            f"{path.name} holds a {normals.ndim}D array {tuple(normals.shape)}; a normal map "
+            "is 3D. Pass target_loader= for a layout this does not cover."
+        )
+    if normals.shape[0] != 3:
+        if normals.shape[-1] != 3:
+            raise ValueError(
+                f"{path.name} has shape {tuple(normals.shape)}; expected a length-3 axis "
+                "holding the x, y, z components."
+            )
+        normals = normals.permute(2, 0, 1)
+
+    length = normals.norm(dim=0, keepdim=True)
+    return torch.where(length > 0.1, normals / length.clamp(min=1e-8), torch.zeros_like(normals))
 
 
 class DenseFolderDataset(BaseDataset):
@@ -191,49 +233,66 @@ class DenseFolderDataset(BaseDataset):
         return image.crop((left, top, left + self.image_size, top + self.image_size))
 
     def target(self, index: int) -> torch.Tensor:
-        """The ``(image_size, image_size)`` target for item ``index``.
+        """The target for item ``index``, at the working resolution.
+
+        Shape follows the loader: ``(image_size, image_size)`` for a scalar map
+        such as depth, ``(C, image_size, image_size)`` for a vector one such as
+        surface normals.
 
         Resampled **nearest-neighbour**, never bilinear. Interpolating a depth
         map averages across depth discontinuities, inventing surfaces at object
         boundaries that no sensor saw; worse, it averages valid pixels with the
         zeros marking holes, turning a sharp invalid region into a halo of
         plausible-looking wrong depths that the valid mask no longer excludes.
+        A normal map has the same problem twice over — averaging two unit
+        vectors across an edge gives a direction that is not merely wrong but
+        not even unit length.
         """
         path = self.target_paths[index]
         if self._target_loader is not None:
-            depth = self._target_loader(path)
+            target = self._target_loader(path)
         else:
-            depth = load_depth_map(path, scale=self.target_scale)
+            target = load_depth_map(path, scale=self.target_scale)
 
-        if depth.ndim != 2:
+        if target.ndim not in (2, 3):
             raise ValueError(
-                f"target_loader returned {depth.ndim}D for {path.name}; expected (H, W)"
+                f"target_loader returned {target.ndim}D for {path.name}; expected (H, W) "
+                "for a scalar map or (C, H, W) for a vector one"
             )
+        scalar = target.ndim == 2
+        channelled = target[None] if scalar else target
 
-        height, width = depth.shape
+        height, width = channelled.shape[-2:]
         scale = self.image_size / min(height, width)
         resized = torch.nn.functional.interpolate(
-            depth[None, None],
+            channelled[None],
             size=(
                 max(self.image_size, round(height * scale)),
                 max(self.image_size, round(width * scale)),
             ),
             mode="nearest",
-        )[0, 0]
+        )[0]
 
-        top = (resized.shape[0] - self.image_size) // 2
-        left = (resized.shape[1] - self.image_size) // 2
-        cropped = resized[top : top + self.image_size, left : left + self.image_size]
+        top = (resized.shape[-2] - self.image_size) // 2
+        left = (resized.shape[-1] - self.image_size) // 2
+        cropped = resized[..., top : top + self.image_size, left : left + self.image_size]
 
         if self.max_target is not None:
+            if not scalar:
+                raise ValueError(
+                    f"max_target={self.max_target} caps a scalar quantity, but "
+                    f"{path.name} holds a {cropped.shape[0]}-channel map. Mark invalid "
+                    "pixels inside target_loader instead, where the convention for this "
+                    "target type is known."
+                )
             # Marked invalid, not clamped: a pixel beyond the sensor's range is
             # unknown, and clamping it to the cap would train and score against
             # a wall of fabricated depth at exactly max_target.
             cropped = torch.where(cropped > self.max_target, torch.zeros_like(cropped), cropped)
-        return cropped
+        return cropped[0] if scalar else cropped
 
     def targets(self) -> torch.Tensor:
-        """Every target stacked, ``(N, image_size, image_size)``.
+        """Every target stacked, ``(N, ...)`` over :meth:`target`'s shape.
 
         Reads every target file. That is unavoidable — a dense task is scored
         per pixel — but it is why this is a separate call from

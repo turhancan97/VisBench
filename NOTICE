@@ -42,6 +42,10 @@ repository's MIT licence. All three are safe to reuse, and VisBench does:
   are comparable, which is the whole point of borrowing a protocol.
 - `visbench/tasks/mid_level/depth.py` follows `losses.py`'s `sig_loss` and
   `gradient_loss`, and `probes.py`'s `DepthBinPrediction`.
+- `visbench/metrics/dense.py` also follows `metrics.py`'s
+  `evaluate_surface_norm`, and `visbench/tasks/mid_level/surface_normal.py`
+  follows `losses.py`'s `angular_loss` (whose uncertainty-aware form is
+  Bae et al.'s).
 
 The heads in `visbench/heads/` were written from the architecture descriptions
 instead, so the package is uniform on that question, but contributors should

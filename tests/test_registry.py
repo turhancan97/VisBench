@@ -128,8 +128,19 @@ def test_depth_is_registered():
     assert visbench.get_probe("depth").level == "mid_level"
 
 
+def test_surface_normal_is_registered():
+    """The second dense task, v0.2."""
+    assert "surface_normal" in visbench.list_probes()
+    assert visbench.get_probe("surface_normal").level == "mid_level"
+
+
 def test_unregistered_task_fails_informatively():
-    """The error must list what does exist."""
+    """The error must list what does exist.
+
+    ``generic_segmentation`` is the next dense task still to land; when it
+    does, point this at whatever remains a stub rather than deleting it — the
+    check is that an unknown name is *helpfully* rejected, not which name.
+    """
     with pytest.raises(KeyError, match="Unknown task") as excinfo:
-        visbench.get_probe("surface_normal")
+        visbench.get_probe("generic_segmentation")
     assert "correspondence" in str(excinfo.value)

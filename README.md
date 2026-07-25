@@ -170,14 +170,16 @@ This is a multi-month roadmap, built one reviewed step at a time.
       protocol: dense dataset, metrics, loss, pluggable head
 - [x] **5e.** streaming features from disk, so a dense task can run a dataset
       larger than memory
-- [ ] **5f.** rest of v0.2 — surface normals, generic segmentation, semantic
-      segmentation, mid-level similarity, CLI
+- [x] **5f.** surface normals — probe3d's angular protocol, reusing the dense
+      dataset, the streaming path and the shared `DenseTrainingTask`
+- [ ] **5g.** rest of v0.2 — generic segmentation, semantic segmentation,
+      mid-level similarity, CLI
 
 ## Roadmap
 
 **v0.1** — prove the abstraction. DINOv2 + CLIP. Zero-shot or linear-probe-on-cached-features only; no fine-tuning, no dense training loops. Deferred: CLI, custom backbones, ResNet/timm, multi-layer extraction.
 
-**v0.2** — ResNet/timm + custom backbones *(done)*, pluggable heads (linear + DPT) *(done)*, multi-layer extraction *(done)*, depth estimation *(done)*, remaining dense mid-level tasks (probe3d protocols), CLI.
+**v0.2** — ResNet/timm + custom backbones *(done)*, pluggable heads (linear + DPT) *(done)*, multi-layer extraction *(done)*, depth estimation *(done)*, surface normals *(done)*, remaining dense mid-level tasks (probe3d protocols), CLI.
 
 **v0.3** — opt-in fine-tuning of the last N blocks, detection groundwork, HF Hub probe sharing and a public leaderboard.
 
@@ -297,6 +299,43 @@ It reports a **ceiling** beside every score: matches can only land on patch
 centres, so with 14px patches a target falling between them cannot be hit
 exactly. A low `recall@1px` almost always means the grid is coarse, not that
 the backbone failed.
+
+### Dense tasks
+
+[`examples/depth.py`](examples/depth.py) and
+[`examples/normals.py`](examples/normals.py) train a probe head on frozen dense
+features, following [probe3d](https://arxiv.org/abs/2404.08476)'s protocols.
+Both want images and per-pixel targets paired by filename stem under
+`train/` and `val/`:
+
+```bash
+python examples/depth.py   --data /path/to/dataset --target-scale 1000
+python examples/normals.py --data /path/to/dataset --normal-source geonet
+```
+
+**Report the linear head.** It is the default and the only one under which a
+difference between two backbones is a difference between two *feature maps*.
+The DPT head is probe3d's own choice and scores higher for everyone, so run
+both and say which:
+
+```bash
+python examples/normals.py --data ... --head dpt --layers 2 5 8 11
+```
+
+Features are shared between the two tasks when the images and `--image-size`
+match, so probing both on one dataset costs one extraction. Splits larger than
+memory are fine — dense features stream from the cache a batch at a time rather
+than being stacked.
+
+Two things that will bite otherwise:
+
+- **Say where surface normals came from.** NYU's are derived (GeoNet's
+  extraction, or Ladicky's) rather than sensed, and the sources disagree enough
+  to move every metric. `--normal-source` is recorded verbatim in the result.
+- Surface normals default to probe3d's uncertainty-aware loss, which has a
+  failure mode near chance accuracy where it all but switches its own
+  supervision off. VisBench detects it and warns; `--no-uncertainty` is the way
+  out. See `SurfaceNormalTask.fit` for the measured dynamics.
 
 ### Measured on Imagenette
 

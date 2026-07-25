@@ -213,7 +213,7 @@ class TestDepthTask:
 
     def test_missing_targets_raise(self, features_and_targets):
         features, _ = features_and_targets
-        with pytest.raises(ValueError, match="requires target maps"):
+        with pytest.raises(ValueError, match="requires target depth maps"):
             DepthTask(epochs=1, warmup_epochs=0).fit(features, None)
 
     def test_pooled_only_features_are_refused(self, tmp_path, fake_vit, depth_folder):

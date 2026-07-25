@@ -18,6 +18,7 @@ noticeably, so the conventions are spelled out rather than left implicit:
   uneven hole coverage silently reweight itself.
 """
 
+import math
 from collections.abc import Sequence
 from typing import Optional
 
@@ -176,18 +177,135 @@ def depth_metrics(
     return metrics
 
 
+def _normal_validity(target: torch.Tensor, valid: Optional[torch.Tensor]) -> torch.Tensor:
+    """Resolve the ``(B, H, W)`` float mask of scorable pixels.
+
+    probe3d derives this from the *depth* map (``batch["depth"] > 0``), because
+    its NYU loader carries both. VisBench scores normals against a normal map
+    alone, so the default is the equivalent property of that map: a pixel is
+    valid where its normal has non-zero length. Every normal-map format in
+    circulation writes ``(0, 0, 0)`` for "unknown", so the two masks agree in
+    practice — but pass ``valid`` explicitly if you have the depth map, since
+    only that reproduces probe3d's masking exactly.
+    """
+    if valid is None:
+        return (target.norm(dim=1) > 0).float()
+
+    mask = valid.float()
+    if mask.ndim == 4:
+        if mask.shape[1] != 1:
+            raise ValueError(f"Expected a single validity channel, got {mask.shape[1]}")
+        mask = mask.squeeze(1)
+    if mask.ndim != 3:
+        raise ValueError(f"Expected a (B, H, W) or (B, 1, H, W) mask, got {tuple(valid.shape)}")
+    if mask.shape != target.shape[:1] + target.shape[2:]:
+        raise ValueError(
+            f"Mask {tuple(mask.shape)} does not match target {tuple(target.shape)} "
+            "over batch and spatial dimensions"
+        )
+    return mask
+
+
 def surface_normal_metrics(
     pred: torch.Tensor,
     target: torch.Tensor,
     valid: Optional[torch.Tensor] = None,
 ) -> MetricsDict:
-    """Angular-error RMSE plus within-11.25/22.5/30-degree percentages.
+    """Angular-error RMSE plus within-11.25/22.5/30-degree fractions.
 
-    Lands with the surface-normal task. probe3d's ``evaluate_surface_norm`` is
-    the reference: angular error via cosine similarity, clamped to [-1, 1]
-    before ``acos`` so a floating-point overshoot cannot produce NaN.
+    Follows probe3d's ``evaluate_surface_norm`` (itself from iDISC, and before
+    that Fouhey et al. 2016): angular error via cosine similarity, clamped to
+    [-1, 1] before ``acos`` so a floating-point overshoot past 1 cannot turn
+    into NaN and poison the whole split's mean.
+
+    Because the error comes from a *cosine*, neither input has to be a unit
+    vector — a head that has not learned to normalise is scored on direction
+    alone, exactly as probe3d scores it.
+
+    Parameters
+    ----------
+    pred:
+        ``(B, C, H, W)`` with ``C >= 3``. Only the first three channels are
+        read, so an uncertainty-aware head's fourth (kappa) channel can be
+        passed through untouched — probe3d slices the same way.
+    target:
+        ``(B, 3, H, W)`` ground-truth normals.
+    valid:
+        ``(B, H, W)`` or ``(B, 1, H, W)`` mask. Defaults to where ``target``
+        has non-zero length; see :func:`_normal_validity`.
+
+    Notes
+    -----
+    ``d1``/``d2``/``d3`` and ``rmse`` are probe3d's reported set and are the
+    ones to quote against that paper. ``mean`` and ``median`` are included
+    because the surface-normal literature reports them almost universally;
+    both are per-image statistics averaged over images, matching the
+    convention in this module's docstring — a median over the pooled pixels of
+    the whole split would be a different and less comparable number.
+
+    ``rmse`` and the two extras are in **degrees**; the ``d`` metrics are
+    fractions in [0, 1].
     """
-    raise NotImplementedError("Surface normal estimation, and its metrics, land with that task.")
+    if target.ndim != 4 or target.shape[1] != 3:
+        raise ValueError(f"Expected (B, 3, H, W) target normals, got {tuple(target.shape)}")
+    if pred.ndim != 4 or pred.shape[1] < 3:
+        raise ValueError(
+            f"Expected (B, C, H, W) predicted normals with C >= 3, got {tuple(pred.shape)}"
+        )
+    if pred.shape[0] != target.shape[0] or pred.shape[2:] != target.shape[2:]:
+        raise ValueError(
+            f"Prediction {tuple(pred.shape)} and target {tuple(target.shape)} must agree on "
+            "batch and spatial dimensions. Resize the prediction to the ground-truth "
+            "resolution before scoring."
+        )
+
+    pred = pred[:, :3].float()
+    target = target.float()
+
+    cosine = torch.cosine_similarity(pred, target, dim=1).clamp(min=-1.0, max=1.0)
+    error = torch.acos(cosine) * 180.0 / math.pi
+
+    mask = _normal_validity(target, valid)
+    # Zeroed rather than indexed out, so each image keeps its own pixel count
+    # and the per-image averages stay independent of one another.
+    error = error * mask
+    count = mask.sum(dim=(1, 2))
+    num_valid = count.clamp(min=1)
+
+    metrics: MetricsDict = {}
+    for index, threshold in enumerate((11.25, 22.5, 30.0), start=1):
+        within = ((error < threshold).float() * mask).sum(dim=(1, 2)) / num_valid
+        metrics[f"d{index}"] = within.mean().item()
+
+    metrics["rmse"] = (error.pow(2).sum(dim=(1, 2)) / num_valid).sqrt().mean().item()
+    metrics["mean"] = (error.sum(dim=(1, 2)) / num_valid).mean().item()
+    metrics["median"] = _masked_median(error, mask, count).mean().item()
+
+    return metrics
+
+
+def _masked_median(error: torch.Tensor, mask: torch.Tensor, count: torch.Tensor) -> torch.Tensor:
+    """Per-image median of ``error`` over ``mask``, as a ``(B,)`` tensor.
+
+    Invalid pixels are pushed to ``+inf`` so they sort above every real error;
+    the median is then read at each image's own valid count. Exact, and cheaper
+    than gathering a different number of pixels per image.
+    """
+    ranked = torch.where(mask.bool(), error, torch.full_like(error, float("inf")))
+    ranked = ranked.flatten(1).sort(dim=1).values
+
+    counts = count.long()
+    lower_index = ((counts - 1).clamp(min=0) // 2).unsqueeze(1)
+    # For an even count the median straddles two samples; for an odd one this
+    # offset is zero and both reads land on the same pixel.
+    upper_index = lower_index + ((counts + 1) % 2).unsqueeze(1)
+
+    lower = ranked.gather(1, lower_index).squeeze(1)
+    upper = ranked.gather(1, upper_index.clamp(max=ranked.shape[1] - 1)).squeeze(1)
+    median = (lower + upper) / 2
+    # An image with no valid pixels would read +inf and take the whole split's
+    # average with it; it contributes zero to every other metric, so it does here.
+    return torch.where(count > 0, median, torch.zeros_like(median))
 
 
 def binary_iou(pred: torch.Tensor, target: torch.Tensor) -> MetricsDict:

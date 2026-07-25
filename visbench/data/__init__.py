@@ -6,7 +6,7 @@ dense-target loader the dense tasks need.
 """
 
 from visbench.data.base import BaseDataset
-from visbench.data.dense import DenseFolderDataset, load_depth_map
+from visbench.data.dense import DenseFolderDataset, load_depth_map, load_normal_map
 from visbench.data.image_folder import ImageFolderDataset
 from visbench.data.pair_dataset import PairDataset
 
@@ -16,4 +16,5 @@ __all__ = [
     "PairDataset",
     "DenseFolderDataset",
     "load_depth_map",
+    "load_normal_map",
 ]

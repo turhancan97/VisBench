@@ -13,7 +13,7 @@ import pytest
 import torch
 from PIL import Image
 
-from visbench.data import DenseFolderDataset, load_depth_map
+from visbench.data import DenseFolderDataset, load_depth_map, load_normal_map
 
 
 def build(root, depths, images=None, image_suffix=".png", target_suffix=".npy"):
@@ -244,3 +244,146 @@ def test_load_depth_map_returns_float32(tmp_path):
     path = tmp_path / "d.png"
     Image.fromarray(np.full((4, 4), 3000, dtype=np.uint16)).save(path)
     assert load_depth_map(path).dtype == torch.float32
+
+
+# -- vector targets -----------------------------------------------------------
+
+
+def build_normals(root, maps, size=32):
+    """Write a folder pair whose targets are (3, H, W) normal maps."""
+    (root / "images").mkdir(parents=True, exist_ok=True)
+    (root / "normals").mkdir(parents=True, exist_ok=True)
+    for index, normals in enumerate(maps):
+        stem = f"s{index:03d}"
+        Image.fromarray(np.zeros((size, size, 3), dtype=np.uint8)).save(
+            root / "images" / f"{stem}.png"
+        )
+        np.save(root / "normals" / f"{stem}.npy", normals.astype(np.float32))
+    return root
+
+
+class TestVectorTargets:
+    """Surface normals are the first target that is not one number per pixel."""
+
+    def test_a_three_channel_target_survives_the_geometry(self, tmp_path):
+        normals = np.zeros((3, 40, 60), dtype=np.float32)
+        normals[2] = 1.0
+        root = build_normals(tmp_path, [normals], size=60)
+        dataset = DenseFolderDataset(
+            root, target_dir="normals", image_size=32, target_loader=load_normal_map
+        )
+        assert dataset.target(0).shape == (3, 32, 32)
+        assert dataset.targets().shape == (1, 3, 32, 32)
+
+    def test_the_crop_matches_the_image(self, tmp_path):
+        """The same sharp-step check the depth path gets: a normal map cropped
+        differently from its image trains a probe against a shifted world."""
+        normals = np.zeros((3, 32, 64), dtype=np.float32)
+        normals[2, :, :32] = 1.0
+        normals[0, :, 32:] = 1.0
+        root = build_normals(tmp_path, [normals], size=64)
+        dataset = DenseFolderDataset(
+            root, target_dir="normals", image_size=32, target_loader=load_normal_map
+        )
+        target = dataset.target(0)
+        # A 32x64 map centre-cropped to 32x32 keeps columns 16..47: half of
+        # each half, so the step lands exactly in the middle.
+        assert target[2, :, 15].mean().item() == pytest.approx(1.0)
+        assert target[0, :, 16].mean().item() == pytest.approx(1.0)
+
+    def test_nearest_resampling_keeps_vectors_unit(self, tmp_path):
+        """Bilinear would average two unit vectors across an edge into
+        something that is not merely wrong but not even unit length."""
+        rng = np.random.RandomState(0)
+        raw = rng.randn(3, 64, 64).astype(np.float32)
+        raw /= np.linalg.norm(raw, axis=0, keepdims=True)
+        root = build_normals(tmp_path, [raw], size=64)
+        dataset = DenseFolderDataset(
+            root, target_dir="normals", image_size=16, target_loader=load_normal_map
+        )
+        lengths = dataset.target(0).norm(dim=0)
+        assert torch.allclose(lengths, torch.ones_like(lengths), atol=1e-5)
+
+    def test_max_target_is_refused_for_a_vector_map(self, tmp_path):
+        """It caps a scalar quantity; silently applying it per channel would
+        zero the x component of every steep normal."""
+        normals = np.zeros((3, 32, 32), dtype=np.float32)
+        normals[2] = 1.0
+        root = build_normals(tmp_path, [normals])
+        dataset = DenseFolderDataset(
+            root,
+            target_dir="normals",
+            image_size=32,
+            max_target=10.0,
+            target_loader=load_normal_map,
+        )
+        with pytest.raises(ValueError, match="caps a scalar quantity"):
+            dataset.target(0)
+
+    def test_a_four_dimensional_target_is_refused(self, tmp_path):
+        root = build_normals(tmp_path, [np.zeros((3, 32, 32), dtype=np.float32)])
+        dataset = DenseFolderDataset(
+            root,
+            target_dir="normals",
+            image_size=32,
+            target_loader=lambda p: torch.zeros(1, 3, 4, 4),
+        )
+        with pytest.raises(ValueError, match="expected .*H, W"):
+            dataset.target(0)
+
+
+class TestLoadNormalMap:
+    def test_it_reads_channels_first_npy(self, tmp_path):
+        path = tmp_path / "n.npy"
+        array = np.zeros((3, 4, 4), dtype=np.float32)
+        array[2] = 1.0
+        np.save(path, array)
+        assert load_normal_map(path).shape == (3, 4, 4)
+        assert load_normal_map(path)[2].mean().item() == pytest.approx(1.0)
+
+    def test_it_reads_channels_last_npy(self, tmp_path):
+        """(H, W, 3) is at least as common on disk as (3, H, W)."""
+        path = tmp_path / "n.npy"
+        array = np.zeros((4, 4, 3), dtype=np.float32)
+        array[..., 2] = 1.0
+        np.save(path, array)
+        assert load_normal_map(path).shape == (3, 4, 4)
+        assert load_normal_map(path)[2].mean().item() == pytest.approx(1.0)
+
+    def test_it_decodes_the_eight_bit_convention(self, tmp_path):
+        """GeoNet and every other published NYU normal set store 2*v/255 - 1."""
+        path = tmp_path / "n.png"
+        encoded = np.zeros((4, 4, 3), dtype=np.uint8)
+        encoded[..., 2] = 255  # z = +1
+        encoded[..., 0] = 128  # x ~ 0
+        encoded[..., 1] = 128
+        Image.fromarray(encoded).save(path)
+        normals = load_normal_map(path)
+        assert normals[2].mean().item() == pytest.approx(1.0, abs=1e-2)
+        assert normals[0].abs().max().item() == pytest.approx(0.0, abs=1e-2)
+
+    def test_output_is_unit_length(self, tmp_path):
+        path = tmp_path / "n.npy"
+        rng = np.random.RandomState(1)
+        np.save(path, (rng.randn(3, 8, 8) * 7.0).astype(np.float32))
+        lengths = load_normal_map(path).norm(dim=0)
+        assert torch.allclose(lengths, torch.ones_like(lengths), atol=1e-5)
+
+    def test_the_grey_invalid_pixel_becomes_zero(self, tmp_path):
+        """(128, 128, 128) decodes to a length of about 0.007 — no direction at
+        all. Zeroing it is what makes the metric's default mask correct."""
+        path = tmp_path / "n.png"
+        Image.fromarray(np.full((4, 4, 3), 128, dtype=np.uint8)).save(path)
+        assert load_normal_map(path).abs().max().item() == 0.0
+
+    def test_a_two_dimensional_array_is_refused(self, tmp_path):
+        path = tmp_path / "n.npy"
+        np.save(path, np.zeros((4, 4), dtype=np.float32))
+        with pytest.raises(ValueError, match="a normal map is 3D"):
+            load_normal_map(path)
+
+    def test_an_array_with_no_length_three_axis_is_refused(self, tmp_path):
+        path = tmp_path / "n.npy"
+        np.save(path, np.zeros((4, 4, 5), dtype=np.float32))
+        with pytest.raises(ValueError, match="length-3 axis"):
+            load_normal_map(path)

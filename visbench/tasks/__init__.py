@@ -12,5 +12,6 @@ Importing this package runs the ``@register_task`` decorators.
 """
 
 from visbench.tasks.base import BaseTask
+from visbench.tasks.dense_base import DenseTrainingTask
 
-__all__ = ["BaseTask"]
+__all__ = ["BaseTask", "DenseTrainingTask"]
