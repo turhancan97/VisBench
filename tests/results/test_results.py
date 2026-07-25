@@ -145,6 +145,34 @@ def test_older_schema_version_is_still_readable():
     assert record.schema_version == 1
 
 
+def test_a_v1_record_predates_the_layers_field():
+    """The reason `layers` was added rather than widening `layer`'s type: a
+    record written before multi-layer extraction existed still parses."""
+    v1 = {
+        "backbone": "dinov2_vitb14",
+        "backbone_key": "dinov2/dinov2_vitb14/224",
+        "task": "retrieval",
+        "level": "high_level",
+        "dataset": "tiny",
+        "split": "val",
+        "pooling": "cls",
+        "feature_mode": "dense_only",
+        "metrics": {"recall@1": 0.5},
+        "timestamp": "2026-07-24T09:15:04+00:00",
+        "visbench_version": "0.1.0.dev0",
+        "schema_version": 1,
+        "layer": None,
+    }
+    record = ResultRecord.from_dict(v1)
+    assert record.layers is None
+    assert record.layer is None
+
+
+def test_layers_round_trips():
+    record = make_record(layers=[2, 5, 8, 11])
+    assert ResultRecord.from_dict(record.to_dict()).layers == [2, 5, 8, 11]
+
+
 def test_non_integer_schema_version_is_rejected():
     payload = make_record().to_dict()
     payload["schema_version"] = "2"

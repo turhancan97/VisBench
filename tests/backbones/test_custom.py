@@ -293,7 +293,7 @@ def test_registering_a_subclass_still_works():
             self._finalize()
 
         def _forward_features(self, image, layers):
-            return torch.randn(len(image), 16, 4), None, (4, 4)
+            return [(torch.randn(len(image), 16, 4), None, (4, 4))]
 
         def preprocess(self, images):
             raise NotImplementedError
@@ -306,3 +306,81 @@ def test_registering_a_subclass_still_works():
     from visbench import registry
 
     del registry._BACKBONES["test_only_backbone"]
+
+
+class TestCustomMultiLayer:
+    """VisBench cannot tap an arbitrary module's intermediates, so the user says how."""
+
+    def test_a_plain_module_exposes_one_layer(self):
+        backbone = CustomBackbone(ConvNet(), preprocess=preprocess, device="cpu")
+        assert backbone.num_layers == 1
+
+    def test_multi_layer_request_on_a_plain_module_is_refused(self, images):
+        """Better than returning the final map several times, which would let a
+        multiscale head report a single-layer result."""
+        backbone = CustomBackbone(ConvNet(), preprocess=preprocess, device="cpu")
+        with pytest.raises(ValueError, match="out of range"):
+            backbone.extract_features(backbone.preprocess(images), layers=[0, 1])
+
+    def test_promising_layers_without_a_function_is_refused(self):
+        with pytest.raises(ValueError, match="layer_feature_fn"):
+            CustomBackbone(ConvNet(), preprocess=preprocess, num_layers=3, device="cpu")
+
+    def test_a_function_with_no_layers_to_serve_is_refused(self):
+        """num_layers=1 means nothing could ever reach it."""
+        with pytest.raises(ValueError, match="num_layers"):
+            CustomBackbone(
+                ConvNet(),
+                preprocess=preprocess,
+                layer_feature_fn=lambda module, image, layers: [],
+                device="cpu",
+            )
+
+    def test_layer_feature_fn_serves_the_request(self, images):
+        seen = []
+
+        def layers_fn(module, image, layers):
+            seen.append(list(layers))
+            output = module(image)
+            tokens = output.flatten(2).transpose(1, 2)
+            return [(tokens * (index + 1), None, output.shape[-2:]) for index in layers]
+
+        backbone = CustomBackbone(
+            ConvNet(),
+            preprocess=preprocess,
+            layer_feature_fn=layers_fn,
+            num_layers=4,
+            device="cpu",
+        )
+        features = backbone.extract_features(backbone.preprocess(images), layers=[1, 3])
+
+        assert seen == [[1, 3]], "resolved indices are handed through"
+        assert features["layer_indices"] == [1, 3]
+        assert len(features["dense_layers"]) == 2
+        assert not torch.allclose(*features["dense_layers"])
+
+    def test_a_short_return_is_caught(self, images):
+        def layers_fn(module, image, layers):
+            output = module(image)
+            return [(output.flatten(2).transpose(1, 2), None, output.shape[-2:])]
+
+        backbone = CustomBackbone(
+            ConvNet(),
+            preprocess=preprocess,
+            layer_feature_fn=layers_fn,
+            num_layers=4,
+            device="cpu",
+        )
+        with pytest.raises(ValueError, match="one .* per requested index"):
+            backbone.extract_features(backbone.preprocess(images), layers=[0, 2])
+
+    def test_a_malformed_triple_names_the_layer(self, images):
+        backbone = CustomBackbone(
+            ConvNet(),
+            preprocess=preprocess,
+            layer_feature_fn=lambda module, image, layers: ["nonsense" for _ in layers],
+            num_layers=4,
+            device="cpu",
+        )
+        with pytest.raises(ValueError, match="layer 0"):
+            backbone.extract_features(backbone.preprocess(images), layers=[0, 2])

@@ -202,3 +202,39 @@ def test_does_not_collide_with_dinov2_in_the_cache(tmp_path, clip, solid_images)
     cache.extract_dataset(clip, solid_images, keep="pooled")
     cache.extract_dataset(dinov2, solid_images, keep="pooled")
     assert cache.stats()["entries"] == 8
+
+
+@pytest.mark.slow
+class TestIntermediateLayers:
+    """open_clip's forward_intermediates, the counterpart to DINOv2's call."""
+
+    def test_one_map_per_block(self, clip, solid_images):
+        batch = clip.preprocess(solid_images[:2])
+        features = clip.extract_features(batch, layers=[3, 7, 11])
+        assert features["layer_indices"] == [3, 7, 11]
+        assert all(dense.shape == (2, clip.embed_dim, 14, 14) for dense in features["dense_layers"])
+
+    def test_the_last_block_matches_the_default_call(self, clip, solid_images):
+        batch = clip.preprocess(solid_images[:2])
+        default = clip.extract_features(batch)
+        multi = clip.extract_features(batch, layers=[5, 11])
+        assert torch.equal(default["dense"], multi["dense"])
+        assert torch.equal(default["pooled"], multi["pooled"])
+
+    def test_every_layer_is_normalised(self, clip, solid_images):
+        """ln_post is applied to intermediates too, so a pyramid's stages are on
+        one scale. Without it a head would have to unlearn the difference."""
+        maps = clip.extract_features(clip.preprocess(solid_images[:1]), layers=[2, 11])[
+            "dense_layers"
+        ]
+        scales = [dense.std().item() for dense in maps]
+        assert max(scales) / min(scales) < 5, f"layer scales diverge: {scales}"
+
+    def test_depths_are_genuinely_different(self, clip, solid_images):
+        maps = clip.extract_features(clip.preprocess(solid_images[:1]), layers=[1, 11])[
+            "dense_layers"
+        ]
+        assert not torch.allclose(maps[0], maps[1])
+
+    def test_num_layers_matches_the_model(self, clip):
+        assert clip.num_layers == len(clip.model.transformer.resblocks) == 12

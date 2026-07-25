@@ -530,6 +530,106 @@ class TestFeatureModeKeying:
         )
 
 
+class TestMultiLayerCaching:
+    """Each layer gets its own entry, so overlapping requests share work."""
+
+    def test_returns_one_stack_per_layer(self, tmp_path, fake_vit, solid_images):
+        cache = make_cache(tmp_path)
+        features = cache.extract_dataset(fake_vit, solid_images, layers=[3, 7], keep="dense")
+        assert len(features["dense_layers"]) == 2
+        assert features["layer_indices"] == [3, 7]
+        assert all(dense.shape[0] == len(solid_images) for dense in features["dense_layers"])
+
+    def test_dense_is_the_deepest_layer(self, tmp_path, fake_vit, solid_images):
+        cache = make_cache(tmp_path)
+        features = cache.extract_dataset(fake_vit, solid_images, layers=[3, 7], keep="dense")
+        assert torch.equal(features["dense"], features["dense_layers"][-1])
+
+    def test_one_forward_pass_for_every_layer(self, tmp_path, fake_vit, solid_images):
+        cache = make_cache(tmp_path)
+        cache.extract_dataset(fake_vit, solid_images, layers=[1, 5, 9], keep="dense")
+        assert fake_vit.call_count == 1
+
+    def test_a_repeat_run_is_a_hit(self, tmp_path, fake_vit, solid_images):
+        cache = make_cache(tmp_path)
+        first = cache.extract_dataset(fake_vit, solid_images, layers=[3, 7], keep="dense")
+        second = cache.extract_dataset(fake_vit, solid_images, layers=[3, 7], keep="dense")
+        assert fake_vit.call_count == 1
+        for a, b in zip(first["dense_layers"], second["dense_layers"]):
+            assert torch.equal(a, b)
+
+    def test_widening_the_request_reuses_the_shared_layers(self, tmp_path, fake_vit, solid_images):
+        """The reason each layer is keyed separately rather than the list as a
+        whole: adding a layer must not re-extract the ones already stored."""
+        cache = make_cache(tmp_path)
+        first = cache.extract_dataset(fake_vit, solid_images, layers=[3, 7], keep="dense")
+        widened = cache.extract_dataset(fake_vit, solid_images, layers=[3, 7, 11], keep="dense")
+        assert torch.equal(first["dense_layers"][0], widened["dense_layers"][0])
+        assert torch.equal(first["dense_layers"][1], widened["dense_layers"][1])
+
+    def test_a_single_layer_run_reads_what_a_multi_layer_run_stored(
+        self, tmp_path, fake_vit, solid_images
+    ):
+        cache = make_cache(tmp_path)
+        multi = cache.extract_dataset(fake_vit, solid_images, layers=[3, 7], keep="dense")
+        single = cache.extract_dataset(fake_vit, solid_images, layer=7, keep="dense")
+        assert fake_vit.call_count == 1, "layer 7 was already stored"
+        assert torch.equal(multi["dense_layers"][1], single["dense"])
+
+    def test_negative_indices_hit_the_same_entries(self, tmp_path, fake_vit, solid_images):
+        """[-9, -5] and [3, 7] name one pair of entries on a 12-block model."""
+        cache = make_cache(tmp_path)
+        cache.extract_dataset(fake_vit, solid_images, layers=[3, 7], keep="dense")
+        relative = cache.extract_dataset(fake_vit, solid_images, layers=[-9, -5], keep="dense")
+        assert fake_vit.call_count == 1
+        assert relative["layer_indices"] == [3, 7]
+
+    def test_a_single_layer_run_returns_no_layer_keys(self, tmp_path, fake_vit, solid_images):
+        cache = make_cache(tmp_path)
+        features = cache.extract_dataset(fake_vit, solid_images, keep="dense")
+        assert "dense_layers" not in features
+        assert "layer_indices" not in features
+
+    def test_layer_and_layers_together_are_refused(self, tmp_path, fake_vit, solid_images):
+        cache = make_cache(tmp_path)
+        with pytest.raises(ValueError, match="not both"):
+            cache.extract_dataset(fake_vit, solid_images, layer=3, layers=[3, 7])
+
+    def test_multi_layer_with_pooled_only_is_refused(self, tmp_path, fake_vit, solid_images):
+        """Pooled comes from one layer; the rest would be extracted and dropped."""
+        cache = make_cache(tmp_path)
+        with pytest.raises(ValueError, match="contradiction"):
+            cache.extract_dataset(fake_vit, solid_images, layers=[3, 7], keep="pooled")
+
+    def test_pooled_comes_from_the_deepest_layer(self, tmp_path, fake_vit, solid_images):
+        cache = make_cache(tmp_path)
+        multi = cache.extract_dataset(fake_vit, solid_images, layers=[3, 7], keep="both")
+        single = cache.extract_dataset(fake_vit, solid_images, layer=7, keep="both")
+        assert torch.equal(multi["pooled"], single["pooled"])
+
+    def test_cls_survives_a_multi_layer_hit(self, tmp_path, fake_vit, solid_images):
+        cache = make_cache(tmp_path)
+        first = cache.extract_dataset(
+            fake_vit, solid_images, layers=[3, 7], keep="dense", feature_mode="dense_plus_cls"
+        )
+        second = cache.extract_dataset(
+            fake_vit, solid_images, layers=[3, 7], keep="dense", feature_mode="dense_plus_cls"
+        )
+        assert fake_vit.call_count == 1
+        assert torch.equal(first["cls"], second["cls"])
+
+    def test_cnn_stages_of_different_shapes_stack_independently(
+        self, tmp_path, fake_cnn, solid_images
+    ):
+        """Each layer's grid is checked against itself, not against the others —
+        a CNN's stages are meant to differ."""
+        cache = make_cache(tmp_path)
+        fake_cnn.preprocess = lambda images: torch.stack([torch.rand(3, 64, 64) for _ in images])
+        features = cache.extract_dataset(fake_cnn, solid_images, layers=[0, 1, 2], keep="dense")
+        grids = [tuple(dense.shape[-2:]) for dense in features["dense_layers"]]
+        assert len(set(grids)) == 3
+
+
 def test_pair_dataset_is_refused(tmp_path, fake_vit):
     """It yields (image_0, image_1, geometry); unpacking would take image_0 and
     silently drop the second view and the geometry."""

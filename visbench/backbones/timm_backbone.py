@@ -22,7 +22,7 @@ from PIL import Image
 
 from visbench.backbones.base import BaseBackbone
 from visbench.registry import register_backbone
-from visbench.types import LayerSpec
+from visbench.types import LayerOutput, LayerSpec
 
 __all__ = ["TimmBackbone"]
 
@@ -112,7 +112,29 @@ class TimmBackbone(BaseBackbone):
         # an nn.Module, __getattr__ widens every lookup to Tensor | Module.
         pretrained_cfg: dict = dict(getattr(model, "pretrained_cfg", {}))
         num_features = int(getattr(model, "num_features", 0))
+        # Same reason: feature_info describes the stages and is read on every
+        # layer_channels() call, so copy it out while it is still a plain list.
+        self._feature_info: list[dict] = [dict(info) for info in cast(list, model.feature_info)]
         self.model = model
+
+        # Reject transformers here rather than at the first extraction. Once
+        # `forward_intermediates` is asked for NCHW it reshapes a ViT's tokens
+        # into a grid, so by then the output looks exactly like a conv map and
+        # nothing downstream would notice that the CLS token had been dropped
+        # and `has_cls_token = False` was a lie. One forward pass at
+        # construction is cheap next to the weight download that preceded it.
+        model.eval()
+        forward_features = cast(Callable[[torch.Tensor], torch.Tensor], model.forward_features)
+        with torch.no_grad():
+            probe = forward_features(
+                torch.zeros(1, *pretrained_cfg.get("input_size", (3, 224, 224)))
+            )
+        if probe.ndim != 4:
+            raise NotImplementedError(
+                f"{model_name} returns {probe.ndim}D features, so it is a transformer "
+                "rather than a CNN. Use the dinov2_* or clip_* backbones; timm ViTs are "
+                "not wired up — they have a CLS token this class would silently discard."
+            )
 
         config = resolve_data_config({}, model=model)
         if image_size is not None:
@@ -133,33 +155,58 @@ class TimmBackbone(BaseBackbone):
         self._transform = create_transform(**config)
         self._finalize()
 
+    @property
+    def num_layers(self) -> int:
+        """Feature stages timm exposes, stem included — 5 for a ResNet.
+
+        These are not equivalent to a ViT's blocks. A ResNet's stages halve the
+        resolution and double the width as they go, so a multi-layer request
+        returns maps of **different shapes**, and a head consuming them needs
+        per-layer ``in_channels``. A ViT's blocks all share one width and grid.
+        That difference is architectural and is not something this class should
+        paper over.
+        """
+        return len(self._feature_info)
+
+    def layer_channels(self, layers: LayerSpec = None) -> list[int]:
+        """Channel width of each stage, for building a head that fits.
+
+        ``DPTHead(in_channels=backbone.layer_channels([1, 2, 3, 4]))`` is the
+        intended use: a CNN's stages differ in width, so the head cannot assume
+        a single number the way it can for a ViT.
+        """
+        indices = self.resolve_layers(layers)
+        return [int(self._feature_info[index]["num_chs"]) for index in indices]
+
     def _forward_features(
         self,
         image: torch.Tensor,
-        layers: LayerSpec,
-    ) -> tuple[torch.Tensor, Optional[torch.Tensor], tuple[int, int]]:
-        """Return ``(patch_tokens, None, grid_hw)`` from the last conv map.
+        layers: list[int],
+    ) -> list[LayerOutput]:
+        """Return ``(patch_tokens, None, grid_hw)`` per requested stage.
 
-        ``forward_features`` gives the feature map before global pooling. It is
-        flattened here, in the subclass, rather than in the base class — the
-        round-trip costs nothing next to a forward pass and keeps
-        ``extract_features`` free of any ``if is_vit``.
+        ``forward_intermediates`` runs the network once and taps each stage,
+        which is how a multi-layer request costs one forward pass rather than
+        one per layer. Maps are flattened here, in the subclass, rather than in
+        the base class — the round-trip costs nothing next to a forward pass
+        and keeps ``extract_features`` free of any ``if is_vit``.
         """
-        forward_features = cast(Callable[[torch.Tensor], torch.Tensor], self.model.forward_features)
-        feature_map = forward_features(image)
+        forward_intermediates = cast(Callable[..., list], self.model.forward_intermediates)
+        feature_maps = forward_intermediates(
+            image,
+            indices=list(layers),
+            output_fmt="NCHW",
+            intermediates_only=True,
+        )
 
-        if feature_map.ndim != 4:
-            raise NotImplementedError(
-                f"{self.model_name} returns {feature_map.ndim}D features, so it is a "
-                "transformer rather than a CNN. Use the dinov2_* or clip_* backbones; "
-                "timm ViTs are not wired up."
-            )
-
-        _, _, grid_h, grid_w = feature_map.shape
-        # (B, C, H, W) -> (B, H*W, C), matching the row-major order
-        # patch_centers() assumes when it maps tokens back to pixels.
-        tokens = feature_map.flatten(2).transpose(1, 2)
-        return tokens, None, (grid_h, grid_w)
+        result: list[LayerOutput] = []
+        for feature_map in feature_maps:
+            _, _, grid_h, grid_w = feature_map.shape
+            # (B, C, H, W) -> (B, H*W, C), matching the row-major order
+            # patch_centers() assumes when it maps tokens back to pixels.
+            tokens = feature_map.flatten(2).transpose(1, 2)
+            result.append((tokens, None, (grid_h, grid_w)))
+        return result
 
     def preprocess(self, images: Union[Image.Image, list]) -> torch.Tensor:
         """Apply the model's own timm transform."""

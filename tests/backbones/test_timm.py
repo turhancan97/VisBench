@@ -161,13 +161,19 @@ def test_unknown_variant_points_at_model_name():
         TimmBackbone(variant="resnet101")
 
 
-def test_timm_vit_is_rejected_clearly():
-    """A timm ViT returns tokens, not a conv map; say so rather than crashing."""
+def test_timm_vit_is_rejected_at_construction():
+    """A timm ViT returns tokens, not a conv map; say so rather than crashing.
+
+    Rejected when the backbone is built, not at the first extraction. Once
+    ``forward_intermediates`` is asked for NCHW it reshapes a ViT's tokens into
+    a grid, so from that point the output is indistinguishable from a conv map
+    and nothing would notice the CLS token had been dropped while
+    ``has_cls_token`` stayed False.
+    """
     from visbench.backbones.timm_backbone import TimmBackbone
 
-    backbone = TimmBackbone(model_name="vit_tiny_patch16_224", device="cpu")
     with pytest.raises(NotImplementedError, match="dinov2_.* or clip_"):
-        backbone.extract_features(torch.rand(1, 3, 224, 224))
+        TimmBackbone(model_name="vit_tiny_patch16_224", device="cpu")
 
 
 def test_uses_the_models_own_preprocessing(resnet, solid_images):
@@ -202,3 +208,43 @@ def test_end_to_end_through_the_cache(tmp_path, resnet, solid_images):
     second = cache.extract_dataset(resnet, solid_images, batch_size=2)
     assert cache.stats()["hits"] == 4
     assert torch.equal(first["pooled"], second["pooled"])
+
+
+@pytest.mark.slow
+class TestResNetStages:
+    """A CNN's stages differ in width and stride — the case a ViT never exercises."""
+
+    def test_stage_shapes_differ(self, resnet):
+        features = resnet.extract_features(torch.rand(2, 3, 224, 224), layers=[1, 2, 3, 4])
+        maps = features["dense_layers"]
+        assert [dense.shape[1] for dense in maps] == resnet.layer_channels([1, 2, 3, 4])
+        assert [tuple(dense.shape[-2:]) for dense in maps] == [(56, 56), (28, 28), (14, 14), (7, 7)]
+
+    def test_the_last_stage_matches_the_default_call(self, resnet):
+        """Multi-layer extraction must not change what a single-layer run means."""
+        default = resnet.extract_features(torch.rand(2, 3, 224, 224).mul(0).add(0.5))
+        image = torch.rand(2, 3, 224, 224).mul(0).add(0.5)
+        multi = resnet.extract_features(image, layers=[2, 4])
+        assert torch.allclose(default["dense"], multi["dense"], atol=1e-6)
+        assert torch.allclose(default["pooled"], multi["pooled"], atol=1e-6)
+
+    def test_layer_channels_reports_real_widths(self, resnet):
+        assert resnet.layer_channels([4]) == [resnet.embed_dim]
+
+    def test_out_of_range_stage_is_caught(self, resnet):
+        with pytest.raises(ValueError, match="out of range"):
+            resnet.extract_features(torch.rand(1, 3, 224, 224), layers=[0, 9])
+
+    def test_stages_feed_a_dpt_head(self, resnet):
+        """The point of all of it: a ResNet pyramid into a multiscale head."""
+        from visbench.heads import DPTHead
+
+        features = resnet.extract_features(torch.rand(2, 3, 224, 224), layers=[1, 2, 3, 4])
+        head = DPTHead(
+            in_channels=resnet.layer_channels([1, 2, 3, 4]),
+            out_channels=1,
+            num_layers=4,
+            hidden_dim=32,
+            output_size=224,
+        )
+        assert head(features["dense_layers"]).shape == (2, 1, 224, 224)

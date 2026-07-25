@@ -13,7 +13,7 @@ from torchvision import transforms
 
 from visbench.backbones.base import BaseBackbone
 from visbench.registry import register_backbone
-from visbench.types import LayerSpec
+from visbench.types import LayerOutput
 from visbench.utils.image import CLIP_MEAN, CLIP_STD
 
 __all__ = ["CLIP"]
@@ -124,16 +124,20 @@ class CLIP(BaseBackbone):
         )
         self._finalize()
 
+    @property
+    def num_layers(self) -> int:
+        """Residual attention blocks in the visual transformer."""
+        return len(self.model.transformer.resblocks)
+
     def _forward_features(
         self,
         image: torch.Tensor,
-        layers: LayerSpec,
-    ) -> tuple[torch.Tensor, Optional[torch.Tensor], tuple[int, int]]:
-        """Run the visual transformer, returning ``(patch_tokens, cls_token, grid_hw)``.
+        layers: list[int],
+    ) -> list[LayerOutput]:
+        """Run the visual transformer once, one output per requested layer.
 
         Uses ``forward_intermediates``, open_clip's counterpart to DINOv2's
-        ``get_intermediate_layers``, so the v0.2 multi-layer path widens this
-        call rather than rewriting it.
+        ``get_intermediate_layers``, which takes the whole index list.
         """
         _, _, height, width = image.shape
         patch = self.patch_size
@@ -142,45 +146,48 @@ class CLIP(BaseBackbone):
             raise ValueError(f"Input {height}x{width} is not a multiple of patch size {patch}")
         grid_hw = (height // patch, width // patch)
 
-        depth = len(self.model.transformer.resblocks)
-        index = depth - 1 if layers is None else layers[0]
-        if index < 0:
-            index += depth
-        if not 0 <= index < depth:
-            raise ValueError(f"Layer index {layers[0] if layers else -1} out of range for {depth}")
-
         outputs = self.model.forward_intermediates(
             image,
-            indices=[index],
+            indices=list(layers),
             output_fmt="NLC",
             output_extra_tokens=True,
             intermediates_only=True,
         )
-        patch_tokens = outputs["image_intermediates"][0]
-        cls_token = outputs["image_intermediates_prefix"][0][:, 0]
-
-        # forward_intermediates returns raw block outputs, so the final
-        # LayerNorm has not been applied. DINOv2's equivalent normalises by
-        # default; applying it here keeps "the features" meaning the same thing
-        # across backbones, and it is what `proj` expects downstream —
-        # ln_post(cls) @ proj reproduces encode_image exactly.
-        patch_tokens = self.model.ln_post(patch_tokens)
-        cls_token = self.model.ln_post(cls_token)
-
-        if self.use_projection:
-            if self.model.proj is None:
-                raise RuntimeError(f"{self.model_name} has no visual projection")
-            patch_tokens = patch_tokens @ self.model.proj
-            cls_token = cls_token @ self.model.proj
 
         expected = grid_hw[0] * grid_hw[1]
-        if patch_tokens.shape[1] != expected:
-            raise RuntimeError(
-                f"CLIP returned {patch_tokens.shape[1]} patch tokens, expected {expected} "
-                f"for a {grid_hw[0]}x{grid_hw[1]} grid"
-            )
+        result: list[LayerOutput] = []
+        for position, index in enumerate(layers):
+            patch_tokens = outputs["image_intermediates"][position]
+            cls_token = outputs["image_intermediates_prefix"][position][:, 0]
 
-        return patch_tokens, cls_token, grid_hw
+            # forward_intermediates returns raw block outputs, so the final
+            # LayerNorm has not been applied. DINOv2's equivalent normalises by
+            # default; applying it here keeps "the features" meaning the same
+            # thing across backbones, and it is what `proj` expects downstream —
+            # ln_post(cls) @ proj reproduces encode_image exactly.
+            #
+            # Applied to every layer, not just the last. ln_post is trained for
+            # the final block's scale, so on an intermediate layer it is a
+            # convention rather than a reconstruction — but an unnormalised
+            # layer sitting next to normalised ones in the same pyramid would
+            # hand a multiscale head stages whose magnitudes differ by a factor
+            # the head would have to unlearn.
+            patch_tokens = self.model.ln_post(patch_tokens)
+            cls_token = self.model.ln_post(cls_token)
+
+            if self.use_projection:
+                if self.model.proj is None:
+                    raise RuntimeError(f"{self.model_name} has no visual projection")
+                patch_tokens = patch_tokens @ self.model.proj
+                cls_token = cls_token @ self.model.proj
+
+            if patch_tokens.shape[1] != expected:
+                raise RuntimeError(
+                    f"CLIP layer {index} returned {patch_tokens.shape[1]} patch tokens, "
+                    f"expected {expected} for a {grid_hw[0]}x{grid_hw[1]} grid"
+                )
+            result.append((patch_tokens, cls_token, grid_hw))
+        return result
 
     def preprocess(self, images: Union[Image.Image, list]) -> torch.Tensor:
         """Resize to 224 and apply CLIP normalisation constants."""

@@ -17,6 +17,7 @@ from visbench.types import (
     POOLING_CHOICES,
     FeatureDict,
     FeatureMode,
+    LayerOutput,
     LayerSpec,
     Pooling,
 )
@@ -94,9 +95,16 @@ class BaseBackbone(nn.Module, ABC):
             One of :data:`visbench.types.POOLING_CHOICES`. ``"default"``
             resolves per :meth:`default_pooling`.
         layers:
-            Indices for multi-layer extraction. Accepted from v0.1 so the
-            signature never changes, but only single-layer extraction is wired
-            up until v0.2 — passing more than one layer raises until then.
+            Which backbone depths to read, shallowest first. ``None`` means the
+            last layer, the single-layer path every v0.1 task uses. Indices may
+            be negative (``-1`` is the last layer) and must be strictly
+            increasing; see :meth:`resolve_layers`.
+
+            Passing a list adds ``dense_layers`` and ``layer_indices`` to the
+            result, which is what a multiscale head such as
+            :class:`~visbench.heads.DPTHead` consumes. All requested layers
+            come from **one** forward pass — that is the entire reason this is
+            a list rather than a loop over single-layer calls.
         feature_mode:
             How ``dense`` is assembled, one of
             :data:`visbench.types.FEATURE_MODE_CHOICES`:
@@ -118,7 +126,13 @@ class BaseBackbone(nn.Module, ABC):
         -------
         FeatureDict
             ``{"dense": ..., "pooled": (B, C), "grid_hw": (H, W)}``, plus
-            ``cls`` when ``feature_mode="dense_plus_cls"``.
+            ``cls`` when ``feature_mode="dense_plus_cls"`` and
+            ``dense_layers``/``layer_indices`` when ``layers`` is given.
+
+            ``dense``, ``pooled``, ``grid_hw`` and ``cls`` always describe the
+            **last** requested layer. A multi-layer call is therefore a superset
+            of the single-layer one: a task that only reads ``dense`` behaves
+            identically whether or not the layer list was widened underneath it.
         """
         if pooling not in POOLING_CHOICES:
             raise ValueError(f"Unknown pooling {pooling!r}; expected one of {POOLING_CHOICES}")
@@ -136,50 +150,134 @@ class BaseBackbone(nn.Module, ABC):
                 f"Expected a batch of shape (B, 3, H, W), got {tuple(image.shape)}. "
                 "For a single image use image.unsqueeze(0)."
             )
-        if layers is not None and len(layers) > 1:
-            raise NotImplementedError(
-                f"Multi-layer extraction is wired up in v0.2; got layers={layers}. "
-                "The single-layer path must be proven first (CLAUDE.md, "
-                '"Multi-layer extraction").'
-            )
 
         resolved = self.default_pooling() if pooling == Pooling.DEFAULT else pooling
+        indices = self.resolve_layers(layers)
         image = image.to(self.device)
 
-        patch_tokens, cls_token, grid_hw = self._forward_features(image, layers)
-        grid = tokens_to_grid(patch_tokens, grid_hw)
+        outputs = self._forward_features(image, indices)
+        if len(outputs) != len(indices):
+            raise RuntimeError(
+                f"{type(self).__name__}._forward_features returned {len(outputs)} layers "
+                f"for {len(indices)} requested. A backbone must return one per index, in "
+                "the order asked, or the caller cannot tell which depth it is holding."
+            )
 
+        assembled_layers = [self._assemble(output, feature_mode) for output in outputs]
+
+        # The last requested layer is the headline one, so a task reading only
+        # `dense` sees the deepest features whether or not shallower ones were
+        # also requested.
+        patch_tokens, cls_token, grid_hw = outputs[-1]
         features: FeatureDict = {
             "pooled": pool_tokens(patch_tokens, cls_token, resolved),
             "grid_hw": grid_hw,
+            "dense": assembled_layers[-1][0],
         }
-        assembled = apply_feature_mode(grid, cls_token, feature_mode)
         if feature_mode == FeatureMode.DENSE_PLUS_CLS:
             # The one mode that returns two things: keeping them separate is
             # the point, so `cls` is a distinct key rather than a tuple the
             # caller has to unpack differently from every other mode.
+            cls_vector = assembled_layers[-1][1]
+            assert cls_vector is not None  # _assemble guarantees it for this mode
+            features["cls"] = cls_vector
+        if layers is not None:
+            features["dense_layers"] = [dense for dense, _ in assembled_layers]
+            features["layer_indices"] = indices
+        return features
+
+    def _assemble(
+        self,
+        output: LayerOutput,
+        feature_mode: str,
+    ) -> tuple[torch.Tensor, Optional[torch.Tensor]]:
+        """One layer's tokens to ``(dense, cls_or_None)`` in ``feature_mode``."""
+        patch_tokens, cls_token, grid_hw = output
+        grid = tokens_to_grid(patch_tokens, grid_hw)
+        assembled = apply_feature_mode(grid, cls_token, feature_mode)
+        if feature_mode == FeatureMode.DENSE_PLUS_CLS:
             # apply_feature_mode's return type depends on the *value* of
             # feature_mode, which the type system cannot express, and it has
             # already rejected a missing CLS token for this mode.
-            dense, cls_vector = cast(tuple[torch.Tensor, torch.Tensor], assembled)
-            features["dense"] = dense
-            features["cls"] = cls_vector
-        else:
-            features["dense"] = cast(torch.Tensor, assembled)
-        return features
+            return cast(tuple[torch.Tensor, torch.Tensor], assembled)
+        return cast(torch.Tensor, assembled), None
+
+    def resolve_layers(self, layers: LayerSpec) -> list[int]:
+        """Normalise a caller's ``layers`` into concrete, in-range indices.
+
+        ``None`` becomes the last layer. Negative indices count from the end,
+        so ``-1`` is the last layer and resolves to the same entry as its
+        absolute index — which matters because the resolved value is what
+        reaches the cache key, and ``[-1]`` and ``[11]`` on a 12-block model
+        must not occupy two entries holding identical features.
+
+        Indices must be **strictly increasing**. Order carries meaning
+        downstream — a multiscale head treats the first layer it is handed as
+        the coarsest — so a descending or repeated list would build a pyramid
+        that silently disagrees with the caller's intent. Rejecting it is the
+        only option that cannot be wrong; reordering would quietly overrule the
+        caller, and accepting it would quietly mislabel the output.
+        """
+        depth = self.num_layers
+        if layers is None:
+            return [depth - 1]
+        if not isinstance(layers, (list, tuple)):
+            raise TypeError(f"layers must be a list of ints or None, got {type(layers).__name__}")
+        if len(layers) == 0:
+            raise ValueError("layers=[] requests nothing; pass None for the last layer.")
+
+        resolved = []
+        for index in layers:
+            if not isinstance(index, int) or isinstance(index, bool):
+                raise TypeError(f"Layer indices must be ints, got {index!r}")
+            absolute = index + depth if index < 0 else index
+            if not 0 <= absolute < depth:
+                raise ValueError(
+                    f"Layer index {index} is out of range for {self.name or type(self).__name__}, "
+                    f"which exposes {depth} layers (valid: 0..{depth - 1}, or -1..-{depth})."
+                )
+            resolved.append(absolute)
+
+        if any(b <= a for a, b in zip(resolved, resolved[1:])):
+            raise ValueError(
+                f"layers must be strictly increasing, shallowest first; got {layers} "
+                f"which resolves to {resolved}. A multiscale head reads the first layer "
+                "as the coarsest, so the order is part of the request."
+            )
+        return resolved
+
+    @property
+    def num_layers(self) -> int:
+        """How many depths this backbone can be asked for.
+
+        Transformer blocks for a ViT, feature stages for a CNN. Defined by the
+        subclass because only it knows what an index means; the base class uses
+        it to resolve negative indices and to reject out-of-range ones once,
+        rather than in four places with four different messages.
+
+        A backbone that exposes only its final output returns 1, which makes
+        every multi-layer request fail with a clear message instead of a
+        confusing one from inside the model.
+        """
+        return 1
 
     @abstractmethod
     def _forward_features(
         self,
         image: torch.Tensor,
-        layers: LayerSpec,
-    ) -> tuple[torch.Tensor, Optional[torch.Tensor], tuple[int, int]]:
-        """Architecture-specific forward returning ``(patch_tokens, cls, grid_hw)``.
+        layers: list[int],
+    ) -> list[LayerOutput]:
+        """Architecture-specific forward returning one output per requested layer.
 
-        Every family normalises to a **token sequence** here: ``patch_tokens``
-        is ``(B, N, C)`` with ``N == grid_h * grid_w``, ``cls`` is ``(B, C)`` or
-        ``None``. ViTs return this natively; CNN subclasses (v0.2) flatten their
-        ``(B, C, H, W)`` conv map into it and return ``None`` for CLS.
+        ``layers`` arrives already resolved by :meth:`resolve_layers`: concrete,
+        in-range, strictly increasing, never empty and never negative. A
+        subclass never has to interpret ``None`` or normalise an index.
+
+        Every family normalises to a **token sequence** here: each element is
+        ``(patch_tokens, cls, grid_hw)`` with ``patch_tokens`` ``(B, N, C)``,
+        ``N == grid_h * grid_w``, and ``cls`` ``(B, C)`` or ``None``. ViTs
+        return this natively; CNN subclasses flatten their ``(B, C, H, W)``
+        conv map into it and return ``None`` for CLS.
 
         Making the *subclass* do that flattening — rather than having the base
         class branch on architecture family — is what keeps
@@ -187,6 +285,10 @@ class BaseBackbone(nn.Module, ABC):
         round-trip costs nothing next to a forward pass, and the alternative
         puts an ``if is_vit`` in the one method that exists to hide that
         distinction.
+
+        All requested layers must come from **one** forward pass. Looping over
+        single-layer calls would multiply the cost of the thing the feature
+        cache exists to avoid.
 
         Register tokens, if the variant has them, must be stripped here.
         """

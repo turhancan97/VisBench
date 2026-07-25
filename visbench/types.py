@@ -15,6 +15,8 @@ __all__ = [
     "FeatureMode",
     "POOLING_CHOICES",
     "FEATURE_MODE_CHOICES",
+    "LayerSpec",
+    "LayerOutput",
 ]
 
 
@@ -42,12 +44,33 @@ class FeatureDict(TypedDict, total=False):
         vector, ``(B, C)``, kept apart from the grid so a head can fuse them
         where it chooses. Absent otherwise, so a task that never asks for the
         mode cannot accidentally read a stale one.
+    dense_layers:
+        Present only when ``layers=[...]`` was passed: one dense map per
+        requested layer, shallowest first, each assembled in the same
+        ``feature_mode`` as ``dense``. The last element **is** ``dense``.
+
+        This is a separate key rather than making ``dense`` sometimes-a-list on
+        purpose. A key whose type depends on how many layers were requested
+        would break every single-layer consumer the moment a caller widened a
+        layer list, and the breakage would surface deep inside a task rather
+        than at the call.
+
+        Per-layer grids are not returned separately: these are ``(B, C, H, W)``
+        maps, so each carries its own. They can differ — a CNN's stages are at
+        different strides — which is precisely what a multiscale head is for.
+    layer_indices:
+        Present alongside ``dense_layers``: the resolved, non-negative layer
+        indices, in the same order. ``layers=[-1]`` records as ``[11]`` on a
+        12-block ViT, so a result record says which depth was actually read
+        rather than repeating a relative index.
     """
 
     dense: torch.Tensor
     pooled: torch.Tensor
     grid_hw: tuple[int, int]
     cls: torch.Tensor
+    dense_layers: list[torch.Tensor]
+    layer_indices: list[int]
 
 
 class Pooling:
@@ -92,9 +115,17 @@ FEATURE_MODE_CHOICES: tuple[str, ...] = (
     FeatureMode.DENSE_PLUS_CLS,
 )
 
-#: Layer selection for multi-layer extraction. Accepted by the interface from
-#: v0.1; only single-layer extraction is wired up until v0.2.
+#: Layer selection for multi-layer extraction, as passed by a caller: ``None``
+#: for "the last layer", or indices which may be negative. Accepted by the
+#: interface from v0.1 and wired up in v0.2.
 LayerSpec = Optional[list[int]]
+
+#: What one layer of a backbone contributes: ``(patch_tokens, cls, grid_hw)``
+#: with ``patch_tokens`` ``(B, N, C)``, ``cls`` ``(B, C)`` or ``None``, and
+#: ``N == grid_h * grid_w``. Every architecture family normalises to this in
+#: :meth:`BaseBackbone._forward_features`, which returns one per requested
+#: layer.
+LayerOutput = tuple[torch.Tensor, Optional[torch.Tensor], tuple[int, int]]
 
 #: Flat metrics dict returned by :meth:`BaseTask.evaluate`.
 MetricsDict = dict[str, float]

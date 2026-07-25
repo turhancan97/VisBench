@@ -36,6 +36,11 @@ class FakeViT(BaseBackbone):
         self.proj = torch.nn.Linear(3, embed_dim)
         self._finalize()
 
+    @property
+    def num_layers(self):
+        """As many blocks as a real ViT-B, so layer indices behave the same."""
+        return 12
+
     def _forward_features(self, image, layers):
         self.call_count += 1
         b, _, h, w = image.shape
@@ -45,9 +50,13 @@ class FakeViT(BaseBackbone):
         # varied per token so mean-pooling and CLS differ.
         base = self.proj(image.mean(dim=(2, 3)))
         offsets = torch.arange(n, dtype=base.dtype).view(1, n, 1)
-        patch_tokens = base.unsqueeze(1) + offsets
-        cls_token = base * 2.0
-        return patch_tokens, cls_token, grid_hw
+        outputs = []
+        for index in layers:
+            # Offset by layer so two depths are never accidentally equal —
+            # a multi-layer test that passes on identical stages proves nothing.
+            patch_tokens = base.unsqueeze(1) + offsets + float(index)
+            outputs.append((patch_tokens, base * 2.0 + float(index), grid_hw))
+        return outputs
 
     def preprocess(self, images):
         if isinstance(images, Image.Image):
@@ -82,13 +91,26 @@ class FakeCNN(BaseBackbone):
         self.patch_size = None
         self.image_size = 64
         self.conv = torch.nn.Conv2d(3, embed_dim, kernel_size=8, stride=8)
+        # Two shallower stages, narrower and at higher resolution, so the
+        # multi-layer path is exercised against a real CNN's shape behaviour:
+        # stages differ in *both* width and stride, unlike a ViT's blocks.
+        self.stage0 = torch.nn.Conv2d(3, embed_dim // 4, kernel_size=2, stride=2)
+        self.stage1 = torch.nn.Conv2d(3, embed_dim // 2, kernel_size=4, stride=4)
         self._finalize()
 
+    @property
+    def num_layers(self):
+        return 3
+
     def _forward_features(self, image, layers):
-        feature_map = self.conv(image)
-        b, c, h, w = feature_map.shape
-        # The flatten a real CNN subclass performs; CLS is None.
-        return feature_map.flatten(2).transpose(1, 2), None, (h, w)
+        stages = [self.stage0, self.stage1, self.conv]
+        outputs = []
+        for index in layers:
+            feature_map = stages[index](image)
+            _, _, h, w = feature_map.shape
+            # The flatten a real CNN subclass performs; CLS is None.
+            outputs.append((feature_map.flatten(2).transpose(1, 2), None, (h, w)))
+        return outputs
 
     def preprocess(self, images):
         raise NotImplementedError("Not needed for these tests")

@@ -60,9 +60,17 @@ so it stands on its own rather than assuming you have read the ones above it.
   stubs, which made it a check that could never fail; 19 errors had accumulated,
   including the `PairDataset` variance violation above. Now clean.
 - Removed the unused `visbench.utils.device.batched` helper.
+- `BaseBackbone._forward_features` now returns a **list** of
+  `(patch_tokens, cls, grid_hw)`, one per requested layer, and receives layer
+  indices already resolved. Only affects code subclassing `BaseBackbone`
+  directly; `extract_features` is unchanged for single-layer callers.
+- A timm ViT is rejected when the backbone is constructed rather than at the
+  first extraction. `forward_intermediates` reshapes a ViT's tokens into a grid
+  when asked for NCHW, so from that point the output is indistinguishable from
+  a conv map and nothing would notice the CLS token had been dropped while
+  `has_cls_token` stayed False.
 
-Still to come in v0.2: multi-layer extraction (which `DPTHead` needs before it
-has anything real to consume), dense mid-level tasks, CLI.
+Still to come in v0.2: dense mid-level tasks, CLI.
   `LinearHead` (1x1 convolution over the dense grid, upsampled) and `DPTHead`
   (RefineNet-style multiscale fusion, following probe3d and Ranftl et al.).
   `register_head` makes this a real extension point. A head declares which
@@ -72,6 +80,39 @@ has anything real to consume), dense mid-level tasks, CLI.
   and duplicating the input would report a single-layer result as a DPT number.
 - `DPTHead(cls_dim=...)`, for when a backbone's CLS width differs from the
   channel count of the layer the vector is injected alongside.
+
+- **Multi-layer feature extraction.** `extract_features(layers=[2, 5, 8, 11])`
+  returns `dense_layers` — one map per requested depth, from a **single**
+  forward pass — plus the resolved `layer_indices`. Declared in the interface
+  since v0.1 and wired up now that the single-layer path is proven; this is
+  what `DPTHead` has been waiting for.
+
+  `dense`, `pooled` and `cls` still describe the last requested layer, so a
+  multi-layer call is a strict superset of a single-layer one and a task
+  reading only `dense` is unaffected. `dense_layers` is a separate key rather
+  than `dense` sometimes being a list: a type that depends on how many layers
+  were requested would break every existing consumer the moment a layer list
+  was widened.
+
+  Layer indices are resolved once, in `BaseBackbone.resolve_layers`, instead of
+  in each backbone: negatives count from the end, and the list must be strictly
+  increasing, since a multiscale head reads the first layer it is given as the
+  coarsest. A descending or repeated list is rejected rather than reordered.
+- Each layer gets **its own cache entry**, keyed on the resolved index.
+  Widening `[3, 7]` to `[3, 7, 11]` re-extracts one layer rather than three,
+  and a later single-layer run at layer 7 reads what the multi-layer run
+  stored. `layers=[-1]` and `layers=[11]` name the same entry on a 12-block
+  model rather than storing identical features twice.
+- `TimmBackbone.layer_channels([1, 2, 3, 4])`, because a CNN's stages differ in
+  width — which is exactly why `DPTHead` accepts per-layer `in_channels`.
+- `CustomBackbone(layer_feature_fn=..., num_layers=...)`. An arbitrary
+  `nn.Module` has no `get_intermediate_layers` to call, so this is where a user
+  says how their model exposes depth. Without it `num_layers` stays 1 and a
+  multi-layer request is refused — returning the final map several times would
+  let a multiscale head report a single-layer result.
+- Result schema v4 adds `layers`. A record for a run over four depths is not
+  the same run as one over the last, and widening `layer`'s type would have
+  changed how every v1–v3 record on disk parses.
 
 ## [0.1.0] — 2026-07-24
 

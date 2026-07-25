@@ -87,11 +87,6 @@ def test_extract_features_does_not_build_a_graph(fake_vit):
     assert not features["pooled"].requires_grad
 
 
-def test_multilayer_request_raises_in_v01(fake_vit):
-    with pytest.raises(NotImplementedError, match="v0.2"):
-        fake_vit.extract_features(torch.rand(1, 3, 64, 64), layers=[6, 11])
-
-
 def test_single_layer_request_is_accepted(fake_vit):
     features = fake_vit.extract_features(torch.rand(1, 3, 64, 64), layers=[11])
     assert features["pooled"].shape == (1, fake_vit.embed_dim)

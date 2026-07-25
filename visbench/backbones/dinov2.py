@@ -14,7 +14,7 @@ from torchvision import transforms
 
 from visbench.backbones.base import BaseBackbone
 from visbench.registry import register_backbone
-from visbench.types import LayerSpec
+from visbench.types import LayerOutput
 from visbench.utils.image import IMAGENET_MEAN, IMAGENET_STD
 
 __all__ = ["DINOv2", "HUB_REF"]
@@ -132,16 +132,21 @@ class DINOv2(BaseBackbone):
 
         self._finalize()
 
+    @property
+    def num_layers(self) -> int:
+        """Transformer blocks — 12 for ViT-S/B, 24 for ViT-L."""
+        return len(self.model.blocks)
+
     def _forward_features(
         self,
         image: torch.Tensor,
-        layers: LayerSpec,
-    ) -> tuple[torch.Tensor, Optional[torch.Tensor], tuple[int, int]]:
-        """Run the ViT and return ``(patch_tokens, cls_token, grid_hw)``.
+        layers: list[int],
+    ) -> list[LayerOutput]:
+        """Run the ViT once and return one ``(patch_tokens, cls, grid_hw)`` per layer.
 
-        Uses ``get_intermediate_layers`` so the multi-layer path in v0.2 is a
-        widening of this call rather than a rewrite. Register tokens, if the
-        variant has them, are dropped here.
+        ``get_intermediate_layers`` takes the whole index list, so every
+        requested depth comes from a single forward pass. Register tokens, if
+        the variant has them, are dropped here.
         """
         _, _, height, width = image.shape
         patch = self.patch_size
@@ -150,37 +155,27 @@ class DINOv2(BaseBackbone):
             raise ValueError(f"Input {height}x{width} is not a multiple of patch size {patch}")
         grid_hw = (height // patch, width // patch)
 
-        # `layers=None` means "the last block". Negative indices are resolved
-        # here because get_intermediate_layers compares against range(depth).
-        depth = len(self.model.blocks)
-        index = depth - 1 if layers is None else layers[0]
-        if index < 0:
-            index += depth
-        if not 0 <= index < depth:
-            raise ValueError(
-                f"Layer index {layers[0] if layers else -1} out of range for depth {depth}"
-            )
-
         outputs = self.model.get_intermediate_layers(
             image,
-            n=[index],
+            n=layers,
             reshape=False,
             return_class_token=True,
             norm=True,
         )
-        patch_tokens, cls_token = outputs[0]
 
         # get_intermediate_layers already strips CLS and registers; assert the
         # count anyway, since a silently misaligned grid is the worst failure
         # mode in this file.
         expected = grid_hw[0] * grid_hw[1]
-        if patch_tokens.shape[1] != expected:
-            raise RuntimeError(
-                f"DINOv2 returned {patch_tokens.shape[1]} patch tokens, expected {expected} "
-                f"for a {grid_hw[0]}x{grid_hw[1]} grid"
-            )
-
-        return patch_tokens, cls_token, grid_hw
+        result: list[LayerOutput] = []
+        for index, (patch_tokens, cls_token) in zip(layers, outputs):
+            if patch_tokens.shape[1] != expected:
+                raise RuntimeError(
+                    f"DINOv2 layer {index} returned {patch_tokens.shape[1]} patch tokens, "
+                    f"expected {expected} for a {grid_hw[0]}x{grid_hw[1]} grid"
+                )
+            result.append((patch_tokens, cls_token, grid_hw))
+        return result
 
     def preprocess(self, images: Union[Image.Image, list]) -> torch.Tensor:
         """Resize to the configured resolution and apply ImageNet normalisation.

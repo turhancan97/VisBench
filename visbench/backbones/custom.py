@@ -24,12 +24,18 @@ import torch.nn as nn
 from PIL import Image
 
 from visbench.backbones.base import BaseBackbone
-from visbench.types import LayerSpec
+from visbench.types import LayerOutput
 
 __all__ = ["CustomBackbone"]
 
 #: Return signature of a user-supplied feature function.
 FeatureFn = Callable[[nn.Module, torch.Tensor], tuple]
+
+#: Multi-layer counterpart: ``(module, image_batch, layers) -> list`` of
+#: ``(patch_tokens, cls_token, grid_hw)``, one per requested index. Kept
+#: separate from :data:`FeatureFn` rather than overloading its signature, so a
+#: function written for one convention can never be called under the other.
+LayerFeatureFn = Callable[[nn.Module, torch.Tensor, list], list]
 
 
 def hash_weights(module: nn.Module, sample_bytes: int = 1 << 20) -> str:
@@ -80,6 +86,17 @@ class CustomBackbone(BaseBackbone):
     has_cls_token:
         Whether the token sequence starts with a CLS token. Only consulted when
         the module returns tokens; ignored for a conv map.
+    layer_feature_fn:
+        Optional ``(module, image_batch, layers) -> [(tokens, cls, grid_hw), ...]``
+        enabling multi-layer extraction. Requires ``num_layers``. VisBench
+        cannot tap the intermediate activations of an arbitrary module — there
+        is no equivalent of ``get_intermediate_layers`` to call — so this is
+        the seam where a user says how their own model exposes depth.
+    num_layers:
+        How many depths ``layer_feature_fn`` can serve. Left at 1, the module
+        exposes only its final output and any multi-layer request is rejected,
+        which is the right default: silently returning the same map several
+        times would let a multiscale head report a single-layer result.
     weights_id:
         Identifier for these weights in the cache key. Defaults to a hash of
         the module's parameters, which is usually what you want.
@@ -97,6 +114,8 @@ class CustomBackbone(BaseBackbone):
         weights_id: Optional[str] = None,
         image_size: int = 224,
         device: Optional[str] = None,
+        layer_feature_fn: Optional[LayerFeatureFn] = None,
+        num_layers: int = 1,
     ) -> None:
         super().__init__(device)
 
@@ -108,8 +127,24 @@ class CustomBackbone(BaseBackbone):
                 "VisBench cannot guess a model's normalisation constants."
             )
 
+        if num_layers < 1:
+            raise ValueError(f"num_layers must be >= 1, got {num_layers}")
+        if num_layers > 1 and layer_feature_fn is None:
+            raise ValueError(
+                f"num_layers={num_layers} promises depths VisBench cannot reach on its own. "
+                "Pass layer_feature_fn=(module, images, layers) -> [(tokens, cls, grid_hw), ...]; "
+                "an arbitrary nn.Module has no interface for tapping intermediate activations."
+            )
+        if layer_feature_fn is not None and num_layers == 1:
+            raise ValueError(
+                "layer_feature_fn was given but num_layers=1, so no multi-layer request "
+                "can ever reach it. Pass num_layers= to say how many depths it serves."
+            )
+
         self.name = name
         self.model = module
+        self._num_layers = num_layers
+        self._layer_feature_fn = layer_feature_fn
         self.has_cls_token = has_cls_token
         self.patch_size = patch_size
         self.image_size = image_size
@@ -120,12 +155,21 @@ class CustomBackbone(BaseBackbone):
 
         self._finalize()
 
+    @property
+    def num_layers(self) -> int:
+        """Depths this module exposes; 1 unless ``layer_feature_fn`` was given."""
+        return self._num_layers
+
     def _forward_features(
         self,
         image: torch.Tensor,
-        layers: LayerSpec,
-    ) -> tuple[torch.Tensor, Optional[torch.Tensor], tuple[int, int]]:
+        layers: list[int],
+    ) -> list[LayerOutput]:
         """Interpret the module's output as ``(patch_tokens, cls, grid_hw)``.
+
+        With ``layer_feature_fn`` supplied, that handles the whole request.
+        Otherwise exactly one layer can be asked for — the base class has
+        already rejected anything else against :attr:`num_layers`.
 
         With ``feature_fn`` supplied, that does the work and this only
         validates. Otherwise the module's ``forward`` output is read:
@@ -140,10 +184,30 @@ class CustomBackbone(BaseBackbone):
         Anything else raises, because the alternative is a feature map whose
         spatial layout is wrong in a way no shape check downstream would catch.
         """
+        if self._layer_feature_fn is not None:
+            outputs = list(self._layer_feature_fn(self.model, image, list(layers)))
+            if len(outputs) != len(layers):
+                raise ValueError(
+                    f"layer_feature_fn returned {len(outputs)} outputs for layers={layers}. "
+                    "It must return one (tokens, cls, grid_hw) per requested index, in order."
+                )
+            result: list[LayerOutput] = []
+            for index, output in zip(layers, outputs):
+                try:
+                    tokens, cls_token, grid_hw = output
+                except (TypeError, ValueError) as error:
+                    raise ValueError(
+                        f"layer_feature_fn's output for layer {index} is not a "
+                        f"(tokens, cls, grid_hw) triple: {output!r}"
+                    ) from error
+                self._note_embed_dim(tokens)
+                result.append((tokens, cls_token, tuple(grid_hw)))
+            return result
+
         if self._feature_fn is not None:
             tokens, cls_token, grid_hw = self._feature_fn(self.model, image)
             self._note_embed_dim(tokens)
-            return tokens, cls_token, tuple(grid_hw)
+            return [(tokens, cls_token, tuple(grid_hw))]
 
         output = self.model(image)
         if isinstance(output, (tuple, list)):
@@ -158,12 +222,12 @@ class CustomBackbone(BaseBackbone):
             _, _, grid_h, grid_w = output.shape
             tokens = output.flatten(2).transpose(1, 2)
             self._note_embed_dim(tokens)
-            return tokens, None, (grid_h, grid_w)
+            return [(tokens, None, (grid_h, grid_w))]
 
         if output.ndim == 3:
             tokens, cls_token, grid_hw = self._tokens_to_features(output, image)
             self._note_embed_dim(tokens)
-            return tokens, cls_token, grid_hw
+            return [(tokens, cls_token, grid_hw)]
 
         raise ValueError(
             f"The module returned a {output.ndim}D tensor {tuple(output.shape)}. "

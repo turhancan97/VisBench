@@ -24,7 +24,11 @@ __all__ = ["ResultRecord", "SCHEMA_VERSION", "utc_timestamp"]
 #:    accuracy reported without the optimiser settings that produced it is not
 #:    reproducible. Deliberately one open dict rather than a column per
 #:    setting, so a new task never forces another schema bump.
-SCHEMA_VERSION = 3
+#: 4. Added ``layers``, for multi-layer extraction. A dense task reading four
+#:    backbone depths is a different run from one reading the last, and the
+#:    existing ``layer`` field cannot say so without changing its type — which
+#:    would make every v1-v3 record on disk parse to something new.
+SCHEMA_VERSION = 4
 
 
 @dataclass
@@ -59,6 +63,12 @@ class ResultRecord:
         Task-specific settings from :meth:`BaseTask.describe` — for a trained
         probe, the optimiser, learning rate, epochs and so on. Empty for
         zero-shot tasks, which have none.
+    layer / layers:
+        Which backbone depth the features came from. ``layer`` is the
+        single-layer form and ``layers`` the resolved list a multiscale head
+        was fed; exactly one is set. Both hold **resolved** indices, never a
+        relative ``-1``, so a record still names the same depth after a
+        backbone of a different size is compared against it.
     """
 
     backbone: str
@@ -77,6 +87,7 @@ class ResultRecord:
     dataset_fingerprint: Optional[str] = None
     task_params: dict = field(default_factory=dict)
     layer: Optional[int] = None
+    layers: Optional[list[int]] = None
     seed: Optional[int] = None
     duration_seconds: Optional[float] = None
     notes: Optional[str] = None

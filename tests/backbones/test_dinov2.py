@@ -157,3 +157,44 @@ def test_end_to_end_through_the_cache(tmp_path, dinov2, solid_images):
     assert cache.stats()["hits"] == 4
     assert torch.equal(first["pooled"], second["pooled"])
     assert torch.equal(first["dense"], second["dense"])
+
+
+@pytest.mark.slow
+class TestIntermediateLayers:
+    """get_intermediate_layers takes the whole index list — one forward pass."""
+
+    def test_one_map_per_block(self, dinov2, solid_images):
+        batch = dinov2.preprocess(solid_images[:2])
+        features = dinov2.extract_features(batch, layers=[2, 5, 8, 11])
+        assert features["layer_indices"] == [2, 5, 8, 11]
+        assert all(
+            dense.shape == (2, dinov2.embed_dim, 16, 16) for dense in features["dense_layers"]
+        )
+
+    def test_blocks_share_a_width_and_grid(self, dinov2, solid_images):
+        """Unlike a CNN's stages. This is why a ViT can use a scalar in_channels."""
+        maps = dinov2.extract_features(dinov2.preprocess(solid_images[:1]), layers=[0, 11])[
+            "dense_layers"
+        ]
+        assert maps[0].shape == maps[1].shape
+
+    def test_depths_are_genuinely_different_features(self, dinov2, solid_images):
+        """A shallow block and a deep one must not come back equal."""
+        maps = dinov2.extract_features(dinov2.preprocess(solid_images[:1]), layers=[1, 11])[
+            "dense_layers"
+        ]
+        assert not torch.allclose(maps[0], maps[1])
+
+    def test_the_last_block_matches_the_default_call(self, dinov2, solid_images):
+        batch = dinov2.preprocess(solid_images[:2])
+        default = dinov2.extract_features(batch)
+        multi = dinov2.extract_features(batch, layers=[3, 11])
+        assert torch.equal(default["dense"], multi["dense"])
+        assert torch.equal(default["pooled"], multi["pooled"])
+
+    def test_num_layers_matches_the_model(self, dinov2):
+        assert dinov2.num_layers == len(dinov2.model.blocks) == 12
+
+    def test_out_of_range_block_is_caught(self, dinov2, solid_images):
+        with pytest.raises(ValueError, match="out of range"):
+            dinov2.extract_features(dinov2.preprocess(solid_images[:1]), layers=[12])
