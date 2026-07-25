@@ -28,7 +28,7 @@ not racing ahead. If asked to "build VisBench" or "continue", re-confirm which
 step is next rather than attempting the whole roadmap in one session.
 
 | Step | What | Status |
-|---|---|---|
+| --- | --- | --- |
 | 1 | Scaffold every folder and module, docstrings + stubs, no logic | done |
 | 2 | `BaseBackbone` + feature cache + DINOv2, with tests | done |
 | 3 | `BaseTask` + one task (retrieval) end to end on a local folder | done |
@@ -55,7 +55,7 @@ tested, and is on `main` with CI green.
 Registered names — `visbench.list_backbones()`, `list_probes()`,
 `visbench.heads.list_heads()`:
 
-```
+```text
 backbones  dinov2_vits14, dinov2_vitb14, clip_vitb16, clip_vitb32,
            resnet18, resnet50            (+ CustomBackbone, unregistered)
 probes     classification, retrieval, correspondence, depth, surface_normal
@@ -68,7 +68,7 @@ only**: never remove or repurpose a field, or old records stop being readable.
 
 ### Layout worth knowing before editing
 
-```
+```text
 visbench/
   backbones/     base.py (resolve_layers, _assemble), dinov2, clip,
                  timm_backbone, custom, pooling.py (feature modes)
@@ -269,7 +269,7 @@ ViT, so an unresolved record does not say what produced the number.
 Tasks are organized into three levels, following Chen, Marks & Cheng
 (arXiv:2411.17474):
 
-```
+```text
 tasks/
   high_level/   classification, semantic (multi-class) segmentation, detection
   mid_level/    generic (binary) object segmentation, depth estimation,
