@@ -119,11 +119,17 @@ def test_get_probe_forwards_kwargs():
 
 def test_all_v01_tasks_are_registered():
     """The v0.1 task list from CLAUDE.md, complete."""
-    assert set(visbench.list_probes()) == {"classification", "retrieval", "correspondence"}
+    assert set(visbench.list_probes()) >= {"classification", "retrieval", "correspondence"}
+
+
+def test_depth_is_registered():
+    """The first dense task, v0.2."""
+    assert "depth" in visbench.list_probes()
+    assert visbench.get_probe("depth").level == "mid_level"
 
 
 def test_unregistered_task_fails_informatively():
-    """Depth is v0.2; until then the error must list what does exist."""
+    """The error must list what does exist."""
     with pytest.raises(KeyError, match="Unknown task") as excinfo:
-        visbench.get_probe("depth")
+        visbench.get_probe("surface_normal")
     assert "correspondence" in str(excinfo.value)

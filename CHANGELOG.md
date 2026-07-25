@@ -70,7 +70,17 @@ so it stands on its own rather than assuming you have read the ones above it.
   a conv map and nothing would notice the CLS token had been dropped while
   `has_cls_token` stayed False.
 
-Still to come in v0.2: dense mid-level tasks, CLI.
+### Known limitations
+
+- Dense features are held in memory for training. DINOv2-B at 224 is about
+  786 KB per image, so all 24k NYUv2 images would need roughly 19 GB.
+  `DepthTask.fit` refuses past a ~8 GB ceiling with that arithmetic rather than
+  letting the OOM killer end a run half an hour in. Lifting it means teaching
+  the cache to stream batches from disk, which it stores per image already but
+  cannot yet iterate.
+
+Still to come in v0.2: surface normals, generic and semantic segmentation,
+mid-level similarity, CLI.
   `LinearHead` (1x1 convolution over the dense grid, upsampled) and `DPTHead`
   (RefineNet-style multiscale fusion, following probe3d and Ranftl et al.).
   `register_head` makes this a real extension point. A head declares which
@@ -113,6 +123,33 @@ Still to come in v0.2: dense mid-level tasks, CLI.
 - Result schema v4 adds `layers`. A record for a run over four depths is not
   the same run as one over the last, and widening `layer`'s type would have
   changed how every v1–v3 record on disk parses.
+
+- **Depth estimation** (`get_probe("depth")`) — the first dense task, and the
+  first thing to use heads, multi-layer extraction and the cache together.
+  Reproduces probe3d's configured protocol rather than re-deriving it: 256
+  uniform depth bins with the prediction as their expectation (AdaBins'
+  parameterisation), a loss of 10x scale-invariant log plus 0.5x gradient, and
+  AdamW at 5e-4 for 10 epochs with 1.5 warmup and cosine decay. Its
+  `metrics.py` and `losses.py` are separately MIT-headered, so these follow the
+  reference closely enough for the numbers to be comparable — see NOTICE.
+- `visbench.metrics.dense.depth_metrics` — `d1`/`d2`/`d3`/`rmse` per probe3d,
+  plus `abs_rel` (flagged as an addition, since probe3d does not report it).
+  Valid pixels only, averaged per image and then across images: pooling every
+  pixel of a split instead would weight images by how much valid depth they
+  happen to contain. `scale_invariant=` and `nyu_crop=` are available and off
+  by default, because a number computed with either is not comparable to one
+  computed without.
+- **`DenseFolderDataset`** — images and per-pixel targets paired by filename
+  stem, with the resize and centre-crop applied to **both together**. This is
+  the module's whole reason to exist: a target cropped differently from its
+  image trains a probe against misaligned supervision, and the only symptom is
+  that the numbers come out bad. Targets resample nearest-neighbour, never
+  bilinear, so holes cannot bleed into valid depth and reappear as plausible
+  wrong values the valid mask no longer excludes.
+- `BaseTask.layers`, carried into extraction by `visbench.run()`, so a task
+  with a multiscale head gets the depths it needs from one forward pass. The
+  record stores them resolved against the backbone.
+- `examples/depth.py`.
 
 ## [0.1.0] — 2026-07-24
 

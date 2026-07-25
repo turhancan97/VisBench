@@ -13,6 +13,7 @@ from visbench.metrics.correspondence import (
     nn_match,
     ratio_test,
 )
+from visbench.metrics.dense import depth_metrics, match_scale_and_shift
 from visbench.metrics.retrieval import mean_average_precision, recall_at_k
 
 __all__ = [
@@ -23,4 +24,6 @@ __all__ = [
     "ratio_test",
     "correspondence_recall",
     "error_auc",
+    "depth_metrics",
+    "match_scale_and_shift",
 ]

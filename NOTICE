@@ -32,12 +32,20 @@ predate both papers.
 The same applies to any future backbone: CroCo cannot be vendored into
 VisBench under these terms, only loaded from the user's own installation.
 
-Not every part of probe3d is affected. `evals/models/probes.py`, which holds
-the DPT and linear head implementations, carries no separate licence header and
-so falls under that repository's MIT licence — adapting it would have been
-permitted. VisBench's heads are written from the architecture descriptions
-anyway, so that the whole package is uniform on the question, but contributors
-should know the distinction rather than assume all of probe3d is off limits.
+Not every part of probe3d is affected. `evals/utils/metrics.py` and
+`evals/utils/losses.py` each carry their own **MIT** header, and
+`evals/models/probes.py` carries no separate header and so falls under that
+repository's MIT licence. All three are safe to reuse, and VisBench does:
+
+- `visbench/metrics/dense.py` follows `metrics.py`'s `evaluate_depth` and
+  `match_scale_and_shift` (itself from MiDaS) closely enough that the numbers
+  are comparable, which is the whole point of borrowing a protocol.
+- `visbench/tasks/mid_level/depth.py` follows `losses.py`'s `sig_loss` and
+  `gradient_loss`, and `probes.py`'s `DepthBinPrediction`.
+
+The heads in `visbench/heads/` were written from the architecture descriptions
+instead, so the package is uniform on that question, but contributors should
+know the distinction rather than assume all of probe3d is off limits.
 
 ## Probing the Mid-level Vision Capabilities of Self-Supervised Learning — MIT
 

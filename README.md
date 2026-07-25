@@ -166,13 +166,16 @@ This is a multi-month roadmap, built one reviewed step at a time.
 - [x] **5b.** custom `nn.Module` backbones, and pluggable heads (linear + DPT)
 - [x] **5c.** multi-layer extraction — `layers=[...]` through every backbone
       and the cache, so the DPT head has something real to consume
-- [ ] **5d.** rest of v0.2 — dense mid-level tasks, CLI
+- [x] **5d.** depth estimation — the first dense task, end to end on probe3d's
+      protocol: dense dataset, metrics, loss, pluggable head
+- [ ] **5e.** rest of v0.2 — surface normals, generic segmentation, semantic
+      segmentation, mid-level similarity, CLI
 
 ## Roadmap
 
 **v0.1** — prove the abstraction. DINOv2 + CLIP. Zero-shot or linear-probe-on-cached-features only; no fine-tuning, no dense training loops. Deferred: CLI, custom backbones, ResNet/timm, multi-layer extraction.
 
-**v0.2** — ResNet/timm + custom backbones *(done)*, pluggable heads (linear + DPT) *(done)*, multi-layer extraction *(done)*, dense mid-level tasks (probe3d protocols), CLI.
+**v0.2** — ResNet/timm + custom backbones *(done)*, pluggable heads (linear + DPT) *(done)*, multi-layer extraction *(done)*, depth estimation *(done)*, remaining dense mid-level tasks (probe3d protocols), CLI.
 
 **v0.3** — opt-in fine-tuning of the last N blocks, detection groundwork, HF Hub probe sharing and a public leaderboard.
 

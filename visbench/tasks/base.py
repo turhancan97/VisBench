@@ -47,6 +47,11 @@ class BaseTask(ABC):
     #: so guessing it from the task's level would be an expensive guess.
     uses_dense: bool = False
 
+    #: Backbone depths this task wants, or ``None`` for the last layer alone.
+    #: A multiscale head needs several, and the task is what knows that — the
+    #: same reason pooling is chosen here rather than on the backbone.
+    layers: Optional[list[int]] = None
+
     def fit(self, features: Any, labels: Optional[Any] = None) -> "BaseTask":
         """Train the probe head on cached features.
 
@@ -96,6 +101,7 @@ class BaseTask(ABC):
             "pooling": self.pooling,
             "feature_mode": self.feature_mode,
             "zero_shot": self.zero_shot,
+            "layers": self.layers,
             "task_params": {},
         }
 

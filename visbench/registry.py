@@ -123,6 +123,7 @@ _REGISTRATION_MODULES: dict[str, Optional[str]] = {
     "visbench.tasks.high_level.classification": None,
     "visbench.tasks.high_level.retrieval": None,
     "visbench.tasks.mid_level.correspondence": None,
+    "visbench.tasks.mid_level.depth": None,
 }
 
 _IMPORTED = False

@@ -66,7 +66,15 @@ def _extract(cache: FeatureCache, backbone: Any, dataset: Any, probe: Any, **kwa
     """
     keep = "dense" if probe.uses_dense else "pooled"
     return cache.extract_dataset(
-        backbone, dataset, pooling=_resolve(backbone, probe), keep=keep, **kwargs
+        backbone,
+        dataset,
+        pooling=_resolve(backbone, probe),
+        keep=keep,
+        # The task declares which depths it needs — a multiscale head is
+        # unusable without them — and asking here means one forward pass
+        # covers all of them.
+        layers=probe.layers,
+        **kwargs,
     )
 
 
@@ -156,6 +164,10 @@ def run(
         dataset_fingerprint=described["dataset_fingerprint"],
         pooling=_resolve(backbone, task),
         feature_mode=described["feature_mode"],
+        # Resolved against this backbone's depth, for the same reason pooling
+        # is: a record saying [-4, -1] does not name the layers that produced
+        # the number, and means two different things on a 12- and a 24-block ViT.
+        layers=(None if task.layers is None else backbone.resolve_layers(task.layers)),
         task_params=described["task_params"],
         metrics=metrics,
         timestamp=utc_timestamp(),
