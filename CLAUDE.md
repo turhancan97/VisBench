@@ -39,8 +39,8 @@ step is next rather than attempting the whole roadmap in one session.
 | 5d | Depth estimation — first dense task, full probe3d protocol | done |
 | 5e | Streaming features from disk, for splits larger than memory | done |
 | 5f | Surface normals + the shared `DenseTrainingTask` | done |
-| **5g** | **Generic (binary) segmentation** | **next** |
-| 5h | High-level semantic (multi-class) segmentation | todo |
+| 5g | Generic (binary) segmentation | done |
+| **5h** | **High-level semantic (multi-class) segmentation** | **next** |
 | 5i | Mid-level image similarity | todo |
 | 5j | The CLI — last, once the dense-task Python API has settled | todo |
 | 6 | v0.3 scope. Do not start before v0.2 is complete and reviewed | todo |
@@ -49,8 +49,8 @@ step is next rather than attempting the whole roadmap in one session.
 
 ## Current state
 
-**v0.1 complete. v0.2 roughly two-thirds done.** Everything below exists, is
-tested, and is on `main` with CI green.
+**v0.1 complete. v0.2 roughly three-quarters done.** Everything below exists, is
+tested, and is on `main`.
 
 Registered names — `visbench.list_backbones()`, `list_probes()`,
 `visbench.heads.list_heads()`:
@@ -58,7 +58,8 @@ Registered names — `visbench.list_backbones()`, `list_probes()`,
 ```text
 backbones  dinov2_vits14, dinov2_vitb14, clip_vitb16, clip_vitb32,
            resnet18, resnet50            (+ CustomBackbone, unregistered)
-probes     classification, retrieval, correspondence, depth, surface_normal
+probes     classification, retrieval, correspondence, depth, surface_normal,
+           generic_segmentation
 heads      linear, dpt
 ```
 
@@ -75,19 +76,21 @@ visbench/
   cache/         feature_cache.py (_Plan/_walk, extract_dataset, materialise)
                  streaming.py (CachedFeatures — a torch Dataset over the cache)
   data/          image_folder, pair_dataset (correspondence), dense.py
-                 (DenseFolderDataset, load_depth_map, load_normal_map)
+                 (DenseFolderDataset, load_depth_map, load_normal_map,
+                  load_mask)
   heads/         base.py (register_head/build_head), linear.py, dpt.py
   metrics/       classification, retrieval, correspondence, dense.py
   tasks/         base.py (BaseTask)
                  dense_base.py (DenseTrainingTask — shared by every dense probe)
                  high_level/  classification, retrieval  (+ stubs)
-                 mid_level/   correspondence, depth, surface_normal (+ stubs)
+                 mid_level/   correspondence, depth, surface_normal,
+                              generic_segmentation  (+ stubs)
   results/       schema.py (ResultRecord, SCHEMA_VERSION), writer.py
   runner.py      visbench.run() — the one call the CLI will wrap
-examples/        classify, retrieve, correspond, depth, normals
+examples/        classify, retrieve, correspond, depth, normals, segment
 ```
 
-### `DenseTrainingTask` — subclass this for 5g/5h
+### `DenseTrainingTask` — subclass this for 5h
 
 `visbench/tasks/dense_base.py` holds everything a trained dense probe needs:
 feature sources (in-memory dict *or* streaming `CachedFeatures`, normalised to
@@ -105,9 +108,11 @@ metric averaging. A subclass supplies only:
 - optionally `_task_params()` (extra `task_params` for the record) and
   `_on_epoch_start()` (per-epoch diagnostic hook)
 
-`DepthTask` is 224 lines and `SurfaceNormalTask` 299 because of this — read
-both before writing a third; between them they show a scalar target and a
-vector one, a bin-expectation activation and a normalising one. The base was
+`DepthTask` is 224 lines, `SurfaceNormalTask` 299 and
+`GenericSegmentationTask` 173 because of this — read them before writing a
+fourth. Between them they show a scalar target and a vector one; a
+bin-expectation activation, a normalising one and a sigmoid; a protocol borrowed
+wholesale from probe3d and one that only borrows its schedule. The base was
 lifted out of a *working* `DepthTask` when the second task arrived, not
 designed up front; extend it the same way, from a case that already runs.
 
@@ -128,6 +133,21 @@ designed up front; extend it the same way, from a case that already runs.
 - **Validity convention**: a pixel is invalid where the target is 0 (depth) or
   zero-length (normals). Cap out-of-range values by *marking them invalid*, not
   clamping — clamping trains and scores against a wall of fabricated values.
+  **Label maps are the exception and shift by one**: for segmentation 0 is a
+  real class (background) and an unlabelled pixel is *negative*. Reusing the
+  depth convention there would discard every background pixel and train the
+  probe to answer foreground everywhere. Semantic segmentation (5h) inherits
+  this — its ignore label must not collide with class 0 either.
+- **Not every dense task gets to borrow probe3d.** It has no binary
+  segmentation task, so `GenericSegmentationTask` keeps only its *optimiser*
+  schedule and records `protocol: "visbench_binary_seg"`. Do not let a record
+  claim `"probe3d"` for a loss and metric that paper never defined; the whole
+  value of the field is that it says what a number is comparable to.
+- **The ten-epoch schedule assumes NYUv2-sized data.** Measured on 80 training
+  images: 0.16 IoU at the defaults, 0.87 at `epochs=40, lr=5e-3`, identical
+  features. That is underfitting, not a weak representation, and `train_loss`
+  is what separates the two. Do not tune the defaults away from probe3d's —
+  say so in the example instead, which `examples/segment.py` does.
 - **Per image, then averaged.** Never pool every pixel of the split; that lets
   uneven hole coverage silently reweight the dataset.
 - **Dense features stream.** ~250x the size of pooled ones (24k NYUv2 images at
@@ -152,6 +172,12 @@ designed up front; extend it the same way, from a case that already runs.
 added and why; `README.md` has the user-facing view and the measured Imagenette
 numbers. Both are kept current per step — update them in the same commit as the
 code, not afterwards.
+
+**Update this file at the end of every step, in that same commit.** The build
+table, the registered names, the layout block, the v0.2 checklist and the
+"decisions already paid for" list are how the next session knows where the work
+stands and what it must not re-derive; a step that ships code without updating
+them has left the next session to rediscover its findings the expensive way.
 
 ---
 
@@ -332,16 +358,22 @@ layer on cached features.**
 - [x] Multi-layer feature extraction, now that the single-layer path is proven.
 - [x] Depth estimation, surface normal estimation — probe3d's protocols used
       directly rather than re-deriving metrics.
-- [ ] **Generic (binary) object segmentation** — next. Subclass
-      `DenseTrainingTask`; the metric stub `binary_iou` already sits in
-      `visbench/metrics/dense.py` with the signature it should keep. Targets
-      are a scalar mask, so `target_channels = 1` and `DenseFolderDataset`
-      needs no change — but a mask must not be capped by `max_target`, and its
-      `target_loader` should emit 0/1 without normalising.
-- [ ] High-level semantic (multi-class) segmentation, alongside the mid-level
-      binary one so the two can be compared directly. Same base class; the new
-      pieces are mIoU and a class-index target that must **not** be resampled
-      as a float.
+- [x] **Generic (binary) object segmentation** — `GenericSegmentationTask`,
+      sigmoid + masked BCE + `binary_iou` (foreground IoU, Dice, pixel
+      accuracy). `load_mask` reads 0/1 or 0/255 as "non-zero is foreground" and
+      never rescales; `ignore_index=` maps a dataset's ignore value to -1.
+      `DenseFolderDataset` needed no change, but **do not pass `max_target` for
+      a mask** — it would erase the foreground class.
+- [ ] **High-level semantic (multi-class) segmentation — next.** Alongside the
+      mid-level binary one so the two can be compared directly. Same base
+      class; the new pieces are mIoU and a class-index target that must **not**
+      be resampled as a float. Read `GenericSegmentationTask` first: it already
+      settled the ignore convention (negative, not 0) and the "this is not
+      probe3d's protocol" record field, and both carry over unchanged. Its
+      `out_channels` becomes the class count, `_activate` a softmax or an
+      argmax-free logit passthrough, and the loss cross-entropy over a `long`
+      target — note the base coerces targets to **float**, which is the one
+      place a class-index target does not fit the existing path.
 - [ ] Mid-level image similarity as its own task, separate from high-level
       retrieval — see the task-categorization note; do not merge them.
 - [ ] The CLI, last, once the dense-task Python API has settled. It should be a

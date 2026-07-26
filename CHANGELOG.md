@@ -169,6 +169,40 @@ so it stands on its own rather than assuming you have read the ones above it.
   L2-normalised, and a pixel with no direction becomes exactly `(0, 0, 0)` —
   which is what marks it invalid, the role a 0 plays in a depth map.
 - `examples/normals.py`.
+- **Generic (binary) object segmentation** (`get_probe("generic_segmentation")`),
+  the third dense task and the first whose protocol is *not* probe3d's — that
+  paper has no binary segmentation task, so there was nothing to borrow. What is
+  kept is its optimiser schedule, so a backbone's segmentation number sits
+  alongside its depth and normal numbers under one training budget; the loss is
+  masked binary cross-entropy and the metrics are foreground IoU, Dice and pixel
+  accuracy. Records say `protocol: "visbench_binary_seg"` rather than
+  `"probe3d"`, so no reader mistakes the two.
+
+  Foreground IoU is the number to quote. Objects are a minority of most frames,
+  so pixel accuracy alone looks excellent for a probe that predicts background
+  everywhere — on the example dataset that is 87% accuracy at 0 IoU. All three
+  are reported precisely because they disagree there.
+- `binary_iou`, previously a `NotImplementedError` stub, with the signature it
+  always had. Per-image then averaged, like every other metric in
+  `visbench.metrics.dense`, so object size cannot reweight the split. An image
+  with neither predicted nor ground-truth foreground scores 1.0 rather than 0/0;
+  one with no labelled pixels at all contributes zero, matching how depth treats
+  an image with no valid ones.
+- A **validity convention for label maps**: a pixel is unlabelled where the
+  target is *negative*. Depth and normals read 0 as "no ground truth", and
+  reusing that here would have discarded every background pixel and trained the
+  probe to answer foreground everywhere. The loss and the metric mask
+  identically, so the pixels trained on and the pixels scored are one set.
+- `load_mask` — reads `.npy` or an image, **non-zero is foreground**, covering
+  both the 0/1 and 0/255 conventions without guessing a scale, and never
+  rescaling (dividing by 255 would turn every foreground pixel into 1/255).
+  `ignore_index=` maps a dataset's explicit ignore value — 255 in VOC-style
+  palette masks — to -1. Off by default: every pixel of a plain
+  foreground/background mask is labelled, and inventing an ignore region would
+  quietly shrink what the probe is scored on. Do not pass `max_target` for a
+  mask; it exists to invalidate out-of-range *sensor* readings and against a
+  label map would erase the foreground class.
+- `examples/segment.py`.
 
 ### Fixed
 

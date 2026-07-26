@@ -11,7 +11,9 @@ noticeably, so the conventions are spelled out rather than left implicit:
 
 * **Valid pixels only.** A pixel is valid where ``target > 0``. Sensor depth
   maps are full of holes, and scoring a prediction against a hole measures the
-  hole.
+  hole. Segmentation is the one exception and reads ``target >= 0``, because
+  there 0 is a real label — background — and an unlabelled pixel is marked
+  negative instead; see :func:`binary_iou`.
 * **Per image, then averaged.** Each image contributes one number and images
   are weighted equally. Pooling every pixel of the split instead would weight
   images by how much valid depth they happen to contain, letting a dataset with
@@ -31,6 +33,7 @@ __all__ = [
     "match_scale_and_shift",
     "surface_normal_metrics",
     "binary_iou",
+    "SEGMENTATION_THRESHOLD",
     "NYU_CROP",
 ]
 
@@ -42,8 +45,15 @@ __all__ = [
 NYU_CROP = (45, 471, 41, 601)
 
 
-def _as_maps(pred: torch.Tensor, target: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-    """Normalise ``(B, 1, H, W)`` or ``(B, H, W)`` to ``(B, H, W)``."""
+def _as_maps(
+    pred: torch.Tensor, target: torch.Tensor, noun: str = "depth"
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Normalise ``(B, 1, H, W)`` or ``(B, H, W)`` to ``(B, H, W)``.
+
+    ``noun`` only names the quantity in the error messages — every scalar dense
+    target arrives in one of these two shapes, so they all normalise here rather
+    than each metric growing its own copy of this.
+    """
     if pred.shape != target.shape:
         raise ValueError(
             f"Prediction {tuple(pred.shape)} and target {tuple(target.shape)} must match. "
@@ -51,10 +61,10 @@ def _as_maps(pred: torch.Tensor, target: torch.Tensor) -> tuple[torch.Tensor, to
         )
     if pred.ndim == 4:
         if pred.shape[1] != 1:
-            raise ValueError(f"Expected one depth channel, got {pred.shape[1]}")
+            raise ValueError(f"Expected one {noun} channel, got {pred.shape[1]}")
         return pred.squeeze(1), target.squeeze(1)
     if pred.ndim != 3:
-        raise ValueError(f"Expected (B, H, W) or (B, 1, H, W) depth maps, got {tuple(pred.shape)}")
+        raise ValueError(f"Expected (B, H, W) or (B, 1, H, W) {noun} maps, got {tuple(pred.shape)}")
     return pred, target
 
 
@@ -308,6 +318,72 @@ def _masked_median(error: torch.Tensor, mask: torch.Tensor, count: torch.Tensor)
     return torch.where(count > 0, median, torch.zeros_like(median))
 
 
+#: A predicted probability at or above this counts as foreground. Half is the
+#: only threshold that needs no justification, and a probe's score is meant to
+#: measure the representation rather than a tuned operating point — sweeping it
+#: would report the best threshold for each backbone, which is a different and
+#: much more flattering number.
+SEGMENTATION_THRESHOLD = 0.5
+
+
 def binary_iou(pred: torch.Tensor, target: torch.Tensor) -> MetricsDict:
-    """Foreground IoU and pixel accuracy for generic object segmentation."""
-    raise NotImplementedError("Generic object segmentation, and its metrics, land with that task.")
+    """Foreground IoU and pixel accuracy for generic object segmentation.
+
+    ``{"iou", "f1", "pixel_acc"}``, each a per-image value averaged over the
+    batch — the same convention as :func:`depth_metrics` and
+    :func:`surface_normal_metrics`, and for the same reason: pooling every pixel
+    of the split instead would weight images by how much of the frame their
+    object happens to fill.
+
+    Unlike depth and normals this protocol is **not** probe3d's — that paper has
+    no binary segmentation task. Foreground IoU is the near-universal choice in
+    the figure-ground literature, and it is reported alongside ``f1`` (Dice, the
+    other convention) and ``pixel_acc`` because the three disagree in a useful
+    way: accuracy alone looks excellent for a probe that predicts background
+    everywhere, which on a dataset where objects cover a fifth of the frame is
+    already 80%. IoU is the one to quote.
+
+    Parameters
+    ----------
+    pred:
+        ``(B, 1, H, W)`` or ``(B, H, W)`` foreground **probabilities**, not
+        logits — thresholded at :data:`SEGMENTATION_THRESHOLD`.
+    target:
+        Same shape. ``1`` is foreground and ``0`` background; anything
+        **negative** marks a pixel as unlabelled and excludes it from all three
+        metrics, which is how a dataset with an explicit ignore region travels
+        through. This mirrors depth's "0 means no ground truth", differing only
+        because 0 is a real label here.
+
+    Notes
+    -----
+    An image with neither predicted nor ground-truth foreground scores 1.0
+    rather than 0/0. That is the honest reading — nothing was there and nothing
+    was claimed — but it does mean a split full of empty targets flatters every
+    probe equally, so it is worth knowing whether yours contains any.
+    """
+    pred, gt = _as_maps(pred, target, noun="mask")
+    valid = (gt >= 0).float()
+
+    predicted = ((pred >= SEGMENTATION_THRESHOLD).float()) * valid
+    actual = ((gt > SEGMENTATION_THRESHOLD).float()) * valid
+
+    intersection = (predicted * actual).sum(dim=(1, 2))
+    union = ((predicted + actual) > 0).float().mul(valid).sum(dim=(1, 2))
+    correct = ((predicted == actual).float() * valid).sum(dim=(1, 2))
+    num_valid = valid.sum(dim=(1, 2))
+
+    # An image with no foreground in either map has an empty union: the probe
+    # got it exactly right, so it scores 1 instead of the 0/0 the ratio gives.
+    # An image with no *valid* pixels at all is a different case and contributes
+    # zero to every metric, exactly as it does for depth and normals.
+    empty = (union == 0) & (num_valid > 0)
+    iou = torch.where(empty, torch.ones_like(union), intersection / union.clamp(min=1))
+    denominator = intersection + union
+    f1 = torch.where(empty, torch.ones_like(union), 2 * intersection / denominator.clamp(min=1))
+
+    return {
+        "iou": iou.mean().item(),
+        "f1": f1.mean().item(),
+        "pixel_acc": (correct / num_valid.clamp(min=1)).mean().item(),
+    }

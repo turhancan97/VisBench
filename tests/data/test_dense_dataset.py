@@ -13,7 +13,7 @@ import pytest
 import torch
 from PIL import Image
 
-from visbench.data import DenseFolderDataset, load_depth_map, load_normal_map
+from visbench.data import DenseFolderDataset, load_depth_map, load_mask, load_normal_map
 
 
 def build(root, depths, images=None, image_suffix=".png", target_suffix=".npy"):
@@ -387,3 +387,91 @@ class TestLoadNormalMap:
         np.save(path, np.zeros((4, 4, 5), dtype=np.float32))
         with pytest.raises(ValueError, match="length-3 axis"):
             load_normal_map(path)
+
+
+class TestLoadMask:
+    """The third target type, and the first where **0 is a label**.
+
+    Depth and normals both write 0 for "no ground truth". A mask writes 0 for
+    background, which is a real class the probe must learn — so the validity
+    convention shifts to "negative means unlabelled", and nothing here may
+    quietly rescale a label into a fraction.
+    """
+
+    def test_a_zero_one_npy_mask_is_read_as_is(self, tmp_path):
+        path = tmp_path / "m.npy"
+        array = np.zeros((4, 4), dtype=np.uint8)
+        array[:2] = 1
+        np.save(path, array)
+        mask = load_mask(path)
+        assert mask.dtype == torch.float32
+        assert set(mask.unique().tolist()) == {0.0, 1.0}
+        assert mask[:2].sum().item() == 8.0
+
+    def test_a_zero_255_png_mask_gives_the_same_answer(self, tmp_path):
+        """Both conventions are in circulation, so the rule is simply
+        "non-zero is foreground" rather than a scale that has to be guessed."""
+        array = np.zeros((4, 4), dtype=np.uint8)
+        array[:2] = 255
+        Image.fromarray(array).save(tmp_path / "m.png")
+        np.save(tmp_path / "m.npy", (array > 0).astype(np.uint8))
+        assert torch.equal(load_mask(tmp_path / "m.png"), load_mask(tmp_path / "m.npy"))
+
+    def test_it_never_normalises(self, tmp_path):
+        """Dividing by 255 would turn every foreground pixel into 1/255 and
+        train the probe to predict background everywhere."""
+        path = tmp_path / "m.png"
+        Image.fromarray(np.full((4, 4), 255, dtype=np.uint8)).save(path)
+        assert load_mask(path).min().item() == 1.0
+
+    def test_an_rgb_mask_is_flattened_to_grey(self, tmp_path):
+        path = tmp_path / "m.png"
+        array = np.zeros((4, 4, 3), dtype=np.uint8)
+        array[:2] = 255
+        Image.fromarray(array).save(path)
+        assert load_mask(path)[:2].min().item() == 1.0
+
+    def test_no_ignore_region_by_default(self, tmp_path):
+        """Every pixel of a plain foreground/background mask is labelled;
+        inventing an ignore region would shrink what the probe is scored on."""
+        path = tmp_path / "m.png"
+        Image.fromarray(np.full((4, 4), 255, dtype=np.uint8)).save(path)
+        assert load_mask(path).min().item() >= 0.0
+
+    def test_an_ignore_index_becomes_negative(self, tmp_path):
+        """255 in a VOC-style palette mask outlines objects; those pixels must
+        reach the loss and the metric as "no ground truth here"."""
+        path = tmp_path / "m.png"
+        array = np.zeros((4, 4), dtype=np.uint8)
+        array[0] = 1
+        array[1] = 255
+        Image.fromarray(array).save(path)
+        mask = load_mask(path, ignore_index=255)
+        assert mask[0].tolist() == [1.0] * 4
+        assert mask[1].tolist() == [-1.0] * 4
+        assert mask[2].tolist() == [0.0] * 4
+
+    def test_a_three_dimensional_npy_is_refused(self, tmp_path):
+        path = tmp_path / "m.npy"
+        np.save(path, np.zeros((2, 4, 4), dtype=np.uint8))
+        with pytest.raises(ValueError, match="a binary mask is 2D"):
+            load_mask(path)
+
+    def test_masks_resample_nearest_neighbour(self, tmp_path):
+        """A label map has no meaningful average: bilinear would invent
+        half-foreground pixels along every object boundary."""
+        root = tmp_path / "seg"
+        (root / "images").mkdir(parents=True)
+        (root / "masks").mkdir(parents=True)
+        array = np.zeros((64, 64), dtype=np.uint8)
+        array[:32] = 255
+        Image.fromarray(np.zeros((64, 64, 3), dtype=np.uint8)).save(root / "images" / "s.png")
+        Image.fromarray(array).save(root / "masks" / "s.png")
+
+        dataset = DenseFolderDataset(
+            root, target_dir="masks", image_size=16, target_loader=load_mask
+        )
+        target = dataset.target(0)
+        assert target.shape == (16, 16)
+        assert set(target.unique().tolist()) == {0.0, 1.0}, "no intermediate values"
+        assert target[:8].min().item() == 1.0 and target[8:].max().item() == 0.0

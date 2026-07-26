@@ -125,6 +125,7 @@ _REGISTRATION_MODULES: dict[str, Optional[str]] = {
     "visbench.tasks.mid_level.correspondence": None,
     "visbench.tasks.mid_level.depth": None,
     "visbench.tasks.mid_level.surface_normal": None,
+    "visbench.tasks.mid_level.generic_segmentation": None,
 }
 
 _IMPORTED = False

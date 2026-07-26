@@ -172,14 +172,16 @@ This is a multi-month roadmap, built one reviewed step at a time.
       larger than memory
 - [x] **5f.** surface normals — probe3d's angular protocol, reusing the dense
       dataset, the streaming path and the shared `DenseTrainingTask`
-- [ ] **5g.** rest of v0.2 — generic segmentation, semantic segmentation,
-      mid-level similarity, CLI
+- [x] **5g.** generic (binary) segmentation — the first dense task whose
+      protocol is not probe3d's, and the first target where 0 is a label rather
+      than a hole
+- [ ] **5h.** rest of v0.2 — semantic segmentation, mid-level similarity, CLI
 
 ## Roadmap
 
 **v0.1** — prove the abstraction. DINOv2 + CLIP. Zero-shot or linear-probe-on-cached-features only; no fine-tuning, no dense training loops. Deferred: CLI, custom backbones, ResNet/timm, multi-layer extraction.
 
-**v0.2** — ResNet/timm + custom backbones *(done)*, pluggable heads (linear + DPT) *(done)*, multi-layer extraction *(done)*, depth estimation *(done)*, surface normals *(done)*, remaining dense mid-level tasks (probe3d protocols), CLI.
+**v0.2** — ResNet/timm + custom backbones *(done)*, pluggable heads (linear + DPT) *(done)*, multi-layer extraction *(done)*, depth estimation *(done)*, surface normals *(done)*, generic (binary) segmentation *(done)*, semantic segmentation, mid-level similarity, CLI.
 
 **v0.3** — opt-in fine-tuning of the last N blocks, detection groundwork, HF Hub probe sharing and a public leaderboard.
 
@@ -302,15 +304,19 @@ the backbone failed.
 
 ### Dense tasks
 
-[`examples/depth.py`](examples/depth.py) and
-[`examples/normals.py`](examples/normals.py) train a probe head on frozen dense
-features, following [probe3d](https://arxiv.org/abs/2404.08476)'s protocols.
-Both want images and per-pixel targets paired by filename stem under
-`train/` and `val/`:
+[`examples/depth.py`](examples/depth.py),
+[`examples/normals.py`](examples/normals.py) and
+[`examples/segment.py`](examples/segment.py) train a probe head on frozen dense
+features. Depth and normals follow
+[probe3d](https://arxiv.org/abs/2404.08476)'s protocols; binary segmentation
+borrows only its optimiser schedule, since that paper has no such task. All
+three want images and per-pixel targets paired by filename stem under `train/`
+and `val/`:
 
 ```bash
 python examples/depth.py   --data /path/to/dataset --target-scale 1000
 python examples/normals.py --data /path/to/dataset --normal-source geonet
+python examples/segment.py --data /path/to/dataset
 ```
 
 **Report the linear head.** It is the default and the only one under which a
@@ -322,12 +328,12 @@ both and say which:
 python examples/normals.py --data ... --head dpt --layers 2 5 8 11
 ```
 
-Features are shared between the two tasks when the images and `--image-size`
-match, so probing both on one dataset costs one extraction. Splits larger than
-memory are fine — dense features stream from the cache a batch at a time rather
-than being stacked.
+Features are shared between the three tasks when the images and `--image-size`
+match, so probing all of them on one dataset costs one extraction. Splits larger
+than memory are fine — dense features stream from the cache a batch at a time
+rather than being stacked.
 
-Two things that will bite otherwise:
+Things that will bite otherwise:
 
 - **Say where surface normals came from.** NYU's are derived (GeoNet's
   extraction, or Ladicky's) rather than sensed, and the sources disagree enough
@@ -336,6 +342,16 @@ Two things that will bite otherwise:
   failure mode near chance accuracy where it all but switches its own
   supervision off. VisBench detects it and warns; `--no-uncertainty` is the way
   out. See `SurfaceNormalTask.fit` for the measured dynamics.
+- **Quote IoU, not pixel accuracy, for segmentation.** Objects are a minority of
+  most frames, so a probe predicting background everywhere already scores high
+  accuracy and zero IoU. `examples/segment.py` prints the foreground fraction
+  and that baseline before it trains, so the comparison is unavoidable.
+- **The ten-epoch schedule assumes a dataset the size of NYUv2.** On a small
+  split it underfits badly — 80 training images gave 0.16 IoU at the defaults
+  and 0.87 at `--epochs 40 --lr 5e-3`, on identical features. `train_loss` is
+  printed for exactly this: a poor score with a high training loss means the
+  probe did not converge, which is a different finding from a representation
+  that does not carry the signal.
 
 ### Measured on Imagenette
 

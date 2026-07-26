@@ -29,7 +29,7 @@ from PIL import Image
 from visbench.data.base import BaseDataset
 from visbench.utils.image import load_image
 
-__all__ = ["DenseFolderDataset", "load_depth_map", "load_normal_map"]
+__all__ = ["DenseFolderDataset", "load_depth_map", "load_normal_map", "load_mask"]
 
 #: Target file suffixes understood without a custom ``target_loader``.
 _TARGET_SUFFIXES = (".npy", ".png", ".tiff", ".tif")
@@ -104,6 +104,52 @@ def load_normal_map(path: Path) -> torch.Tensor:
 
     length = normals.norm(dim=0, keepdim=True)
     return torch.where(length > 0.1, normals / length.clamp(min=1e-8), torch.zeros_like(normals))
+
+
+def load_mask(path: Path, ignore_index: Optional[int] = None) -> torch.Tensor:
+    """Read a binary segmentation mask as a ``(H, W)`` float32 tensor of 0 and 1.
+
+    ``.npy`` is taken at face value; an image file is read as 8-bit greyscale,
+    which covers both conventions in circulation — a mask stored as 0/1 and one
+    stored as 0/255 — because the rule is simply **non-zero is foreground**. No
+    normalisation and no scaling: a mask is a label, not a measurement, and
+    dividing it by 255 would turn every foreground pixel into 1/255 and train
+    the probe to predict background everywhere.
+
+    For the same reason, do not pass ``max_target`` to
+    :class:`DenseFolderDataset` for masks. It exists to mark out-of-range
+    *sensor* readings invalid; against a label map it would silently erase the
+    foreground class.
+
+    Parameters
+    ----------
+    ignore_index:
+        Raw value marking unlabelled pixels — 255 in the VOC-style palette
+        masks, where it outlines objects. Those pixels come back as ``-1``,
+        which :func:`~visbench.metrics.dense.binary_iou` and the task's loss
+        both read as "no ground truth here". Left ``None`` by default: for a
+        plain foreground/background mask every pixel *is* labelled, and
+        inventing an ignore region would quietly shrink what the probe is
+        scored on. Bind it with ``functools.partial(load_mask,
+        ignore_index=255)``.
+    """
+    if path.suffix.lower() == ".npy":
+        array = np.load(path)
+    else:
+        with Image.open(path) as handle:
+            array = np.array(handle.convert("L"))
+
+    if array.ndim != 2:
+        raise ValueError(
+            f"{path.name} holds a {array.ndim}D array {array.shape}; a binary mask is 2D. "
+            "Pass target_loader= for a layout this does not cover."
+        )
+
+    raw = torch.from_numpy(array)
+    mask = (raw != 0).float()
+    if ignore_index is not None:
+        mask = torch.where(raw == ignore_index, torch.full_like(mask, -1.0), mask)
+    return mask
 
 
 class DenseFolderDataset(BaseDataset):

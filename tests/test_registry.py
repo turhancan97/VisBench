@@ -134,13 +134,20 @@ def test_surface_normal_is_registered():
     assert visbench.get_probe("surface_normal").level == "mid_level"
 
 
+def test_generic_segmentation_is_registered():
+    """The third dense task, v0.2 — mid-level, not high-level: figure-ground
+    separation without naming either side."""
+    assert "generic_segmentation" in visbench.list_probes()
+    assert visbench.get_probe("generic_segmentation").level == "mid_level"
+
+
 def test_unregistered_task_fails_informatively():
     """The error must list what does exist.
 
-    ``generic_segmentation`` is the next dense task still to land; when it
-    does, point this at whatever remains a stub rather than deleting it — the
-    check is that an unknown name is *helpfully* rejected, not which name.
+    ``semantic_segmentation`` is the next task still to land; when it does,
+    point this at whatever remains a stub rather than deleting it — the check
+    is that an unknown name is *helpfully* rejected, not which name.
     """
     with pytest.raises(KeyError, match="Unknown task") as excinfo:
-        visbench.get_probe("generic_segmentation")
+        visbench.get_probe("semantic_segmentation")
     assert "correspondence" in str(excinfo.value)
