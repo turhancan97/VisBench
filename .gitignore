@@ -4,7 +4,10 @@ __pycache__/
 *.egg-info/
 build/
 dist/
-.venv/
+# No trailing slash: the venv may be a symlink to storage outside the home
+# quota, and a trailing slash matches directories only -- git treats a symlink
+# as a file, so `.venv/` would leave it untracked-but-visible.
+.venv
 venv/
 
 # Tooling
