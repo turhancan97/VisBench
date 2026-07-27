@@ -6,11 +6,16 @@ resolution are backbone properties, not dataset properties. This is what allows
 the same dataset object to feed DINOv2 and CLIP unchanged.
 """
 
+import copy
 from abc import ABC, abstractmethod
-from collections.abc import Iterator
-from typing import Any
+from collections.abc import Iterator, Sequence
+from typing import Any, TypeVar
 
 __all__ = ["BaseDataset"]
+
+#: Lets subset() return the caller's own type rather than the base, so a
+#: DenseFolderDataset stays one through a --limit and keeps its dense methods.
+DatasetT = TypeVar("DatasetT", bound="BaseDataset")
 
 
 class BaseDataset(ABC):
@@ -26,6 +31,14 @@ class BaseDataset(ABC):
 
     #: Split identifier ("train" / "val" / "test"), also logged.
     split: str = ""
+
+    #: Attribute names holding sequences in dataset order, which :meth:`subset`
+    #: reindexes **together**. A dense dataset carries three of them — stems,
+    #: image paths, target paths — and slicing one without the others pairs a
+    #: target with the wrong image, which nothing downstream would catch. Naming
+    #: them here is what lets one implementation get that right for every
+    #: subclass instead of each caller re-deriving it.
+    _parallel_attrs: tuple[str, ...] = ()
 
     @abstractmethod
     def __len__(self) -> int:
@@ -83,6 +96,60 @@ class BaseDataset(ABC):
         misleading one.
         """
         return None
+
+    def subset(self: DatasetT, indices: int | Sequence[int]) -> DatasetT:
+        """A new dataset over ``indices``, or over the first ``n`` if an int.
+
+        The public way to shorten a split — for a quick run, a smoke test, or a
+        CLI ``--limit``. Before this existed every example did it by hand, and
+        the dense ones had to slice three parallel lists in step while a comment
+        explained that dropping one would pair a target with the wrong image.
+        That hazard belongs in one tested place.
+
+        The original is left untouched: a shallow copy shares the heavy state
+        (loaders, roots) and gets its own reindexed sequences, so subsetting a
+        dataset you are still using cannot disturb it.
+
+        ``fingerprint`` follows automatically, because it is computed from the
+        very sequences this reindexes — so a limited run and a full one are
+        distinguishable in the cache and in the result record, rather than the
+        short run poisoning the long one's entry.
+
+        Parameters
+        ----------
+        indices:
+            An ``int`` takes the first ``n`` in order and is **clamped** to the
+            dataset's length, matching "use at most N". An explicit sequence is
+            validated strictly: an out-of-range index raises rather than being
+            skipped, since a silently shorter split is the failure this method
+            exists to prevent.
+        """
+        if not self._parallel_attrs:
+            raise NotImplementedError(
+                f"{type(self).__name__} does not declare _parallel_attrs, so it cannot "
+                "be subset generically. Set them, or override subset()."
+            )
+
+        if isinstance(indices, int):
+            if indices < 1:
+                raise ValueError(f"subset(n) needs n >= 1, got {indices}")
+            chosen = list(range(min(indices, len(self))))
+        else:
+            chosen = [int(index) for index in indices]
+            if not chosen:
+                raise ValueError("subset() got an empty index sequence")
+            out_of_range = [index for index in chosen if not 0 <= index < len(self)]
+            if out_of_range:
+                raise IndexError(
+                    f"{len(out_of_range)} index/indices out of range for a dataset of "
+                    f"{len(self)}: {out_of_range[:5]}"
+                )
+
+        clone = copy.copy(self)
+        for attribute in self._parallel_attrs:
+            sequence = getattr(self, attribute)
+            setattr(clone, attribute, [sequence[index] for index in chosen])
+        return clone
 
     def describe(self) -> dict:
         """Dataset metadata (name, split, size, fingerprint) for the result record."""

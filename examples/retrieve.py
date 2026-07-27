@@ -43,20 +43,21 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def load(root: Path, split: str, limit: int = None) -> ImageFolderDataset:
+def load(root: Path, split: str, limit: int | None = None) -> ImageFolderDataset:
     dataset = ImageFolderDataset(root / split if split else root, split=split or "all")
     if limit is None:
         return dataset
 
-    kept_paths, kept_labels, seen = [], [], {}
-    for path, label in zip(dataset.paths, dataset._labels, strict=True):
+    # Per *class*, not per split: the first N paths overall would all come from
+    # class 0, and a single-class retrieval scores 1.0 while measuring nothing.
+    kept: list[int] = []
+    seen: dict[int | None, int] = {}
+    for index, label in enumerate(dataset.labels()):
         if seen.get(label, 0) >= limit:
             continue
         seen[label] = seen.get(label, 0) + 1
-        kept_paths.append(path)
-        kept_labels.append(label)
-    dataset.paths, dataset._labels = kept_paths, kept_labels
-    return dataset
+        kept.append(index)
+    return dataset.subset(kept)
 
 
 def main() -> None:

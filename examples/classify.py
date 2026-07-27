@@ -50,7 +50,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def load_split(root: Path, split: str, limit: int = None) -> ImageFolderDataset:
+def load_split(root: Path, split: str, limit: int | None = None) -> ImageFolderDataset:
     dataset = ImageFolderDataset(root / split, split=split)
     if limit is None:
         return dataset
@@ -58,18 +58,18 @@ def load_split(root: Path, split: str, limit: int = None) -> ImageFolderDataset:
     # Per *class*, not per split: slicing the first N paths overall would take
     # them all from class 0, and a single-class evaluation reports 1.0 while
     # measuring nothing.
-    kept_paths, kept_labels, seen = [], [], {}
-    for path, label in zip(dataset.paths, dataset._labels, strict=True):
+    kept: list[int] = []
+    seen: dict[int | None, int] = {}
+    for index, label in enumerate(dataset.labels()):
         if seen.get(label, 0) >= limit:
             continue
         seen[label] = seen.get(label, 0) + 1
-        kept_paths.append(path)
-        kept_labels.append(label)
+        kept.append(index)
 
-    dataset.paths, dataset._labels = kept_paths, kept_labels
-    # The fingerprint is derived from the surviving file list, so a limited run
-    # can never be mistaken for a full one in the results.
-    return dataset
+    # subset() reindexes every parallel sequence together and leaves the
+    # original alone. The fingerprint is derived from the surviving file list,
+    # so a limited run can never be mistaken for a full one in the results.
+    return dataset.subset(kept)
 
 
 def main() -> None:

@@ -177,6 +177,12 @@ designed up front; extend it the same way, from a case that already runs.
   scale the defaults are fine**: 1464 VOC training images reach 0.73 mIoU at
   ten epochs with `train_loss` 0.19, so the schedule is not the problem, small
   splits are.
+- **Shorten a split with `dataset.subset()`, never by slicing its attributes.**
+  A dense dataset carries three index-parallel lists and slicing one alone pairs
+  a target with the wrong image, silently, since every later step still sees
+  equal lengths. Subclasses declare `_parallel_attrs`; the base reindexes them
+  together and the fingerprint follows, so a limited run cannot be mistaken for
+  a full one. The CLI (5j) needs exactly this — do not reinvent it there.
 - **Per image, then averaged.** Never pool every pixel of the split; that lets
   uneven hole coverage silently reweight the dataset.
 - **Dense features stream.** ~250x the size of pooled ones (24k NYUv2 images at
@@ -497,11 +503,11 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 682 fast tests
+pytest                                              # 768 fast tests
 pytest -m slow                                      # 73, real DINOv2/CLIP weights
-ruff check visbench/ tests/ conftest.py
-ruff format --check visbench/ tests/ conftest.py
-mypy visbench/ --ignore-missing-imports             # reads [tool.mypy], py 3.12
+ruff check visbench/ tests/ conftest.py examples/
+ruff format --check visbench/ tests/ conftest.py examples/
+mypy visbench/ examples/ --ignore-missing-imports   # reads [tool.mypy], py 3.12
 ```
 
 CI runs all five: the four fast ones gate every push and pull request, and

@@ -14,8 +14,8 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           # Keep equal to [tool.mypy] python_version in pyproject.toml. mypy
           # parses dependency stubs under that version, and numpy 2.x's require
@@ -29,7 +29,7 @@ jobs:
       - name: mypy
         # Gating. It was continue-on-error while everything was stubs, which
         # made it a check that could never fail -- worse than not running it.
-        run: mypy visbench/ --ignore-missing-imports
+        run: mypy visbench/ examples/ --ignore-missing-imports
 
   test:
     runs-on: ubuntu-latest
@@ -39,8 +39,8 @@ jobs:
         # Both ends of the supported range from pyproject `requires-python`.
         python-version: ["3.10", "3.12"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
@@ -58,8 +58,8 @@ jobs:
     # looks like a reproducibility guarantee and is not one.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
       - name: uv.lock matches pyproject.toml
         run: uv lock --check
 
@@ -68,8 +68,8 @@ jobs:
     # bad metadata) long before a release is attempted.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
       - run: pip install build twine

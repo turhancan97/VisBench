@@ -67,8 +67,8 @@ def main() -> None:
         root, max_warp=args.max_warp, seed=args.seed, image_size=args.image_size
     )
     if args.limit:
-        dataset._source.paths = dataset._source.paths[: args.limit]
-        dataset._source._labels = dataset._source._labels[: args.limit]
+        # A prefix, so each pair keeps the warp it had in the full set.
+        dataset = dataset.subset(args.limit)
     print(f"{len(dataset)} pairs, max_warp={args.max_warp}")
 
     backbone = visbench.get_backbone(args.backbone, device=args.device)

@@ -5,7 +5,9 @@ than single images and labels, so it gets its own interface instead of being
 forced into :class:`ImageFolderDataset`.
 """
 
+import copy
 import hashlib
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -159,6 +161,27 @@ class HomographyPairDataset(PairDataset):
 
     def __len__(self) -> int:
         return len(self._source)
+
+    def subset(
+        self: "HomographyPairDataset", indices: int | Sequence[int]
+    ) -> "HomographyPairDataset":
+        """A new pair dataset over ``indices``, by subsetting the image source.
+
+        Overridden because this class holds no per-index sequences of its own:
+        it delegates length and reads to ``_source``.
+
+        Note what a subset does to the warps. Each is drawn from ``seed`` and
+        the **position**, not from the image, so a prefix (``subset(n)``, the
+        ``--limit`` case) keeps exactly the warps those images had in the full
+        set, while an arbitrary index list gives them the warps of their *new*
+        positions. Neither is wrong — the pairs are synthetic either way, and
+        ``cache_identity`` folds the seed in so nothing stale is reused — but a
+        reordered subset is not a sub-experiment of the original, and should not
+        be reported as one.
+        """
+        clone = copy.copy(self)
+        clone._source = self._source.subset(indices)
+        return clone
 
     def _to_frame(self, image: Image.Image) -> Image.Image:
         """Centre-crop square and resize to ``image_size``.

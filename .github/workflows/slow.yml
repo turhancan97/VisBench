@@ -43,9 +43,9 @@ jobs:
     # ResNets. A warm one should finish in a few minutes.
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           # The floor, where a version-specific import failure would show up.
           python-version: "3.10"

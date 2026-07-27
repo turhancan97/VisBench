@@ -19,6 +19,9 @@ __all__ = ["ImageFolderDataset"]
 class ImageFolderDataset(BaseDataset):
     """Images on disk, optionally labeled by parent directory name."""
 
+    #: Reindexed together by :meth:`BaseDataset.subset`.
+    _parallel_attrs = ("paths", "_labels")
+
     def __init__(
         self,
         root: Path,

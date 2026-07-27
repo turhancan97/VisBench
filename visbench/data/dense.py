@@ -248,6 +248,11 @@ class DenseFolderDataset(BaseDataset):
     present in one folder and not the other raises.
     """
 
+    #: All three are in dataset order and :meth:`BaseDataset.subset` reindexes
+    #: them together. Slicing one alone would pair a target with the wrong
+    #: image — silently, since every later step would still see equal lengths.
+    _parallel_attrs = ("stems", "image_paths", "target_paths")
+
     def __init__(
         self,
         root: str | Path,

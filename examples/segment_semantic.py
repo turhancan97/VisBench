@@ -144,11 +144,7 @@ def load_split(args: argparse.Namespace, split: str) -> DenseFolderDataset:
         target_loader=loader,
     )
     if args.limit is not None:
-        # Every parallel list stays in step: dropping one would pair a label map
-        # with the wrong image, which no later check would catch.
-        dataset.stems = dataset.stems[: args.limit]
-        dataset.image_paths = dataset.image_paths[: args.limit]
-        dataset.target_paths = dataset.target_paths[: args.limit]
+        dataset = dataset.subset(args.limit)
     return dataset
 
 

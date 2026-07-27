@@ -11,6 +11,18 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Added
 
+- **`BaseDataset.subset(n_or_indices)`** — the public way to shorten a split.
+  Every example had been doing it by hand: two reached into the private
+  `_labels`, and the four dense ones sliced three parallel lists in step, each
+  carrying the same comment warning that dropping one would pair a target with
+  the wrong image. A hazard that needs the same warning copy-pasted four times
+  is a missing method. Subclasses declare `_parallel_attrs` and one tested
+  implementation reindexes them together; `PairDataset` overrides it, since it
+  delegates to a source rather than holding sequences. The original is left
+  untouched, and `fingerprint()` follows automatically, so a `--limit` run can
+  never be mistaken for a full one in the cache or the record. An `int` clamps
+  ("use at most N"); an explicit index list is validated strictly, because a
+  silently shorter split is the failure the method exists to prevent.
 - **Semantic (multi-class) segmentation** (`semantic_segmentation`) — the
   high-level counterpart to the mid-level binary task, on the same base class
   and schedule so a difference between the two numbers is a difference in what
@@ -268,6 +280,12 @@ so it stands on its own rather than assuming you have read the ones above it.
   that already existed a few lines above, which is the point: a silently
   truncating zip is the failure mode CLAUDE.md warns about for index-paired
   targets, and it still trains.
+- `examples/` is type-checked in CI as well as linted, which caught four real
+  signature bugs there (`limit: int = None`) and one in the new `subset()`:
+  it returned `BaseDataset`, so a `DenseFolderDataset` stopped being one after
+  a `--limit`. Now generic over the caller's type.
+- Workflow actions moved off the deprecated Node 20 runtime
+  (`checkout@v5`, `setup-python@v6`, `setup-uv@v6`).
 - `examples/` is linted in CI. It was outside both ruff steps, so two
   `zip(strict=)` sites there survived the sweep that fixed the rest ([#4]).
 - **CI now runs the slow suite** ([#2]), in `.github/workflows/slow.yml`:

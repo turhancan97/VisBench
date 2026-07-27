@@ -93,11 +93,7 @@ def load_split(root: Path, split: str, args: argparse.Namespace) -> DenseFolderD
         target_loader=load_normal_map,
     )
     if args.limit is not None:
-        # Every stem list stays in step: dropping one of the three would pair a
-        # normal map with the wrong image, which no later check would catch.
-        dataset.stems = dataset.stems[: args.limit]
-        dataset.image_paths = dataset.image_paths[: args.limit]
-        dataset.target_paths = dataset.target_paths[: args.limit]
+        dataset = dataset.subset(args.limit)
     return dataset
 
 
