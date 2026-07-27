@@ -15,9 +15,10 @@
 
 ---
 
-> **Status: v0.1.0 released; v0.2 in progress.** Three backbone families
-> (DINOv2, CLIP, timm CNNs) and all three v0.1 tasks run end-to-end on a local
-> image folder. Not yet on PyPI. See [Build order](#build-order).
+> **Status: v0.1.0 released; v0.2 nearly complete.** Three backbone families
+> (DINOv2, CLIP, timm CNNs) and seven tasks run end-to-end, including four
+> trained dense probes. Mid-level similarity and the CLI remain. Not yet on
+> PyPI. See [Build order](#build-order).
 
 ## What it is
 
@@ -175,7 +176,10 @@ This is a multi-month roadmap, built one reviewed step at a time.
 - [x] **5g.** generic (binary) segmentation — the first dense task whose
       protocol is not probe3d's, and the first target where 0 is a label rather
       than a hole
-- [ ] **5h.** rest of v0.2 — semantic segmentation, mid-level similarity, CLI
+- [x] **5h.** semantic (multi-class) segmentation — the high-level counterpart
+      to 5g, on the same base class, with a class-index target and mIoU under
+      both reductions
+- [ ] **5i.** rest of v0.2 — mid-level similarity, then the CLI
 
 ## Roadmap
 
@@ -305,19 +309,38 @@ the backbone failed.
 ### Dense tasks
 
 [`examples/depth.py`](examples/depth.py),
-[`examples/normals.py`](examples/normals.py) and
-[`examples/segment.py`](examples/segment.py) train a probe head on frozen dense
-features. Depth and normals follow
-[probe3d](https://arxiv.org/abs/2404.08476)'s protocols; binary segmentation
-borrows only its optimiser schedule, since that paper has no such task. All
-three want images and per-pixel targets paired by filename stem under `train/`
-and `val/`:
+[`examples/normals.py`](examples/normals.py),
+[`examples/segment.py`](examples/segment.py) and
+[`examples/segment_semantic.py`](examples/segment_semantic.py) train a probe
+head on frozen dense features. Depth and normals follow
+[probe3d](https://arxiv.org/abs/2404.08476)'s protocols; both segmentation tasks
+borrow only its optimiser schedule, since that paper has neither. They want
+images and per-pixel targets paired by filename stem under `train/` and `val/`:
 
 ```bash
 python examples/depth.py   --data /path/to/dataset --target-scale 1000
 python examples/normals.py --data /path/to/dataset --normal-source geonet
 python examples/segment.py --data /path/to/dataset
+python examples/segment_semantic.py --data /path/to/dataset --num-classes 21
 ```
+
+Semantic segmentation also reads the Pascal VOC devkit directly, using the
+official split lists rather than whatever the folders contain:
+
+```bash
+python examples/segment_semantic.py --data /path/to/pascal_voc --voc
+```
+
+Measured on VOC 2012 val (1449 images), linear head, 224px, at the default
+ten-epoch schedule:
+
+| metric | DINOv2-S/14 | DINOv2-B/14 |
+| --- | --- | --- |
+| `miou` (dataset-level) | 0.732 | **0.753** |
+| `miou_per_image` | 0.683 | 0.712 |
+| `pixel_acc` | 0.926 | 0.931 |
+| `mean_acc` | 0.831 | 0.838 |
+| `train_loss` | 0.193 | 0.166 |
 
 **Report the linear head.** It is the default and the only one under which a
 difference between two backbones is a difference between two *feature maps*.
@@ -346,6 +369,18 @@ Things that will bite otherwise:
   most frames, so a probe predicting background everywhere already scores high
   accuracy and zero IoU. `examples/segment.py` prints the foreground fraction
   and that baseline before it trains, so the comparison is unavoidable.
+- **Two mIoUs are reported and they differ.** `miou` accumulates one confusion
+  matrix over the whole split, which is what VOC and the literature define;
+  `miou_per_image` averages each image's own mIoU, this codebase's convention
+  elsewhere. On VOC they sit five points apart. Quote `miou` against published
+  numbers, and say which one you mean.
+- **Label maps are read without mode conversion, and getting this wrong is
+  silent.** VOC's PNGs are palette images whose raw bytes are the class indices;
+  resolving the palette turns classes `[0, 1, 15]` into `[0, 38, 147]`, which
+  trains and scores perfectly happily against labels that mean nothing. Use
+  `load_label_map`, not `load_mask`, for anything multi-class — including
+  binarising a VOC map, since `load_mask` would read its void border as
+  foreground.
 - **The ten-epoch schedule assumes a dataset the size of NYUv2.** On a small
   split it underfits badly — 80 training images gave 0.16 IoU at the defaults
   and 0.87 at `--epochs 40 --lr 5e-3`, on identical features. `train_loss` is

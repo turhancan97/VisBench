@@ -19,7 +19,7 @@ out bad — which is worse.
 """
 
 import hashlib
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -30,7 +30,13 @@ from PIL import Image
 from visbench.data.base import BaseDataset
 from visbench.utils.image import load_image
 
-__all__ = ["DenseFolderDataset", "load_depth_map", "load_normal_map", "load_mask"]
+__all__ = [
+    "DenseFolderDataset",
+    "load_depth_map",
+    "load_normal_map",
+    "load_mask",
+    "load_label_map",
+]
 
 #: Target file suffixes understood without a custom ``target_loader``.
 _TARGET_SUFFIXES = (".npy", ".png", ".tiff", ".tif")
@@ -125,14 +131,23 @@ def load_mask(path: Path, ignore_index: int | None = None) -> torch.Tensor:
     Parameters
     ----------
     ignore_index:
-        Raw value marking unlabelled pixels — 255 in the VOC-style palette
-        masks, where it outlines objects. Those pixels come back as ``-1``,
-        which :func:`~visbench.metrics.dense.binary_iou` and the task's loss
-        both read as "no ground truth here". Left ``None`` by default: for a
-        plain foreground/background mask every pixel *is* labelled, and
-        inventing an ignore region would quietly shrink what the probe is
-        scored on. Bind it with ``functools.partial(load_mask,
-        ignore_index=255)``.
+        Raw value marking unlabelled pixels, matched against the **greyscale**
+        value this function reads. Those pixels come back as ``-1``, which
+        :func:`~visbench.metrics.dense.binary_iou` and the task's loss both read
+        as "no ground truth here". Left ``None`` by default: for a plain
+        foreground/background mask every pixel *is* labelled, and inventing an
+        ignore region would quietly shrink what the probe is scored on. Bind it
+        with ``functools.partial(load_mask, ignore_index=255)``.
+
+    Warning
+    -------
+    **Not for palette (mode ``P``) files** — use :func:`load_label_map` and
+    binarise its output. The ``convert("L")`` here resolves the palette, so a
+    VOC ``SegmentationClass`` PNG arrives as greys, not indices: the void value
+    255 becomes a light grey that is non-zero, i.e. *foreground*, and
+    ``ignore_index=255`` never matches because it is comparing against the
+    wrong number. Nothing raises; the masks are simply wrong at every object
+    boundary.
     """
     if path.suffix.lower() == ".npy":
         array = np.load(path)
@@ -151,6 +166,71 @@ def load_mask(path: Path, ignore_index: int | None = None) -> torch.Tensor:
     if ignore_index is not None:
         mask = torch.where(raw == ignore_index, torch.full_like(mask, -1.0), mask)
     return mask
+
+
+def load_label_map(path: Path, ignore_index: int | None = 255) -> torch.Tensor:
+    """Read a semantic label map as a ``(H, W)`` float32 tensor of class indices.
+
+    The values are class *indices*, not intensities, so the file is read
+    **without any mode conversion**. That is the whole difficulty here. VOC-style
+    ``SegmentationClass`` PNGs are palette images (mode ``P``) whose raw bytes
+    already are the class indices; ``convert("L")`` applies the palette and
+    collapses it to greyscale, turning classes ``[0, 1, 15, 255]`` into
+    ``[0, 38, 147, 220]``. That loads cleanly, trains, and scores — against
+    labels that mean nothing. :func:`load_mask` converts to ``L`` precisely
+    because a binary mask only cares whether a pixel is non-zero; a label map
+    cares which number it is, so the two loaders cannot share that step.
+
+    An ``RGB`` file is refused rather than guessed at: colour-coded maps exist,
+    but recovering indices needs the dataset's palette, which this cannot know.
+
+    Parameters
+    ----------
+    ignore_index:
+        Raw value marking unlabelled pixels, returned as ``-1``. Defaults to
+        **255**, the near-universal convention (VOC's object outlines, ADE20K,
+        Cityscapes), because leaving it unmapped is not a neutral choice: 255
+        would become a class index, and the probe would be trained and scored on
+        a category that does not exist. This is the opposite default from
+        :func:`load_mask`, where every pixel genuinely is labelled. Pass ``None``
+        for a dataset that labels every pixel.
+
+    Notes
+    -----
+    Ignored pixels are ``-1`` rather than 0 because **0 is a real class**
+    (background) in every label map. Reusing the depth convention, where 0 means
+    invalid, would discard every background pixel and train the probe to answer
+    foreground everywhere.
+
+    Do not pass ``max_target`` to :class:`DenseFolderDataset` for a label map,
+    for the same reason it must not be passed for a mask: it marks values
+    invalid, and against class indices it would erase whole categories.
+    """
+    if path.suffix.lower() == ".npy":
+        array = np.load(path)
+    else:
+        with Image.open(path) as handle:
+            if handle.mode == "RGB":
+                raise ValueError(
+                    f"{path.name} is an RGB image. A colour-coded label map needs its "
+                    "dataset's palette to recover class indices, which cannot be guessed. "
+                    "Pass target_loader= with a decoder for that palette."
+                )
+            # No convert(): for mode P this reads the palette *indices*, which is
+            # exactly what a label map stores. See the docstring.
+            array = np.array(handle)
+
+    if array.ndim != 2:
+        raise ValueError(
+            f"{path.name} holds a {array.ndim}D array {array.shape}; a label map is 2D. "
+            "Pass target_loader= for a layout this does not cover."
+        )
+
+    raw = torch.from_numpy(array.astype(np.int64))
+    labels = raw.float()
+    if ignore_index is not None:
+        labels = torch.where(raw == ignore_index, torch.full_like(labels, -1.0), labels)
+    return labels
 
 
 class DenseFolderDataset(BaseDataset):
@@ -179,6 +259,7 @@ class DenseFolderDataset(BaseDataset):
         max_target: float | None = None,
         target_loader: Callable[[Path], torch.Tensor] | None = None,
         extensions: tuple[str, ...] = (".jpg", ".jpeg", ".png", ".webp"),
+        stems: Sequence[str] | None = None,
     ) -> None:
         """Index the folder pair.
 
@@ -197,6 +278,14 @@ class DenseFolderDataset(BaseDataset):
             10 m for NYUv2, inside its loss. Applying it once here means the
             training loss and the reported metric mask identically, which they
             must, or the probe is optimised against pixels it is not scored on.
+        stems:
+            Restrict the dataset to these stems, in this order — how a real
+            benchmark's official split is expressed. VOC ships 17k images beside
+            2.9k segmentation labels and names the train/val members in
+            ``ImageSets/Segmentation/*.txt``; without this the folders look like
+            a catastrophic mismatch and pairing rightly refuses. A stem missing
+            from either folder raises, so a truncated split file cannot quietly
+            shrink the run. Left ``None``, every stem must appear in both.
         """
         self.root = Path(root)
         if not self.root.is_dir():
@@ -236,17 +325,33 @@ class DenseFolderDataset(BaseDataset):
         if not images:
             raise ValueError(f"No images with extensions {self.extensions} under {image_root}")
 
-        unmatched = sorted(set(images) ^ set(targets))
-        if unmatched:
-            shown = ", ".join(unmatched[:5])
-            more = f" (and {len(unmatched) - 5} more)" if len(unmatched) > 5 else ""
-            raise ValueError(
-                f"{len(unmatched)} file stem(s) appear in only one of {image_dir}/ and "
-                f"{target_dir}/: {shown}{more}. Pairing is by stem, so a partial overlap "
-                "would silently drop or mismatch data."
-            )
+        if stems is None:
+            unmatched = sorted(set(images) ^ set(targets))
+            if unmatched:
+                shown = ", ".join(unmatched[:5])
+                more = f" (and {len(unmatched) - 5} more)" if len(unmatched) > 5 else ""
+                raise ValueError(
+                    f"{len(unmatched)} file stem(s) appear in only one of {image_dir}/ and "
+                    f"{target_dir}/: {shown}{more}. Pairing is by stem, so a partial overlap "
+                    "would silently drop or mismatch data. Pass stems= to use an official "
+                    "split list instead."
+                )
+            selected = sorted(images)
+        else:
+            selected = list(stems)
+            if not selected:
+                raise ValueError("stems= is empty; nothing to load")
+            missing = [stem for stem in selected if stem not in images or stem not in targets]
+            if missing:
+                shown = ", ".join(missing[:5])
+                more = f" (and {len(missing) - 5} more)" if len(missing) > 5 else ""
+                raise ValueError(
+                    f"{len(missing)} stem(s) from stems= are absent from {image_dir}/ or "
+                    f"{target_dir}/: {shown}{more}. A split naming files that are not there "
+                    "would silently evaluate on fewer images than it claims."
+                )
 
-        self.stems = sorted(images)
+        self.stems = selected
         self.image_paths = [images[stem] for stem in self.stems]
         self.target_paths = [targets[stem] for stem in self.stems]
 

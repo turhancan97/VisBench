@@ -141,13 +141,25 @@ def test_generic_segmentation_is_registered():
     assert visbench.get_probe("generic_segmentation").level == "mid_level"
 
 
+def test_semantic_segmentation_is_registered():
+    """The fourth dense task, v0.2 — the multi-class counterpart to the binary one.
+
+    ``num_classes`` is required, so this cannot be built bare: a default would
+    silently size the head for someone else's dataset.
+    """
+    assert "semantic_segmentation" in visbench.list_probes()
+    assert visbench.get_probe("semantic_segmentation", num_classes=21).level == "high_level"
+    with pytest.raises(TypeError):
+        visbench.get_probe("semantic_segmentation")
+
+
 def test_unregistered_task_fails_informatively():
     """The error must list what does exist.
 
-    ``semantic_segmentation`` is the next task still to land; when it does,
-    point this at whatever remains a stub rather than deleting it — the check
+    ``detection`` is v0.3 and the longest-lived remaining stub; when it lands,
+    point this at whatever is still a stub rather than deleting it — the check
     is that an unknown name is *helpfully* rejected, not which name.
     """
     with pytest.raises(KeyError, match="Unknown task") as excinfo:
-        visbench.get_probe("semantic_segmentation")
+        visbench.get_probe("detection")
     assert "correspondence" in str(excinfo.value)

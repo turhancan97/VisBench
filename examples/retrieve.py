@@ -49,7 +49,7 @@ def load(root: Path, split: str, limit: int = None) -> ImageFolderDataset:
         return dataset
 
     kept_paths, kept_labels, seen = [], [], {}
-    for path, label in zip(dataset.paths, dataset._labels):
+    for path, label in zip(dataset.paths, dataset._labels, strict=True):
         if seen.get(label, 0) >= limit:
             continue
         seen[label] = seen.get(label, 0) + 1

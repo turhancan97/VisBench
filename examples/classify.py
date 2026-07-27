@@ -59,7 +59,7 @@ def load_split(root: Path, split: str, limit: int = None) -> ImageFolderDataset:
     # them all from class 0, and a single-class evaluation reports 1.0 while
     # measuring nothing.
     kept_paths, kept_labels, seen = [], [], {}
-    for path, label in zip(dataset.paths, dataset._labels):
+    for path, label in zip(dataset.paths, dataset._labels, strict=True):
         if seen.get(label, 0) >= limit:
             continue
         seen[label] = seen.get(label, 0) + 1

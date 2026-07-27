@@ -33,6 +33,9 @@ __all__ = [
     "surface_normal_metrics",
     "binary_iou",
     "SEGMENTATION_THRESHOLD",
+    "confusion_matrix",
+    "metrics_from_confusion",
+    "semantic_metrics",
     "NYU_CROP",
 ]
 
@@ -385,4 +388,138 @@ def binary_iou(pred: torch.Tensor, target: torch.Tensor) -> MetricsDict:
         "iou": iou.mean().item(),
         "f1": f1.mean().item(),
         "pixel_acc": (correct / num_valid.clamp(min=1)).mean().item(),
+    }
+
+
+# -- semantic (multi-class) segmentation --------------------------------------
+
+
+def _as_label_maps(
+    pred: torch.Tensor, target: torch.Tensor, num_classes: int
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Normalise scores or labels plus a label map to two ``(B, H, W)`` long maps.
+
+    ``pred`` may be ``(B, C, H, W)`` scores — logits or probabilities, since
+    ``argmax`` is indifferent to any monotone transform of them — or an already
+    reduced ``(B, H, W)``/``(B, 1, H, W)`` label map. Accepting both means the
+    metric can be handed a head's raw output *or* a stored prediction and cannot
+    disagree with itself about which one it scored.
+
+    Unlike :func:`_as_maps` the two shapes deliberately do not have to match:
+    ``C`` classes of score reduce to one label per pixel.
+    """
+    if num_classes < 2:
+        raise ValueError(f"num_classes must be >= 2 for a multi-class metric, got {num_classes}")
+
+    if pred.ndim == 4 and pred.shape[1] == num_classes:
+        labels = pred.argmax(dim=1)
+    elif pred.ndim == 4 and pred.shape[1] == 1:
+        labels = pred.squeeze(1)
+    elif pred.ndim == 3:
+        labels = pred
+    else:
+        raise ValueError(
+            f"Expected (B, {num_classes}, H, W) scores or (B, H, W) labels, got {tuple(pred.shape)}"
+        )
+
+    gt = target.squeeze(1) if target.ndim == 4 and target.shape[1] == 1 else target
+    if gt.ndim != 3:
+        raise ValueError(f"Expected (B, H, W) or (B, 1, H, W) label map, got {tuple(target.shape)}")
+    if labels.shape != gt.shape:
+        raise ValueError(
+            f"Prediction reduces to {tuple(labels.shape)} but the target is {tuple(gt.shape)}. "
+            "Resize the prediction to the ground-truth resolution before scoring."
+        )
+    return labels.long(), gt.long()
+
+
+def confusion_matrix(pred: torch.Tensor, target: torch.Tensor, num_classes: int) -> torch.Tensor:
+    """Accumulate a ``(num_classes, num_classes)`` count matrix, rows ground truth.
+
+    Only valid pixels are counted: a label map marks unlabelled pixels negative
+    (VOC's 255 object outlines become -1), and 0 is the real background class.
+
+    Out-of-range labels are dropped rather than clamped or wrapped. A prediction
+    cannot produce one, so a stray value means the target was built with the
+    wrong class count, and folding it into a neighbouring class would quietly
+    corrupt that class's score instead of leaving the discrepancy visible in the
+    pixel counts.
+    """
+    labels, gt = _as_label_maps(pred, target, num_classes)
+    valid = (gt >= 0) & (gt < num_classes) & (labels >= 0) & (labels < num_classes)
+    if not valid.any():
+        return torch.zeros(num_classes, num_classes, dtype=torch.long)
+
+    indices = gt[valid] * num_classes + labels[valid]
+    counts = torch.bincount(indices, minlength=num_classes * num_classes)
+    return counts.reshape(num_classes, num_classes)
+
+
+def metrics_from_confusion(matrix: torch.Tensor) -> MetricsDict:
+    """Reduce a confusion matrix to mIoU, pixel accuracy and mean class accuracy.
+
+    This is the **dataset-level** reduction: one matrix accumulated over every
+    image, then the ratios taken once. It is how VOC, ADE20K and Cityscapes
+    define mIoU, and the only version comparable to published numbers.
+
+    A class absent from both the ground truth and the prediction is excluded
+    rather than scored 0. Counting it would drag the mean down in proportion to
+    how many of the dataset's categories a split happens not to contain, which
+    says nothing about the representation.
+    """
+    if matrix.ndim != 2 or matrix.shape[0] != matrix.shape[1]:
+        raise ValueError(f"Expected a square confusion matrix, got {tuple(matrix.shape)}")
+
+    matrix = matrix.double()
+    true_positive = matrix.diag()
+    actual = matrix.sum(dim=1)
+    predicted = matrix.sum(dim=0)
+    union = actual + predicted - true_positive
+
+    total = matrix.sum()
+    if total == 0:
+        return {"miou": 0.0, "pixel_acc": 0.0, "mean_acc": 0.0}
+
+    present = union > 0
+    iou = true_positive[present] / union[present]
+
+    labelled = actual > 0
+    accuracy = true_positive[labelled] / actual[labelled]
+
+    return {
+        "miou": iou.mean().item() if present.any() else 0.0,
+        "pixel_acc": (true_positive.sum() / total).item(),
+        "mean_acc": accuracy.mean().item() if labelled.any() else 0.0,
+    }
+
+
+def semantic_metrics(pred: torch.Tensor, target: torch.Tensor, num_classes: int) -> MetricsDict:
+    """Per-image mIoU and pixel accuracy, averaged over the batch.
+
+    The per-image reduction this codebase uses everywhere else (see the module
+    docstring). It is **not** the number a VOC leaderboard reports: averaging
+    per-image IoUs weights a class by how many images contain it, while the
+    dataset-level reduction in :func:`metrics_from_confusion` weights it by
+    pixels. The two disagree, often by several points, so
+    :class:`~visbench.tasks.high_level.semantic_segmentation.SemanticSegmentationTask`
+    reports both under distinct names rather than picking one and leaving the
+    reader to guess which they are looking at.
+
+    An image with no valid pixels contributes 0 to every metric, matching how
+    :func:`binary_iou` treats a fully ignored frame.
+    """
+    labels, gt = _as_label_maps(pred, target, num_classes)
+
+    ious = []
+    accuracies = []
+    for index in range(labels.shape[0]):
+        matrix = confusion_matrix(labels[index : index + 1], gt[index : index + 1], num_classes)
+        single = metrics_from_confusion(matrix)
+        ious.append(single["miou"])
+        accuracies.append(single["pixel_acc"])
+
+    count = max(len(ious), 1)
+    return {
+        "miou_per_image": sum(ious) / count,
+        "pixel_acc": sum(accuracies) / count,
     }

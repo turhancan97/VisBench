@@ -9,6 +9,7 @@ from visbench.data.base import BaseDataset
 from visbench.data.dense import (
     DenseFolderDataset,
     load_depth_map,
+    load_label_map,
     load_mask,
     load_normal_map,
 )
@@ -23,4 +24,5 @@ __all__ = [
     "load_depth_map",
     "load_normal_map",
     "load_mask",
+    "load_label_map",
 ]

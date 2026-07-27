@@ -23,9 +23,9 @@ jobs:
           python-version: "3.12"
       - run: pip install "ruff>=0.4,<1.0" "mypy>=1.8,<2.0" torch torchvision numpy pillow scikit-learn --extra-index-url https://download.pytorch.org/whl/cpu
       - name: ruff check
-        run: ruff check visbench/ tests/ conftest.py
+        run: ruff check visbench/ tests/ conftest.py examples/
       - name: ruff format --check
-        run: ruff format --check visbench/ tests/ conftest.py
+        run: ruff format --check visbench/ tests/ conftest.py examples/
       - name: mypy
         # Gating. It was continue-on-error while everything was stubs, which
         # made it a check that could never fail -- worse than not running it.

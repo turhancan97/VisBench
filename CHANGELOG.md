@@ -11,6 +11,47 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Added
 
+- **Semantic (multi-class) segmentation** (`semantic_segmentation`) — the
+  high-level counterpart to the mid-level binary task, on the same base class
+  and schedule so a difference between the two numbers is a difference in what
+  is asked of the representation, not in how it was trained. Cross-entropy over
+  class indices, masked at `IGNORE_INDEX = -1`; `_activate` is deliberately the
+  identity, because cross-entropy needs logits and `argmax` is indifferent to
+  any monotone transform, so loss, metrics and `predict` cannot disagree.
+  `predict` returns `(B, C, H, W)` scores and `predict_labels` their argmax.
+  `num_classes` is **required**: it sizes the head, and a wrong value does not
+  raise, it trains a head that cannot express some categories.
+  Measured on Pascal VOC 2012 val (1449 images), linear head at 224px, default
+  ten-epoch schedule: DINOv2-S/14 **mIoU 0.732** (pixel accuracy 0.926, mean
+  class accuracy 0.831, `train_loss` 0.193); DINOv2-B/14 **0.753** (0.931,
+  0.838, 0.166).
+- **mIoU is reported both ways, because the two reductions disagree.**
+  `miou` accumulates one confusion matrix over the split and divides once —
+  what VOC, ADE20K and Cityscapes define, and the only version comparable to
+  published numbers. `miou_per_image` is this codebase's per-image rule. On VOC
+  they differ by five points (0.732 against 0.683), so both are reported under
+  distinct names rather than one being chosen silently. `SemanticSegmentationTask`
+  overrides `evaluate` to accumulate both in one pass, since no weighted mean of
+  per-batch ratios equals the ratio of the sums. New in `visbench.metrics.dense`:
+  `confusion_matrix`, `metrics_from_confusion`, `semantic_metrics`.
+- **`load_label_map`** reads a label map **without mode conversion**. VOC's
+  `SegmentationClass` PNGs are palette images whose raw bytes are the class
+  indices; `convert("L")` resolves the palette and turns classes
+  `[0, 1, 15, 255]` into `[0, 38, 147, 220]` — which loads, trains and scores
+  against labels that mean nothing. 255 becomes -1 by default, since leaving it
+  is not neutral: it would become a class the probe is trained and scored on.
+- **`DenseFolderDataset(stems=...)`** takes an official split list. VOC ships
+  17k images beside 2.9k segmentation labels and names split membership in
+  `ImageSets/Segmentation/*.txt`; without this the folders look like a
+  catastrophic mismatch and pairing rightly refuses. Order is preserved, since
+  targets travel by index, and a stem missing from either folder raises.
+- **`DenseTrainingTask.target_dtype`** — targets were coerced to float in three
+  places, which is right for a measurement and wrong for a class index. The
+  coercion is now one attribute, so training, evaluation and `predict` cannot
+  disagree about what a target is.
+- `examples/segment_semantic.py`, which reads the Pascal VOC devkit directly
+  with `--voc` as well as the folder-pair layout the other examples use.
+
 - **timm CNN backbones** (`resnet18`, `resnet50`, or any timm CNN via
   `TimmBackbone(model_name=...)`) — the first non-ViT family. Dense features
   are the last conv map before global pooling, flattened to a token sequence so
@@ -212,6 +253,13 @@ so it stands on its own rather than assuming you have read the ones above it.
   `evaluate` had always checked lengths explicitly; the ceiling path never did,
   which meant the two entry points disagreed about what a valid call was. Found
   by working through `zip(strict=)` site by site ([#4]).
+- **`load_mask` was documented as handling VOC-style palette masks and does
+  not.** Its `convert("L")` resolves the palette, so VOC's void value 255
+  arrives as a light grey — non-zero, therefore *foreground* — and
+  `ignore_index=255` never matches, because it compares against the resolved
+  value rather than the index. Nothing raises; the masks are simply wrong at
+  every object boundary. The docstring now says so and points at
+  `load_label_map`. Found while building the semantic task on the same files.
 - **`zip(strict=)` is now explicit at every call site**, and `B905` is enforced
   rather than ignored ([#4]). 12 sites take `strict=True` — features to targets,
   keys to cache entries, requested layers to backbone outputs; `zip(resolved,
@@ -220,6 +268,8 @@ so it stands on its own rather than assuming you have read the ones above it.
   that already existed a few lines above, which is the point: a silently
   truncating zip is the failure mode CLAUDE.md warns about for index-paired
   targets, and it still trains.
+- `examples/` is linted in CI. It was outside both ruff steps, so two
+  `zip(strict=)` sites there survived the sweep that fixed the rest ([#4]).
 - **CI now runs the slow suite** ([#2]), in `.github/workflows/slow.yml`:
   on every push to `main`, nightly at 03:00 UTC, and on demand. `addopts`
   deselects `slow` and the gating workflow runs a plain `pytest`, so until now

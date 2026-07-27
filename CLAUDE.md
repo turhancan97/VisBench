@@ -40,8 +40,8 @@ step is next rather than attempting the whole roadmap in one session.
 | 5e | Streaming features from disk, for splits larger than memory | done |
 | 5f | Surface normals + the shared `DenseTrainingTask` | done |
 | 5g | Generic (binary) segmentation | done |
-| **5h** | **High-level semantic (multi-class) segmentation** | **next** |
-| 5i | Mid-level image similarity | todo |
+| 5h | High-level semantic (multi-class) segmentation | done |
+| **5i** | **Mid-level image similarity** | **next** |
 | 5j | The CLI — last, once the dense-task Python API has settled | todo |
 | 6 | v0.3 scope. Do not start before v0.2 is complete and reviewed | todo |
 
@@ -49,8 +49,8 @@ step is next rather than attempting the whole roadmap in one session.
 
 ## Current state
 
-**v0.1 complete. v0.2 roughly three-quarters done.** Everything below exists, is
-tested, and is on `main`.
+**v0.1 complete. v0.2 all but the last task and the CLI.** Everything below
+exists, is tested, and is on `main`.
 
 Registered names — `visbench.list_backbones()`, `list_probes()`,
 `visbench.heads.list_heads()`:
@@ -59,7 +59,7 @@ Registered names — `visbench.list_backbones()`, `list_probes()`,
 backbones  dinov2_vits14, dinov2_vitb14, clip_vitb16, clip_vitb32,
            resnet18, resnet50            (+ CustomBackbone, unregistered)
 probes     classification, retrieval, correspondence, depth, surface_normal,
-           generic_segmentation
+           generic_segmentation, semantic_segmentation
 heads      linear, dpt
 ```
 
@@ -76,21 +76,23 @@ visbench/
   cache/         feature_cache.py (_Plan/_walk, extract_dataset, materialise)
                  streaming.py (CachedFeatures — a torch Dataset over the cache)
   data/          image_folder, pair_dataset (correspondence), dense.py
-                 (DenseFolderDataset, load_depth_map, load_normal_map,
-                  load_mask)
+                 (DenseFolderDataset + stems= for official splits,
+                  load_depth_map, load_normal_map, load_mask, load_label_map)
   heads/         base.py (register_head/build_head), linear.py, dpt.py
   metrics/       classification, retrieval, correspondence, dense.py
   tasks/         base.py (BaseTask)
                  dense_base.py (DenseTrainingTask — shared by every dense probe)
-                 high_level/  classification, retrieval  (+ stubs)
+                 high_level/  classification, retrieval, semantic_segmentation
+                              (+ stubs)
                  mid_level/   correspondence, depth, surface_normal,
                               generic_segmentation  (+ stubs)
   results/       schema.py (ResultRecord, SCHEMA_VERSION), writer.py
   runner.py      visbench.run() — the one call the CLI will wrap
-examples/        classify, retrieve, correspond, depth, normals, segment
+examples/        classify, retrieve, correspond, depth, normals, segment,
+                 segment_semantic
 ```
 
-### `DenseTrainingTask` — subclass this for 5h
+### `DenseTrainingTask` — subclass this for a new dense task
 
 `visbench/tasks/dense_base.py` holds everything a trained dense probe needs:
 feature sources (in-memory dict *or* streaming `CachedFeatures`, normalised to
@@ -105,12 +107,15 @@ metric averaging. A subclass supplies only:
 - `_batch_metrics(pred, target)` — must return **per-image averages**, which is
   what lets `evaluate` weight each batch by size and recover the split number
 - `target_channels`, `display_name`, `target_noun`, `level`, `name`
+- `target_dtype` if the target is not a float measurement — `long` for class
+  indices, which is the one place a classification target leaves the path the
+  other three share
 - optionally `_task_params()` (extra `task_params` for the record) and
   `_on_epoch_start()` (per-epoch diagnostic hook)
 
-`DepthTask` is 224 lines, `SurfaceNormalTask` 299 and
-`GenericSegmentationTask` 173 because of this — read them before writing a
-fourth. Between them they show a scalar target and a vector one; a
+`DepthTask` is 224 lines, `SurfaceNormalTask` 299,
+`GenericSegmentationTask` 173 and `SemanticSegmentationTask` 186 because of
+this — read them before writing a fifth. Between them they show a scalar target and a vector one; a
 bin-expectation activation, a normalising one and a sigmoid; a protocol borrowed
 wholesale from probe3d and one that only borrows its schedule. The base was
 lifted out of a *working* `DepthTask` when the second task arrived, not
@@ -136,18 +141,42 @@ designed up front; extend it the same way, from a case that already runs.
   **Label maps are the exception and shift by one**: for segmentation 0 is a
   real class (background) and an unlabelled pixel is *negative*. Reusing the
   depth convention there would discard every background pixel and train the
-  probe to answer foreground everywhere. Semantic segmentation (5h) inherits
-  this — its ignore label must not collide with class 0 either.
-- **Not every dense task gets to borrow probe3d.** It has no binary
-  segmentation task, so `GenericSegmentationTask` keeps only its *optimiser*
-  schedule and records `protocol: "visbench_binary_seg"`. Do not let a record
+  probe to answer foreground everywhere. `SemanticSegmentationTask` inherits
+  this: `IGNORE_INDEX = -1`, and it is what `cross_entropy(ignore_index=)` and
+  the confusion matrix both mask on, so loss and metric drop the same pixels.
+- **A label map must be read without mode conversion, and this is silent when
+  wrong.** VOC's `SegmentationClass` PNGs are palette images (mode `P`) whose
+  raw bytes *are* the class indices; `convert("L")` resolves the palette and
+  turns classes `[0, 1, 15, 255]` into `[0, 38, 147, 220]`, which loads, trains
+  and scores against labels that mean nothing. `load_label_map` therefore never
+  converts, while `load_mask` must (it only asks "non-zero?"). The two cannot
+  share that step, and **`load_mask` is wrong on a palette file** — VOC's void
+  255 resolves to a light grey, i.e. foreground, and `ignore_index=255` never
+  matches because it compares against the resolved value. Binarise
+  `load_label_map` instead.
+- **Two mIoUs, and they disagree by about 5 points.** Dataset-level (one
+  confusion matrix over the split, ratios taken once) is what VOC, ADE20K and
+  Cityscapes define and the only one comparable to published numbers;
+  per-image-then-averaged is this codebase's rule everywhere else. Measured on
+  VOC val with DINOv2-S: 0.732 against 0.683; with DINOv2-B, 0.753 against
+  0.712. `SemanticSegmentationTask`
+  reports both under distinct names and overrides `evaluate` to do it, because
+  no weighted mean of per-batch ratios equals the ratio of the sums. Do not
+  collapse them to one number.
+- **Not every dense task gets to borrow probe3d.** It has no binary or semantic
+  segmentation task, so `GenericSegmentationTask` and `SemanticSegmentationTask`
+  keep only its *optimiser* schedule and record `protocol:
+  "visbench_binary_seg"` / `"visbench_semantic_seg"`. Do not let a record
   claim `"probe3d"` for a loss and metric that paper never defined; the whole
   value of the field is that it says what a number is comparable to.
 - **The ten-epoch schedule assumes NYUv2-sized data.** Measured on 80 training
   images: 0.16 IoU at the defaults, 0.87 at `epochs=40, lr=5e-3`, identical
   features. That is underfitting, not a weak representation, and `train_loss`
   is what separates the two. Do not tune the defaults away from probe3d's —
-  say so in the example instead, which `examples/segment.py` does.
+  say so in the example instead, which `examples/segment.py` does. **At real
+  scale the defaults are fine**: 1464 VOC training images reach 0.73 mIoU at
+  ten epochs with `train_loss` 0.19, so the schedule is not the problem, small
+  splits are.
 - **Per image, then averaged.** Never pool every pixel of the split; that lets
   uneven hole coverage silently reweight the dataset.
 - **Dense features stream.** ~250x the size of pooled ones (24k NYUv2 images at
@@ -405,16 +434,17 @@ layer on cached features.**
       never rescales; `ignore_index=` maps a dataset's ignore value to -1.
       `DenseFolderDataset` needed no change, but **do not pass `max_target` for
       a mask** — it would erase the foreground class.
-- [ ] **High-level semantic (multi-class) segmentation — next.** Alongside the
-      mid-level binary one so the two can be compared directly. Same base
-      class; the new pieces are mIoU and a class-index target that must **not**
-      be resampled as a float. Read `GenericSegmentationTask` first: it already
-      settled the ignore convention (negative, not 0) and the "this is not
-      probe3d's protocol" record field, and both carry over unchanged. Its
-      `out_channels` becomes the class count, `_activate` a softmax or an
-      argmax-free logit passthrough, and the loss cross-entropy over a `long`
-      target — note the base coerces targets to **float**, which is the one
-      place a class-index target does not fit the existing path.
+- [x] **High-level semantic (multi-class) segmentation** —
+      `SemanticSegmentationTask`, cross-entropy over class indices with a
+      logit-passthrough `_activate`, reporting mIoU both ways plus pixel and
+      mean class accuracy. `num_classes` is required, since a wrong one does
+      not raise. The base gained `target_dtype` (the class-index target is the
+      one that is not a float measurement) and `DenseFolderDataset` gained
+      `stems=` for official split lists. `load_label_map` reads palette PNGs
+      without conversion. Proved on Pascal VOC 2012 val at 224px with a linear
+      head and the default schedule: DINOv2-S/14 **0.732 mIoU**, DINOv2-B/14
+      **0.753** — the ordering you would hope for, which is itself a check that
+      the probe measures something.
 - [ ] Mid-level image similarity as its own task, separate from high-level
       retrieval — see the task-categorization note; do not merge them.
 - [ ] The CLI, last, once the dense-task Python API has settled. It should be a

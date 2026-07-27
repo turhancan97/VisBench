@@ -125,6 +125,15 @@ class DenseTrainingTask(BaseTask):
     #: subclass's loss and metric always see the same rank.
     target_channels: int = 1
 
+    #: dtype targets are coerced to before every loss and metric. Float suits a
+    #: measurement — a depth, a normal component, a foreground probability.
+    #: A *classification* target is different: cross-entropy needs class indices
+    #: as ``long``, and silently handing it floats is a type error at best and a
+    #: wrong answer at worst. Set by :class:`SemanticSegmentationTask`; the
+    #: coercion happens in one place so training, evaluation and ``predict``
+    #: cannot disagree about what a target is.
+    target_dtype: torch.dtype = torch.float32
+
     #: Human-readable names used in error messages, so a caller who forgot the
     #: ground truth is told what is missing rather than "labels".
     display_name: str = "This task"
@@ -356,11 +365,11 @@ class DenseTrainingTask(BaseTask):
     # -- targets -------------------------------------------------------------
 
     def _as_targets(self, labels: Any) -> torch.Tensor:
-        """Coerce a batch of targets to a stacked float tensor."""
+        """Coerce a batch of targets to a stacked tensor of :attr:`target_dtype`."""
         if labels is None:
             raise ValueError(f"{self.display_name} requires {self.target_noun}; got None")
         targets = labels if isinstance(labels, torch.Tensor) else torch.stack(list(labels))
-        return self._as_4d(targets.float())
+        return self._as_4d(targets.to(self.target_dtype))
 
     def _as_4d(self, targets: torch.Tensor) -> torch.Tensor:
         """Normalise stacked targets to ``(N, target_channels, H, W)``.
@@ -419,7 +428,9 @@ class DenseTrainingTask(BaseTask):
             for batch_features, batch_targets in loader:
                 optimiser.zero_grad()
                 predicted = self._forward(batch_features)
-                targets = self._as_4d(torch.as_tensor(batch_targets).float()).to(self.device)
+                targets = self._as_4d(torch.as_tensor(batch_targets).to(self.target_dtype)).to(
+                    self.device
+                )
                 loss = self._loss(predicted, targets)
                 loss.backward()
                 optimiser.step()
@@ -511,7 +522,7 @@ class DenseTrainingTask(BaseTask):
         for batch_features, batch_targets in self._iter_batches(features, labels):
             assert batch_targets is not None  # targets_required defaults to True
             predicted = self._forward(batch_features).cpu()
-            targets = self._as_4d(torch.as_tensor(batch_targets).float())
+            targets = self._as_4d(torch.as_tensor(batch_targets).to(self.target_dtype))
             batch_metrics = self._batch_metrics(predicted, targets)
             size = len(targets)
             for name, value in batch_metrics.items():

@@ -13,7 +13,13 @@ import pytest
 import torch
 from PIL import Image
 
-from visbench.data import DenseFolderDataset, load_depth_map, load_mask, load_normal_map
+from visbench.data import (
+    DenseFolderDataset,
+    load_depth_map,
+    load_label_map,
+    load_mask,
+    load_normal_map,
+)
 
 
 def build(root, depths, images=None, image_suffix=".png", target_suffix=".npy"):
@@ -475,3 +481,147 @@ class TestLoadMask:
         assert target.shape == (16, 16)
         assert set(target.unique().tolist()) == {0.0, 1.0}, "no intermediate values"
         assert target[:8].min().item() == 1.0 and target[8:].max().item() == 0.0
+
+
+class TestLoadLabelMap:
+    """Class indices, which is a different job from reading a mask.
+
+    The failure this guards is silent: a palette PNG read through ``convert("L")``
+    yields plausible-looking small integers that are not the classes, and every
+    downstream step accepts them.
+    """
+
+    def palette_png(self, path, indices, palette=None):
+        """Write a mode-P PNG whose raw bytes are ``indices``, as VOC ships them."""
+        array = np.array(indices, dtype=np.uint8)
+        # Image.new + putdata rather than fromarray(mode="P"): that parameter is
+        # deprecated in Pillow 13, and this is the supported way to build a
+        # palette image whose raw bytes are exactly the indices given.
+        image = Image.new("P", (array.shape[1], array.shape[0]))
+        image.putdata(array.flatten().tolist())
+        # A non-identity palette, so reading through it gives different numbers.
+        image.putpalette(palette or [(v * 7 + 30) % 256 for v in range(256) for _ in range(3)])
+        image.save(path)
+        return path
+
+    def test_palette_indices_are_read_not_the_palette(self, tmp_path):
+        indices = [[0, 1], [15, 20]]
+        path = self.palette_png(tmp_path / "voc.png", indices)
+
+        labels = load_label_map(path, ignore_index=None)
+        assert labels.tolist() == [[0.0, 1.0], [15.0, 20.0]]
+
+    def test_convert_to_greyscale_would_have_been_wrong(self, tmp_path):
+        """The specific bug: prove the naive read disagrees with this one."""
+        path = self.palette_png(tmp_path / "voc.png", [[0, 1], [15, 20]])
+
+        with Image.open(path) as handle:
+            naive = np.array(handle.convert("L"))
+        assert not np.array_equal(naive, np.array([[0, 1], [15, 20]])), (
+            "palette chosen so the naive read differs; the test is meaningless otherwise"
+        )
+        assert load_label_map(path, ignore_index=None).tolist() == [[0.0, 1.0], [15.0, 20.0]]
+
+    def test_greyscale_files_work_too(self, tmp_path):
+        """SegmentationClassAug ships mode L with the same values."""
+        path = tmp_path / "aug.png"
+        Image.fromarray(np.array([[0, 3], [7, 0]], dtype=np.uint8)).save(path)
+
+        assert load_label_map(path, ignore_index=None).tolist() == [[0.0, 3.0], [7.0, 0.0]]
+
+    def test_npy_is_taken_at_face_value(self, tmp_path):
+        path = tmp_path / "labels.npy"
+        np.save(path, np.array([[0, 2], [2, 1]], dtype=np.uint8))
+
+        assert load_label_map(path).tolist() == [[0.0, 2.0], [2.0, 1.0]]
+
+    def test_255_becomes_ignore_by_default(self, tmp_path):
+        """VOC's object outlines are unlabelled, not a 256th class."""
+        path = tmp_path / "labels.npy"
+        np.save(path, np.array([[0, 255], [1, 255]], dtype=np.uint8))
+
+        assert load_label_map(path).tolist() == [[0.0, -1.0], [1.0, -1.0]]
+
+    def test_zero_stays_a_real_class(self, tmp_path):
+        """Background is a class; only negatives mean unlabelled."""
+        path = tmp_path / "labels.npy"
+        np.save(path, np.array([[0, 0], [0, 1]], dtype=np.uint8))
+
+        labels = load_label_map(path)
+        assert (labels >= 0).all()
+        assert labels.min().item() == 0.0
+
+    def test_ignore_can_be_disabled(self, tmp_path):
+        path = tmp_path / "labels.npy"
+        np.save(path, np.array([[0, 255]], dtype=np.uint8))
+
+        assert load_label_map(path, ignore_index=None).tolist() == [[0.0, 255.0]]
+
+    def test_rgb_is_refused_rather_than_guessed(self, tmp_path):
+        path = tmp_path / "colour.png"
+        Image.fromarray(np.zeros((4, 4, 3), dtype=np.uint8)).save(path)
+
+        with pytest.raises(ValueError, match="palette"):
+            load_label_map(path)
+
+    def test_resampling_invents_no_classes(self, tmp_path):
+        """Bilinear between class 2 and 8 would produce a class 5 that is not there."""
+        (tmp_path / "images").mkdir()
+        (tmp_path / "labels").mkdir()
+        Image.fromarray(np.zeros((64, 64, 3), dtype=np.uint8)).save(tmp_path / "images" / "a.png")
+        label = np.full((64, 64), 2, dtype=np.uint8)
+        label[32:] = 8
+        np.save(tmp_path / "labels" / "a.npy", label)
+
+        dataset = DenseFolderDataset(
+            tmp_path, target_dir="labels", image_size=16, target_loader=load_label_map
+        )
+        assert set(dataset.target(0).unique().tolist()) == {2.0, 8.0}
+
+
+class TestExplicitStems:
+    """Official split lists, which is how a real benchmark names its members."""
+
+    @pytest.fixture
+    def folders(self, tmp_path):
+        (tmp_path / "images").mkdir()
+        (tmp_path / "labels").mkdir()
+        for name in ("a", "b", "c"):
+            Image.fromarray(np.zeros((16, 16, 3), dtype=np.uint8)).save(
+                tmp_path / "images" / f"{name}.png"
+            )
+        # Only two of the three images are labelled — VOC's shape exactly.
+        for name in ("a", "b"):
+            np.save(tmp_path / "labels" / f"{name}.npy", np.zeros((16, 16), dtype=np.uint8))
+        return tmp_path
+
+    def test_without_stems_a_partial_overlap_still_raises(self, folders):
+        with pytest.raises(ValueError, match="stems="):
+            DenseFolderDataset(folders, target_dir="labels", image_size=16)
+
+    def test_stems_select_the_labelled_subset(self, folders):
+        dataset = DenseFolderDataset(folders, target_dir="labels", image_size=16, stems=["a", "b"])
+        assert len(dataset) == 2
+        assert dataset.stems == ["a", "b"]
+
+    def test_order_is_preserved(self, folders):
+        """Targets travel by index, so the caller's order is the dataset's order."""
+        dataset = DenseFolderDataset(folders, target_dir="labels", image_size=16, stems=["b", "a"])
+        assert dataset.stems == ["b", "a"]
+        assert dataset.image_paths[0].stem == "b"
+        assert dataset.target_paths[0].stem == "b"
+
+    def test_a_stem_with_no_label_is_refused(self, folders):
+        """A split naming an unlabelled image would silently shrink the run."""
+        with pytest.raises(ValueError, match="absent from"):
+            DenseFolderDataset(folders, target_dir="labels", image_size=16, stems=["a", "c"])
+
+    def test_an_empty_split_is_refused(self, folders):
+        with pytest.raises(ValueError, match="empty"):
+            DenseFolderDataset(folders, target_dir="labels", image_size=16, stems=[])
+
+    def test_different_splits_get_different_fingerprints(self, folders):
+        """Or the feature cache would serve one split's features for another."""
+        one = DenseFolderDataset(folders, target_dir="labels", image_size=16, stems=["a"])
+        two = DenseFolderDataset(folders, target_dir="labels", image_size=16, stems=["b"])
+        assert one.fingerprint() != two.fingerprint()
