@@ -190,9 +190,13 @@ designed up front; extend it the same way, from a case that already runs.
 Filed on GitHub. `pytest -m slow` is currently **73 passed, 0 failed** — if it
 is red for you, that is new.
 
-- **[#2] CI never runs `-m slow`**, which is why #1 and #3 survived on `main`
-  with a green tick. Still open: the suite passes now, but nothing on `main`
-  would notice if it stopped.
+- **[#2] CI never ran `-m slow`** — fixed. `.github/workflows/slow.yml` runs it
+  on every push to `main`, nightly at 03:00 UTC, and on demand, with the
+  downloaded weights cached against `HUB_REF`. It is **not** part of the gating
+  CI workflow and does not run on pull requests, so a 1.7 GB download never
+  blocks ordinary work. If you add a check that guards a *silently wrong
+  number*, it still belongs in the fast suite — this catches the ones that can
+  only be caught with real weights, a day later at worst, not instead.
 - **[#4] `zip(strict=)` is unreviewed at 13 call sites.** `B905` became
   reachable when the floor moved and is ignored in `pyproject.toml` with a
   comment; each site needs its own answer. Silent truncation is the failure mode
@@ -466,10 +470,12 @@ ruff format --check visbench/ tests/ conftest.py
 mypy visbench/ --ignore-missing-imports             # reads [tool.mypy], py 3.12
 ```
 
-CI runs these five and nothing else. A local environment with extra packages
-installed will pass checks that CI fails, so do not substitute your own
-invocations — particularly for mypy, which reads `python_version` from
-`pyproject.toml` and checks nothing useful if you override it.
+CI runs all five: the four fast ones gate every push and pull request, and
+`-m slow` runs in a separate workflow on pushes to `main` and nightly. A local
+environment with extra packages installed will pass checks that CI fails, so do
+not substitute your own invocations — particularly for mypy, which reads
+`python_version` from `pyproject.toml` and checks nothing useful if you
+override it.
 
 Both suites and all three lint steps must be clean before a commit. Prove a
 new task end to end on a real backbone via its `examples/` script, not only

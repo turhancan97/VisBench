@@ -1,0 +1,86 @@
+name: Slow tests
+
+# The suite that downloads real backbone weights. It is deliberately NOT part of
+# CI's gating jobs: `addopts = "-m 'not slow'"` deselects these, and a plain
+# `pytest` therefore never runs them, so for the whole life of the project
+# nothing on main executed a single real forward pass.
+#
+# That is not a theoretical gap. Two bugs shipped to main under a green tick
+# because of it (#2):
+#   - the CLIP QuickGELU guard filtered on a phrase open_clip never emits, so it
+#     was dead code from the day it was written. Its test existed, failed
+#     correctly, and had never once run (#3).
+#   - DINOv2 was unusable on Python 3.9 for three days while the 3.9 job -- whose
+#     entire purpose was to prove that floor worked -- reported success, because
+#     every backbone-loading test is marked slow (#1).
+#
+# Both would have been caught here within a day.
+
+on:
+  # Catches the commit that broke it, while it is still attributable. Every
+  # commit in this repo lands on main directly, so this is the real gate.
+  push:
+    branches: [main]
+  # Catches drift no commit causes: an open_clip release rewording the warning
+  # the QuickGELU guard matches on would silently re-break it, and no push would
+  # be to blame.
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+# Not on pull_request on purpose. These tests pull ~1.7 GB of weights and take
+# minutes; making every PR wait on that would trade a lot of friction for very
+# little, given the push-to-main trigger above covers the same commits.
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  slow:
+    runs-on: ubuntu-latest
+    # Generous: a cold cache downloads DINOv2 ViT-S/B, both CLIP ViT-Bs and two
+    # ResNets. A warm one should finish in a few minutes.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          # The floor, where a version-specific import failure would show up.
+          python-version: "3.10"
+          cache: pip
+
+      - name: Read the pinned DINOv2 ref
+        id: pins
+        # HUB_REF pins the upstream repo and feeds cache_key(), so it is exactly
+        # the right thing to key downloaded weights on: change the ref and the
+        # old download is the wrong code, not merely stale.
+        run: |
+          echo "hub_ref=$(grep -oP 'HUB_REF = "\K[0-9a-f]+' visbench/backbones/dinov2.py)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache backbone weights
+        uses: actions/cache@v4
+        with:
+          # Three separate homes: torch.hub and its checkpoints, open_clip's
+          # OpenAI weights, and timm's via huggingface_hub.
+          path: |
+            ~/.cache/torch
+            ~/.cache/clip
+            ~/.cache/huggingface
+          key: weights-${{ runner.os }}-${{ steps.pins.outputs.hub_ref }}
+          restore-keys: weights-${{ runner.os }}-
+
+      - name: Install (CPU-only torch, all extras)
+        # `.[all,dev]` rather than the gating job's `.[dev]`: without the clip
+        # and timm extras their backbones are skipped in the registry rather
+        # than failing, and this suite would quietly test half of what it claims.
+        run: |
+          pip install --upgrade pip
+          pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+          pip install -e ".[all,dev]"
+
+      - name: pytest -m slow
+        # An explicit -m on the command line overrides addopts, since pytest
+        # honours the last one given.
+        run: pytest -m slow -v --durations=10

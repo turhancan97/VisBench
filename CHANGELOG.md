@@ -206,6 +206,16 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Fixed
 
+- **CI now runs the slow suite** ([#2]), in `.github/workflows/slow.yml`:
+  on every push to `main`, nightly at 03:00 UTC, and on demand. `addopts`
+  deselects `slow` and the gating workflow runs a plain `pytest`, so until now
+  nothing on `main` had ever executed a real backbone forward pass — which is
+  how both [#1] and [#3] shipped under a green tick, one of them for three days
+  while the very job meant to prove the 3.9 floor reported success. Weights
+  (~1.7 GB across `~/.cache/torch`, `~/.cache/clip` and `~/.cache/huggingface`)
+  are cached against `HUB_REF`, since changing that ref makes an old download
+  the wrong code rather than merely stale. Kept out of the gating workflow and
+  off pull requests so the download never blocks ordinary work.
 - **The CLIP QuickGELU guard never fired** ([#3]). It promoted open_clip's
   warning to an error by filtering on `message=".*QuickGELU mismatch.*"`, a
   phrase open_clip has never emitted — so the filter never matched and the guard
