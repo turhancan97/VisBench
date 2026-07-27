@@ -167,6 +167,33 @@ designed up front; extend it the same way, from a case that already runs.
   numpy 2.x uses PEP 695 `type` statements. Do not "fix" it down to 3.9.
 - **Verify with the exact commands CI runs** (below). A local env with extra
   packages installed will pass checks that CI fails.
+- **A guard whose only test is `slow` is a guard CI never runs.** `addopts`
+  deselects `slow`, and CI runs a plain `pytest`, so the entire
+  weight-downloading suite is invisible to it. The CLIP QuickGELU check filtered
+  on a phrase open_clip has never emitted and was dead code for its whole life;
+  its test existed, failed correctly, and never ran. When a check exists to stop
+  a *silently wrong number*, give it a test in the fast suite — extract the
+  logic to a pure helper if that is what it takes.
+
+### Open issues — read before assuming a red suite is your fault
+
+Filed on GitHub; `pytest -m slow` is currently **8 failed, 46 passed, 19 errors**
+and almost all of it is one root cause.
+
+- **[#1] DINOv2 is unusable on Python 3.9**, the package's own floor. `HUB_REF`
+  pins an upstream commit using `float | None` at class-body scope, which 3.9
+  evaluates at import and rejects. Accounts for every remaining slow failure,
+  including the CLIP and timm ones (they build a DINOv2 to compare against).
+  Six of seven `examples/` scripts default to `dinov2_vits14`, so they fail on
+  3.9 too. **Not a quick fix**: `HUB_REF` feeds `cache_key()`, so repinning
+  invalidates every cached DINOv2 feature everywhere; the alternative is raising
+  the floor to 3.10 across pyproject, the CI matrix, the README badge and
+  `.venv`. Needs a decision, not a patch. Until then, prove new work on
+  `clip_vitb16` or `resnet50`.
+- **[#2] CI never runs `-m slow`**, which is why #1 and #3 survived on `main`
+  with a green tick. The 3.9 job exists to prove the floor works and reports
+  success while the floor is broken.
+- **[#3] CLIP QuickGELU guard** — fixed; see the bullet above.
 
 `CHANGELOG.md` under `[Unreleased]` is the full record of what each step
 added and why; `README.md` has the user-facing view and the measured Imagenette

@@ -206,6 +206,18 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Fixed
 
+- **The CLIP QuickGELU guard never fired** ([#3]). It promoted open_clip's
+  warning to an error by filtering on `message=".*QuickGELU mismatch.*"`, a
+  phrase open_clip has never emitted — so the filter never matched and the guard
+  was dead code from the day it was written. No shipped number was wrong, since
+  both registered variants pair `-quickgelu` configs with OpenAI weights
+  correctly, but the one check standing between a user and a silently
+  wrong-activation model could not fire. Detection now matches the single token
+  common to both directions open_clip warns in, lives in
+  `_promote_quickgelu_warning` so it is testable without downloading a
+  checkpoint, and re-emits unrelated warnings instead of swallowing them. Its
+  only test was `slow`, and CI does not run `-m slow` ([#2]), which is why this
+  survived; the replacement tests are in the fast suite.
 - `FeatureCache.extract_dataset` refused nothing when handed a `PairDataset`:
   it read `item[0]` and silently discarded the second view and the geometry,
   returning features for half the data. It now raises.
@@ -387,5 +399,7 @@ Protocols are reused and cited at the point of use, not re-derived —
 (Chen, Marks & Cheng), and [vismatch](https://github.com/gmberton/vismatch) for
 API philosophy.
 
+[#2]: https://github.com/turhancan97/VisBench/issues/2
+[#3]: https://github.com/turhancan97/VisBench/issues/3
 [Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/turhancan97/VisBench/releases/tag/v0.1.0

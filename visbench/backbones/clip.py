@@ -33,6 +33,52 @@ _VARIANTS = {
 #: Dim of the shared image-text embedding for ViT-B, after ``visual.proj``.
 _PROJECTED_DIM = 512
 
+#: Substring identifying open_clip's QuickGELU warnings, matched case-insensitively.
+#:
+#: Deliberately one token rather than a sentence. This guard was originally a
+#: ``warnings.filterwarnings("error", message=".*QuickGELU mismatch.*")``, and
+#: open_clip has never emitted the phrase "QuickGELU mismatch" — so the filter
+#: never matched, the warning was never promoted, and the guard was dead code
+#: from the day it was written. Its own test only caught it under ``-m slow``,
+#: which CI does not run.
+#:
+#: open_clip warns in *both* directions — weights trained with QuickGELU loaded
+#: under a plain-GELU config, and the reverse — with different wording each way
+#: (see ``open_clip/factory.py``). Both are genuine mismatches. This is the one
+#: token common to the two, and the only part of the wording worth depending on.
+_QUICKGELU_MARKER = "quickgelu"
+
+
+def _promote_quickgelu_warning(
+    caught: "list[warnings.WarningMessage]", model_name: str, pretrained: str
+) -> None:
+    """Turn open_clip's QuickGELU warning into an error; re-emit anything else.
+
+    open_clip only warns on an activation mismatch and hands back a model that
+    loads cleanly and computes subtly wrong features. A warning in the middle of
+    a benchmark run is a warning nobody reads, and this is the one failure mode
+    here that silently changes a number rather than raising.
+
+    Every other warning is re-emitted rather than swallowed: recording warnings
+    suppresses them, and a guard against one specific problem has no business
+    hiding unrelated deprecation notices from the caller.
+    """
+    mismatch: Optional[str] = None
+    for entry in caught:
+        text = str(entry.message)
+        if mismatch is None and _QUICKGELU_MARKER in text.lower():
+            mismatch = text
+            continue
+        # stacklevel=2 points at CLIP.__init__ rather than this helper. The true
+        # origin inside open_clip is not recoverable once a warning is recorded.
+        warnings.warn(entry.message, stacklevel=2)
+
+    if mismatch is not None:
+        raise RuntimeError(
+            f"{model_name} + {pretrained!r} is a QuickGELU mismatch: {mismatch} "
+            "That combination loads cleanly and computes wrong activations."
+        )
+
 
 @register_backbone("clip_vitb16", variant="clip_vitb16")
 @register_backbone("clip_vitb32", variant="clip_vitb32")
@@ -99,18 +145,13 @@ class CLIP(BaseBackbone):
                 "`pip install visbench[clip]`."
             ) from exc
 
-        # Promote open_clip's QuickGELU warning to an error. It is the one
-        # failure mode here that yields a working model with wrong numbers, and
-        # a warning in the middle of a benchmark run is a warning nobody reads.
-        with warnings.catch_warnings():
-            warnings.filterwarnings("error", message=".*QuickGELU mismatch.*")
-            try:
-                model = open_clip.create_model(model_name, pretrained=pretrained)
-            except UserWarning as exc:
-                raise RuntimeError(
-                    f"{model_name} + {pretrained!r} is a QuickGELU mismatch: {exc}. "
-                    "That combination loads cleanly and computes wrong activations."
-                ) from exc
+        # Record rather than filter-to-error: open_clip's wording is the only
+        # signal available, and matching it as a regex is what broke this guard
+        # once. See _promote_quickgelu_warning.
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            model = open_clip.create_model(model_name, pretrained=pretrained)
+        _promote_quickgelu_warning(caught, model_name, pretrained)
 
         self.model = model.visual
         self._transform = transforms.Compose(
