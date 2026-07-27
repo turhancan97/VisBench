@@ -153,6 +153,22 @@ def test_semantic_segmentation_is_registered():
         visbench.get_probe("semantic_segmentation")
 
 
+def test_similarity_is_registered():
+    """Mid-level, and deliberately not merged with high-level retrieval.
+
+    Both are "similarity"-flavoured; they differ in what the ground truth is,
+    so keeping them apart is a categorization decision, not an oversight.
+    """
+    assert "similarity" in visbench.list_probes()
+    assert visbench.get_probe("similarity").level == "mid_level"
+    assert visbench.get_probe("retrieval").level == "high_level"
+
+
+def test_similarity_is_zero_shot():
+    """The reference protocol trains nothing, whatever its README says."""
+    assert visbench.get_probe("similarity").zero_shot is True
+
+
 def test_unregistered_task_fails_informatively():
     """The error must list what does exist.
 

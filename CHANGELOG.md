@@ -11,6 +11,47 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Added
 
+- **Mid-level image similarity** (`similarity`) — zero-shot two-alternative
+  forced choice, following Chen, Marks & Cheng (arXiv:2411.17474). A reference
+  and two candidates; the probe compares `cos(ref, left)` against
+  `cos(ref, right)` in frozen pooled feature space and is scored against the
+  human vote as binary classification (accuracy, F1, precision, recall).
+  Deliberately kept separate from high-level retrieval: the ground truth is
+  perceptual, not categorical, and merging them would conflate two different
+  questions.
+  Nothing is trained. That paper's README describes "training a similarity
+  estimator" while its code builds a test loader and freezes the backbone — the
+  code is what VisBench follows, so `fit()` is a no-op like retrieval's.
+  Measured on the NIGHTS test split (1,824 triplets, `min_votes=6`), pooled
+  features at 224px, against a ~51% chance baseline: DINOv2-S/14 **0.870**,
+  DINOv2-B/14 0.858, CLIP-B/16 0.828, ResNet50 0.827. The small DINOv2 beats the
+  base one here and loses to it on semantic segmentation, which is the case for
+  probing more than one level rather than assuming one ranking. Splitting the
+  test set by whether the reference came from ImageNet gives 0.882 against 0.854
+  for DINOv2-S — a contamination signal worth reading before the headline
+  number.
+- **`TwoAFCDataset`** for NIGHTS-style triplets. A triplet is three images while
+  the cache works one image at a time, so rather than widen the cache the
+  dataset presents itself as a flat collection of *unique* images and puts the
+  triplet structure in `labels()` as indices into itself. The cache, the
+  fingerprint and `run()` all work unchanged, a shared reference is extracted
+  once, and the pairing travels by index. `subset()` is refused there — slicing
+  images would silently repoint every triplet — and `max_triplets=` on the
+  constructor shortens both together instead.
+  Columns are read **by name**; the reference implementation indexes them
+  positionally (`iloc[idx, 2]` for the vote), which would score against the
+  wrong column if the CSV were ever reordered, and would look like a mediocre
+  result rather than an error.
+- `two_afc_metrics`, verified to agree with scikit-learn to 1e-12 — the
+  reference scores with sklearn, so matching it exactly removes any doubt about
+  averaging conventions. Accuracy is computed as an exact integer ratio rather
+  than a float32 mean, which differed in the third decimal.
+- `tie_rate` is reported alongside. A forced choice has to break an exact tie
+  somehow, and how often that happened is the difference between a real score
+  and one propped up by a coin flip.
+- `examples/similarity.py`, including the `test_imagenet` / `test_no_imagenet`
+  splits — a backbone pretrained on ImageNet has seen those references, so a gap
+  between the two is a contamination signal rather than a similarity result.
 - **`BaseDataset.subset(n_or_indices)`** — the public way to shorten a split.
   Every example had been doing it by hand: two reached into the private
   `_labels`, and the four dense ones sliced three parallel lists in step, each

@@ -59,11 +59,17 @@ class BaseDataset(ABC):
         for index in range(len(self)):
             yield self[index]
 
-    def labels(self) -> list:
-        """All labels in index order, without decoding any image.
+    def labels(self) -> Any:
+        """Whatever the task scores against, in index order, without decoding.
 
         Tasks need labels alongside cached features; loading every image to get
         them would defeat the cache entirely.
+
+        Deliberately ``Any``, because "label" means something different per
+        task and the base cannot know which: a class index for classification,
+        a geometry dict for correspondence, a ``(T, 4)`` tensor of triplets for
+        2AFC similarity. Subclasses narrow it to what they actually return, and
+        a caller should read that rather than this.
         """
         raise NotImplementedError
 

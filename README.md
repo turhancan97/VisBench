@@ -15,10 +15,10 @@
 
 ---
 
-> **Status: v0.1.0 released; v0.2 nearly complete.** Three backbone families
-> (DINOv2, CLIP, timm CNNs) and seven tasks run end-to-end, including four
-> trained dense probes. Mid-level similarity and the CLI remain. Not yet on
-> PyPI. See [Build order](#build-order).
+> **Status: v0.1.0 released; v0.2 feature-complete bar the CLI.** Three backbone
+> families (DINOv2, CLIP, timm CNNs) and eight tasks run end-to-end, including
+> four trained dense probes. Only the CLI remains. Not yet on PyPI. See
+> [Build order](#build-order).
 
 ## What it is
 
@@ -179,13 +179,15 @@ This is a multi-month roadmap, built one reviewed step at a time.
 - [x] **5h.** semantic (multi-class) segmentation — the high-level counterpart
       to 5g, on the same base class, with a class-index target and mIoU under
       both reductions
-- [ ] **5i.** rest of v0.2 — mid-level similarity, then the CLI
+- [x] **5i.** mid-level image similarity — zero-shot 2AFC against human
+      judgement, deliberately distinct from high-level retrieval
+- [ ] **5j.** the CLI, a thin wrapper over `visbench.run()`
 
 ## Roadmap
 
 **v0.1** — prove the abstraction. DINOv2 + CLIP. Zero-shot or linear-probe-on-cached-features only; no fine-tuning, no dense training loops. Deferred: CLI, custom backbones, ResNet/timm, multi-layer extraction.
 
-**v0.2** — ResNet/timm + custom backbones *(done)*, pluggable heads (linear + DPT) *(done)*, multi-layer extraction *(done)*, depth estimation *(done)*, surface normals *(done)*, generic (binary) segmentation *(done)*, semantic segmentation, mid-level similarity, CLI.
+**v0.2** — ResNet/timm + custom backbones *(done)*, pluggable heads (linear + DPT) *(done)*, multi-layer extraction *(done)*, depth estimation *(done)*, surface normals *(done)*, generic (binary) segmentation *(done)*, semantic segmentation *(done)*, mid-level similarity *(done)*, CLI.
 
 **v0.3** — opt-in fine-tuning of the last N blocks, detection groundwork, HF Hub probe sharing and a public leaderboard.
 
@@ -305,6 +307,44 @@ It reports a **ceiling** beside every score: matches can only land on patch
 centres, so with 14px patches a target falling between them cannot be hit
 exactly. A low `recall@1px` almost always means the grid is coarse, not that
 the backbone failed.
+
+### Mid-level image similarity
+
+[`examples/similarity.py`](examples/similarity.py) asks whether the backbone
+agrees with a human about which of two candidates looks more like a reference —
+a two-alternative forced choice over [NIGHTS](https://dreamsim-nights.github.io)
+(Fu et al., *DreamSim*). Also zero-shot: the probe is two cosine similarities
+and a comparison, with no head and no training split.
+
+```bash
+python examples/similarity.py --data /path/to/nights
+python examples/similarity.py --data ... --split test_no_imagenet
+```
+
+**This is not retrieval.** The ground truth is perceptual — layout, pose,
+structure — not category membership, which is why the two are separate tasks. A
+backbone can be strong at one and ordinary at the other.
+
+Measured on the NIGHTS test split (1,824 triplets, `min_votes=6`), pooled
+features at 224px. Humans chose "right" 49.1% of the time, so chance is ~51%:
+
+| backbone | accuracy | f1 |
+| --- | --- | --- |
+| dinov2_vits14 | **0.870** | 0.869 |
+| dinov2_vitb14 | 0.858 | 0.858 |
+| clip_vitb16 | 0.828 | 0.827 |
+| resnet50 | 0.827 | 0.828 |
+
+**The small DINOv2 beats the base one here** — the reverse of semantic
+segmentation, where B leads S (0.753 against 0.732). Two tasks, two orderings,
+same four backbones: which is the entire reason for probing more than one level
+rather than assuming a single ranking of representations.
+
+Run `--split test_imagenet` and `test_no_imagenet` before quoting a number: they
+partition the test set by whether the reference came from ImageNet, so a gap
+between them is a contamination signal rather than a similarity result. For
+`dinov2_vits14` that gap is **0.882 against 0.854** — worth knowing before
+reading 0.870 as a clean measure of perceptual alignment.
 
 ### Dense tasks
 

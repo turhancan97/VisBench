@@ -41,15 +41,15 @@ step is next rather than attempting the whole roadmap in one session.
 | 5f | Surface normals + the shared `DenseTrainingTask` | done |
 | 5g | Generic (binary) segmentation | done |
 | 5h | High-level semantic (multi-class) segmentation | done |
-| **5i** | **Mid-level image similarity** | **next** |
-| 5j | The CLI — last, once the dense-task Python API has settled | todo |
+| 5i | Mid-level image similarity | done |
+| **5j** | **The CLI — last, once the dense-task Python API has settled** | **next** |
 | 6 | v0.3 scope. Do not start before v0.2 is complete and reviewed | todo |
 
 ---
 
 ## Current state
 
-**v0.1 complete. v0.2 all but the last task and the CLI.** Everything below
+**v0.1 complete. v0.2 is every task; only the CLI remains.** Everything below
 exists, is tested, and is on `main`.
 
 Registered names — `visbench.list_backbones()`, `list_probes()`,
@@ -59,7 +59,7 @@ Registered names — `visbench.list_backbones()`, `list_probes()`,
 backbones  dinov2_vits14, dinov2_vitb14, clip_vitb16, clip_vitb32,
            resnet18, resnet50            (+ CustomBackbone, unregistered)
 probes     classification, retrieval, correspondence, depth, surface_normal,
-           generic_segmentation, semantic_segmentation
+           generic_segmentation, semantic_segmentation, similarity
 heads      linear, dpt
 ```
 
@@ -75,21 +75,22 @@ visbench/
                  timm_backbone, custom, pooling.py (feature modes)
   cache/         feature_cache.py (_Plan/_walk, extract_dataset, materialise)
                  streaming.py (CachedFeatures — a torch Dataset over the cache)
-  data/          image_folder, pair_dataset (correspondence), dense.py
+  data/          image_folder, pair_dataset (correspondence), triplet.py
+                 (TwoAFCDataset — NIGHTS-style 2AFC), dense.py
                  (DenseFolderDataset + stems= for official splits,
                   load_depth_map, load_normal_map, load_mask, load_label_map)
   heads/         base.py (register_head/build_head), linear.py, dpt.py
-  metrics/       classification, retrieval, correspondence, dense.py
+  metrics/       classification, retrieval, correspondence, similarity, dense.py
   tasks/         base.py (BaseTask)
                  dense_base.py (DenseTrainingTask — shared by every dense probe)
                  high_level/  classification, retrieval, semantic_segmentation
                               (+ stubs)
                  mid_level/   correspondence, depth, surface_normal,
-                              generic_segmentation  (+ stubs)
+                              generic_segmentation, similarity
   results/       schema.py (ResultRecord, SCHEMA_VERSION), writer.py
   runner.py      visbench.run() — the one call the CLI will wrap
 examples/        classify, retrieve, correspond, depth, normals, segment,
-                 segment_semantic
+                 segment_semantic, similarity
 ```
 
 ### `DenseTrainingTask` — subclass this for a new dense task
@@ -177,6 +178,31 @@ designed up front; extend it the same way, from a case that already runs.
   scale the defaults are fine**: 1464 VOC training images reach 0.73 mIoU at
   ten epochs with `train_loss` 0.19, so the schedule is not the problem, small
   splits are.
+- **Bigger is not better on every task, and this is the point of the library.**
+  DINOv2-S beats DINOv2-B on mid-level similarity (0.870 vs 0.858) while losing
+  to it on semantic segmentation (0.732 vs 0.753). Do not "sanity check" a new
+  task by asking whether the larger model won.
+- **The NIGHTS ImageNet split is a contamination check, not a subset.**
+  `test_imagenet` and `test_no_imagenet` partition the test set by whether the
+  reference image came from ImageNet. DINOv2-S scores 0.882 against 0.854 across
+  them; quoting the combined 0.870 without that gap overstates how much of it is
+  perceptual alignment.
+- **A triplet task is a flat image dataset plus indices, not a widened cache.**
+  `TwoAFCDataset` presents unique images and puts the triplet structure in
+  `labels()` as `(ref, left, right, vote)` indices into itself. That keeps the
+  cache, the fingerprint and `run()` unchanged, extracts a shared image once,
+  and makes the pairing travel by index. It is also why `subset()` is refused
+  there — slicing images would silently repoint every triplet — and why
+  `max_triplets=` exists on the constructor instead.
+- **The mid-level similarity protocol is zero-shot, despite what its own paper's
+  README says.** `evaluate_model_percepture.py` builds a test loader, freezes
+  the backbone and compares two cosine similarities; nothing is trained. The
+  README says otherwise. Follow the code, and do not add a head "to match the
+  description".
+- **Read a CSV by column name.** The reference reads the vote as `iloc[idx, 2]`
+  and the paths as `4`/`5`/`6`. Reordering the file would silently score
+  against the wrong column, and the failure looks like a mediocre number rather
+  than an error.
 - **Shorten a split with `dataset.subset()`, never by slicing its attributes.**
   A dense dataset carries three index-parallel lists and slicing one alone pairs
   a target with the wrong image, silently, since every later step still sees
@@ -451,8 +477,11 @@ layer on cached features.**
       head and the default schedule: DINOv2-S/14 **0.732 mIoU**, DINOv2-B/14
       **0.753** — the ordering you would hope for, which is itself a check that
       the probe measures something.
-- [ ] Mid-level image similarity as its own task, separate from high-level
-      retrieval — see the task-categorization note; do not merge them.
+- [x] **Mid-level image similarity** — `MidLevelSimilarityTask`, zero-shot 2AFC
+      over pooled features, kept separate from high-level retrieval as the
+      task-categorization note requires. Proved on NIGHTS (1,824-triplet test
+      split): DINOv2-S/14 **0.870**, DINOv2-B/14 0.858, CLIP-B/16 0.828,
+      ResNet50 0.827.
 - [ ] The CLI, last, once the dense-task Python API has settled. It should be a
       thin wrapper over `visbench.run()`, which was written to be exactly that.
       Note `run()` does not yet cover correspondence (it takes pairs plus

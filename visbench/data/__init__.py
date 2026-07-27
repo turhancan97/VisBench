@@ -15,6 +15,7 @@ from visbench.data.dense import (
 )
 from visbench.data.image_folder import ImageFolderDataset
 from visbench.data.pair_dataset import PairDataset
+from visbench.data.triplet import TwoAFCDataset
 
 __all__ = [
     "BaseDataset",
@@ -25,4 +26,5 @@ __all__ = [
     "load_normal_map",
     "load_mask",
     "load_label_map",
+    "TwoAFCDataset",
 ]

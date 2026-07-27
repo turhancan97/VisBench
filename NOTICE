@@ -57,8 +57,16 @@ Chen, Marks & Cheng.
 https://arxiv.org/abs/2411.17474 · https://github.com/mid-vision/midvision-probe
 Copyright (c) 2024 Mohamed El Banani, Xuweiyi Chen
 
-Used for: the high-/mid-/low-level task categorization, and the feature output
-modes in `visbench/backbones/pooling.py` (adapted from `tokens_to_output`).
+Used for: the high-/mid-/low-level task categorization; the feature output
+modes in `visbench/backbones/pooling.py` (adapted from `tokens_to_output`); and
+the two-alternative-forced-choice protocol for mid-level image similarity in
+`visbench/tasks/mid_level/similarity.py`, following
+`evaluate_model_percepture.py` — cosine similarity over pooled features, scored
+as binary classification against the human vote.
+
+Note that repository's README describes "training a mid-level image similarity
+estimator" while the code trains nothing; the code is what VisBench follows,
+and `MidLevelSimilarityTask` is zero-shot.
 
 ## vismatch — BSD-3-Clause
 
@@ -66,6 +74,17 @@ https://github.com/gmberton/vismatch
 
 Used for: API ergonomics, and the conceptual shape of the dense feature
 matching path in `visbench/tasks/mid_level/correspondence.py`.
+
+## Datasets
+
+Datasets are NOT redistributed by VisBench and carry their own terms. Loaders
+are provided for:
+
+- NIGHTS (Fu et al., *DreamSim*, NeurIPS 2023) — human 2AFC similarity
+  judgements, used by `visbench/data/triplet.py`.
+  https://dreamsim-nights.github.io
+- Pascal VOC 2012 — semantic segmentation labels, read via
+  `DenseFolderDataset` and `load_label_map`.
 
 ## Model weights
 

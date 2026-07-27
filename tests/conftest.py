@@ -5,11 +5,14 @@ feature cache can be tested without downloading weights. A test that needs the
 real DINOv2 checkpoint is marked ``slow`` and lives beside these.
 """
 
+from pathlib import Path
+
 import pytest
 import torch
 from PIL import Image
 
 from visbench.backbones.base import BaseBackbone
+from visbench.data.triplet import TwoAFCDataset
 
 
 class FakeViT(BaseBackbone):
@@ -132,3 +135,47 @@ def solid_images():
     """Four distinguishable 64x64 images."""
     colours = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (128, 128, 128)]
     return [Image.new("RGB", (64, 64), colour) for colour in colours]
+
+
+@pytest.fixture
+def two_afc_folder():
+    """Build a NIGHTS-shaped 2AFC folder: a CSV plus the images it names.
+
+    The candidate humans "preferred" is drawn to match the reference's colour,
+    so the vote is learnable from features rather than arbitrary — a probe that
+    scores at chance on this has a real problem.
+    """
+
+    def build(root, triplets=6, split="test", votes=8, min_votes_ok=True, construct=True):
+        root = Path(root)
+        (root / "ref").mkdir(parents=True)
+        (root / "distort").mkdir(parents=True)
+
+        rows = ["id,left_vote,right_vote,votes,ref_path,left_path,right_path,split,is_imagenet"]
+        for index in range(triplets):
+            shade = 20 + 30 * (index % 7)
+            near = (shade, shade, shade)
+            far = (255 - shade, 0, 255)
+            # Alternate which side is the match, so a probe that always answers
+            # one way scores 50% rather than passing by accident.
+            right_is_match = index % 2 == 1
+            left_colour = far if right_is_match else near
+            right_colour = near if right_is_match else far
+
+            Image.new("RGB", (32, 32), near).save(root / "ref" / f"{index:03d}.png")
+            Image.new("RGB", (32, 32), left_colour).save(root / "distort" / f"{index:03d}_0.png")
+            Image.new("RGB", (32, 32), right_colour).save(root / "distort" / f"{index:03d}_1.png")
+
+            rows.append(
+                f"{index},{int(not right_is_match)},{int(right_is_match)},"
+                f"{votes if min_votes_ok else 2},"
+                f"ref/{index:03d}.png,distort/{index:03d}_0.png,distort/{index:03d}_1.png,"
+                f"{split},{'TRUE' if index % 3 == 0 else 'FALSE'}"
+            )
+
+        (root / "data.csv").write_text("\n".join(rows) + "\n")
+        # construct=False returns the folder only, for the cases that need to
+        # assert on how construction *fails*.
+        return TwoAFCDataset(root, split=split) if construct else root
+
+    return build
