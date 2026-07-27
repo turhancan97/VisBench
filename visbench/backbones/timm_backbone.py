@@ -15,7 +15,8 @@ The module is ``timm_backbone`` rather than ``timm`` so it cannot shadow the
 package it imports.
 """
 
-from typing import Callable, Optional, Union, cast
+from collections.abc import Callable
+from typing import cast
 
 import torch
 from PIL import Image
@@ -62,11 +63,11 @@ class TimmBackbone(BaseBackbone):
 
     def __init__(
         self,
-        variant: Optional[str] = None,
-        model_name: Optional[str] = None,
-        pretrained_tag: Optional[str] = None,
-        device: Optional[str] = None,
-        image_size: Optional[int] = None,
+        variant: str | None = None,
+        model_name: str | None = None,
+        pretrained_tag: str | None = None,
+        device: str | None = None,
+        image_size: int | None = None,
     ) -> None:
         """Load a pretrained timm model, freeze it, set eval mode.
 
@@ -208,7 +209,7 @@ class TimmBackbone(BaseBackbone):
             result.append((tokens, None, (grid_h, grid_w)))
         return result
 
-    def preprocess(self, images: Union[Image.Image, list]) -> torch.Tensor:
+    def preprocess(self, images: Image.Image | list) -> torch.Tensor:
         """Apply the model's own timm transform."""
         if isinstance(images, Image.Image):
             images = [images]

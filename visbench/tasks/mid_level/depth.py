@@ -26,8 +26,6 @@ optimiser schedule, the training loop, batch-wise scoring — lives in
 other dense probes.
 """
 
-from typing import Optional
-
 import torch
 import torch.nn as nn
 
@@ -151,7 +149,7 @@ class DepthTask(DenseTrainingTask):
     def __init__(
         self,
         head: str = "linear",
-        layers: Optional[list[int]] = None,
+        layers: list[int] | None = None,
         min_depth: float = 0.001,
         max_depth: float = 10.0,
         n_bins: int = 256,
@@ -162,8 +160,8 @@ class DepthTask(DenseTrainingTask):
         batch_size: int = 8,
         warmup_epochs: float = 1.5,
         scale_invariant: bool = False,
-        head_kwargs: Optional[dict] = None,
-        device: Optional[str] = None,
+        head_kwargs: dict | None = None,
+        device: str | None = None,
     ) -> None:
         """Configure the probe; the head is built lazily in :meth:`fit`.
 

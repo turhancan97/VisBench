@@ -19,8 +19,9 @@ out bad — which is worse.
 """
 
 import hashlib
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Optional, Union
+from typing import Any
 
 import numpy as np
 import torch
@@ -106,7 +107,7 @@ def load_normal_map(path: Path) -> torch.Tensor:
     return torch.where(length > 0.1, normals / length.clamp(min=1e-8), torch.zeros_like(normals))
 
 
-def load_mask(path: Path, ignore_index: Optional[int] = None) -> torch.Tensor:
+def load_mask(path: Path, ignore_index: int | None = None) -> torch.Tensor:
     """Read a binary segmentation mask as a ``(H, W)`` float32 tensor of 0 and 1.
 
     ``.npy`` is taken at face value; an image file is read as 8-bit greyscale,
@@ -169,14 +170,14 @@ class DenseFolderDataset(BaseDataset):
 
     def __init__(
         self,
-        root: Union[str, Path],
+        root: str | Path,
         image_dir: str = "images",
         target_dir: str = "depths",
         split: str = "train",
         image_size: int = 224,
         target_scale: float = 1.0,
-        max_target: Optional[float] = None,
-        target_loader: Optional[Callable[[Path], torch.Tensor]] = None,
+        max_target: float | None = None,
+        target_loader: Callable[[Path], torch.Tensor] | None = None,
         extensions: tuple[str, ...] = (".jpg", ".jpeg", ".png", ".webp"),
     ) -> None:
         """Index the folder pair.

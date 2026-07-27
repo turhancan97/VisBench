@@ -8,7 +8,6 @@ record.
 
 from dataclasses import MISSING, asdict, dataclass, field, fields
 from datetime import datetime, timezone
-from typing import Optional
 
 __all__ = ["ResultRecord", "SCHEMA_VERSION", "utc_timestamp"]
 
@@ -83,14 +82,14 @@ class ResultRecord:
     timestamp: str
     visbench_version: str
     schema_version: int = SCHEMA_VERSION
-    dataset_size: Optional[int] = None
-    dataset_fingerprint: Optional[str] = None
+    dataset_size: int | None = None
+    dataset_fingerprint: str | None = None
     task_params: dict = field(default_factory=dict)
-    layer: Optional[int] = None
-    layers: Optional[list[int]] = None
-    seed: Optional[int] = None
-    duration_seconds: Optional[float] = None
-    notes: Optional[str] = None
+    layer: int | None = None
+    layers: list[int] | None = None
+    seed: int | None = None
+    duration_seconds: float | None = None
+    notes: str | None = None
 
     def to_dict(self) -> dict:
         """JSON-serialisable dict, with ``None`` fields retained.

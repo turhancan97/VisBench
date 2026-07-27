@@ -6,7 +6,7 @@ the structure: this is the multi-class counterpart to mid-level *generic*
 the same backbone (CLAUDE.md, v0.2).
 """
 
-from typing import Any, Optional
+from typing import Any
 
 from visbench.tasks.base import BaseTask
 from visbench.types import FeatureMode, MetricsDict
@@ -27,5 +27,5 @@ class SemanticSegmentationTask(BaseTask):
     def predict(self, features: Any) -> Any:
         raise NotImplementedError("Semantic segmentation lands in v0.2.")
 
-    def evaluate(self, features: Any, labels: Optional[Any] = None) -> MetricsDict:
+    def evaluate(self, features: Any, labels: Any | None = None) -> MetricsDict:
         raise NotImplementedError("Semantic segmentation lands in v0.2.")

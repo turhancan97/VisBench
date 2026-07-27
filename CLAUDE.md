@@ -164,7 +164,7 @@ designed up front; extend it the same way, from a case that already runs.
   the published ones, which is the only reason to borrow a protocol at all.
 - **mypy's `python_version` tracks the newest syntax any *dependency stub* uses,
   not the package's floor.** It is pinned to 3.12 in `pyproject.toml` because
-  numpy 2.x uses PEP 695 `type` statements. Do not "fix" it down to 3.9.
+  numpy 2.x uses PEP 695 `type` statements. Do not "fix" it down to the floor.
 - **Verify with the exact commands CI runs** (below). A local env with extra
   packages installed will pass checks that CI fails.
 - **A guard whose only test is `slow` is a guard CI never runs.** `addopts`
@@ -175,24 +175,30 @@ designed up front; extend it the same way, from a case that already runs.
   a *silently wrong number*, give it a test in the fast suite — extract the
   logic to a pure helper if that is what it takes.
 
+- **The Python floor is 3.10 because DINOv2 requires it, and that was the
+  cheaper of two bad options.** The pinned `HUB_REF` uses `float | None` at
+  class-body scope, which 3.9 evaluates at import and rejects — so DINOv2, six
+  of seven `examples/`, and every slow test were broken on the declared floor
+  (#1). The alternative, repinning `HUB_REF` to a 3.9-compatible commit, would
+  have **invalidated every cached DINOv2 feature on every machine**, since
+  `HUB_REF` feeds `cache_key()`. Raising the floor keeps the ref and therefore
+  the caches: verified identical keys before and after. Do not lower it back
+  without checking DINOv2 still imports.
+
 ### Open issues — read before assuming a red suite is your fault
 
-Filed on GitHub; `pytest -m slow` is currently **8 failed, 46 passed, 19 errors**
-and almost all of it is one root cause.
+Filed on GitHub. `pytest -m slow` is currently **73 passed, 0 failed** — if it
+is red for you, that is new.
 
-- **[#1] DINOv2 is unusable on Python 3.9**, the package's own floor. `HUB_REF`
-  pins an upstream commit using `float | None` at class-body scope, which 3.9
-  evaluates at import and rejects. Accounts for every remaining slow failure,
-  including the CLIP and timm ones (they build a DINOv2 to compare against).
-  Six of seven `examples/` scripts default to `dinov2_vits14`, so they fail on
-  3.9 too. **Not a quick fix**: `HUB_REF` feeds `cache_key()`, so repinning
-  invalidates every cached DINOv2 feature everywhere; the alternative is raising
-  the floor to 3.10 across pyproject, the CI matrix, the README badge and
-  `.venv`. Needs a decision, not a patch. Until then, prove new work on
-  `clip_vitb16` or `resnet50`.
 - **[#2] CI never runs `-m slow`**, which is why #1 and #3 survived on `main`
-  with a green tick. The 3.9 job exists to prove the floor works and reports
-  success while the floor is broken.
+  with a green tick. Still open: the suite passes now, but nothing on `main`
+  would notice if it stopped.
+- **[#4] `zip(strict=)` is unreviewed at 13 call sites.** `B905` became
+  reachable when the floor moved and is ignored in `pyproject.toml` with a
+  comment; each site needs its own answer. Silent truncation is the failure mode
+  CLAUDE.md already warns about for index-paired targets, so this is worth real
+  attention, not a blanket `strict=False`.
+- **[#1] DINOv2 on 3.9** — fixed by raising the floor; see above.
 - **[#3] CLIP QuickGELU guard** — fixed; see the bullet above.
 
 `CHANGELOG.md` under `[Unreleased]` is the full record of what each step
@@ -429,7 +435,7 @@ layer on cached features.**
 
 ## Engineering conventions
 
-- PyTorch, Python 3.9+. Optional extras: `clip` (open_clip), `timm`, `dev`.
+- PyTorch, Python 3.10+. Optional extras: `clip` (open_clip), `timm`, `dev`.
   A backbone whose extra is missing is skipped in the registry, not fatal.
 - Pin exact dependency versions via `uv.lock` — this is a reproducible
   benchmark library, not a moving-target research repo.
@@ -445,7 +451,7 @@ layer on cached features.**
 
 ### Verifying — use these exact commands
 
-The project venv is `.venv/` — Python 3.9.21, the supported floor, with
+The project venv is `.venv/` — Python 3.10.12, the supported floor, with
 `visbench` installed editable and all extras present. **Use it.** Another
 interpreter on the machine will not have `visbench` importable (examples fail
 with `ModuleNotFoundError`) and may have different dependency versions.
@@ -453,7 +459,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 621 fast tests
+pytest                                              # 682 fast tests
 pytest -m slow                                      # 73, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py
 ruff format --check visbench/ tests/ conftest.py

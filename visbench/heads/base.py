@@ -10,7 +10,8 @@ task run should be able to say ``head="dpt"`` without importing anything.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -112,7 +113,7 @@ class BaseHead(nn.Module, ABC):
             )
 
     @staticmethod
-    def _resize(tensor: torch.Tensor, size: Optional[tuple[int, int]]) -> torch.Tensor:
+    def _resize(tensor: torch.Tensor, size: tuple[int, int] | None) -> torch.Tensor:
         """Bilinearly resize a ``(B, C, H, W)`` map, or pass it through.
 
         ``align_corners=False`` throughout: it is the convention that keeps a

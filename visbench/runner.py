@@ -18,7 +18,7 @@ result-logging package from being called ``logging``.
 
 import time
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
 import visbench
 from visbench.cache import FeatureCache
@@ -91,16 +91,16 @@ def _extract(
 
 
 def run(
-    backbone: Union[str, Any],
-    task: Union[str, Any],
+    backbone: str | Any,
+    task: str | Any,
     dataset: Any,
-    train_dataset: Optional[Any] = None,
-    cache: Optional[FeatureCache] = None,
-    results: Optional[Union[str, Path]] = None,
+    train_dataset: Any | None = None,
+    cache: FeatureCache | None = None,
+    results: str | Path | None = None,
     batch_size: int = 32,
-    seed: Optional[int] = 0,
-    device: Optional[str] = None,
-    notes: Optional[str] = None,
+    seed: int | None = 0,
+    device: str | None = None,
+    notes: str | None = None,
     **task_kwargs: Any,
 ) -> RunResult:
     """Run one task on one backbone over one dataset, and log the result.

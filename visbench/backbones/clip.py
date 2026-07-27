@@ -5,7 +5,6 @@ Note that CLIP uses its own normalisation constants, not ImageNet's.
 """
 
 import warnings
-from typing import Optional, Union
 
 import torch
 from PIL import Image
@@ -63,7 +62,7 @@ def _promote_quickgelu_warning(
     suppresses them, and a guard against one specific problem has no business
     hiding unrelated deprecation notices from the caller.
     """
-    mismatch: Optional[str] = None
+    mismatch: str | None = None
     for entry in caught:
         text = str(entry.message)
         if mismatch is None and _QUICKGELU_MARKER in text.lower():
@@ -109,7 +108,7 @@ class CLIP(BaseBackbone):
     def __init__(
         self,
         variant: str = "clip_vitb16",
-        device: Optional[str] = None,
+        device: str | None = None,
         image_size: int = 224,
         use_projection: bool = False,
     ) -> None:
@@ -230,7 +229,7 @@ class CLIP(BaseBackbone):
             result.append((patch_tokens, cls_token, grid_hw))
         return result
 
-    def preprocess(self, images: Union[Image.Image, list]) -> torch.Tensor:
+    def preprocess(self, images: Image.Image | list) -> torch.Tensor:
         """Resize to 224 and apply CLIP normalisation constants."""
         if isinstance(images, Image.Image):
             images = [images]

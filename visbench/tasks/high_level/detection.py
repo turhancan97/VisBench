@@ -5,7 +5,7 @@ to do cheaply on limited compute (CLAUDE.md, v0.3). Stubbed now only so the
 structure does not need rearranging later.
 """
 
-from typing import Any, Optional
+from typing import Any
 
 from visbench.tasks.base import BaseTask
 from visbench.types import FeatureMode, MetricsDict
@@ -23,5 +23,5 @@ class DetectionTask(BaseTask):
     def predict(self, features: Any) -> Any:
         raise NotImplementedError("Detection lands in v0.3.")
 
-    def evaluate(self, features: Any, labels: Optional[Any] = None) -> MetricsDict:
+    def evaluate(self, features: Any, labels: Any | None = None) -> MetricsDict:
         raise NotImplementedError("Detection lands in v0.3.")

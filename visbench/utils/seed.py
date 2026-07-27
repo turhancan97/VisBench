@@ -5,7 +5,6 @@ the record that logged it — the seed is part of :class:`ResultRecord`.
 """
 
 import random
-from typing import Optional
 
 import numpy as np
 import torch
@@ -17,7 +16,7 @@ __all__ = ["set_seed"]
 _MAX_SEED = 2**32 - 1
 
 
-def set_seed(seed: Optional[int] = None, deterministic: bool = False) -> int:
+def set_seed(seed: int | None = None, deterministic: bool = False) -> int:
     """Seed python, numpy and torch RNGs; return the seed actually used.
 
     Returns the seed so a caller that passed ``None`` can still log which one

@@ -8,7 +8,6 @@ import json
 import os
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Optional
 
 from visbench.results.schema import ResultRecord
 
@@ -25,7 +24,7 @@ class ResultWriter:
     without clobbering each other, and so a partial file is still readable.
     """
 
-    def __init__(self, path: Optional[Path] = None) -> None:
+    def __init__(self, path: Path | None = None) -> None:
         """Open the results file for appending, creating parent dirs as needed."""
         self.path = Path(path) if path is not None else DEFAULT_RESULTS_PATH
         self.path.parent.mkdir(parents=True, exist_ok=True)

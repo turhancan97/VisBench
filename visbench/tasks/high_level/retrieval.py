@@ -6,7 +6,7 @@ which judges perceptual/geometric resemblance instead. Do not merge the two
 even though both are "similarity"-flavored (CLAUDE.md, "Task categorization").
 """
 
-from typing import Any, Optional
+from typing import Any
 
 import torch
 
@@ -46,7 +46,7 @@ class RetrievalTask(BaseTask):
         self.metric = metric
         self.pooling = pooling
 
-    def fit(self, features: Any, labels: Optional[Any] = None) -> "RetrievalTask":
+    def fit(self, features: Any, labels: Any | None = None) -> "RetrievalTask":
         """No-op — retrieval is zero-shot. Returns ``self``."""
         return self
 
@@ -65,7 +65,7 @@ class RetrievalTask(BaseTask):
     def predict(
         self,
         features: Any,
-        gallery_features: Optional[Any] = None,
+        gallery_features: Any | None = None,
     ) -> torch.Tensor:
         """Return ranked gallery indices per query, ``(N_query, N_ranked)``.
 
@@ -97,9 +97,9 @@ class RetrievalTask(BaseTask):
     def evaluate(
         self,
         features: Any,
-        labels: Optional[Any] = None,
-        gallery_features: Optional[Any] = None,
-        gallery_labels: Optional[Any] = None,
+        labels: Any | None = None,
+        gallery_features: Any | None = None,
+        gallery_labels: Any | None = None,
     ) -> MetricsDict:
         """Return ``{"recall@1": ..., "recall@5": ..., "mAP": ...}``."""
         query_labels = self._as_label_tensor(labels)

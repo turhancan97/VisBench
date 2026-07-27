@@ -22,7 +22,6 @@ noticeably, so the conventions are spelled out rather than left implicit:
 
 import math
 from collections.abc import Sequence
-from typing import Optional
 
 import torch
 
@@ -187,7 +186,7 @@ def depth_metrics(
     return metrics
 
 
-def _normal_validity(target: torch.Tensor, valid: Optional[torch.Tensor]) -> torch.Tensor:
+def _normal_validity(target: torch.Tensor, valid: torch.Tensor | None) -> torch.Tensor:
     """Resolve the ``(B, H, W)`` float mask of scorable pixels.
 
     probe3d derives this from the *depth* map (``batch["depth"] > 0``), because
@@ -219,7 +218,7 @@ def _normal_validity(target: torch.Tensor, valid: Optional[torch.Tensor]) -> tor
 def surface_normal_metrics(
     pred: torch.Tensor,
     target: torch.Tensor,
-    valid: Optional[torch.Tensor] = None,
+    valid: torch.Tensor | None = None,
 ) -> MetricsDict:
     """Angular-error RMSE plus within-11.25/22.5/30-degree fractions.
 

@@ -8,7 +8,7 @@ dataset-download machinery in the way.
 
 import hashlib
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from visbench.data.base import BaseDataset
 from visbench.utils.image import load_image
@@ -42,7 +42,7 @@ class ImageFolderDataset(BaseDataset):
 
         self._classes: list[str] = []
         self.paths: list[Path] = []
-        self._labels: list[Optional[int]] = []
+        self._labels: list[int | None] = []
 
         if labeled:
             self._classes = sorted(d.name for d in self.root.iterdir() if d.is_dir())
@@ -74,7 +74,7 @@ class ImageFolderDataset(BaseDataset):
     def __len__(self) -> int:
         return len(self.paths)
 
-    def __getitem__(self, index: int) -> tuple[Any, Optional[int]]:
+    def __getitem__(self, index: int) -> tuple[Any, int | None]:
         """Return ``(pil_image, class_index)``, or ``(pil_image, None)`` if unlabeled."""
         return load_image(self.paths[index]), self._labels[index]
 

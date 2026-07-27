@@ -7,7 +7,7 @@ forced into :class:`ImageFolderDataset`.
 
 import hashlib
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import torch
 from PIL import Image
@@ -217,7 +217,7 @@ class HomographyPairDataset(PairDataset):
             for index in range(len(self))
         ]
 
-    def cache_identity(self, index: int) -> Optional[str]:
+    def cache_identity(self, index: int) -> str | None:
         """Identity of the *source* file; the warped view is derived from it.
 
         The task extracts both views, so the caller must distinguish them —

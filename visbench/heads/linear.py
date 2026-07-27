@@ -7,8 +7,6 @@ v0.2 for the dense variant; the classification task's linear layer in v0.1 is
 deliberately self-contained and does not depend on this module.
 """
 
-from typing import Optional, Union
-
 import torch
 import torch.nn as nn
 
@@ -43,7 +41,7 @@ class LinearHead(BaseHead):
         self,
         in_channels: int,
         out_channels: int,
-        output_size: Optional[Union[int, tuple[int, int]]] = None,
+        output_size: int | tuple[int, int] | None = None,
         bias: bool = True,
     ) -> None:
         """Configure the projection.

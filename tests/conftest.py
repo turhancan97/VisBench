@@ -5,8 +5,6 @@ feature cache can be tested without downloading weights. A test that needs the
 real DINOv2 checkpoint is marked ``slow`` and lives beside these.
 """
 
-from typing import Optional
-
 import pytest
 import torch
 from PIL import Image
@@ -23,7 +21,7 @@ class FakeViT(BaseBackbone):
 
     has_cls_token = True
 
-    def __init__(self, device: Optional[str] = "cpu", embed_dim: int = 8, patch_size: int = 16):
+    def __init__(self, device: str | None = "cpu", embed_dim: int = 8, patch_size: int = 16):
         super().__init__(device)
         self.name = "fake_vit"
         self.embed_dim = embed_dim
@@ -84,7 +82,7 @@ class FakeCNN(BaseBackbone):
 
     has_cls_token = False
 
-    def __init__(self, device: Optional[str] = "cpu", embed_dim: int = 8):
+    def __init__(self, device: str | None = "cpu", embed_dim: int = 8):
         super().__init__(device)
         self.name = "fake_cnn"
         self.embed_dim = embed_dim

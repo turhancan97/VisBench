@@ -7,7 +7,7 @@ name = "visbench"
 version = "0.1.0"
 description = "Probing vision backbones across high-, mid- and low-level computer vision tasks"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = { file = "LICENSE" }
 keywords = [
     "computer-vision",
@@ -19,7 +19,6 @@ keywords = [
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -72,13 +71,23 @@ markers = [
 
 [tool.ruff]
 line-length = 100
-target-version = "py39"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+# B905 (`zip()` without `strict=`) became reachable only when the floor moved to
+# 3.10, since `strict=` does not exist before it. It is deliberately NOT silenced
+# on merit -- an unequal-length zip that truncates silently is the exact failure
+# mode CLAUDE.md warns about for targets travelling by index. But each of the 13
+# call sites needs its own answer: `zip(resolved, resolved[1:])` in
+# backbones/base.py is intentionally ragged and wants strict=False, while
+# `zip(self.image_paths, self.target_paths)` in data/dense.py wants strict=True
+# and would turn a silent misalignment into an error. That is 13 behaviour
+# changes and belongs in its own reviewed pass, not bundled into a floor raise.
+ignore = ["B905"]
 
 [tool.mypy]
-# NOT the 3.9 this package supports, deliberately, and the reason generalises:
+# NOT the 3.10 this package supports, deliberately, and the reason generalises:
 # mypy parses the *dependencies'* sources and stubs under this version too, and
 # they use newer syntax than we do. torch has `match` statements (3.10+); numpy
 # 2.x's __init__.pyi has PEP 695 `type` statements (3.12+). Set this too low and
@@ -90,9 +99,9 @@ select = ["E", "F", "I", "UP", "B"]
 # and will need raising again as they move. Keep it equal to the lint job's
 # python-version in .github/workflows/ci.yml.
 #
-# 3.9 support is still enforced, by two more direct checks: ruff's
-# target-version = "py39" rejects newer syntax in our own code, and the CI test
-# matrix runs the whole suite on 3.9, where anything 3.10+ fails at import.
+# 3.10 support is still enforced, by two more direct checks: ruff's
+# target-version = "py310" rejects newer syntax in our own code, and the CI test
+# matrix runs the whole suite on 3.10, where anything 3.11+ fails at import.
 python_version = "3.12"
 # torch, timm and open_clip ship partial or absent stubs; checking against them
 # produces noise about library internals rather than about this code.

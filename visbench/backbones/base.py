@@ -6,7 +6,7 @@ the whole point of this class (CLAUDE.md, "Feature extraction design").
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional, cast
+from typing import cast
 
 import torch
 import torch.nn as nn
@@ -50,9 +50,9 @@ class BaseBackbone(nn.Module, ABC):
     embed_dim: int = 0
 
     #: ViT patch size; ``None`` for CNNs, where the stride is architectural.
-    patch_size: Optional[int] = None
+    patch_size: int | None = None
 
-    def __init__(self, device: Optional[str] = None) -> None:
+    def __init__(self, device: str | None = None) -> None:
         """Record the target device. Subclasses load weights, then call
         :meth:`_finalize` to freeze, ``eval()`` and move the module.
 
@@ -190,7 +190,7 @@ class BaseBackbone(nn.Module, ABC):
         self,
         output: LayerOutput,
         feature_mode: str,
-    ) -> tuple[torch.Tensor, Optional[torch.Tensor]]:
+    ) -> tuple[torch.Tensor, torch.Tensor | None]:
         """One layer's tokens to ``(dense, cls_or_None)`` in ``feature_mode``."""
         patch_tokens, cls_token, grid_hw = output
         grid = tokens_to_grid(patch_tokens, grid_hw)

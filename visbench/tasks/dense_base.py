@@ -30,7 +30,7 @@ letting a run discover the problem by being killed.
 
 import math
 from collections.abc import Iterator
-from typing import Any, Optional, Union
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -52,9 +52,7 @@ class _MemoryFeatures(Dataset):
     a :class:`~visbench.cache.CachedFeatures`, instead of the task carrying two.
     """
 
-    def __init__(
-        self, dense: Union[torch.Tensor, list], targets: Optional[torch.Tensor] = None
-    ) -> None:
+    def __init__(self, dense: torch.Tensor | list, targets: torch.Tensor | None = None) -> None:
         self.count = len(dense[0]) if isinstance(dense, list) else len(dense)
         if targets is not None and self.count != len(targets):
             raise ValueError(f"Got {self.count} feature maps for {len(targets)} targets")
@@ -135,15 +133,15 @@ class DenseTrainingTask(BaseTask):
     def __init__(
         self,
         head: str = "linear",
-        layers: Optional[list[int]] = None,
+        layers: list[int] | None = None,
         hidden_dim: int = 512,
         epochs: int = 10,
         lr: float = 5e-4,
         weight_decay: float = 1e-4,
         batch_size: int = 8,
         warmup_epochs: float = 1.5,
-        head_kwargs: Optional[dict] = None,
-        device: Optional[str] = None,
+        head_kwargs: dict | None = None,
+        device: str | None = None,
     ) -> None:
         """Configure the probe; the head is built lazily in :meth:`fit`.
 
@@ -187,12 +185,12 @@ class DenseTrainingTask(BaseTask):
         self.head_kwargs = dict(head_kwargs or {})
         self.device = resolve_device(device)
 
-        self.head: Optional[nn.Module] = None
+        self.head: nn.Module | None = None
 
         #: Set by :meth:`fit`. A diagnostic, not a result — a poor score with a
         #: high training loss means the probe underfitted, which is a different
         #: finding from a representation that does not carry this signal.
-        self.train_loss: Optional[float] = None
+        self.train_loss: float | None = None
 
     # -- subclass hooks ------------------------------------------------------
 
@@ -235,9 +233,7 @@ class DenseTrainingTask(BaseTask):
 
     # -- feature sources -----------------------------------------------------
 
-    def _source(
-        self, features: Any, labels: Optional[Any], targets_required: bool = True
-    ) -> Dataset:
+    def _source(self, features: Any, labels: Any | None, targets_required: bool = True) -> Dataset:
         """Normalise whatever was passed into one indexable ``(features, target)``.
 
         Two front doors, one training loop. A
@@ -286,7 +282,7 @@ class DenseTrainingTask(BaseTask):
             collate_fn=CachedFeatures.collate,
         )
 
-    def _dense(self, features: Any) -> Union[torch.Tensor, list]:
+    def _dense(self, features: Any) -> torch.Tensor | list:
         """Pull what the head wants out of an in-memory feature dict."""
         if isinstance(features, dict):
             if self.layers is not None:
@@ -307,7 +303,7 @@ class DenseTrainingTask(BaseTask):
             return [layer.float() for layer in features]
         return features.float()
 
-    def _check_size(self, dense: Union[torch.Tensor, list]) -> None:
+    def _check_size(self, dense: torch.Tensor | list) -> None:
         """Refuse an in-memory batch too large to hold, and name the way out."""
         maps = dense if isinstance(dense, list) else [dense]
         elements = sum(layer.numel() for layer in maps)
@@ -388,7 +384,7 @@ class DenseTrainingTask(BaseTask):
 
     # -- training ------------------------------------------------------------
 
-    def fit(self, features: Any, labels: Optional[Any] = None) -> "DenseTrainingTask":
+    def fit(self, features: Any, labels: Any | None = None) -> "DenseTrainingTask":
         """Train the head on dense features and their per-pixel targets.
 
         ``features`` is either an in-memory feature dict or a streaming
@@ -468,7 +464,7 @@ class DenseTrainingTask(BaseTask):
     # -- inference -----------------------------------------------------------
 
     @torch.no_grad()
-    def predict(self, features: Any, labels: Optional[Any] = None) -> torch.Tensor:
+    def predict(self, features: Any, labels: Any | None = None) -> torch.Tensor:
         """Predictions for every image, stacked ``(N, C, H, W)``.
 
         Holds every prediction in memory, because that is what was asked for —
@@ -484,8 +480,8 @@ class DenseTrainingTask(BaseTask):
         return torch.cat(outputs)
 
     def _iter_batches(
-        self, features: Any, labels: Optional[Any], targets_required: bool = True
-    ) -> Iterator[tuple[Any, Optional[torch.Tensor]]]:
+        self, features: Any, labels: Any | None, targets_required: bool = True
+    ) -> Iterator[tuple[Any, torch.Tensor | None]]:
         """Yield ``(features, targets_or_None)`` in dataset order.
 
         Normalised here so callers need not care whether targets were available:
@@ -500,7 +496,7 @@ class DenseTrainingTask(BaseTask):
                 yield batch, None
 
     @torch.no_grad()
-    def evaluate(self, features: Any, labels: Optional[Any] = None) -> MetricsDict:
+    def evaluate(self, features: Any, labels: Any | None = None) -> MetricsDict:
         """Score the split, a batch at a time.
 
         Accumulates per-image totals rather than collecting every prediction

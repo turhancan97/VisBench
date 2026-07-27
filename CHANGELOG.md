@@ -254,6 +254,28 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Changed
 
+- **The minimum supported Python is now 3.10** (was 3.9). This is a fix, not
+  housekeeping: the pinned DINOv2 `HUB_REF` uses `float | None` at class-body
+  scope, which 3.9 evaluates at import and rejects, so the flagship backbone,
+  six of seven `examples/` scripts and the entire slow suite were broken on the
+  floor the package advertised ([#1]). The alternative — repinning `HUB_REF` to
+  a 3.9-compatible commit — would have invalidated every cached DINOv2 feature
+  on every machine, since `HUB_REF` feeds `cache_key()`. Raising the floor keeps
+  the ref and the caches; keys verified identical before and after. `pytest
+  -m slow` goes from 8 failed / 19 errors to **73 passed**.
+  - `requires-python`, the 3.9 classifier, ruff's `target-version`, the CI test
+    matrix, the README badge and `uv.lock` all move together.
+  - mypy's `python_version` stays **3.12** — it tracks the newest syntax any
+    dependency stub uses, not this package's floor.
+  - Annotations modernised to PEP 604 (`X | None`) across 153 sites, which is
+    what ruff's `UP` rules require once the target is 3.10. Mechanical; no
+    behaviour change.
+  - `B905` (`zip()` without `strict=`) is newly reachable and is **ignored with
+    a comment rather than fixed** ([#4]). Each of the 13 sites needs its own
+    answer — `zip(resolved, resolved[1:])` is intentionally ragged, while
+    `zip(self.image_paths, self.target_paths)` wants `strict=True` and would
+    convert a silent misalignment into an error. Behaviour changes do not belong
+    in a floor raise.
 - mypy is **gating** in CI. It had `continue-on-error` from when everything was
   stubs, which made it a check that could never fail; 19 errors had accumulated,
   including the `PairDataset` variance violation above. Now clean.
@@ -399,7 +421,9 @@ Protocols are reused and cited at the point of use, not re-derived —
 (Chen, Marks & Cheng), and [vismatch](https://github.com/gmberton/vismatch) for
 API philosophy.
 
+[#1]: https://github.com/turhancan97/VisBench/issues/1
 [#2]: https://github.com/turhancan97/VisBench/issues/2
+[#4]: https://github.com/turhancan97/VisBench/issues/4
 [#3]: https://github.com/turhancan97/VisBench/issues/3
 [Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/turhancan97/VisBench/releases/tag/v0.1.0

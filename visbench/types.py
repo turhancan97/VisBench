@@ -5,7 +5,7 @@ the vocabulary (pooling names, feature modes, the feature dict layout) without
 importing each other.
 """
 
-from typing import Optional, TypedDict
+from typing import TypedDict
 
 import torch
 
@@ -118,14 +118,14 @@ FEATURE_MODE_CHOICES: tuple[str, ...] = (
 #: Layer selection for multi-layer extraction, as passed by a caller: ``None``
 #: for "the last layer", or indices which may be negative. Accepted by the
 #: interface from v0.1 and wired up in v0.2.
-LayerSpec = Optional[list[int]]
+LayerSpec = list[int] | None
 
 #: What one layer of a backbone contributes: ``(patch_tokens, cls, grid_hw)``
 #: with ``patch_tokens`` ``(B, N, C)``, ``cls`` ``(B, C)`` or ``None``, and
 #: ``N == grid_h * grid_w``. Every architecture family normalises to this in
 #: :meth:`BaseBackbone._forward_features`, which returns one per requested
 #: layer.
-LayerOutput = tuple[torch.Tensor, Optional[torch.Tensor], tuple[int, int]]
+LayerOutput = tuple[torch.Tensor, torch.Tensor | None, tuple[int, int]]
 
 #: Flat metrics dict returned by :meth:`BaseTask.evaluate`.
 MetricsDict = dict[str, float]

@@ -8,7 +8,7 @@ the same dataset object to feed DINOv2 and CLIP unchanged.
 
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
-from typing import Any, Optional
+from typing import Any
 
 __all__ = ["BaseDataset"]
 
@@ -54,7 +54,7 @@ class BaseDataset(ABC):
         """
         raise NotImplementedError
 
-    def cache_identity(self, index: int) -> Optional[str]:
+    def cache_identity(self, index: int) -> str | None:
         """Cheap stable token for item ``index``, or ``None`` if unavailable.
 
         Lets :meth:`FeatureCache.extract_dataset` decide whether an item is
@@ -71,7 +71,7 @@ class BaseDataset(ABC):
         """
         return None
 
-    def fingerprint(self) -> Optional[str]:
+    def fingerprint(self) -> str | None:
         """Short hash identifying *which* data this is, for the result record.
 
         A record naming only ``"imagenette"`` and ``"val"`` cannot distinguish

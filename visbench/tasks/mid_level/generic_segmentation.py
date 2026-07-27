@@ -40,8 +40,6 @@ dataset's explicit ignore region and what nothing at all writes otherwise. See
 pixels trained on and the pixels scored are one set.
 """
 
-from typing import Optional
-
 import torch
 import torch.nn.functional as F
 
@@ -103,15 +101,15 @@ class GenericSegmentationTask(DenseTrainingTask):
     def __init__(
         self,
         head: str = "linear",
-        layers: Optional[list[int]] = None,
+        layers: list[int] | None = None,
         hidden_dim: int = 512,
         epochs: int = 10,
         lr: float = 5e-4,
         weight_decay: float = 1e-4,
         batch_size: int = 8,
         warmup_epochs: float = 1.5,
-        head_kwargs: Optional[dict] = None,
-        device: Optional[str] = None,
+        head_kwargs: dict | None = None,
+        device: str | None = None,
     ) -> None:
         """Configure the probe; the head is built lazily in :meth:`fit`.
 

@@ -17,7 +17,6 @@ wired up in v0.2: it consumes features from several backbone depths at once.
 """
 
 from collections.abc import Sequence
-from typing import Optional, Union
 
 import torch
 import torch.nn as nn
@@ -62,7 +61,7 @@ class FusionBlock(nn.Module):
         self.refine = ResidualConvUnit(channels)
         self.project = nn.Conv2d(channels, channels, kernel_size=1)
 
-    def forward(self, x: torch.Tensor, previous: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, previous: torch.Tensor | None = None) -> torch.Tensor:
         if previous is not None:
             if previous.shape[-2:] != x.shape[-2:]:
                 previous = nn.functional.interpolate(
@@ -111,13 +110,13 @@ class DPTHead(BaseHead):
 
     def __init__(
         self,
-        in_channels: Union[int, Sequence[int]],
+        in_channels: int | Sequence[int],
         out_channels: int,
         num_layers: int = 4,
         hidden_dim: int = 256,
-        output_size: Optional[Union[int, tuple[int, int]]] = None,
+        output_size: int | tuple[int, int] | None = None,
         use_cls: bool = False,
-        cls_dim: Optional[int] = None,
+        cls_dim: int | None = None,
     ) -> None:
         """Configure the pyramid.
 
@@ -189,7 +188,7 @@ class DPTHead(BaseHead):
         """A list of ``(B, C, H, W)`` maps — one per layer — to a dense prediction."""
         stages, cls_vector = self._unpack(features)
 
-        fused: Optional[torch.Tensor] = None
+        fused: torch.Tensor | None = None
         for index, (stage, block) in enumerate(zip(stages, self.fusion)):
             projected = self.reassemble[index](stage)
             projected = self._to_scale(projected, stage.shape[-2:], self.scales[index])

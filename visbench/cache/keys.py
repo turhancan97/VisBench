@@ -6,7 +6,6 @@ isolated here and tested directly.
 """
 
 import hashlib
-from typing import Optional
 
 import numpy as np
 import torch
@@ -60,7 +59,7 @@ def hash_image(image) -> str:
 def make_key(
     image_hash: str,
     backbone_key: str,
-    layer: Optional[int],
+    layer: int | None,
     pooling: str,
     feature_mode: str = "dense_only",
 ) -> str:

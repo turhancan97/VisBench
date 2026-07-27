@@ -6,7 +6,6 @@ before pooling or grid reshaping when the variant has them.
 
 import hashlib
 from pathlib import Path
-from typing import Optional, Union
 
 import torch
 from PIL import Image
@@ -62,10 +61,10 @@ class DINOv2(BaseBackbone):
     def __init__(
         self,
         variant: str = "dinov2_vitb14",
-        device: Optional[str] = None,
+        device: str | None = None,
         image_size: int = 224,
         hub_ref: str = HUB_REF,
-        checkpoint: Optional[Union[str, Path]] = None,
+        checkpoint: str | Path | None = None,
     ) -> None:
         """Load the hub checkpoint for ``variant``, freeze it, set eval mode.
 
@@ -177,7 +176,7 @@ class DINOv2(BaseBackbone):
             result.append((patch_tokens, cls_token, grid_hw))
         return result
 
-    def preprocess(self, images: Union[Image.Image, list]) -> torch.Tensor:
+    def preprocess(self, images: Image.Image | list) -> torch.Tensor:
         """Resize to the configured resolution and apply ImageNet normalisation.
 
         Resize-short-side + centre-crop, the standard ImageNet eval protocol,

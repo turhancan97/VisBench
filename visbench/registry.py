@@ -12,7 +12,8 @@ last decorator would win and every instance would misreport itself — and
 not a crash. Instances set their own ``name`` in ``__init__``.
 """
 
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any
 
 __all__ = [
     "register_backbone",
@@ -116,7 +117,7 @@ def list_tasks() -> list[str]:
 
 #: module -> the optional third-party package it needs, or ``None`` if it has
 #: no optional dependency and must therefore always import cleanly.
-_REGISTRATION_MODULES: dict[str, Optional[str]] = {
+_REGISTRATION_MODULES: dict[str, str | None] = {
     "visbench.backbones.dinov2": None,
     "visbench.backbones.clip": "open_clip",
     "visbench.backbones.timm_backbone": "timm",
@@ -169,7 +170,7 @@ def _ensure_imported() -> None:
             ) from exc
 
 
-def _is_missing(missing: Optional[str], optional_dependency: str) -> bool:
+def _is_missing(missing: str | None, optional_dependency: str) -> bool:
     """Whether ``missing`` is ``optional_dependency`` or a submodule of it."""
     if missing is None:
         return False

@@ -42,7 +42,7 @@ as a zero-length vector, which is what
 """
 
 import warnings
-from typing import Any, Optional
+from typing import Any
 
 import torch
 
@@ -57,7 +57,7 @@ __all__ = ["SurfaceNormalTask", "angular_loss"]
 def angular_loss(
     pred: torch.Tensor,
     target: torch.Tensor,
-    mask: Optional[torch.Tensor] = None,
+    mask: torch.Tensor | None = None,
     uncertainty_aware: bool = True,
     eps: float = 1e-4,
 ) -> torch.Tensor:
@@ -141,7 +141,7 @@ class SurfaceNormalTask(DenseTrainingTask):
     def __init__(
         self,
         head: str = "linear",
-        layers: Optional[list[int]] = None,
+        layers: list[int] | None = None,
         uncertainty_aware: bool = True,
         hidden_dim: int = 512,
         epochs: int = 10,
@@ -149,9 +149,9 @@ class SurfaceNormalTask(DenseTrainingTask):
         weight_decay: float = 1e-4,
         batch_size: int = 8,
         warmup_epochs: float = 1.5,
-        normal_source: Optional[str] = None,
-        head_kwargs: Optional[dict] = None,
-        device: Optional[str] = None,
+        normal_source: str | None = None,
+        head_kwargs: dict | None = None,
+        device: str | None = None,
     ) -> None:
         """Configure the probe; the head is built lazily in :meth:`fit`.
 
@@ -185,7 +185,7 @@ class SurfaceNormalTask(DenseTrainingTask):
 
         #: Fraction of pixels whose kappa sat on its floor during the final
         #: training epoch — see :meth:`fit`. A diagnostic, not a result.
-        self.kappa_at_floor: Optional[float] = None
+        self.kappa_at_floor: float | None = None
         self._floor_count = 0
         self._kappa_count = 0
 
@@ -198,7 +198,7 @@ class SurfaceNormalTask(DenseTrainingTask):
     #: Warn once more than this fraction of pixels have collapsed.
     _kappa_collapse_warn = 0.5
 
-    def fit(self, features: Any, labels: Optional[Any] = None) -> "SurfaceNormalTask":
+    def fit(self, features: Any, labels: Any | None = None) -> "SurfaceNormalTask":
         """Train the head, then check whether the uncertainty channel died.
 
         The uncertainty-aware loss has a silent failure mode at chance level.

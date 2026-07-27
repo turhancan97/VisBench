@@ -9,7 +9,7 @@ Typically evaluated as a two-alternative forced choice against human
 judgements.
 """
 
-from typing import Any, Optional
+from typing import Any
 
 from visbench.tasks.base import BaseTask
 from visbench.types import MetricsDict, Pooling
@@ -27,6 +27,6 @@ class MidLevelSimilarityTask(BaseTask):
     def predict(self, features: Any) -> Any:
         raise NotImplementedError("Mid-level image similarity lands in v0.2.")
 
-    def evaluate(self, features: Any, labels: Optional[Any] = None) -> MetricsDict:
+    def evaluate(self, features: Any, labels: Any | None = None) -> MetricsDict:
         """Will return ``{"2afc_agreement": ...}`` against human judgements."""
         raise NotImplementedError("Mid-level image similarity lands in v0.2.")

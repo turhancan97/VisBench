@@ -7,7 +7,7 @@ never choose. This keeps that decision in one place and backbones swappable
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any
 
 import torch
 
@@ -50,9 +50,9 @@ class BaseTask(ABC):
     #: Backbone depths this task wants, or ``None`` for the last layer alone.
     #: A multiscale head needs several, and the task is what knows that — the
     #: same reason pooling is chosen here rather than on the backbone.
-    layers: Optional[list[int]] = None
+    layers: list[int] | None = None
 
-    def fit(self, features: Any, labels: Optional[Any] = None) -> "BaseTask":
+    def fit(self, features: Any, labels: Any | None = None) -> "BaseTask":
         """Train the probe head on cached features.
 
         No-op for zero-shot tasks; returns ``self`` so calls can chain.
@@ -71,7 +71,7 @@ class BaseTask(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def evaluate(self, features: Any, labels: Optional[Any] = None) -> MetricsDict:
+    def evaluate(self, features: Any, labels: Any | None = None) -> MetricsDict:
         """Score predictions and return a **flat** metrics dict.
 
         Never prints or logs results directly — the caller writes the

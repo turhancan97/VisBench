@@ -10,7 +10,7 @@ instead of dedicated matcher networks. Evaluation protocol follows probe3d
 published description rather than its code, which is CC BY-NC (see NOTICE).
 """
 
-from typing import Any, Optional
+from typing import Any
 
 import torch
 
@@ -74,7 +74,7 @@ class CorrespondenceTask(BaseTask):
         self,
         num_corr: int = 1000,
         ratio_threshold: float = 0.9,
-        thresholds: Optional[tuple] = None,
+        thresholds: tuple | None = None,
         threshold_units: str = "patch",
     ) -> None:
         """Configure how many correspondences to keep and the error thresholds scored.
@@ -120,7 +120,7 @@ class CorrespondenceTask(BaseTask):
         self.thresholds = tuple(sorted(thresholds))
         self._unit = "p" if threshold_units == "patch" else "px"
 
-    def fit(self, features: Any, labels: Optional[Any] = None) -> "CorrespondenceTask":
+    def fit(self, features: Any, labels: Any | None = None) -> "CorrespondenceTask":
         """No-op — correspondence is zero-shot. Returns ``self``."""
         return self
 
@@ -226,7 +226,7 @@ class CorrespondenceTask(BaseTask):
         dense = CorrespondenceTask._as_dense(features)
         return (dense.shape[1], dense.shape[2])
 
-    def evaluate(self, features: Any, labels: Optional[Any] = None) -> MetricsDict:
+    def evaluate(self, features: Any, labels: Any | None = None) -> MetricsDict:
         """Return recall at each pixel threshold plus the error AUC.
 
         ``features`` is a sequence of ``(features_0, features_1)`` pairs and
@@ -259,7 +259,7 @@ class CorrespondenceTask(BaseTask):
         metrics["num_matches"] = float(len(errors))
         return metrics
 
-    def evaluate_ceiling(self, features: Any, labels: Optional[Any] = None) -> MetricsDict:
+    def evaluate_ceiling(self, features: Any, labels: Any | None = None) -> MetricsDict:
         """Scores a *perfect* matcher would get, given patch quantisation.
 
         Matches can only land on patch centres, so a target point that falls

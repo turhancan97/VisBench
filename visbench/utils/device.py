@@ -1,13 +1,11 @@
 """Device selection and batching helpers."""
 
-from typing import Optional
-
 import torch
 
 __all__ = ["resolve_device"]
 
 
-def resolve_device(device: Optional[str] = None) -> str:
+def resolve_device(device: str | None = None) -> str:
     """Resolve ``None`` to the best available device (cuda > mps > cpu).
 
     Explicit values pass through unchanged, so a caller can always force cpu.

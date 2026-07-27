@@ -17,7 +17,8 @@ batch — which is not the same thing, and would quietly make a probe worse than
 the representation it is meant to measure.
 """
 
-from typing import Any, Callable, Optional, Union
+from collections.abc import Callable
+from typing import Any
 
 import torch
 from torch.utils.data import Dataset
@@ -44,7 +45,7 @@ class CachedFeatures(Dataset):
         layer_indices: list[int],
         multi: bool,
         grid_hw: tuple[int, int],
-        targets: Optional[Callable[[int], Any]] = None,
+        targets: Callable[[int], Any] | None = None,
     ) -> None:
         self.cache = cache
         self.keys = keys
@@ -75,13 +76,13 @@ class CachedFeatures(Dataset):
                 )
             maps.append(entry["dense"].squeeze(0))
 
-        features: Union[torch.Tensor, list] = maps if self.multi else maps[0]
+        features: torch.Tensor | list = maps if self.multi else maps[0]
         if self.targets is None:
             return features
         return features, self.targets(index)
 
     @property
-    def channels(self) -> Union[int, list[int]]:
+    def channels(self) -> int | list[int]:
         """Feature width per layer, for building a head that fits.
 
         Read from the first item rather than recorded at extraction: a head is

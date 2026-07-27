@@ -11,10 +11,10 @@ import itertools
 import os
 import shutil
 import tempfile
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Optional, cast
+from typing import Any, cast
 
 import torch
 
@@ -42,7 +42,7 @@ def _parts(choice: str) -> tuple[str, ...]:
     return ("dense", "pooled") if choice == "both" else (choice,)
 
 
-def _identified_items(dataset: Iterable) -> Iterator[tuple[Optional[str], Callable[[], Any]]]:
+def _identified_items(dataset: Iterable) -> Iterator[tuple[str | None, Callable[[], Any]]]:
     """Yield ``(identity, load)`` pairs, deferring the image load.
 
     Two shapes of input reach here. An indexed dataset exposing
@@ -112,7 +112,7 @@ class _Plan:
     pooling: str
     feature_mode: str
     required_per_layer: list[tuple[str, ...]]
-    store_per_layer: list[Optional[str]]
+    store_per_layer: list[str | None]
 
     def keys_for(self, image_hash: str) -> list[str]:
         """One cache key per requested layer, for this image."""
@@ -156,7 +156,7 @@ class FeatureCache:
     written on a GPU box is readable on a laptop.
     """
 
-    def __init__(self, root: Optional[Path] = None, enabled: bool = True) -> None:
+    def __init__(self, root: Path | None = None, enabled: bool = True) -> None:
         """Open (creating if needed) the cache directory.
 
         ``enabled=False`` turns every lookup into a miss without changing call
@@ -187,9 +187,7 @@ class FeatureCache:
 
     # -- single entries ------------------------------------------------------
 
-    def get(
-        self, key: str, require: tuple[str, ...] = ("dense", "pooled")
-    ) -> Optional[FeatureDict]:
+    def get(self, key: str, require: tuple[str, ...] = ("dense", "pooled")) -> FeatureDict | None:
         """Return the cached entry, or ``None`` on a miss.
 
         ``require`` names the parts the caller needs. An entry written by a
@@ -271,7 +269,7 @@ class FeatureCache:
         digest = hashlib.sha256(identity.encode()).hexdigest()[:32]
         return self.root / _IDENTITY_DIR / digest[:2] / f"{digest}.txt"
 
-    def _remembered_hash(self, identity: Optional[str]) -> Optional[str]:
+    def _remembered_hash(self, identity: str | None) -> str | None:
         """Content hash this identity last produced, or ``None``.
 
         This is a memo of a computation, never a substitute for it: a hit here
@@ -285,7 +283,7 @@ class FeatureCache:
         except OSError:
             return None
 
-    def _remember_hash(self, identity: Optional[str], image_hash: str) -> None:
+    def _remember_hash(self, identity: str | None, image_hash: str) -> None:
         if identity is None or not self.enabled:
             return
         path = self._identity_path(identity)
@@ -316,7 +314,7 @@ class FeatureCache:
         self,
         backbone: Any,
         pooling: str,
-        layer: Optional[int],
+        layer: int | None,
         layers: LayerSpec,
         keep: str,
         store: str,
@@ -349,7 +347,7 @@ class FeatureCache:
         indices = backbone.resolve_layers(request)
 
         required_per_layer: list[tuple[str, ...]]
-        store_per_layer: list[Optional[str]]
+        store_per_layer: list[str | None]
         if streaming:
             # A streaming reader loads `dense` from every layer, so every entry
             # must hold it — including the deepest, which the in-memory path is
@@ -399,8 +397,8 @@ class FeatureCache:
         keys never holds a feature tensor at all.
         """
         for batch_items in _chunks(_identified_items(dataset), batch_size):
-            entries: list[Optional[list[FeatureDict]]] = []
-            keys: list[Optional[list[str]]] = []
+            entries: list[list[FeatureDict] | None] = []
+            keys: list[list[str] | None] = []
 
             # Pass 1: resolve anything whose content hash we already know for
             # this exact file. A hit here never touches the image.
@@ -468,7 +466,7 @@ class FeatureCache:
                 resolved.append((image_keys, entry))
             yield resolved
 
-    def _load_entry(self, keys: list[str], plan: "_Plan") -> Optional[list[FeatureDict]]:
+    def _load_entry(self, keys: list[str], plan: "_Plan") -> list[FeatureDict] | None:
         """All layers, or ``None`` — a partial hit is a miss.
 
         One forward pass produces every layer, so re-running it to fill a gap
@@ -489,11 +487,11 @@ class FeatureCache:
         backbone: Any,
         dataset: Iterable,
         pooling: str = Pooling.DEFAULT,
-        layer: Optional[int] = None,
+        layer: int | None = None,
         layers: LayerSpec = None,
         batch_size: int = 32,
         feature_mode: str = FeatureMode.DENSE_ONLY,
-        targets: Optional[Callable[[int], Any]] = None,
+        targets: Callable[[int], Any] | None = None,
     ) -> Any:
         """Ensure every entry is on disk, and return a reader over them.
 
@@ -564,11 +562,11 @@ class FeatureCache:
         backbone: Any,
         dataset: Iterable,
         pooling: str = Pooling.DEFAULT,
-        layer: Optional[int] = None,
+        layer: int | None = None,
         layers: LayerSpec = None,
         batch_size: int = 32,
         keep: str = "both",
-        store: Optional[str] = None,
+        store: str | None = None,
         feature_mode: str = FeatureMode.DENSE_ONLY,
     ) -> FeatureDict:
         """Extract (or load) features for a whole dataset, stacked in memory.
@@ -695,7 +693,7 @@ class FeatureCache:
 
     # -- maintenance ---------------------------------------------------------
 
-    def clear(self, backbone_key: Optional[str] = None) -> int:
+    def clear(self, backbone_key: str | None = None) -> int:
         """Delete cached entries, optionally only those for one backbone.
 
         Returns the number of entries removed.

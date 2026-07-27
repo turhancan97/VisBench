@@ -4,7 +4,7 @@ The canonical "does this representation separate categories" probe. Trains a
 single linear layer; the backbone stays frozen and is never re-run.
 """
 
-from typing import Any, Optional
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -37,14 +37,14 @@ class ClassificationTask(BaseTask):
 
     def __init__(
         self,
-        num_classes: Optional[int] = None,
+        num_classes: int | None = None,
         pooling: str = Pooling.DEFAULT,
         epochs: int = 200,
         lr: float = 1e-2,
         weight_decay: float = 1e-4,
         batch_size: int = 256,
         standardize: bool = False,
-        device: Optional[str] = None,
+        device: str | None = None,
     ) -> None:
         """Configure the linear head; weights are created lazily in :meth:`fit`.
 
@@ -86,21 +86,21 @@ class ClassificationTask(BaseTask):
         self.standardize = standardize
         self.device = resolve_device(device)
 
-        self.head: Optional[nn.Linear] = None
-        self._mean: Optional[torch.Tensor] = None
-        self._std: Optional[torch.Tensor] = None
+        self.head: nn.Linear | None = None
+        self._mean: torch.Tensor | None = None
+        self._std: torch.Tensor | None = None
 
         #: Set by :meth:`fit`. Diagnostics, not results — a low test score with
         #: a low ``train_top1`` means the probe underfitted (raise ``lr`` or
         #: ``epochs``); a low test score with ``train_top1`` near 1.0 means the
         #: representation genuinely does not separate the classes. Without
         #: these, the two are indistinguishable from the outside.
-        self.train_top1: Optional[float] = None
-        self.train_loss: Optional[float] = None
+        self.train_top1: float | None = None
+        self.train_loss: float | None = None
 
     # -- training ------------------------------------------------------------
 
-    def fit(self, features: Any, labels: Optional[Any] = None) -> "ClassificationTask":
+    def fit(self, features: Any, labels: Any | None = None) -> "ClassificationTask":
         """Fit the linear classifier on ``(N, C)`` pooled features.
 
         Seeding is the caller's job (:func:`visbench.utils.set_seed`), so that
@@ -192,7 +192,7 @@ class ClassificationTask(BaseTask):
         """Return predicted class indices, ``(N,)``."""
         return self.logits(features).argmax(dim=1)
 
-    def evaluate(self, features: Any, labels: Optional[Any] = None) -> MetricsDict:
+    def evaluate(self, features: Any, labels: Any | None = None) -> MetricsDict:
         """Return ``{"top1": ..., "top5": ...}``."""
         targets = self._as_label_tensor(labels).long().to(self.device)
         scores = self.logits(features)

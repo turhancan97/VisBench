@@ -7,8 +7,6 @@ probing-mid-level-vision (Chen, Marks & Cheng, arXiv:2411.17474), whose
 and :attr:`FeatureMode.DENSE_CLS_BROADCAST` here.
 """
 
-from typing import Optional, Union
-
 import torch
 
 from visbench.types import FEATURE_MODE_CHOICES, FeatureMode, Pooling
@@ -18,7 +16,7 @@ __all__ = ["pool_tokens", "tokens_to_grid", "apply_feature_mode"]
 
 def pool_tokens(
     patch_tokens: torch.Tensor,
-    cls_token: Optional[torch.Tensor],
+    cls_token: torch.Tensor | None,
     pooling: str,
 ) -> torch.Tensor:
     """Reduce tokens to one vector per image, ``(B, C)``.
@@ -85,9 +83,9 @@ def tokens_to_grid(
 
 def apply_feature_mode(
     dense: torch.Tensor,
-    cls_token: Optional[torch.Tensor],
+    cls_token: torch.Tensor | None,
     mode: str,
-) -> Union[torch.Tensor, tuple[torch.Tensor, Optional[torch.Tensor]]]:
+) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor | None]:
     """Assemble the representation a dense task head receives.
 
     Returns

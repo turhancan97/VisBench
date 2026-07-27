@@ -17,7 +17,8 @@ built-in backbones work.
 """
 
 import hashlib
-from typing import Any, Callable, Optional, Union
+from collections.abc import Callable
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -107,14 +108,14 @@ class CustomBackbone(BaseBackbone):
         module: nn.Module,
         preprocess: Callable[[Image.Image], torch.Tensor],
         name: str = "custom",
-        embed_dim: Optional[int] = None,
+        embed_dim: int | None = None,
         has_cls_token: bool = False,
-        patch_size: Optional[int] = None,
-        feature_fn: Optional[FeatureFn] = None,
-        weights_id: Optional[str] = None,
+        patch_size: int | None = None,
+        feature_fn: FeatureFn | None = None,
+        weights_id: str | None = None,
         image_size: int = 224,
-        device: Optional[str] = None,
-        layer_feature_fn: Optional[LayerFeatureFn] = None,
+        device: str | None = None,
+        layer_feature_fn: LayerFeatureFn | None = None,
         num_layers: int = 1,
     ) -> None:
         super().__init__(device)
@@ -239,7 +240,7 @@ class CustomBackbone(BaseBackbone):
         self,
         output: torch.Tensor,
         image: torch.Tensor,
-    ) -> tuple[torch.Tensor, Optional[torch.Tensor], tuple[int, int]]:
+    ) -> tuple[torch.Tensor, torch.Tensor | None, tuple[int, int]]:
         """Split a token sequence into patches, CLS, and a spatial grid."""
         cls_token = None
         tokens = output
@@ -282,7 +283,7 @@ class CustomBackbone(BaseBackbone):
         if not self.embed_dim:
             self.embed_dim = int(tokens.shape[-1])
 
-    def preprocess(self, images: Union[Image.Image, list]) -> torch.Tensor:
+    def preprocess(self, images: Image.Image | list) -> torch.Tensor:
         """Apply the user's transform to one image or a sequence of them."""
         if isinstance(images, Image.Image):
             images = [images]
