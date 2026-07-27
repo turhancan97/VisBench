@@ -461,7 +461,7 @@ class FeatureCache:
                     entries[index] = single_layers
 
             resolved: list[tuple[list[str], list[FeatureDict]]] = []
-            for image_keys, entry in zip(keys, entries):
+            for image_keys, entry in zip(keys, entries, strict=True):
                 assert image_keys is not None and entry is not None
                 resolved.append((image_keys, entry))
             yield resolved
@@ -473,7 +473,7 @@ class FeatureCache:
         costs nothing beyond what the missing layer already required.
         """
         found = []
-        for key, require in zip(keys, plan.required_per_layer):
+        for key, require in zip(keys, plan.required_per_layer, strict=True):
             entry = self.get(key, require=require)
             if entry is None:
                 return None

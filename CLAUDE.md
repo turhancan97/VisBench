@@ -197,11 +197,15 @@ is red for you, that is new.
   blocks ordinary work. If you add a check that guards a *silently wrong
   number*, it still belongs in the fast suite — this catches the ones that can
   only be caught with real weights, a day later at worst, not instead.
-- **[#4] `zip(strict=)` is unreviewed at 13 call sites.** `B905` became
-  reachable when the floor moved and is ignored in `pyproject.toml` with a
-  comment; each site needs its own answer. Silent truncation is the failure mode
-  CLAUDE.md already warns about for index-paired targets, so this is worth real
-  attention, not a blanket `strict=False`.
+- **[#4] `zip(strict=)`** — done. `B905` is enforced, not ignored: 12 sites take
+  `strict=True`, and `zip(resolved, resolved[1:])` in `backbones/base.py` takes
+  `strict=False` because pairing a list with its own tail is meant to be ragged.
+  Most of the 12 are backstops for invariants already enforced a few lines
+  above, but one was a real hole: `CorrespondenceTask.evaluate_ceiling` never
+  length-checked its arguments, so nine geometries against ten pairs scored nine
+  and reported the number as covering the split. `evaluate` had always checked.
+  **When you add a `zip` over two things paired by index, `strict=True` is the
+  default** — the cost is nothing and the failure it prevents still trains.
 - **[#1] DINOv2 on 3.9** — fixed by raising the floor; see above.
 - **[#3] CLIP QuickGELU guard** — fixed; see the bullet above.
 

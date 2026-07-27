@@ -167,7 +167,7 @@ class DINOv2(BaseBackbone):
         # mode in this file.
         expected = grid_hw[0] * grid_hw[1]
         result: list[LayerOutput] = []
-        for index, (patch_tokens, cls_token) in zip(layers, outputs):
+        for index, (patch_tokens, cls_token) in zip(layers, outputs, strict=True):
             if patch_tokens.shape[1] != expected:
                 raise RuntimeError(
                     f"DINOv2 layer {index} returned {patch_tokens.shape[1]} patch tokens, "

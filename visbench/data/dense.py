@@ -378,7 +378,11 @@ class DenseFolderDataset(BaseDataset):
             f"{self.name}|{self.split}|{len(self.stems)}|{self.image_size}|"
             f"{self.target_scale}|{self.max_target}".encode()
         )
-        for image_path, target_path in zip(self.image_paths, self.target_paths):
+        # strict=True: images and targets are paired by index everywhere in this
+        # class, so unequal lengths mean the pairing is already wrong. Truncating
+        # here would fold a *shorter* list into a fingerprint that still looks
+        # valid, and the split would train happily on misaligned supervision.
+        for image_path, target_path in zip(self.image_paths, self.target_paths, strict=True):
             digest.update(
                 f"{image_path.name}|{image_path.stat().st_size}|"
                 f"{target_path.name}|{target_path.stat().st_size}".encode()

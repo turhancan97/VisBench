@@ -72,7 +72,7 @@ def _solve_homography(source: torch.Tensor, target: torch.Tensor) -> torch.Tenso
     """
     rows = []
     values = []
-    for (x, y), (u, v) in zip(source.tolist(), target.tolist()):
+    for (x, y), (u, v) in zip(source.tolist(), target.tolist(), strict=True):
         rows.append([x, y, 1, 0, 0, 0, -u * x, -u * y])
         rows.append([0, 0, 0, x, y, 1, -v * x, -v * y])
         values.extend([u, v])

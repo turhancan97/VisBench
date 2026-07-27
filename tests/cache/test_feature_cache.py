@@ -555,7 +555,7 @@ class TestMultiLayerCaching:
         first = cache.extract_dataset(fake_vit, solid_images, layers=[3, 7], keep="dense")
         second = cache.extract_dataset(fake_vit, solid_images, layers=[3, 7], keep="dense")
         assert fake_vit.call_count == 1
-        for a, b in zip(first["dense_layers"], second["dense_layers"]):
+        for a, b in zip(first["dense_layers"], second["dense_layers"], strict=True):
             assert torch.equal(a, b)
 
     def test_widening_the_request_reuses_the_shared_layers(self, tmp_path, fake_vit, solid_images):

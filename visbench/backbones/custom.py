@@ -193,7 +193,7 @@ class CustomBackbone(BaseBackbone):
                     "It must return one (tokens, cls, grid_hw) per requested index, in order."
                 )
             result: list[LayerOutput] = []
-            for index, output in zip(layers, outputs):
+            for index, output in zip(layers, outputs, strict=True):
                 try:
                     tokens, cls_token, grid_hw = output
                 except (TypeError, ValueError) as error:

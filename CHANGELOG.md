@@ -206,6 +206,20 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Fixed
 
+- **`CorrespondenceTask.evaluate_ceiling` silently scored a prefix** when given
+  more feature pairs than geometries — nine geometries against ten pairs
+  produced a number computed from nine and reported as covering the split.
+  `evaluate` had always checked lengths explicitly; the ceiling path never did,
+  which meant the two entry points disagreed about what a valid call was. Found
+  by working through `zip(strict=)` site by site ([#4]).
+- **`zip(strict=)` is now explicit at every call site**, and `B905` is enforced
+  rather than ignored ([#4]). 12 sites take `strict=True` — features to targets,
+  keys to cache entries, requested layers to backbone outputs; `zip(resolved,
+  resolved[1:])` in `backbones/base.py` takes `strict=False`, since pairing a
+  list with its own tail is meant to be ragged. Most are backstops for checks
+  that already existed a few lines above, which is the point: a silently
+  truncating zip is the failure mode CLAUDE.md warns about for index-paired
+  targets, and it still trains.
 - **CI now runs the slow suite** ([#2]), in `.github/workflows/slow.yml`:
   on every push to `main`, nightly at 03:00 UTC, and on demand. `addopts`
   deselects `slow` and the gating workflow runs a plain `pytest`, so until now

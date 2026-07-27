@@ -250,7 +250,7 @@ class CorrespondenceTask(BaseTask):
         errors = torch.cat(
             [
                 self._pair_errors(pair[0], pair[1], geometry)
-                for pair, geometry in zip(pairs, geometries)
+                for pair, geometry in zip(pairs, geometries, strict=True)
             ]
         )
 
@@ -286,7 +286,10 @@ class CorrespondenceTask(BaseTask):
             raise ValueError("Correspondence needs geometry to score against; got None")
 
         errors = []
-        for pair, geometry in zip(features, labels):
+        # strict=True: a pair scored against another pair's geometry is the
+        # misalignment that once put recall@1px at 0.003, and short labels would
+        # silently score a prefix of the split instead.
+        for pair, geometry in zip(features, labels, strict=True):
             source_idx, _ = self.match(pair[0], pair[1])
             if len(source_idx) == 0:
                 continue

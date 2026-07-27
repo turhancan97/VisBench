@@ -238,7 +238,10 @@ class BaseBackbone(nn.Module, ABC):
                 )
             resolved.append(absolute)
 
-        if any(b <= a for a, b in zip(resolved, resolved[1:])):
+        # strict=False: the two arguments are deliberately ragged. Pairing a list
+        # with its own tail is how consecutive pairs are formed, and the shorter
+        # one is meant to end the walk.
+        if any(b <= a for a, b in zip(resolved, resolved[1:], strict=False)):
             raise ValueError(
                 f"layers must be strictly increasing, shallowest first; got {layers} "
                 f"which resolves to {resolved}. A multiscale head reads the first layer "

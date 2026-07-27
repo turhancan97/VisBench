@@ -151,7 +151,7 @@ class TestPairing:
         loader = DataLoader(reader, batch_size=3, shuffle=True, collate_fn=reader.collate)
         seen = 0
         for features, targets in loader:
-            for feature, target in zip(features, targets):
+            for feature, target in zip(features, targets, strict=True):
                 expected = by_target[round(target.mean().item())]
                 assert torch.equal(feature, expected)
                 seen += 1

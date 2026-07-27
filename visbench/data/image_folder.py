@@ -113,7 +113,7 @@ class ImageFolderDataset(BaseDataset):
         """
         digest = hashlib.sha256()
         digest.update(f"{self.name}|{self.split}|{len(self.paths)}".encode())
-        for path, label in zip(self.paths, self._labels):
+        for path, label in zip(self.paths, self._labels, strict=True):
             relative = path.relative_to(self.root).as_posix()
             digest.update(f"{relative}|{path.stat().st_size}|{label}".encode())
         return digest.hexdigest()[:16]

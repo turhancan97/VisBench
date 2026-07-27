@@ -509,3 +509,49 @@ def test_end_to_end_with_a_real_warp(tmp_path, fake_vit, probe):
     metrics = probe.evaluate(pairs, dataset.labels())
     assert set(metrics) >= {"recall@0.5p", "recall@4p", "auc@4p", "num_matches"}
     assert all(isinstance(value, float) for value in metrics.values())
+
+
+class TestMismatchedGeometry:
+    """Pairs and geometry are matched by position, so lengths must agree.
+
+    ``evaluate`` has always checked this explicitly. ``evaluate_ceiling`` never
+    did: hand it ten pairs and nine geometries and it scored nine, and reported
+    the number as if it covered the split. ``zip(strict=True)`` is what closes
+    that, so the two entry points now agree about what is a valid call.
+    """
+
+    @pytest.fixture
+    def pair_and_geometry(self):
+        dense = torch.randn(1, 8, 4, 4)
+        return (
+            (_feature_dict(dense), _feature_dict(dense)),
+            {"homography": torch.eye(3, dtype=torch.float64), "size": (64, 64)},
+        )
+
+    def test_evaluate_rejects_extra_pairs(self, probe, pair_and_geometry):
+        """Caught by the explicit length check, which names both counts."""
+        pair, identity = pair_and_geometry
+        with pytest.raises(ValueError, match="2 feature pairs for 1 geometries"):
+            probe.evaluate([pair, pair], [identity])
+
+    def test_evaluate_rejects_extra_geometry(self, probe, pair_and_geometry):
+        pair, identity = pair_and_geometry
+        with pytest.raises(ValueError, match="1 feature pairs for 2 geometries"):
+            probe.evaluate([pair], [identity, identity])
+
+    def test_ceiling_rejects_extra_pairs(self, probe, pair_and_geometry):
+        """Caught by strict=True; before it, this scored one pair of two."""
+        pair, identity = pair_and_geometry
+        with pytest.raises(ValueError, match="shorter"):
+            probe.evaluate_ceiling([pair, pair], [identity])
+
+    def test_ceiling_rejects_extra_geometry(self, probe, pair_and_geometry):
+        pair, identity = pair_and_geometry
+        with pytest.raises(ValueError, match="longer"):
+            probe.evaluate_ceiling([pair], [identity, identity])
+
+    def test_equal_lengths_still_score(self, probe, pair_and_geometry):
+        """The guard must not cost the ordinary path."""
+        pair, identity = pair_and_geometry
+        assert probe.evaluate([pair, pair], [identity, identity])["recall@1p"] == 1.0
+        assert probe.evaluate_ceiling([pair, pair], [identity, identity])["recall@1p"] == 1.0

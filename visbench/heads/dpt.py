@@ -189,7 +189,7 @@ class DPTHead(BaseHead):
         stages, cls_vector = self._unpack(features)
 
         fused: torch.Tensor | None = None
-        for index, (stage, block) in enumerate(zip(stages, self.fusion)):
+        for index, (stage, block) in enumerate(zip(stages, self.fusion, strict=True)):
             projected = self.reassemble[index](stage)
             projected = self._to_scale(projected, stage.shape[-2:], self.scales[index])
             if index == 0 and cls_vector is not None and self.cls_project is not None:

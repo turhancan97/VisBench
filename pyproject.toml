@@ -75,16 +75,12 @@ target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
-# B905 (`zip()` without `strict=`) became reachable only when the floor moved to
-# 3.10, since `strict=` does not exist before it. It is deliberately NOT silenced
-# on merit -- an unequal-length zip that truncates silently is the exact failure
-# mode CLAUDE.md warns about for targets travelling by index. But each of the 13
-# call sites needs its own answer: `zip(resolved, resolved[1:])` in
-# backbones/base.py is intentionally ragged and wants strict=False, while
-# `zip(self.image_paths, self.target_paths)` in data/dense.py wants strict=True
-# and would turn a silent misalignment into an error. That is 13 behaviour
-# changes and belongs in its own reviewed pass, not bundled into a floor raise.
-ignore = ["B905"]
+# B905 (`zip()` without `strict=`) is enforced, not ignored. It became reachable
+# when the floor moved to 3.10, and every call site has been given an explicit
+# answer: strict=True wherever the two arguments encode a pairing (features to
+# targets, keys to entries, layers to outputs), strict=False only where the
+# raggedness is the point. A silently truncating zip is the failure mode
+# CLAUDE.md warns about for targets travelling by index -- it still trains.
 
 [tool.mypy]
 # NOT the 3.10 this package supports, deliberately, and the reason generalises:
