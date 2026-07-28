@@ -15,10 +15,10 @@
 
 ---
 
-> **Status: v0.1.0 released; v0.2 feature-complete bar the CLI.** Three backbone
-> families (DINOv2, CLIP, timm CNNs) and eight tasks run end-to-end, including
-> four trained dense probes. Only the CLI remains. Not yet on PyPI. See
-> [Build order](#build-order).
+> **Status: v0.1.0 released; v0.2 feature-complete.** Three backbone families
+> (DINOv2, CLIP, timm CNNs) and eight tasks run end-to-end, including four
+> trained dense probes, from Python or from the `visbench` command line. Not yet
+> on PyPI. See [Build order](#build-order).
 
 ## What it is
 
@@ -181,13 +181,15 @@ This is a multi-month roadmap, built one reviewed step at a time.
       both reductions
 - [x] **5i.** mid-level image similarity — zero-shot 2AFC against human
       judgement, deliberately distinct from high-level retrieval
-- [ ] **5j.** the CLI, a thin wrapper over `visbench.run()`
+- [x] **5j.** the CLI, a thin wrapper over `visbench.run()` — which also
+      taught `run()` to cover correspondence, the one task it had never been
+      able to express
 
 ## Roadmap
 
 **v0.1** — prove the abstraction. DINOv2 + CLIP. Zero-shot or linear-probe-on-cached-features only; no fine-tuning, no dense training loops. Deferred: CLI, custom backbones, ResNet/timm, multi-layer extraction.
 
-**v0.2** — ResNet/timm + custom backbones *(done)*, pluggable heads (linear + DPT) *(done)*, multi-layer extraction *(done)*, depth estimation *(done)*, surface normals *(done)*, generic (binary) segmentation *(done)*, semantic segmentation *(done)*, mid-level similarity *(done)*, CLI.
+**v0.2** — ResNet/timm + custom backbones *(done)*, pluggable heads (linear + DPT) *(done)*, multi-layer extraction *(done)*, depth estimation *(done)*, surface normals *(done)*, generic (binary) segmentation *(done)*, semantic segmentation *(done)*, mid-level similarity *(done)*, CLI *(done)*.
 
 **v0.3** — opt-in fine-tuning of the last N blocks, detection groundwork, HF Hub probe sharing and a public leaderboard.
 
@@ -255,10 +257,51 @@ pytest -m slow      # also runs the real DINOv2 and CLIP checkpoints
 # The three gating lint steps, exactly as CI runs them. Run them verbatim —
 # mypy in particular reads [tool.mypy] from pyproject.toml, so invoking it
 # with different flags checks something CI does not.
-ruff check visbench/ tests/ conftest.py
-ruff format --check visbench/ tests/ conftest.py
-mypy visbench/ --ignore-missing-imports
+ruff check visbench/ tests/ conftest.py examples/
+ruff format --check visbench/ tests/ conftest.py examples/
+mypy visbench/ examples/ --ignore-missing-imports
 ```
+
+## The command line
+
+Installing the package puts a `visbench` command on your path. It is a thin
+wrapper over `visbench.run()` — same cache, same result records, same numbers.
+
+```bash
+visbench list                       # backbones, probes and heads that exist
+visbench run retrieval --data /path/to/imagenette2 --split val
+visbench cache stats
+```
+
+Each probe is its own subcommand, because they do not take the same data.
+`visbench run depth --help` shows the folder layout depth expects and only
+depth's flags:
+
+```bash
+# mid-level geometry, zero-shot, no annotation needed
+visbench run correspondence --data /path/to/images --split val --limit 200
+
+# a dense probe: <data>/<split>/{images,masks}, paired by filename stem
+visbench run generic_segmentation --data /path/to/data --epochs 40 --lr 5e-3
+
+# an official split list instead of split directories — how real benchmarks
+# express one. Passing --stems makes --data the dataset root itself.
+visbench run semantic_segmentation --data VOCdevkit/VOC2012 \
+    --image-dir JPEGImages --target-dir SegmentationClass \
+    --stems ImageSets/Segmentation/val.txt \
+    --train-stems ImageSets/Segmentation/train.txt \
+    --num-classes 21 --backbone dinov2_vits14
+```
+
+That last one reports `miou 0.733` on VOC val, against the 0.732 the Python API
+records for the same backbone — which is the check that matters for a wrapper.
+
+Two flags worth knowing. `--batch-size` is the *extraction* batch;
+`--train-batch-size` is the head's, and they are separate because they are
+different numbers with the same name. `--limit` shortens a split correctly for
+whatever kind of split it is — per class on a labelled folder, by triplet for
+similarity, by stem for a dense split — rather than taking a prefix, which on a
+class-grouped folder would leave you evaluating one class and scoring 1.0.
 
 ## Try it on your own data
 
@@ -488,8 +531,10 @@ re-extraction (3,925 misses, 56 s) because pooling is part of the cache key —
 and it costs about 1.8 points of recall@1 here, which is the sort of question
 these two lines of CLI exist to answer.
 
-These examples are not the CLI: the packaged `visbench` command stays deferred
-to v0.2 until the Python API settles.
+Every one of these examples has a `visbench run` equivalent — see
+[The command line](#the-command-line). They stay because an example is readable
+top to bottom and a subcommand is not: when you want to know *how* a probe is
+wired up, the script is the answer.
 
 ## License
 

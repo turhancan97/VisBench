@@ -14,13 +14,15 @@ from visbench.data.dense import (
     load_normal_map,
 )
 from visbench.data.image_folder import ImageFolderDataset
-from visbench.data.pair_dataset import PairDataset
+from visbench.data.pair_dataset import HomographyPairDataset, PairDataset, PairViewDataset
 from visbench.data.triplet import TwoAFCDataset
 
 __all__ = [
     "BaseDataset",
     "ImageFolderDataset",
     "PairDataset",
+    "HomographyPairDataset",
+    "PairViewDataset",
     "DenseFolderDataset",
     "load_depth_map",
     "load_normal_map",

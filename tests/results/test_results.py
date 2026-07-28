@@ -250,3 +250,38 @@ def test_corrupt_line_names_the_line_number(tmp_path):
 def test_timestamp_is_utc():
     """A leaderboard aggregating machines cannot order local timestamps."""
     assert utc_timestamp().endswith("+00:00")
+
+
+# -- schema v5: dataset_params (step 5j) --------------------------------------
+
+
+class TestDatasetParams:
+    """The dataset's counterpart to ``task_params``.
+
+    Before v5 a correspondence run's ``max_warp`` and a dense split's
+    ``image_size`` were recorded nowhere. They changed the fingerprint, so two
+    such runs were distinguishable — but only as "not the same data", with
+    nothing saying how they differed, which is not enough to reproduce either.
+    """
+
+    def test_it_defaults_to_empty(self):
+        record = make_record()
+        assert record.dataset_params == {}
+
+    def test_it_round_trips(self):
+        record = make_record(dataset_params={"max_warp": 0.2, "image_size": 224})
+        assert ResultRecord.from_dict(record.to_dict()).dataset_params == {
+            "max_warp": 0.2,
+            "image_size": 224,
+        }
+
+    def test_a_v4_record_still_reads(self):
+        """Additive-only: the field a v4 file predates comes back empty, and
+        refusing the file would throw away the history worth accumulating."""
+        payload = make_record().to_dict()
+        payload["schema_version"] = 4
+        del payload["dataset_params"]
+        assert ResultRecord.from_dict(payload).dataset_params == {}
+
+    def test_the_version_moved(self):
+        assert SCHEMA_VERSION == 5

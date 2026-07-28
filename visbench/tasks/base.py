@@ -47,6 +47,17 @@ class BaseTask(ABC):
     #: so guessing it from the task's level would be an expensive guess.
     uses_dense: bool = False
 
+    #: Whether the task consumes **image pairs plus geometry** rather than
+    #: images plus labels. Declared for the same reason ``uses_dense`` is: it
+    #: decides how :func:`visbench.run` extracts, and the two shapes are not
+    #: distinguishable from anything else the task exposes.
+    #:
+    #: Correspondence is the only task with it set, and one explicit fork is the
+    #: honest way to carry a genuinely different data shape — the alternative,
+    #: a general "dataset adapter" mechanism, would be built to fit one case
+    #: while pretending to anticipate others.
+    uses_pairs: bool = False
+
     #: Backbone depths this task wants, or ``None`` for the last layer alone.
     #: A multiscale head needs several, and the task is what knows that — the
     #: same reason pooling is chosen here rather than on the backbone.
@@ -79,6 +90,25 @@ class BaseTask(ABC):
         nested metrics make leaderboard schemas painful later.
         """
         raise NotImplementedError
+
+    def context_metrics(self, features: Any, labels: Any | None = None) -> MetricsDict:
+        """Numbers that *qualify* the score without being it, merged into the record.
+
+        Empty for almost every task. It exists because correspondence's score is
+        close to meaningless on its own: matches can only land on patch centres,
+        so ``recall@1px`` on DINOv2 ViT-S/14 at 224px has a ceiling of 0.015, and
+        a reader who sees the score without the ceiling concludes the backbone
+        failed when the grid is simply coarse.
+
+        ``examples/correspond.py`` has always printed both. This is what makes
+        :func:`visbench.run` — and therefore the CLI — do the same, rather than
+        the qualification being available only to whoever read the example.
+
+        Keys should be namespaced by the implementer (correspondence prefixes
+        ``ceiling_``), since these land in the same flat metrics dict as the
+        score and a collision would overwrite a result.
+        """
+        return {}
 
     def requires_labels(self) -> bool:
         """Whether :meth:`evaluate` needs ground-truth labels.

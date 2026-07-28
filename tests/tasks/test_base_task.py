@@ -163,3 +163,34 @@ def test_label_count_mismatch_raises(retrieval, clustered_features):
     features, labels = clustered_features
     with pytest.raises(ValueError, match="features for"):
         retrieval.evaluate(features, labels[:5])
+
+
+class TestContextMetrics:
+    """Numbers that qualify a score without being it.
+
+    Added in step 5j so ``run()`` reports correspondence's ceiling. Every other
+    task returns nothing, which must stay a no-op rather than an empty entry.
+    """
+
+    def test_the_default_is_empty(self):
+        class Bare(BaseTask):
+            name = "bare"
+
+            def predict(self, features):
+                return features
+
+            def evaluate(self, features, labels=None):
+                return {}
+
+        assert Bare().context_metrics(None) == {}
+
+    def test_correspondence_prefixes_its_ceiling(self):
+        from visbench.tasks.mid_level.correspondence import CorrespondenceTask
+
+        dense = torch.arange(2 * 8 * 4 * 4, dtype=torch.float32).reshape(2, 8, 4, 4)
+        pair = ({"dense": dense[:1], "grid_hw": (4, 4)}, {"dense": dense[1:], "grid_hw": (4, 4)})
+        geometry = [{"homography": torch.eye(3, dtype=torch.float64), "size": (64, 64)}]
+
+        context = CorrespondenceTask().context_metrics([pair], geometry)
+        assert context
+        assert all(name.startswith("ceiling_") for name in context)

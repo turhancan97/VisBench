@@ -42,15 +42,17 @@ step is next rather than attempting the whole roadmap in one session.
 | 5g | Generic (binary) segmentation | done |
 | 5h | High-level semantic (multi-class) segmentation | done |
 | 5i | Mid-level image similarity | done |
-| **5j** | **The CLI — last, once the dense-task Python API has settled** | **next** |
-| 6 | v0.3 scope. Do not start before v0.2 is complete and reviewed | todo |
+| 5j | The CLI — last, once the dense-task Python API has settled | done |
+| **6** | **v0.3 scope. Do not start before v0.2 is complete and reviewed** | **next** |
 
 ---
 
 ## Current state
 
-**v0.1 complete. v0.2 is every task; only the CLI remains.** Everything below
-exists, is tested, and is on `main`.
+**v0.1 and v0.2 are both complete** — every task, both backbone families, and
+the CLI. Everything below exists, is tested, and is on `main`. Nothing has been
+released to PyPI yet, so **the open question is whether to cut v0.2.0 before
+starting v0.3**, not what to build next.
 
 Registered names — `visbench.list_backbones()`, `list_probes()`,
 `visbench.heads.list_heads()`:
@@ -63,8 +65,13 @@ probes     classification, retrieval, correspondence, depth, surface_normal,
 heads      linear, dpt
 ```
 
+The CLI exposes all eight probes: `visbench list`, `visbench run <probe>`,
+`visbench cache stats|clear`. A test asserts the CLI's table and
+`list_probes()` are the same set, so a probe cannot ship unreachable from a
+shell by accident.
+
 Package version is still `0.1.0` — nothing has been released to PyPI yet.
-Result schema is at **v4** (`layers` field added in 5c) and is **additive
+Result schema is at **v5** (`dataset_params` added in 5j) and is **additive
 only**: never remove or repurpose a field, or old records stop being readable.
 
 ### Layout worth knowing before editing
@@ -75,8 +82,11 @@ visbench/
                  timm_backbone, custom, pooling.py (feature modes)
   cache/         feature_cache.py (_Plan/_walk, extract_dataset, materialise)
                  streaming.py (CachedFeatures — a torch Dataset over the cache)
-  data/          image_folder, pair_dataset (correspondence), triplet.py
-                 (TwoAFCDataset — NIGHTS-style 2AFC), dense.py
+  cli/           main.py (build_parser + the three commands),
+                 datasets.py (ProbeSpec table: flags -> datasets, per probe)
+  data/          image_folder (+ balanced_subset), pair_dataset
+                 (PairDataset, HomographyPairDataset, PairViewDataset),
+                 triplet.py (TwoAFCDataset — NIGHTS-style 2AFC), dense.py
                  (DenseFolderDataset + stems= for official splits,
                   load_depth_map, load_normal_map, load_mask, load_label_map)
   heads/         base.py (register_head/build_head), linear.py, dpt.py
@@ -88,10 +98,30 @@ visbench/
                  mid_level/   correspondence, depth, surface_normal,
                               generic_segmentation, similarity
   results/       schema.py (ResultRecord, SCHEMA_VERSION), writer.py
-  runner.py      visbench.run() — the one call the CLI will wrap
+  runner.py      visbench.run() — the one call the CLI wraps
 examples/        classify, retrieve, correspond, depth, normals, segment,
                  segment_semantic, similarity
 ```
+
+### The CLI — add a probe by adding a row
+
+`visbench/cli/datasets.py` holds one `ProbeSpec` per probe: its summary, the
+folder layout it expects, the flags it adds, how those become `Splits`, and the
+kwargs its constructor takes. That is a **table, not a hierarchy** — the eight
+probes share flag *groups* (`_dense_flags`, `_split_flags`) but not a class
+tree, because what they have in common is a set of options, not behaviour.
+
+Two things the CLI must keep doing, both already tested:
+
+- **Build the probe as an object, never by name with kwargs.** `run()` owns
+  `batch_size` (extraction) and `device` (the backbone's), and every dense probe
+  takes constructor arguments of those names meaning something else. Passing
+  them through `run(**task_kwargs)` is a `TypeError`. The CLI keeps them apart
+  as `--batch-size` and `--train-batch-size`.
+- **`--limit` is per class on a labelled folder** (`balanced_subset`), by
+  triplet on `TwoAFCDataset` (`max_triplets=`), by stem on a dense split, and a
+  prefix on pairs. A plain prefix of an Imagenette split is entirely class 0 and
+  scores 1.0 while measuring nothing.
 
 ### `DenseTrainingTask` — subclass this for a new dense task
 
@@ -203,6 +233,39 @@ designed up front; extend it the same way, from a case that already runs.
   and the paths as `4`/`5`/`6`. Reordering the file would silently score
   against the wrong column, and the failure looks like a mediocre number rather
   than an error.
+- **A pair task is a flat image dataset plus interleaving, not a widened cache.**
+  Same resolution as the triplet one. `PairViewDataset` presents a
+  `PairDataset`'s two views as `2N` single images — item `2i` and `2i+1` are
+  pair `i` — so extraction, batching, streaming and the identity memo need no
+  change, and `regroup` restores the pairing. `run()` forks on the task's
+  declared `uses_pairs`, one explicit branch rather than a general "dataset
+  adapter" mechanism built to fit a single case. **Both directions stay lazy**:
+  materialising the pairs would pull a whole split of dense features back into
+  memory, undoing the streaming that had just written them to disk.
+- **`view_identity` is the reason a cached correspondence run is fast, and it
+  had no caller for a year.** The two views of a pair come from one file and
+  would otherwise share a `cache_identity`, so the memo would serve view 1 the
+  features of view 0 — trivially perfect matches, no error. It existed and was
+  tested from v0.1; `examples/correspond.py` passed the cache a bare list of PIL
+  images, which has no identity, so a fully cached run still decoded, cropped and
+  warped everything. 16.4 s cold against 8.2 s warm on 200 pairs, once `run()`
+  used it. **A declared-but-uncalled mechanism is the same failure as the
+  QuickGELU guard**: it passes its own tests forever while doing nothing.
+- **Correspondence's ceiling travels with its score, through
+  `BaseTask.context_metrics`.** `recall@1px` has a ceiling of 0.015 on DINOv2
+  ViT-S/14 at 224px, so the score alone says the wrong thing. The hook returns
+  `{}` for every other task; correspondence prefixes `ceiling_`. `run()` refuses
+  a context key that collides with a score, since they share one flat dict.
+  Measured on 200 Imagenette pairs: 0.783 against a ceiling of 0.951.
+- **The dataset half of a run gets `dataset_params`, like the task half gets
+  `task_params`** (schema v5). Filled from whatever `describe()` returns beyond
+  the record's own fields, so `max_warp`, `image_size` and `num_triplets` land
+  there without a per-setting column. Before this they changed the fingerprint
+  and nothing else — two runs were distinguishable only as "not the same data".
+- **Shorten a labelled folder with `balanced_subset(n)`, not `subset(n)`.**
+  The file list is grouped by class, so a prefix is entirely class 0 and a
+  single-class retrieval scores 1.0 while measuring nothing. Two examples
+  carried their own copy of this before it became a method.
 - **Shorten a split with `dataset.subset()`, never by slicing its attributes.**
   A dense dataset carries three index-parallel lists and slicing one alone pairs
   a target with the wrong image, silently, since every later step still sees
@@ -449,7 +512,7 @@ layer on cached features.**
 
 ---
 
-## v0.2 — dense mid-level tasks + broader backbone support — **IN PROGRESS**
+## v0.2 — dense mid-level tasks + broader backbone support — **COMPLETE**
 
 - [x] ResNet/timm backbones and user-supplied custom-backbone support
       (arbitrary `nn.Module` + preprocessing function).
@@ -482,11 +545,18 @@ layer on cached features.**
       task-categorization note requires. Proved on NIGHTS (1,824-triplet test
       split): DINOv2-S/14 **0.870**, DINOv2-B/14 0.858, CLIP-B/16 0.828,
       ResNet50 0.827.
-- [ ] The CLI, last, once the dense-task Python API has settled. It should be a
-      thin wrapper over `visbench.run()`, which was written to be exactly that.
-      Note `run()` does not yet cover correspondence (it takes pairs plus
-      geometry, not images plus labels) — decide how pairwise extraction is
-      expressed when the CLI lands.
+- [x] **The CLI** — `visbench list`, `visbench run <probe>`,
+      `visbench cache stats|clear`, a thin wrapper over `visbench.run()` with a
+      `ProbeSpec` table supplying the dataset construction `run()` cannot know.
+      Every probe is a subcommand with only its own flags. Proved on real data
+      against the numbers the Python API already produced: NIGHTS similarity
+      **0.8701** (identical to 5i's) and VOC val semantic segmentation
+      **0.733 mIoU** against 5h's 0.732.
+- [x] **`run()` covers correspondence.** The open question from v0.1 —
+      how pairwise extraction is expressed — is answered by `uses_pairs` plus
+      `PairViewDataset`: flatten to `2N` single images, regroup by index, leave
+      the cache alone. `--stems` was added alongside so a dense probe can take
+      an official split list, without which the CLI could not run VOC at all.
 
 ---
 
@@ -532,7 +602,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 768 fast tests
+pytest                                              # 932 fast tests
 pytest -m slow                                      # 73, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/
 ruff format --check visbench/ tests/ conftest.py examples/

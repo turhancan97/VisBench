@@ -17,7 +17,7 @@ from PIL import Image
 from visbench.data.base import BaseDataset
 from visbench.data.image_folder import ImageFolderDataset
 
-__all__ = ["PairDataset", "HomographyPairDataset"]
+__all__ = ["PairDataset", "HomographyPairDataset", "PairViewDataset"]
 
 
 class PairDataset(BaseDataset):
@@ -64,6 +64,19 @@ class PairDataset(BaseDataset):
         "label" is the geometry a match is verified against.
         """
         raise NotImplementedError
+
+    def view_identity(self, index: int, view: int) -> str | None:
+        """Cheap stable token for one **view** of pair ``index``, or ``None``.
+
+        The per-view counterpart to :meth:`BaseDataset.cache_identity`, which
+        cannot do this job here: a pair is two images, and one token covering
+        both would make the second view resolve to the first view's cached
+        features — a silent half-wrong extraction rather than an error.
+
+        Returning ``None`` is always safe and costs a decode, which is why the
+        base does. A subclass that can name its views cheaply should.
+        """
+        return None
 
 
 def _solve_homography(source: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
@@ -255,6 +268,11 @@ class HomographyPairDataset(PairDataset):
         its own. Deriving it from the source identity plus the warp parameters
         keeps the memo correct: change the source file, the seed or the warp
         magnitude, and this changes too.
+
+        ``view`` is part of the token, not decoration: the two views of a pair
+        come from one file and would otherwise share an identity, and the memo
+        maps an identity to a content hash — so view 1 would be served view 0's
+        features and every match would be trivially perfect.
         """
         base = self._source.cache_identity(index)
         return f"{base}|warp={self.seed}:{self.max_warp}:{self.image_size}:{view}"
@@ -272,3 +290,103 @@ class HomographyPairDataset(PairDataset):
         info["max_warp"] = self.max_warp
         info["image_size"] = self.image_size
         return info
+
+
+class _PairedViews(Sequence):
+    """``(view 0, view 1)`` per pair, over a flat sequence of ``2N`` views.
+
+    Lazy on purpose. The obvious alternative — materialise a list of pairs —
+    would pull every dense feature map into memory at once and undo the reason
+    extraction streamed in the first place. Indexing loads one pair's two maps,
+    which go out of scope as soon as the caller is done scoring them.
+    """
+
+    def __init__(self, views: Any) -> None:
+        if len(views) % 2:
+            raise ValueError(
+                f"Expected an even number of views (two per pair), got {len(views)}. "
+                "One view of some pair went missing during extraction."
+            )
+        self._views = views
+
+    def __len__(self) -> int:
+        return len(self._views) // 2
+
+    def __getitem__(self, index: Any) -> tuple[Any, Any]:
+        if isinstance(index, slice):
+            raise TypeError("Slicing a paired view sequence is not supported; index one pair")
+        if not -len(self) <= index < len(self):
+            raise IndexError(f"Pair index {index} out of range for {len(self)} pairs")
+        position = 2 * (index % len(self))
+        return self._views[position], self._views[position + 1]
+
+
+class PairViewDataset(BaseDataset):
+    """A pair dataset's two views, flattened into one dataset of ``2N`` images.
+
+    The bridge between :class:`PairDataset` and the feature cache, which is
+    built around one image at a time and
+    :meth:`~visbench.cache.FeatureCache.extract_dataset` refuses a pair dataset
+    outright rather than silently extracting half of it.
+
+    The resolution is the same one :class:`~visbench.data.triplet.TwoAFCDataset`
+    reached for triplets: **do not widen the cache, flatten the structure and
+    put it back by index.** Item ``2i`` is view 0 of pair ``i`` and ``2i + 1``
+    is view 1, so extraction, the identity memo, batching and streaming all work
+    unchanged, and :meth:`regroup` turns the flat result back into pairs.
+
+    This is also the first caller of :meth:`PairDataset.view_identity`. Before
+    it, ``examples/correspond.py`` handed the cache a bare list of PIL images,
+    which has no identity at all — so a fully cached correspondence run still
+    decoded, cropped and warped every image to discover it had the features
+    already.
+    """
+
+    def __init__(self, pairs: PairDataset) -> None:
+        if not isinstance(pairs, PairDataset):
+            raise TypeError(
+                f"PairViewDataset wraps a PairDataset, got {type(pairs).__name__}. "
+                "An ordinary image dataset needs no flattening."
+            )
+        self._pairs = pairs
+        self.name = pairs.name
+        self.split = pairs.split
+        # Both views of a pair come from one __getitem__, and the cache asks for
+        # them one after the other. Remembering the last pair means the source
+        # image is decoded, cropped and warped once rather than twice. A single
+        # slot, not a dict: out-of-order access stays correct, just slower.
+        self._held: tuple[int, tuple[Any, Any]] | None = None
+
+    def __len__(self) -> int:
+        return 2 * len(self._pairs)
+
+    def _views(self, pair: int) -> tuple[Any, Any]:
+        if self._held is None or self._held[0] != pair:
+            image_0, image_1, _ = self._pairs[pair]
+            self._held = (pair, (image_0, image_1))
+        return self._held[1]
+
+    def __getitem__(self, index: int) -> tuple[Any, None]:
+        """``(pil_image, None)`` — a single view has no label; geometry is per pair."""
+        if not 0 <= index < len(self):
+            raise IndexError(f"View index {index} out of range for {len(self)} views")
+        pair, view = divmod(index, 2)
+        return self._views(pair)[view], None
+
+    def cache_identity(self, index: int) -> str | None:
+        pair, view = divmod(index, 2)
+        return self._pairs.view_identity(pair, view)
+
+    def fingerprint(self) -> str | None:
+        """The pair dataset's own — this is a view of it, not different data."""
+        return self._pairs.fingerprint()
+
+    @staticmethod
+    def regroup(views: Any) -> Sequence:
+        """Undo the flattening: item ``i`` is ``(view 0, view 1)`` of pair ``i``.
+
+        Takes whatever extraction returned — a stacked feature dict is not
+        indexable per image, so this expects the streaming
+        :class:`~visbench.cache.streaming.CachedFeatures`, which is.
+        """
+        return _PairedViews(views)

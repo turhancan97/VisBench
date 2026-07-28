@@ -176,3 +176,49 @@ class TestFingerprint:
                 raise IndexError
 
         assert Minimal().fingerprint() is None
+
+
+class TestBalancedSubset:
+    """Shortening a labelled split without collapsing it to one class.
+
+    The file list is grouped by class, so ``subset(n)`` — a prefix — takes every
+    image from class 0. A single-class retrieval or classification run then
+    scores 1.0 while measuring nothing, which looks like a triumph rather than a
+    bug. Both examples that needed this carried their own copy of the fix.
+    """
+
+    def test_it_takes_n_from_each_class(self, folder):
+        dataset = ImageFolderDataset(folder)
+        limited = dataset.balanced_subset(1)
+        assert len(limited) == len(dataset.classes)
+        assert sorted(limited.labels()) == list(range(len(dataset.classes)))
+
+    def test_a_prefix_would_not_have(self, folder):
+        """The behaviour this exists to avoid, stated as a test."""
+        dataset = ImageFolderDataset(folder)
+        assert len(set(dataset.subset(1).labels())) == 1
+
+    def test_it_clamps_rather_than_raising(self, folder):
+        dataset = ImageFolderDataset(folder)
+        assert len(dataset.balanced_subset(10_000)) == len(dataset)
+
+    def test_it_leaves_the_original_alone(self, folder):
+        dataset = ImageFolderDataset(folder)
+        before = len(dataset)
+        dataset.balanced_subset(1)
+        assert len(dataset) == before
+
+    def test_the_fingerprint_follows(self, folder):
+        """So a limited run cannot be mistaken for a full one in the results."""
+        dataset = ImageFolderDataset(folder)
+        assert dataset.balanced_subset(1).fingerprint() != dataset.fingerprint()
+
+    def test_zero_is_refused(self, folder):
+        with pytest.raises(ValueError, match="needs n >= 1"):
+            ImageFolderDataset(folder).balanced_subset(0)
+
+    def test_unlabeled_degenerates_to_a_prefix(self, folder):
+        """Every item shares the label None, so there is one 'class'."""
+        one_class = next(child for child in sorted(folder.iterdir()) if child.is_dir())
+        dataset = ImageFolderDataset(one_class, labeled=False)
+        assert len(dataset.balanced_subset(1)) == 1

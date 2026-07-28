@@ -69,6 +69,9 @@ class CorrespondenceTask(BaseTask):
     feature_mode = FeatureMode.DENSE_ONLY
     zero_shot = True
     uses_dense = True
+    #: Pairs plus geometry, not images plus labels. :func:`visbench.run` reads
+    #: this to extract both views of every pair and hand them back paired.
+    uses_pairs = True
 
     def __init__(
         self,
@@ -240,8 +243,11 @@ class CorrespondenceTask(BaseTask):
         if labels is None:
             raise ValueError("Correspondence needs geometry to score against; got None")
 
-        pairs = list(features)
-        geometries = list(labels)
+        # Only materialised when it has to be. A streamed pair sequence already
+        # has a length, and listing it would load every dense map in the split
+        # into memory at once — undoing the streaming that put it on disk.
+        pairs = features if hasattr(features, "__len__") else list(features)
+        geometries = labels if hasattr(labels, "__len__") else list(labels)
         if len(pairs) != len(geometries):
             raise ValueError(f"Got {len(pairs)} feature pairs for {len(geometries)} geometries")
         if not pairs:
@@ -312,6 +318,23 @@ class CorrespondenceTask(BaseTask):
         metrics: MetricsDict = dict(correspondence_recall(pooled, self.thresholds, unit=self._unit))
         metrics.update(error_auc(pooled, self.thresholds, unit=self._unit))
         return metrics
+
+    def context_metrics(self, features: Any, labels: Any | None = None) -> MetricsDict:
+        """:meth:`evaluate_ceiling`, prefixed ``ceiling_``, for the result record.
+
+        CLAUDE.md's rule is that the ceiling is reported beside every score, and
+        until now only ``examples/correspond.py`` obeyed it — a run through
+        :func:`visbench.run` logged ``recall@1px`` with nothing saying that 0.015
+        was the most it could have been.
+
+        This re-runs the matching :meth:`evaluate` already did. That cost is
+        real and is the price of the two numbers being separately callable; it
+        is unchanged from what the example has always paid.
+        """
+        return {
+            f"ceiling_{name}": value
+            for name, value in self.evaluate_ceiling(features, labels).items()
+        }
 
     def describe(self) -> dict:
         described = super().describe()
