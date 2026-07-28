@@ -9,6 +9,55 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+Nothing yet. v0.3 opens with opt-in fine-tuning of the last N backbone blocks,
+which is the first change to challenge an assumption the feature cache has
+rested on since v0.1: that features depend on the image and the weights alone.
+
+## [0.2.0] — 2026-07-29
+
+**v0.2 — dense mid-level tasks, broader backbone support, and a command line.**
+
+Eight probes across three levels, three backbone families, four trained dense
+probes, and a `visbench` command that reaches all of them. Everything below is
+measured on real data, not fixtures.
+
+```bash
+pip install visbench
+visbench run correspondence --data /path/to/images --split val --limit 200
+```
+
+```python
+import visbench
+from visbench.data import DenseFolderDataset, load_label_map
+
+result = visbench.run(
+    "dinov2_vits14", "semantic_segmentation",
+    DenseFolderDataset("voc/val", target_loader=load_label_map),
+    train_dataset=DenseFolderDataset("voc/train", target_loader=load_label_map),
+    num_classes=21,
+)
+result.metrics["miou"]     # 0.732
+```
+
+### What v0.2 measured
+
+Every number below came from an `examples/` script or the CLI on a real
+checkpoint, and each is the reason to have built the probe rather than a
+by-product of it.
+
+| task | dataset | metric | DINOv2-S/14 | DINOv2-B/14 |
+| --- | --- | --- | --- | --- |
+| semantic segmentation | VOC 2012 val | mIoU | 0.732 | **0.753** |
+| mid-level similarity | NIGHTS test | 2AFC accuracy | **0.870** | 0.858 |
+| correspondence | Imagenette val | recall@1p (ceiling 0.951) | 0.783 | — |
+
+**The small model wins one and loses the other**, which is the case for probing
+more than one level rather than assuming a single ranking — and the reason not
+to sanity-check a new task by asking whether the larger backbone came out
+ahead. Splitting NIGHTS by whether the reference image came from ImageNet gives
+0.882 against 0.854 for DINOv2-S, so some of that 0.870 is contamination rather
+than perceptual alignment.
+
 ### Added
 
 - **The `visbench` command line**, the last piece of v0.2 and deliberately the
@@ -384,6 +433,20 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Fixed
 
+- **"A backbone whose extra is missing is skipped in the registry" was never
+  true.** CLAUDE.md had said so since v0.1 and the CLI's listing repeated it.
+  Both CLIP and timm import their dependency lazily *inside* `__init__`, so the
+  registration module imports cleanly and the skip logic in
+  `_REGISTRATION_MODULES` never fires for either — all six backbones are listed
+  on a core-only install. The behaviour is right and the documentation was
+  wrong: `get_backbone("clip_vitb16")` raises `ImportError: ... pip install
+  visbench[clip]`, which is far more useful than the registry's "Unknown
+  backbone 'clip_vitb16'" would be. So the docs are corrected rather than the
+  imports moved, and `registry.missing_extra(name)` now answers the question
+  without importing anything — `visbench list backbones` marks the ones that
+  need an extra instead of a footer claiming they are absent. **Found by
+  installing the v0.2.0 wheel into an empty venv**, which is a check this
+  project had never run.
 - **`run()` could not configure any dense probe's `batch_size`**, and nothing
   said so. `run()` owns `batch_size` (extraction) and `device` (the backbone's),
   and forwards everything else to the probe constructor — where all four dense
@@ -519,7 +582,46 @@ so it stands on its own rather than assuming you have read the ones above it.
   Running mypy with different flags reads the same `[tool.mypy]` config but
   checks something else, which is how the above went unnoticed.
 
-v0.2 is feature-complete: every task, both backbone families, and the CLI.
+### Install
+
+```bash
+pip install visbench                # core: DINOv2, every task
+pip install 'visbench[clip,timm]'   # + CLIP and timm CNN backbones
+```
+
+The core install works on its own. A backbone whose extra is missing stays
+listed — `visbench list backbones` marks it — and constructing one tells you
+which extra to install rather than pretending the name does not exist.
+
+```bash
+pytest              # 932 fast tests, no weights downloaded
+pytest -m slow      # 73 more, against the real DINOv2 and CLIP checkpoints
+```
+
+### Known limits, carried into v0.3
+
+- No fine-tuning. Every probe reads frozen features; unfreezing the last N
+  blocks is v0.3's first item, and it is the first change to challenge the
+  cache's founding assumption that features depend on the image and the weights
+  alone.
+- No detection, and nothing under `tasks/low_level/` but a README.
+- Retrieval ranks with an N×N score matrix — ~10 GB at 50k images, still no
+  chunked path.
+- Correspondence ground truth is synthetic homographies, so it measures
+  viewpoint robustness on a **plane**. probe3d's ScanNet/NAVI protocol was
+  scoped for v0.2 and did not land; it needs those datasets downloaded, which is
+  the actual blocker.
+- The CLI covers all eight probes but assumes a folder layout per probe. Anything
+  stranger than `--stems` can express needs the Python API, which takes any
+  `BaseDataset`.
+- **`pip install visbench` takes the newest torch in `>=2.0,<3.0`, whose CUDA
+  build may not have kernels for an older GPU.** Verifying this release on a
+  clean venv pulled `torch 2.13.0+cu130`, which fails on a V100 (compute
+  capability 7.0) with `GET was unable to find an engine to execute this
+  computation`. That is torch's packaging, not VisBench's, and `--device cpu`
+  works — but if you are on pre-Turing hardware, install torch yourself first,
+  or use `uv sync` against the lockfile, which pins the exact versions every
+  number here was measured with.
 
 ## [0.1.0] — 2026-07-24
 
@@ -650,5 +752,6 @@ API philosophy.
 [#2]: https://github.com/turhancan97/VisBench/issues/2
 [#4]: https://github.com/turhancan97/VisBench/issues/4
 [#3]: https://github.com/turhancan97/VisBench/issues/3
-[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/turhancan97/VisBench/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/turhancan97/VisBench/releases/tag/v0.1.0

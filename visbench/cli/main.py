@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 import visbench
+from visbench import registry
 from visbench.cache import DEFAULT_CACHE_DIR, FeatureCache
 from visbench.cli.datasets import spec_for, supported_probes
 
@@ -120,21 +121,27 @@ def _command_list(args: argparse.Namespace, out: Any) -> int:
         "heads": list_heads,
     }
     wanted = list(sections) if args.what == "all" else [args.what]
+    needed: set[str] = set()
     for name in wanted:
         print(f"{name}:", file=out)
         for entry in sections[name]():
-            # A registered probe the CLI cannot build data for is still real and
-            # still reachable from Python; saying so beats omitting it.
             note = ""
             if name == "probes" and entry not in supported_probes():
+                # A registered probe the CLI cannot build data for is still real
+                # and still reachable from Python; saying so beats omitting it.
                 note = "   (Python API only — the CLI cannot guess its data layout)"
+            if name == "backbones":
+                # Listed either way: a missing extra does not unregister a
+                # backbone, it only makes constructing one raise. Marking it here
+                # is the difference between "you need an extra" and discovering
+                # that at the end of a long command.
+                extra = registry.missing_extra(entry)
+                if extra is not None:
+                    needed.add(extra)
+                    note = f"   (needs the '{extra}' extra)"
             print(f"  {entry}{note}", file=out)
-    if args.what in ("all", "backbones"):
-        print(
-            "\nA backbone whose optional extra is not installed is absent rather than "
-            "broken:\n  pip install 'visbench[clip,timm]'",
-            file=out,
-        )
+    if needed:
+        print(f"\n  pip install 'visbench[{','.join(sorted(needed))}]'", file=out)
     return 0
 
 

@@ -24,7 +24,11 @@ __all__ = [
     "list_tasks",
     "build_backbone",
     "build_task",
+    "missing_extra",
 ]
+
+#: Maps an optional dependency to the extra that installs it, for error text.
+_EXTRA_FOR: dict[str, str] = {"open_clip": "clip", "timm": "timm"}
 
 #: name -> (class, default constructor kwargs)
 _BACKBONES: dict[str, tuple[type, dict]] = {}
@@ -170,6 +174,37 @@ def _ensure_imported() -> None:
                 f"Failed to import {module}, so its backbones/tasks are not registered. "
                 f"This is a real import error, not a missing optional dependency."
             ) from exc
+
+
+def missing_extra(name: str) -> str | None:
+    """The **extra** ``name`` needs and that is not installed, e.g. ``"clip"``.
+
+    ``None`` when the backbone is ready to use. Returns the extra rather than
+    the module because the extra is what a caller puts in an install command,
+    and ``open_clip`` is imported from a distribution called
+    ``open_clip_torch`` — a name no user should have to know to read an error
+    message. Checked with ``find_spec``, so this never imports open_clip or
+    timm: asking "what can I run" must not cost what running it would.
+
+    This exists because a missing extra does *not* remove a name from
+    :func:`list_backbones`, contrary to what the registry's skip logic looks
+    like it does. Both CLIP and timm import their dependency lazily, inside
+    ``__init__``, so the registration module imports cleanly and the name
+    registers either way. That is the better arrangement — ``get_backbone``
+    then raises "install visbench[clip]" instead of the registry raising
+    "Unknown backbone 'clip_vitb16'" — but it means a listing has to say so
+    itself rather than by omission.
+    """
+    import importlib.util
+
+    _ensure_imported()
+    if name not in _BACKBONES:
+        return None
+    module = _BACKBONES[name][0].__module__
+    dependency = _REGISTRATION_MODULES.get(module)
+    if dependency is None or importlib.util.find_spec(dependency) is not None:
+        return None
+    return _EXTRA_FOR.get(dependency, dependency)
 
 
 def _is_missing(missing: str | None, optional_dependency: str) -> bool:

@@ -131,3 +131,74 @@ class TestSpecLookup:
         monkeypatch.setattr(visbench, "list_probes", lambda: ["detection"])
         with pytest.raises(KeyError, match="registered probe but the CLI"):
             spec_for("detection")
+
+
+class TestMissingExtras:
+    """A missing extra does not unregister a backbone — it only makes one raise.
+
+    CLAUDE.md claimed the opposite from v0.1 until the v0.2.0 wheel test put a
+    core-only install in front of a listing that named all six backbones under a
+    footer promising they would be absent. The behaviour is the good one; the
+    listing has to say so itself rather than by omission.
+    """
+
+    def test_an_installed_backbone_needs_nothing(self):
+        from visbench import registry
+
+        assert registry.missing_extra("dinov2_vits14") is None
+
+    def test_it_names_the_extra_not_the_module(self, monkeypatch):
+        """`open_clip` ships in a distribution called open_clip_torch, which is
+        not a name a user should need to know to read an error."""
+        import importlib.util
+
+        from visbench import registry
+
+        monkeypatch.setattr(
+            importlib.util,
+            "find_spec",
+            lambda name, *a, **k: None if name == "open_clip" else object(),
+        )
+        assert registry.missing_extra("clip_vitb16") == "clip"
+
+    def test_it_does_not_import_the_dependency(self, monkeypatch):
+        """Asking what you can run must not cost what running it would."""
+        import builtins
+
+        from visbench import registry
+
+        real_import = builtins.__import__
+
+        def refuse(name, *args, **kwargs):
+            if name in ("open_clip", "timm"):
+                raise AssertionError(f"missing_extra imported {name}")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", refuse)
+        for name in visbench.list_backbones():
+            registry.missing_extra(name)
+
+    def test_an_unknown_name_is_not_an_error(self):
+        from visbench import registry
+
+        assert registry.missing_extra("no_such_backbone") is None
+
+    def test_the_listing_marks_a_missing_extra(self, monkeypatch, run_cli):
+        from visbench import registry
+
+        monkeypatch.setattr(
+            registry, "missing_extra", lambda name: "clip" if "clip" in name else None
+        )
+        result = run_cli("list", "backbones")
+        assert "clip_vitb16   (needs the 'clip' extra)" in result.out
+        assert "pip install 'visbench[clip]'" in result.out
+        # And an available backbone carries no note.
+        assert "dinov2_vits14\n" in result.out
+
+    def test_the_listing_is_clean_when_everything_is_installed(self, monkeypatch, run_cli):
+        from visbench import registry
+
+        monkeypatch.setattr(registry, "missing_extra", lambda name: None)
+        result = run_cli("list", "backbones")
+        assert "extra" not in result.out
+        assert "pip install" not in result.out

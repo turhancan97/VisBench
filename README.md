@@ -15,10 +15,10 @@
 
 ---
 
-> **Status: v0.1.0 released; v0.2 feature-complete.** Three backbone families
-> (DINOv2, CLIP, timm CNNs) and eight tasks run end-to-end, including four
-> trained dense probes, from Python or from the `visbench` command line. Not yet
-> on PyPI. See [Build order](#build-order).
+> **Status: v0.2.0.** Three backbone families (DINOv2, CLIP, timm CNNs) and
+> eight tasks run end-to-end, including four trained dense probes, from Python
+> or from the `visbench` command line. Not yet on PyPI — install from source.
+> See [Build order](#build-order).
 
 ## What it is
 
@@ -243,7 +243,7 @@ them at the point of use in the code:
 ## Install
 
 ```bash
-pip install visbench          # not yet published — v0.1 target
+pip install visbench          # not yet published — v0.2.0 is tagged, not uploaded
 ```
 
 Development:

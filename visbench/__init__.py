@@ -21,7 +21,7 @@ from visbench.backbones.custom import CustomBackbone
 from visbench.registry import register_backbone, register_task
 from visbench.types import FeatureDict, FeatureMode, Pooling
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     "get_backbone",
