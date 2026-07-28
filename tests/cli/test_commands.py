@@ -29,11 +29,13 @@ class TestList:
         assert "correspondence" in result.out
         assert "backbones:" not in result.out
 
-    def test_a_missing_extra_is_explained_not_hidden(self, run_cli):
-        """A backbone absent because open_clip is not installed looks identical
-        to one that never existed, unless the listing says otherwise."""
+    def test_every_backbone_is_listed_whether_or_not_its_extra_is_installed(self, run_cli):
+        """A missing extra does not unregister a backbone. Marking the ones that
+        need one is `TestMissingExtras` in test_parser.py; here the point is only
+        that the set is complete."""
         result = run_cli("list", "backbones")
-        assert "pip install" in result.out
+        for name in visbench.list_backbones():
+            assert name in result.out
 
 
 class TestCache:

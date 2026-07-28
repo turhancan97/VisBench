@@ -51,8 +51,8 @@ step is next rather than attempting the whole roadmap in one session.
 
 **v0.1 and v0.2 are both complete** — every task, both backbone families, and
 the CLI. Everything below exists, is tested, and is on `main`. Nothing has been
-released to PyPI yet, so **the open question is whether to cut v0.2.0 before
-starting v0.3**, not what to build next.
+uploaded to PyPI yet. v0.2.0 is tagged; the next build step is **6, v0.3
+scope**.
 
 Registered names — `visbench.list_backbones()`, `list_probes()`,
 `visbench.heads.list_heads()`:
@@ -70,7 +70,8 @@ The CLI exposes all eight probes: `visbench list`, `visbench run <probe>`,
 `list_probes()` are the same set, so a probe cannot ship unreachable from a
 shell by accident.
 
-Package version is still `0.1.0` — nothing has been released to PyPI yet.
+Package version is `0.2.0`, tagged `v0.2.0`. **Nothing has been uploaded to
+PyPI yet** — that step needs the maintainer's credentials and is theirs to run.
 Result schema is at **v5** (`dataset_params` added in 5j) and is **additive
 only**: never remove or repurpose a field, or old records stop being readable.
 
@@ -579,7 +580,16 @@ layer on cached features.**
 ## Engineering conventions
 
 - PyTorch, Python 3.10+. Optional extras: `clip` (open_clip), `timm`, `dev`.
-  A backbone whose extra is missing is skipped in the registry, not fatal.
+  **A backbone whose extra is missing is still registered and still listed** —
+  both CLIP and timm import their dependency lazily inside `__init__`, so the
+  registration module imports cleanly and `_REGISTRATION_MODULES`' skip logic
+  never fires for them. Constructing one raises `ImportError: ... pip install
+  visbench[clip]`, which is *better* than the registry raising "Unknown
+  backbone", so do not "fix" it by moving the imports to module scope. Use
+  `registry.missing_extra(name)` to ask without importing; the CLI's `list`
+  marks them. This was documented backwards until the v0.2.0 wheel test, where
+  a core-only install listed all six backbones under a footer promising it
+  would not.
 - Pin exact dependency versions via `uv.lock` — this is a reproducible
   benchmark library, not a moving-target research repo.
 - Write tests alongside every new module; don't defer testing to "later."
