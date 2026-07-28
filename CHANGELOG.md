@@ -22,7 +22,7 @@ probes, and a `visbench` command that reaches all of them. Everything below is
 measured on real data, not fixtures.
 
 ```bash
-pip install visbench
+uv sync --all-extras
 visbench run correspondence --data /path/to/images --split val --limit 200
 ```
 
@@ -584,19 +584,26 @@ than perceptual alignment.
 
 ### Install
 
-```bash
-pip install visbench                # core: DINOv2, every task
-pip install 'visbench[clip,timm]'   # + CLIP and timm CNN backbones
-```
-
-The core install works on its own. A backbone whose extra is missing stays
-listed — `visbench list backbones` marks it — and constructing one tells you
-which extra to install rather than pretending the name does not exist.
+**Not on PyPI yet** — this release is tagged and built, not uploaded. The wheel
+was verified by installing it into an empty venv and running the CLI from
+outside the source tree, so `pip install visbench` will work when it goes up;
+until then, install from source.
 
 ```bash
-pytest              # 932 fast tests, no weights downloaded
-pytest -m slow      # 73 more, against the real DINOv2 and CLIP checkpoints
+git clone https://github.com/turhancan97/VisBench && cd VisBench
+uv sync --all-extras              # exact locked versions — what the numbers above used
+# or
+pip install -e ".[dev,clip,timm]" # ranges, for day-to-day work
+
+visbench list                     # the CLI comes with either
+pytest                            # 938 fast tests, no weights downloaded
+pytest -m slow                    # 73 more, against the real DINOv2 and CLIP checkpoints
 ```
+
+The core install works on its own; `clip` and `timm` are optional extras. A
+backbone whose extra is missing stays listed — `visbench list backbones` marks
+it — and constructing one tells you which extra to install rather than
+pretending the name does not exist.
 
 ### Known limits, carried into v0.3
 
