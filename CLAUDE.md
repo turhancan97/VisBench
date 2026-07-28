@@ -50,9 +50,9 @@ step is next rather than attempting the whole roadmap in one session.
 ## Current state
 
 **v0.1 and v0.2 are both complete** — every task, both backbone families, and
-the CLI. Everything below exists, is tested, and is on `main`. Nothing has been
-uploaded to PyPI yet. v0.2.0 is tagged; the next build step is **6, v0.3
-scope**.
+the CLI. Everything below exists, is tested, and is on `main`. **v0.2.0 is
+released on PyPI** — `pip install visbench` works. The next build step is
+**6, v0.3 scope**.
 
 Registered names — `visbench.list_backbones()`, `list_probes()`,
 `visbench.heads.list_heads()`:
@@ -70,8 +70,13 @@ The CLI exposes all eight probes: `visbench list`, `visbench run <probe>`,
 `list_probes()` are the same set, so a probe cannot ship unreachable from a
 shell by accident.
 
-Package version is `0.2.0`, tagged `v0.2.0`. **Nothing has been uploaded to
-PyPI yet** — that step needs the maintainer's credentials and is theirs to run.
+Package version is `0.2.0`, tagged `v0.2.0`, live on
+[PyPI](https://pypi.org/project/visbench/). **Publishing needs the maintainer's
+credentials and is theirs to run** — never attempt it. A version number on PyPI
+can never be reused, so anything that renders wrong ships until the next
+release: check the README with `readme_renderer` (what PyPI runs) before any
+upload. Relative image and file paths break there, which is why every link in
+`README.md` is absolute — do not "tidy" them back to relative.
 Result schema is at **v5** (`dataset_params` added in 5j) and is **additive
 only**: never remove or repurpose a field, or old records stop being readable.
 

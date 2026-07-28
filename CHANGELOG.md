@@ -584,10 +584,14 @@ than perceptual alignment.
 
 ### Install
 
-**Not on PyPI yet** — this release is tagged and built, not uploaded. The wheel
-was verified by installing it into an empty venv and running the CLI from
-outside the source tree, so `pip install visbench` will work when it goes up;
-until then, install from source.
+**The first VisBench release on PyPI.**
+
+```bash
+pip install visbench                 # core: DINOv2, every task, the CLI
+pip install 'visbench[clip,timm]'    # + CLIP and timm CNN backbones
+```
+
+From source, for development or to reproduce the numbers above exactly:
 
 ```bash
 git clone https://github.com/turhancan97/VisBench && cd VisBench

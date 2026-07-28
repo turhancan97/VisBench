@@ -10,6 +10,7 @@
 </p>
 
 <p align="center">
+  <a href="https://pypi.org/project/visbench/"><img src="https://img.shields.io/pypi/v/visbench.svg" alt="PyPI"></a>
   <a href="https://github.com/turhancan97/VisBench/actions/workflows/ci.yml"><img src="https://github.com/turhancan97/VisBench/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/turhancan97/VisBench/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
   <img src="https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue.svg" alt="Python 3.10+">
@@ -17,9 +18,9 @@
 
 ---
 
-> **Status: v0.2.0.** Three backbone families (DINOv2, CLIP, timm CNNs) and
-> eight tasks run end-to-end, including four trained dense probes, from Python
-> or from the `visbench` command line. Not yet on PyPI — install from source.
+> **Status: v0.2.0, on PyPI.** Three backbone families (DINOv2, CLIP, timm
+> CNNs) and eight tasks run end-to-end, including four trained dense probes,
+> from Python or from the `visbench` command line.
 > See [Build order](#build-order).
 
 ## What it is
@@ -245,14 +246,21 @@ them at the point of use in the code:
 ## Install
 
 ```bash
-pip install visbench          # not yet published — v0.2.0 is tagged, not uploaded
+pip install visbench                 # core: DINOv2, every task, the CLI
+pip install 'visbench[clip,timm]'    # + CLIP and timm CNN backbones
 ```
+
+`clip` and `timm` are optional extras. A backbone whose extra is missing stays
+listed — `visbench list backbones` marks it — and constructing one tells you
+which extra to install rather than pretending the name does not exist.
 
 Development:
 
 ```bash
 git clone https://github.com/turhancan97/VisBench && cd VisBench
-pip install -e ".[dev,clip]"
+uv sync --all-extras            # exact locked versions — what the numbers below used
+# or
+pip install -e ".[dev,clip,timm]"
 pytest              # fast tests, no weights downloaded
 pytest -m slow      # also runs the real DINOv2 and CLIP checkpoints
 
