@@ -196,3 +196,72 @@ def test_repr_is_readable(fake_vit, splits, cache):
     _, val = splits
     text = repr(visbench.run(fake_vit, "retrieval", val, cache=cache))
     assert "fake_vit" in text and "retrieval" in text
+
+
+# -- pairwise: correspondence through run() (step 5j) --------------------------
+
+
+@pytest.fixture
+def pair_split(tmp_path):
+    """A flat folder of six images, as a homography pair dataset."""
+    from visbench.data import HomographyPairDataset
+
+    root = tmp_path / "pairs"
+    root.mkdir()
+    for index in range(6):
+        shade = 20 + 40 * index
+        Image.new("RGB", (64, 64), (shade, 255 - shade, 90)).save(root / f"{index:02d}.png")
+    return HomographyPairDataset(root, split="test", image_size=64)
+
+
+class TestPairwiseRuns:
+    """``run()`` covers correspondence, which it did not until step 5j.
+
+    The failure this guards against is not a crash. Extracting one view per
+    pair, or pairing view 0 of one image with view 1 of the next, produces a
+    correspondence number computed against the wrong partner — which trains
+    nothing, raises nothing, and simply reports a worse backbone.
+    """
+
+    def test_it_runs_and_scores(self, fake_vit, pair_split, cache):
+        result = visbench.run(fake_vit, "correspondence", pair_split, cache=cache)
+        assert result.record.task == "correspondence"
+        assert result.record.dataset_size == 6
+        assert "num_matches" in result.metrics
+
+    def test_it_extracts_both_views_of_every_pair(self, fake_vit, pair_split, cache):
+        """Twelve views for six pairs. Half of them would be a silent half-run."""
+        visbench.run(fake_vit, "correspondence", pair_split, cache=cache, batch_size=1)
+        assert fake_vit.call_count == 12
+
+    def test_the_ceiling_is_recorded_beside_the_score(self, fake_vit, pair_split, cache):
+        """CLAUDE.md's rule, now true for run() and not only for the example."""
+        metrics = visbench.run(fake_vit, "correspondence", pair_split, cache=cache).metrics
+        assert "recall@1p" in metrics and "ceiling_recall@1p" in metrics
+        assert metrics["recall@1p"] <= metrics["ceiling_recall@1p"] + 1e-9
+
+    def test_max_warp_reaches_the_record(self, fake_vit, pair_split, cache):
+        """Two runs at different warps are not comparable, and now say so."""
+        record = visbench.run(fake_vit, "correspondence", pair_split, cache=cache).record
+        assert record.dataset_params["max_warp"] == pair_split.max_warp
+        assert record.dataset_params["image_size"] == 64
+
+    def test_a_second_run_reuses_every_cached_view(self, fake_vit, pair_split, cache):
+        """view_identity finally has a caller: no image is decoded twice."""
+        visbench.run(fake_vit, "correspondence", pair_split, cache=cache)
+        calls = fake_vit.call_count
+        visbench.run(fake_vit, "correspondence", pair_split, cache=cache)
+        assert fake_vit.call_count == calls
+
+    def test_a_plain_image_dataset_is_refused(self, fake_vit, splits, cache):
+        _, val = splits
+        with pytest.raises(TypeError, match="image pairs plus geometry"):
+            visbench.run(fake_vit, "correspondence", val, cache=cache)
+
+
+def test_dataset_params_carries_what_the_record_has_no_field_for(fake_vit, splits, cache):
+    _, val = splits
+    record = visbench.run(fake_vit, "retrieval", val, cache=cache).record
+    assert record.dataset_params == {"num_classes": 3}
+    # And never duplicates a field that does exist.
+    assert "dataset" not in record.dataset_params

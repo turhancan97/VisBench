@@ -45,19 +45,9 @@ def parse_args() -> argparse.Namespace:
 
 def load(root: Path, split: str, limit: int | None = None) -> ImageFolderDataset:
     dataset = ImageFolderDataset(root / split if split else root, split=split or "all")
-    if limit is None:
-        return dataset
-
-    # Per *class*, not per split: the first N paths overall would all come from
-    # class 0, and a single-class retrieval scores 1.0 while measuring nothing.
-    kept: list[int] = []
-    seen: dict[int | None, int] = {}
-    for index, label in enumerate(dataset.labels()):
-        if seen.get(label, 0) >= limit:
-            continue
-        seen[label] = seen.get(label, 0) + 1
-        kept.append(index)
-    return dataset.subset(kept)
+    # Per *class*, not a prefix: the first N paths would all come from class 0,
+    # and a single-class retrieval scores 1.0 while measuring nothing.
+    return dataset if limit is None else dataset.balanced_subset(limit)
 
 
 def main() -> None:

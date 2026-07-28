@@ -22,12 +22,17 @@ from typing import Any
 
 import visbench
 from visbench.cache import FeatureCache
+from visbench.data.pair_dataset import PairDataset, PairViewDataset
 from visbench.results.schema import ResultRecord, utc_timestamp
 from visbench.results.writer import ResultWriter
 from visbench.types import Pooling
 from visbench.utils.seed import set_seed
 
 __all__ = ["run", "RunResult"]
+
+#: Keys of :meth:`BaseDataset.describe` that have their own record field.
+#: Anything else a dataset describes lands in ``dataset_params``.
+_RECORD_FIELDS = frozenset({"dataset", "split", "dataset_size", "dataset_fingerprint"})
 
 
 class RunResult:
@@ -65,7 +70,8 @@ def _extract(
     Returns ``(features, labels)``. A pooled task gets everything stacked and a
     label list; a dense task gets a streaming reader with its targets already
     paired by index, and ``None`` for labels — nothing about a dense split is
-    small enough to stack, targets included.
+    small enough to stack, targets included. A pairwise task gets a sequence of
+    ``(features_0, features_1)`` and the geometry to score them against.
     """
     shared = {
         "pooling": _resolve(backbone, probe),
@@ -76,6 +82,20 @@ def _extract(
         "feature_mode": probe.feature_mode,
         **kwargs,
     }
+
+    if probe.uses_pairs:
+        # Correspondence's shape: two views per item plus geometry, which no
+        # amount of squinting turns into images plus labels. Flattening the
+        # pairs into 2N single images is what lets the cache stay unchanged —
+        # see PairViewDataset, and TwoAFCDataset for the same move on triplets.
+        if not isinstance(dataset, PairDataset):
+            raise TypeError(
+                f"{probe.name!r} consumes image pairs plus geometry, but got a "
+                f"{type(dataset).__name__}. Pass a PairDataset — e.g. "
+                "HomographyPairDataset."
+            )
+        views = cache.materialise(backbone, PairViewDataset(dataset), **shared)
+        return PairViewDataset.regroup(views), dataset.labels()
 
     if not probe.uses_dense:
         # Pooled features are small enough to hold whole, and every zero-shot
@@ -128,10 +148,11 @@ def run(
 
     Notes
     -----
-    Correspondence takes pairs plus geometry rather than images plus labels, so
-    it is not covered here yet — see ``examples/correspond.py``. Folding it in
-    means deciding how pairwise extraction is expressed, which is a v0.2
-    question tangled up with the CLI.
+    Correspondence is covered: a task declaring ``uses_pairs`` gets both views
+    of every pair extracted and handed back paired, with the geometry as
+    labels. Its ceiling is merged into the metrics under ``ceiling_*``, because
+    a correspondence score read without it says the wrong thing (see
+    :meth:`BaseTask.context_metrics`).
     """
     used_seed = set_seed(seed)
     started = time.perf_counter()
@@ -160,8 +181,19 @@ def run(
         task.fit(*_extract(cache, backbone, train_dataset, task, batch_size=batch_size))
 
     metrics = task.evaluate(features, labels)
+    # Merged after, and never allowed to overwrite: a task that returned a
+    # context key colliding with one of its own scores would replace a result
+    # with the thing that qualifies it.
+    for name, value in task.context_metrics(features, labels).items():
+        if name in metrics:
+            raise ValueError(
+                f"{task.name!r} returned context metric {name!r}, which is already one "
+                "of its scores. Namespace it — these share one flat dict."
+            )
+        metrics[name] = value
 
-    described = {**dataset.describe(), **task.describe()}
+    dataset_described = dataset.describe()
+    described = {**dataset_described, **task.describe()}
     record = ResultRecord(
         backbone=backbone.name,
         backbone_key=backbone.cache_key(),
@@ -178,6 +210,13 @@ def run(
         # the number, and means two different things on a 12- and a 24-block ViT.
         layers=(None if task.layers is None else backbone.resolve_layers(task.layers)),
         task_params=described["task_params"],
+        # Whatever the dataset described beyond the fields above — max_warp,
+        # image_size, num_triplets. Taken from the dataset's own describe()
+        # rather than a fixed list, so a new dataset type carries its settings
+        # into the record without a schema change.
+        dataset_params={
+            key: value for key, value in dataset_described.items() if key not in _RECORD_FIELDS
+        },
         metrics=metrics,
         timestamp=utc_timestamp(),
         visbench_version=visbench.__version__,

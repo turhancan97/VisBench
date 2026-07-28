@@ -11,6 +11,90 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Added
 
+- **The `visbench` command line**, the last piece of v0.2 and deliberately the
+  last: a CLI freezes an API into strings that end up in shell scripts, and
+  every one of the eight probes changed shape at least once while the Python
+  side was being built. Three commands — `visbench list`, `visbench run <probe>`
+  and `visbench cache stats | clear`.
+
+  ```bash
+  visbench run semantic_segmentation --data VOCdevkit/VOC2012 \
+      --image-dir JPEGImages --target-dir SegmentationClass \
+      --stems ImageSets/Segmentation/val.txt \
+      --train-stems ImageSets/Segmentation/train.txt \
+      --num-classes 21 --backbone dinov2_vits14
+  ```
+
+  Each probe is its own subcommand, because they do not take the same data:
+  `visbench run depth --help` shows the folder layout depth expects and only
+  depth's flags. All eight are reachable, and a test asserts that
+  `visbench.list_probes()` and the CLI's table are the same set — a probe that
+  ships without a way to run it from a shell should be a deliberate omission,
+  not a drift.
+
+  `run` is a thin wrapper over `visbench.run()`, which was written to be exactly
+  that. What the CLI adds is dataset *construction* — which layout a probe
+  expects, which loader reads its targets — held as a table of `ProbeSpec` rows
+  in `visbench.cli.datasets` rather than a hierarchy. Adding a probe is a row.
+
+  Verified against the numbers the Python API already produced, on the same
+  data: NIGHTS similarity **0.8701** (identical to the figure recorded in step
+  5i) and VOC val semantic segmentation **0.733 mIoU** against the recorded
+  0.732.
+- **`visbench.run()` now covers correspondence**, which it had refused since
+  v0.1 because the task takes image pairs plus geometry rather than images plus
+  labels. A task declares `uses_pairs` — the same kind of declaration
+  `uses_dense` already was, and for the same reason: the shape is not
+  inferable from anything else the task exposes, and guessing wrong is silent.
+
+  The resolution is the one `TwoAFCDataset` reached for triplets: **do not
+  widen the cache, flatten the structure and put it back by index.**
+  `PairViewDataset` presents a pair dataset's two views as one dataset of `2N`
+  images, so extraction, batching, streaming and the identity memo all work
+  unchanged, and `regroup` restores the pairing. It is lazy in both directions:
+  scoring a pair loads two feature maps, which go out of scope immediately,
+  rather than materialising a whole split of dense features that had just been
+  streamed to disk.
+- **`PairDataset.view_identity` finally has a caller.** It has existed, with
+  tests, since v0.1 and nothing in the library used it — `examples/correspond.py`
+  handed the cache a bare list of PIL images, which has no identity at all, so a
+  *fully cached* correspondence run still decoded, cropped and warped every
+  image to discover it had the features already. Through `run()` a second run
+  now re-extracts nothing. Measured on 200 Imagenette pairs with DINOv2-S/14:
+  16.4 s cold, 8.2 s warm, identical scores.
+- **A correspondence run records its ceiling.** `recall@1px` on DINOv2 ViT-S/14
+  at 224px has a *ceiling* of 0.015 — matches can only land on patch centres —
+  so a score logged without it invites the conclusion that the backbone failed
+  when the grid is merely coarse. CLAUDE.md has required reporting the two
+  together since v0.1 and only `examples/correspond.py` obeyed;
+  `BaseTask.context_metrics` is the hook that makes `run()` and the CLI do it,
+  under `ceiling_*` keys. Empty for every other task. Measured on 200 Imagenette
+  pairs: `recall@1p` 0.783 against a ceiling of 0.951.
+- **Result schema v5 adds `dataset_params`** — the dataset's counterpart to
+  `task_params`, filled from whatever `BaseDataset.describe()` returns beyond
+  the fields the record already has. A correspondence run's `max_warp` and a
+  dense split's `image_size` decide what the number means and were recorded
+  nowhere: they changed the fingerprint, so two such runs were distinguishable,
+  but only as "not the same data", with nothing saying how they differed. Open
+  rather than a column per setting, so a new dataset type never forces another
+  bump.
+- **`ImageFolderDataset.balanced_subset(n)`** — at most `n` images from *each*
+  class. `subset(n)` takes a prefix, and the file list is grouped by class, so a
+  prefix of an Imagenette split is entirely class 0 and a single-class retrieval
+  run scores 1.0 while measuring nothing. Both examples that needed this carried
+  their own copy with the same warning attached, which is the signal it belonged
+  on the dataset; the CLI's `--limit` would have been a third.
+- **`--stems` / `--train-stems`** on every dense subcommand, for splits named by
+  a file rather than by a directory — how every real benchmark expresses an
+  official split. Passing one switches the layout: `--data` becomes the dataset
+  root, because the file *is* the split, and mixing the two would be asking the
+  same question twice and letting the answers disagree. Without it the CLI could
+  not run VOC, which is the one dataset semantic segmentation is proved on.
+- `HomographyPairDataset` and `PairViewDataset` are exported from
+  `visbench.data`, and `DEFAULT_CACHE_DIR` from `visbench.cache`. The first was
+  an oversight: tests had to reach into `visbench.data.pair_dataset` for a class
+  the README uses.
+
 - **Mid-level image similarity** (`similarity`) — zero-shot two-alternative
   forced choice, following Chen, Marks & Cheng (arXiv:2411.17474). A reference
   and two candidates; the probe compares `cos(ref, left)` against
@@ -300,6 +384,15 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Fixed
 
+- **`run()` could not configure any dense probe's `batch_size`**, and nothing
+  said so. `run()` owns `batch_size` (extraction) and `device` (the backbone's),
+  and forwards everything else to the probe constructor — where all four dense
+  probes take a `batch_size` meaning their *training* batch. Passing it was a
+  bare `TypeError: got multiple values for keyword argument`. Found by writing
+  the CLI, which is exactly the sort of thing a second caller finds; the fix is
+  the one the examples had already reached for independently, building the probe
+  as an object and passing that. The CLI keeps the two separate as `--batch-size`
+  and `--train-batch-size`.
 - **`CorrespondenceTask.evaluate_ceiling` silently scored a prefix** when given
   more feature pairs than geometries — nine geometries against ten pairs
   produced a number computed from nine and reported as covering the split.
@@ -426,8 +519,7 @@ so it stands on its own rather than assuming you have read the ones above it.
   Running mypy with different flags reads the same `[tool.mypy]` config but
   checks something else, which is how the above went unnoticed.
 
-Still to come in v0.2: surface normals, generic and semantic segmentation,
-mid-level similarity, CLI.
+v0.2 is feature-complete: every task, both backbone families, and the CLI.
 
 ## [0.1.0] — 2026-07-24
 

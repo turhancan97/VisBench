@@ -27,7 +27,13 @@ __all__ = ["ResultRecord", "SCHEMA_VERSION", "utc_timestamp"]
 #:    backbone depths is a different run from one reading the last, and the
 #:    existing ``layer`` field cannot say so without changing its type — which
 #:    would make every v1-v3 record on disk parse to something new.
-SCHEMA_VERSION = 4
+#: 5. Added ``dataset_params``. The dataset half of a run had no equivalent of
+#:    ``task_params``, so settings that decide what the number means were
+#:    recorded nowhere: a correspondence run's ``max_warp``, or the
+#:    ``image_size`` a dense split was cropped to. They changed the
+#:    fingerprint, so two such runs were distinguishable — but only as "not the
+#:    same data", with nothing saying how they differed.
+SCHEMA_VERSION = 5
 
 
 @dataclass
@@ -62,6 +68,12 @@ class ResultRecord:
         Task-specific settings from :meth:`BaseTask.describe` — for a trained
         probe, the optimiser, learning rate, epochs and so on. Empty for
         zero-shot tasks, which have none.
+    dataset_params:
+        Whatever :meth:`BaseDataset.describe` returned beyond the fields above
+        — a correspondence split's ``max_warp``, a dense split's
+        ``image_size``, a triplet split's ``num_triplets``. The dataset's
+        counterpart to ``task_params``, and open for the same reason: a new
+        dataset type must not force another schema bump.
     layer / layers:
         Which backbone depth the features came from. ``layer`` is the
         single-layer form and ``layers`` the resolved list a multiscale head
@@ -85,6 +97,7 @@ class ResultRecord:
     dataset_size: int | None = None
     dataset_fingerprint: str | None = None
     task_params: dict = field(default_factory=dict)
+    dataset_params: dict = field(default_factory=dict)
     layer: int | None = None
     layers: list[int] | None = None
     seed: int | None = None

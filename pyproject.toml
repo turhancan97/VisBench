@@ -53,9 +53,8 @@ all = ["visbench[clip,timm]"]
 Homepage = "https://github.com/turhancan97/VisBench"
 Issues = "https://github.com/turhancan97/VisBench/issues"
 
-# CLI is explicitly deferred to v0.2 — the Python API must stabilise first.
-# [project.scripts]
-# visbench = "visbench.cli:main"
+[project.scripts]
+visbench = "visbench.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["visbench"]
