@@ -1,6 +1,8 @@
 <p align="center">
-  <img src="assets/visbench-logo-light.svg#gh-light-mode-only" alt="VisBench" width="420">
-  <img src="assets/visbench-logo-dark.svg#gh-dark-mode-only" alt="VisBench" width="420">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/turhancan97/VisBench/main/assets/visbench-logo-dark.svg">
+    <img src="https://raw.githubusercontent.com/turhancan97/VisBench/main/assets/visbench-logo-light.svg" alt="VisBench" width="420">
+  </picture>
 </p>
 
 <p align="center">
@@ -9,7 +11,7 @@
 
 <p align="center">
   <a href="https://github.com/turhancan97/VisBench/actions/workflows/ci.yml"><img src="https://github.com/turhancan97/VisBench/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
+  <a href="https://github.com/turhancan97/VisBench/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
   <img src="https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue.svg" alt="Python 3.10+">
 </p>
 
@@ -146,7 +148,7 @@ Following [Chen, Marks & Cheng (arXiv:2411.17474)](https://arxiv.org/abs/2411.17
 | | detection | v0.3 |
 | **Mid-level** — geometry & generic structure | geometric correspondence | v0.1 |
 | | depth, surface normals, generic (binary) segmentation, mid-level similarity | v0.2 |
-| **Low-level** — signal properties | edge detection, optical flow, texture, IQA | v0.3+, [scope only](visbench/tasks/low_level/README.md) |
+| **Low-level** — signal properties | edge detection, optical flow, texture, IQA | v0.3+, [scope only](https://github.com/turhancan97/VisBench/blob/main/visbench/tasks/low_level/README.md) |
 
 Mid-level is where VisBench aims to be strongest relative to existing tooling.
 Note that **mid-level image similarity and high-level retrieval are separate
@@ -198,7 +200,7 @@ This is a multi-month roadmap, built one reviewed step at a time.
 Every run logs a structured JSON record — backbone, weights key, task, dataset,
 pooling, feature mode, metrics, seed, timestamp — under one schema from v0.1,
 so leaderboard tooling never needs a retrofit. Dependencies are pinned in
-[`uv.lock`](uv.lock) — exact versions and hashes for every platform, covering
+[`uv.lock`](https://github.com/turhancan97/VisBench/blob/main/uv.lock) — exact versions and hashes for every platform, covering
 the `clip` and `dev` extras too — and CI fails if it drifts from
 `pyproject.toml`. The ranges in `pyproject.toml` carry upper bounds so that a
 minor dependency release cannot quietly move reported numbers even when
@@ -225,7 +227,7 @@ the projected vector, under its own cache key.
 
 ## Changelog
 
-Release notes live in [CHANGELOG.md](CHANGELOG.md); each released section is
+Release notes live in [CHANGELOG.md](https://github.com/turhancan97/VisBench/blob/main/CHANGELOG.md); each released section is
 written to stand alone, so it doubles as the GitHub release body.
 
 ## Prior art
@@ -305,7 +307,7 @@ class-grouped folder would leave you evaluating one class and scoring 1.0.
 
 ## Try it on your own data
 
-[`examples/classify.py`](examples/classify.py) runs the whole path on any
+[`examples/classify.py`](https://github.com/turhancan97/VisBench/blob/main/examples/classify.py) runs the whole path on any
 folder laid out as `<data>/train/<class>/…` and `<data>/val/<class>/…`:
 
 ```bash
@@ -327,7 +329,7 @@ is low *and* `train top1` is low, the probe underfitted — raise `--lr` or
 `--epochs`. If `train top1` is near 1.0, the backbone genuinely does not
 separate those classes.
 
-[`examples/retrieve.py`](examples/retrieve.py) does the zero-shot version —
+[`examples/retrieve.py`](https://github.com/turhancan97/VisBench/blob/main/examples/retrieve.py) does the zero-shot version —
 no training at all, every image queries every other by cosine similarity:
 
 ```bash
@@ -338,7 +340,7 @@ python examples/retrieve.py --data /path/to/dataset --split val --pooling mean
 Both examples share one cache, so running retrieval after classification on
 the same split costs nothing but the ranking.
 
-[`examples/correspond.py`](examples/correspond.py) runs the mid-level task —
+[`examples/correspond.py`](https://github.com/turhancan97/VisBench/blob/main/examples/correspond.py) runs the mid-level task —
 also zero-shot, and needing no annotation at all, since each image is warped by
 a known homography:
 
@@ -353,7 +355,7 @@ the backbone failed.
 
 ### Mid-level image similarity
 
-[`examples/similarity.py`](examples/similarity.py) asks whether the backbone
+[`examples/similarity.py`](https://github.com/turhancan97/VisBench/blob/main/examples/similarity.py) asks whether the backbone
 agrees with a human about which of two candidates looks more like a reference —
 a two-alternative forced choice over [NIGHTS](https://dreamsim-nights.github.io)
 (Fu et al., *DreamSim*). Also zero-shot: the probe is two cosine similarities
@@ -391,10 +393,10 @@ reading 0.870 as a clean measure of perceptual alignment.
 
 ### Dense tasks
 
-[`examples/depth.py`](examples/depth.py),
-[`examples/normals.py`](examples/normals.py),
-[`examples/segment.py`](examples/segment.py) and
-[`examples/segment_semantic.py`](examples/segment_semantic.py) train a probe
+[`examples/depth.py`](https://github.com/turhancan97/VisBench/blob/main/examples/depth.py),
+[`examples/normals.py`](https://github.com/turhancan97/VisBench/blob/main/examples/normals.py),
+[`examples/segment.py`](https://github.com/turhancan97/VisBench/blob/main/examples/segment.py) and
+[`examples/segment_semantic.py`](https://github.com/turhancan97/VisBench/blob/main/examples/segment_semantic.py) train a probe
 head on frozen dense features. Depth and normals follow
 [probe3d](https://arxiv.org/abs/2404.08476)'s protocols; both segmentation tasks
 borrow only its optimiser schedule, since that paper has neither. They want
@@ -538,9 +540,9 @@ wired up, the script is the answer.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT — see [LICENSE](https://github.com/turhancan97/VisBench/blob/main/LICENSE).
 
 VisBench borrows evaluation protocols from prior work, all permissively
-licensed and MIT-compatible; [NOTICE](NOTICE) records what came from where.
+licensed and MIT-compatible; [NOTICE](https://github.com/turhancan97/VisBench/blob/main/NOTICE) records what came from where.
 Backbone weights are downloaded at runtime, never redistributed here, and
 carry their own upstream terms.
