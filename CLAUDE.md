@@ -45,7 +45,8 @@ step is next rather than attempting the whole roadmap in one session.
 | 5j | The CLI — last, once the dense-task Python API has settled | done |
 | 6a | Fine-tuning: unfreeze last N blocks, cache out of the path, DINOv2 only, proved on VOC segmentation | done |
 | 6b | Cache the frozen prefix — works, saves 21%, and found the real bottleneck | done |
-| **6c+** | **Detection groundwork; low-level tasks if there is bandwidth** | **next** |
+| **6c** | **Detection groundwork — dataset and metric first, head second** | **next** |
+| 6d+ | Low-level tasks if there is bandwidth | later |
 
 ---
 
@@ -92,8 +93,9 @@ merely point nowhere once the page is served from `pypi.org` rather than
 GitHub. `tests/test_readme.py` is the guard for those, in the fast suite —
 every link and image must be absolute. Do not "tidy" one back to relative;
 point it at `.../blob/main/...`, or `raw.githubusercontent.com` for an image.
-Result schema is at **v5** (`dataset_params` added in 5j) and is **additive
-only**: never remove or repurpose a field, or old records stop being readable.
+Result schema is at **v6** (`finetune` added in 6a; `dataset_params` was 5j) and
+is **additive only**: never remove or repurpose a field, or old records stop
+being readable.
 
 ### Layout worth knowing before editing
 
@@ -356,8 +358,8 @@ designed up front; extend it the same way, from a case that already runs.
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker is empty as of 2026-07-29.** All
-five verification commands were re-run on that date and are green: 999 fast
-tests, 73 slow, and the three lint steps. If anything is red for you, that is
+five verification commands were re-run on that date and are green: 1024 fast
+tests, 76 slow, and the three lint steps. If anything is red for you, that is
 new — do not go looking for a known cause here.
 
 The entries are kept because each one records a *class* of failure this
@@ -785,15 +787,51 @@ an unchanged name, which content hashing catches today.
   today, which is exactly why it is a guard: the day it becomes reachable there
   is no symptom.
 
-- Begin high-level detection support (lightweight head). Expect this to take
-  longer than any other single addition — it's the hardest task to do cheaply
-  on limited compute.
+### Still open in v0.3, beyond the numbered steps
+
 - Low-level tasks get their first real entries if there's contributor
   bandwidth (edge detection, optical flow); otherwise the folder stays a
   placeholder.
 - HF Hub integration for sharing pretrained probe heads and a public
   leaderboard, once there's enough task/backbone coverage for a leaderboard
   to be meaningful.
+
+### Step 6c — detection groundwork. Scope decided 2026-07-29, before any code
+
+Expect this to take longer than any other single addition — it's the hardest
+task to do cheaply on limited compute. **Build order is dataset and metric
+first, head second**, decided rather than discovered:
+
+1. `visbench/data/detection.py` — a box dataset and `load_boxes`.
+2. `visbench/metrics/detection.py` — `average_precision`, mAP@50, mAP@50:95.
+3. `visbench/tasks/high_level/detection.py` — the head, last, against a metric
+   that is already trusted.
+
+**Why this order, and it is not a preference.** Every dense task in this
+codebase pays for target geometry, and boxes are strictly worse than masks
+there: a box must survive the same resize and crop as its image, and unlike a
+depth map *it does not resample* — it transforms, so the scale and offset are
+applied by hand rather than by the loader. That is the correspondence
+misalignment bug (recall@1px = 0.003) with a new coordinate convention, and a
+head trained against silently shifted boxes still trains and merely scores
+badly. Getting a number early from a head on fixtures would prove nothing,
+because fake backbones cannot show it.
+
+Two conventions to settle **before** writing the dataset, since both are silent
+when wrong: absolute pixels vs normalised `[0,1]`, and `xyxy` vs `xywh`. Pick
+one internally, convert at the loader boundary, and assert the choice in a fast
+test — a swapped pair loads, trains and scores.
+
+Prove it on **VOC2012 Detection**, whose `Annotations/` XML sits beside the
+`JPEGImages/` and `SegmentationClass/` this repo already runs on, so no new
+download is needed. `DetectionTask` is currently a `NotImplementedError` stub
+with `level`/`feature_mode`/`zero_shot` already declared — extend it, do not
+rewrite it.
+
+**Known deferred**: keying the prefix cache on dataset identity (path + mtime)
+rather than image content, which 6b's profile identified as the 128.3 s
+remaining cost. Explicitly not part of 6c — see 6b's closing note for why it
+reaches into the data layer and what it would break.
 
 ---
 
@@ -832,8 +870,8 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 999 fast tests
-pytest -m slow                                      # 73, real DINOv2/CLIP weights
+pytest                                              # 1024 fast tests
+pytest -m slow                                      # 76, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/
 ruff format --check visbench/ tests/ conftest.py examples/
 mypy visbench/ examples/ --ignore-missing-imports   # reads [tool.mypy], py 3.12
