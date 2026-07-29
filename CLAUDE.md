@@ -44,7 +44,7 @@ step is next rather than attempting the whole roadmap in one session.
 | 5i | Mid-level image similarity | done |
 | 5j | The CLI — last, once the dense-task Python API has settled | done |
 | 6a | Fine-tuning: unfreeze last N blocks, cache out of the path, DINOv2 only, proved on VOC segmentation | done |
-| **6b** | **Cache the frozen prefix — but 6a's measurement undercuts its premise; read below before starting** | **next** |
+| **6b** | **Cache the frozen prefix — 6a measured what it would save and what floor it cannot beat; read below** | **next** |
 | 6c+ | Detection groundwork; low-level tasks if there is bandwidth | later |
 
 ---
@@ -55,12 +55,12 @@ step is next rather than attempting the whole roadmap in one session.
 the CLI. Everything below exists, is tested, and is on `main`. **v0.2.0 is
 released on PyPI** — `pip install visbench` works.
 
-**v0.3 is in progress: step 6a (fine-tuning) is done and unreleased.** Dense
-probes take `finetune_blocks=N` / `--finetune-blocks N`, DINOv2 only, cache
-bypassed on that path, recorded under schema v6's `finetune` field. Proved on
-VOC: 0.7758 mIoU fine-tuned against the frozen 0.7328. The next build step is
-**6b — but read its entry first; 6a's timing measurement undercuts its
-premise.**
+**v0.3 is in progress: step 6a (fine-tuning) is done, merged and unreleased.**
+Dense probes take `finetune_blocks=N` / `--finetune-blocks N`, DINOv2 only,
+cache bypassed on that path, recorded under schema v6's `finetune` field. Proved
+on VOC at two scales: 0.7758 against the frozen 0.7328 on DINOv2-S, and 0.7992
+against 0.7533 on DINOv2-B. The next build step is **6b, whose cost model is
+now measured rather than assumed — read its entry before starting.**
 
 Registered names — `visbench.list_backbones()`, `list_probes()`,
 `visbench.heads.list_heads()`:
@@ -320,6 +320,16 @@ designed up front; extend it the same way, from a case that already runs.
   away. The unfrozen backbone **stays in `eval()`**: train mode would start
   BatchNorm updating and dropout firing, moving a fine-tuned number for two
   reasons at once with one of them unrecorded.
+- **A wall clock is not a metric — repeat it before concluding anything from
+  it.** Every score in this codebase is deterministic and reproduces to four
+  decimals across runs, which makes it tempting to treat a `duration_seconds`
+  from the same record as equally solid. It is not: 6a timed one frozen/
+  fine-tuned pair, got 252 s against 238 s, and recorded "fine-tuning is not
+  slower" in three files and a merged PR. Re-running the identical commands
+  gave 156 s and 126 s frozen against 200 s fine-tuned — same metrics to the
+  digit, opposite conclusion. The machine is shared. Run a timing at least
+  twice, and prefer the *repeat* to the first, since the first also pays for
+  whatever the page cache had evicted.
 - **Verify with the exact commands CI runs** (below). A local env with extra
   packages installed will pass checks that CI fails.
 - **A guard whose only test is `slow` is a guard CI never runs.** `addopts`
@@ -598,33 +608,51 @@ layer on cached features.**
 
 ## v0.3 — fine-tuning + detection groundwork
 
-### Step 6a — **done**. What it built, and the measurement that changes 6b
+### Step 6a — **done**. What it built, and what fine-tuning actually costs
 
 Shipped: `BaseBackbone.unfreeze_last(n)` + `extract_features_trainable`,
 `finetune_blocks`/`backbone_lr` on every dense probe and its CLI subcommand,
 schema v6's `finetune` field, and the cache bypassed on that path.
 
-Measured on VOC 2012 val, DINOv2-S/14, linear head, ten epochs — same command
-either way, only `--finetune-blocks 2` added:
+Measured on VOC 2012 val, linear head, ten epochs, one V100 — the same command
+each way, only `--finetune-blocks 2` added:
 
-| run | mIoU | mIoU/image | pixel acc | wall clock |
-| --- | --- | --- | --- | --- |
-| frozen | 0.7328 | 0.6841 | 0.9267 | 252 s |
-| fine-tuned, 2 blocks | **0.7758** | 0.7527 | 0.9405 | 238 s |
+| backbone | run | mIoU | mIoU/image | pixel acc | wall clock |
+| --- | --- | --- | --- | --- | --- |
+| DINOv2-S/14 | frozen, cached | 0.7328 | 0.6841 | 0.9267 | 156 s / 126 s |
+| DINOv2-S/14 | fine-tuned, 2 blocks | **0.7758** | 0.7527 | 0.9405 | 200 s |
+| DINOv2-B/14 | frozen, cached | 0.7533 | 0.7161 | 0.9316 | 126 s |
+| DINOv2-B/14 | fine-tuned, 2 blocks | **0.7992** | 0.7813 | 0.9465 | 279 s |
 
-The frozen run reproduces v0.2's 0.732 exactly, which is what makes the +4.3
-mIoU worth quoting.
+Both frozen runs reproduce v0.2's numbers exactly — 0.732 and 0.753 — which is
+what makes +4.3 and +4.6 mIoU worth quoting rather than a difference between
+two environments. **The gain holds at both scales; so does the cost.**
 
-**Fine-tuning was not slower, and this was not expected.** 238 s against a
-*fully cached* frozen run's 252 s. The frozen path streams 1.3 GB of dense
-features off disk once per epoch, and that I/O costs more than recomputing them
-on a GPU that would otherwise be idle. **6b's premise was that caching the
-frozen prefix saves the recomputation — on this evidence it would put disk
-reads back into the loop, which is what was already dominating.** Do not start
-6b as an optimisation on faith; measure the frozen path's I/O against its
-compute first, on a backbone larger than ViT-S, and let that decide whether 6b
-is worth building at all. The FLOP argument below is what the design rested on
-and it is now known to be the wrong model of the cost.
+**A single timing on a shared machine is not a measurement, and this cost a
+wrong conclusion.** 6a originally recorded 252 s frozen against 238 s
+fine-tuned on ViT-S, and concluded from that one pair that fine-tuning was
+*free* — that the frozen path was I/O-bound on streaming 1.3 GB per epoch and
+6b's premise was therefore dead. Re-running the identical commands reproduced
+every metric to four decimals and none of the timings: frozen came in at 156 s,
+then 126 s on an immediate repeat, and fine-tuned at 200 s. The original pair
+was inflated by machine contention. **Fine-tuning is slower, at both scales**,
+by 1.3-1.6x on ViT-S and 2.2x on ViT-B. Repeat a timing before drawing a
+design conclusion from it; the metrics are deterministic and the clock is not.
+
+**What replaced it is the more useful finding: the frozen path costs ~126 s
+regardless of backbone width.** ViT-S and ViT-B land within 0.2 s of each other
+despite ViT-B streaming 2.3 GB against ViT-S's 1.3 GB. That cost is dominated by
+per-file overhead across 2,913 files, not by bytes moved. Fine-tuning, by
+contrast, tracks compute: 200 s to 279 s for the same 2 unfrozen blocks. So
+**neither the FLOP argument nor the I/O argument was the right model** — reads
+are per-file, and only the recompute scales.
+
+That is what sizes 6b. Caching the frozen prefix removes the frozen blocks'
+forward compute and adds back a per-file read of the same shape the frozen path
+already pays. The margin therefore **grows with backbone size and shrinks as
+more blocks are unfrozen**, and is worth roughly 279 s → the 126 s floor plus
+two blocks' compute at ViT-B. Measure it against these numbers rather than
+re-deriving them.
 
 ### Step 6a — the decisions, settled before it was built; do not re-derive them
 
@@ -677,10 +705,11 @@ three sets of model internals before a single fine-tuned number exists. So 6b
 is lifted out of a working 6a and measured against it, the same way
 `DenseTrainingTask` was lifted out of a working `DepthTask`.
 
-**And deferring it is exactly why the premise got tested rather than assumed** —
-see the measurement above. Had 6b been built first, it would have shipped as an
-optimisation with nothing to compare against, and the fact that the frozen path
-is I/O-bound rather than compute-bound would never have surfaced.
+**And deferring it is exactly why 6b has a baseline to be measured against** —
+see the table above. Built first, it would have shipped as an optimisation with
+nothing to compare against, and the per-file floor that actually sizes it would
+never have surfaced.
+
 - Begin high-level detection support (lightweight head). Expect this to take
   longer than any other single addition — it's the hardest task to do cheaply
   on limited compute.

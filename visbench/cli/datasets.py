@@ -129,8 +129,9 @@ def _dense_flags(parser: argparse.ArgumentParser, target_dir: str) -> None:
         type=int,
         default=0,
         help="unfreeze this many trailing backbone blocks and train them with the head "
-        "(default: 0, a frozen probe). Bypasses the feature cache -- though measured no "
-        "slower than a cached frozen run on VOC; DINOv2 only for now",
+        "(default: 0, a frozen probe). Bypasses the feature cache, so it runs 1.3-2.2x "
+        "slower than a cached frozen run on VOC, more so the larger the backbone; "
+        "DINOv2 only for now",
     )
     parser.add_argument(
         "--backbone-lr",

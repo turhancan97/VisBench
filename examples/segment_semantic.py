@@ -53,10 +53,10 @@ last N backbone blocks and trains them alongside the head, at ``--lr / 100`` by
 default. Two things follow, and neither is a detail:
 
 * the **feature cache is bypassed**, because cache keys name the weights and
-  fine-tuned weights change at every optimiser step. That turns out not to cost
-  time here — 238 s against the cached frozen run's 252 s on VOC with
-  DINOv2-S/14 — because streaming 1.3 GB of dense features off disk once per
-  epoch costs more than recomputing them on an idle GPU;
+  fine-tuned weights change at every optimiser step. That costs time, and more
+  of it the bigger the backbone: on VOC with two unfrozen blocks, 200 s against
+  a cached frozen run's 126-156 s on DINOv2-S, and 279 s against 126 s on
+  DINOv2-B;
 * the number answers a **different question** — what this representation can be
   adapted into, rather than what it already carries. Every published VisBench
   number is frozen. The result record's ``finetune`` field says which a run was,

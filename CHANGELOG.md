@@ -21,35 +21,45 @@ the weights alone.
   on its CLI subcommand. **DINOv2 only** for now; every other family raises a
   refusal naming itself rather than silently doing nothing.
 
-  Measured on Pascal VOC 2012 val, DINOv2-S/14, linear head, the same
-  ten-epoch schedule and the same command as the frozen run:
+  Measured on Pascal VOC 2012 val, linear head, the same ten-epoch schedule and
+  the same command as the frozen run, on one V100:
 
-  | run | mIoU | mIoU/image | pixel acc | mean class acc | wall clock |
-  | --- | --- | --- | --- | --- | --- |
-  | frozen (v0.2 baseline) | 0.7328 | 0.6841 | 0.9267 | 0.8271 | 252 s |
-  | fine-tuned, 2 blocks | **0.7758** | 0.7527 | 0.9405 | 0.8542 | 238 s |
+  | backbone | run | mIoU | mIoU/image | pixel acc | mean class acc | wall clock |
+  | --- | --- | --- | --- | --- | --- | --- |
+  | DINOv2-S/14 | frozen (v0.2 baseline) | 0.7328 | 0.6841 | 0.9267 | 0.8271 | 156 s / 126 s |
+  | DINOv2-S/14 | fine-tuned, 2 blocks | **0.7758** | 0.7527 | 0.9405 | 0.8542 | 200 s |
+  | DINOv2-B/14 | frozen (v0.2 baseline) | 0.7533 | 0.7161 | 0.9316 | 0.8403 | 126 s |
+  | DINOv2-B/14 | fine-tuned, 2 blocks | **0.7992** | 0.7813 | 0.9465 | 0.8708 | 279 s |
 
-  The frozen run reproduces v0.2's recorded 0.732 exactly, which is what makes
-  the +4.3 mIoU comparison worth anything.
+  Both frozen runs reproduce v0.2's recorded numbers exactly — 0.732 and 0.753
+  — which is what makes the +4.3 and +4.6 mIoU comparisons worth anything. The
+  gain holds at both scales.
 
   **The two numbers are not comparable and the record says so.** A frozen probe
   measures what a representation already carries; a fine-tuned one measures what
   it can be adapted into. Schema v6's `finetune` field is what keeps them apart
   — see below.
 
-- **Fine-tuning was not slower, which contradicted the design assumption.**
-  238 s against the fully cached frozen run's 252 s. The frozen path streams
-  1.3 GB of dense features off disk once per epoch, and that I/O costs more than
-  recomputing the features on a GPU that would otherwise be idle. Every place
-  that had been written to warn "expect it to be much slower" now says what was
-  measured instead.
+- **What fine-tuning costs, and a timing that had to be retracted.** The first
+  version of this entry reported fine-tuning as *free* — 238 s against a fully
+  cached frozen run's 252 s on DINOv2-S — and concluded the frozen path was
+  I/O-bound on streaming 1.3 GB of features per epoch. That was one measurement
+  on a shared machine and it did not hold. Re-running the identical commands
+  reproduced every metric to four decimals and none of the timings: 156 s
+  frozen, 126 s on an immediate repeat, 200 s fine-tuned. **Fine-tuning is
+  slower** — 1.3-1.6x on ViT-S, 2.2x on ViT-B.
 
-  This matters for the planned step 6b, whose whole premise was that caching the
-  frozen prefix below the cut would save the recomputation. On this evidence
-  that trade may be the wrong way round at this scale: it would put disk reads
-  back into the loop, which is the thing that was already dominating. 6b now
-  needs to justify itself against a measurement rather than against a FLOP
-  count.
+  What replaced that conclusion is more useful. **The frozen path costs ~126 s
+  regardless of backbone width**: ViT-S and ViT-B land within 0.2 s of each
+  other even though ViT-B streams 2.3 GB against ViT-S's 1.3 GB. The cost is
+  per-file overhead across 2,913 files, not bytes moved. Fine-tuning meanwhile
+  tracks compute, 200 s to 279 s for the same two unfrozen blocks.
+
+  For the planned step 6b this is the sizing, not a veto: caching the frozen
+  prefix trades the frozen blocks' forward compute for a per-file read the
+  frozen path already pays, so the margin **grows with backbone size and shrinks
+  as more blocks are unfrozen**. It now has a floor and a baseline to be
+  measured against rather than a FLOP count to be argued from.
 
 - **`BaseBackbone.unfreeze_last(n)`** and `extract_features_trainable`. The
   trainable forward pass is a **separate entry point**, not a flag on
