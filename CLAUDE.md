@@ -43,7 +43,9 @@ step is next rather than attempting the whole roadmap in one session.
 | 5h | High-level semantic (multi-class) segmentation | done |
 | 5i | Mid-level image similarity | done |
 | 5j | The CLI — last, once the dense-task Python API has settled | done |
-| **6** | **v0.3 scope. Do not start before v0.2 is complete and reviewed** | **next** |
+| **6a** | **Fine-tuning: unfreeze last N blocks, cache out of the path, DINOv2 only, proved on VOC segmentation** | **next** |
+| 6b | Cache the frozen prefix — the optimisation, lifted from a working 6a | after 6a |
+| 6c+ | Detection groundwork; low-level tasks if there is bandwidth | later |
 
 ---
 
@@ -579,8 +581,56 @@ layer on cached features.**
 
 ## v0.3 — fine-tuning + detection groundwork
 
-- Fine-tuning mode: allow unfreezing the last N backbone blocks per task,
-  opt-in, off by default.
+### Step 6a — the design is settled; do not re-derive it
+
+Fine-tuning is opt-in and off by default. What makes it hard is not the
+unfreezing, it is that **three separate things assume the backbone is frozen**:
+
+- `BaseBackbone._finalize()` calls `requires_grad_(False)` and `eval()`, and
+  `extract_features` is `@torch.no_grad()`. Gradients cannot flow at all.
+- **The cache keys on `backbone.cache_key()`**, i.e. on the weights. Fine-tuned
+  weights differ at every optimiser step, so a cached feature is stale the
+  instant it is written — and written under the *frozen* key it is **poison**,
+  served to every later frozen run of that backbone with nothing to say why the
+  number moved.
+- `run()` extracts before it fits, and `DenseTrainingTask` optimises
+  `self.head.parameters()` alone. Fine-tuning needs *images* in the loop.
+
+**Decided, 2026-07-29, after reading all three:**
+
+- **The fine-tuning path does not touch the cache. Not "keyed differently" —
+  untouched.** Keying on a per-step weights digest would grow the cache without
+  bound and still never hit.
+- **The backbone stays in `eval()` even when unfrozen**; only `requires_grad`
+  flips. Unfreezing a ResNet stage in train mode starts BatchNorm updating its
+  running statistics and activates dropout, which silently makes the v0.2
+  numbers incomparable. This is also standard for small-batch fine-tuning.
+- **A no-op unfreeze must raise.** If N resolves to zero trainable parameters,
+  the run trains exactly like a frozen probe and reports it as fine-tuned —
+  the QuickGELU failure in a new place. Guard it in the **fast** suite.
+- **Two learning rates.** The backbone needs roughly 10–100x below the head's
+  5e-4, or the pretrained features are destroyed in the first epoch. Both
+  recorded.
+- **Schema v6 adds one `finetune` field** (`blocks`, `backbone_lr`,
+  `trainable_params`), `None` for every run to date. A leaderboard mixing
+  frozen and fine-tuned numbers under one task name is meaningless, and this is
+  what stops it. `protocol` is unchanged — same loss, same metric, different
+  trainable set.
+- **DINOv2 only.** CLIP, timm and `CustomBackbone` raise "not supported yet".
+- **Proved on VOC semantic segmentation**, because measured frozen baselines
+  exist there (DINOv2-S 0.732, DINOv2-B 0.753 mIoU) and there is headroom.
+  Imagenette classification was rejected as the first proof: at 0.9939 top-1 it
+  is saturated and could not show an effect either way.
+
+**Why the cache is bypassed rather than made to work in 6a.** The right answer
+is eventually 6b — the frozen prefix below the cut *is* deterministic given the
+image, so it can be cached and only the unfrozen suffix recomputed. It is
+blocked on something concrete: all three families tap layers through a
+whole-model API (`get_intermediate_layers`, `forward_intermediates`) and **none
+can resume a forward pass from block k**. Building that means reaching into
+three sets of model internals before a single fine-tuned number exists. So 6b
+is lifted out of a working 6a and measured against it, the same way
+`DenseTrainingTask` was lifted out of a working `DepthTask`.
 - Begin high-level detection support (lightweight head). Expect this to take
   longer than any other single addition — it's the hardest task to do cheaply
   on limited compute.
