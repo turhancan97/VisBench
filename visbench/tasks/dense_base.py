@@ -36,6 +36,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 
+from visbench.cache.keys import hash_image, make_prefix_key
 from visbench.cache.streaming import CachedFeatures
 from visbench.heads import build_head
 from visbench.tasks.base import BaseTask
@@ -247,6 +248,16 @@ class DenseTrainingTask(BaseTask):
         #: reader can tell a two-block fine-tune of ViT-S from one of ViT-L.
         self.trainable_params: int = 0
 
+        #: Set by :meth:`attach_backbone` (step 6b), and only when the backbone
+        #: can serve this run's ``layers`` from a cut. ``None`` means the frozen
+        #: blocks are recomputed every epoch, which is 6a's behaviour.
+        self._prefix_cache: Any = None
+        #: Whether the prefix cache was actually used, for the result record.
+        #: Distinct from "one was offered": a DPT run reading layers below the
+        #: cut declines it, and a record saying otherwise would misattribute
+        #: the run's cost.
+        self.uses_prefix_cache: bool = False
+
         #: Set by :meth:`fit`. A diagnostic, not a result — a poor score with a
         #: high training loss means the probe underfitted, which is a different
         #: finding from a representation that does not carry this signal.
@@ -293,7 +304,7 @@ class DenseTrainingTask(BaseTask):
 
     # -- fine-tuning ---------------------------------------------------------
 
-    def attach_backbone(self, backbone: Any) -> None:
+    def attach_backbone(self, backbone: Any, prefix_cache: Any = None) -> None:
         """Unfreeze the backbone and keep it, so :meth:`fit` trains through it.
 
         Called by :func:`visbench.run` when :attr:`finetune_blocks` is set. The
@@ -305,6 +316,12 @@ class DenseTrainingTask(BaseTask):
         is constructed before it is paired with a backbone — and it is
         :meth:`BaseBackbone.unfreeze_last` that refuses a family it cannot
         support, or an unfreeze that would train nothing.
+
+        ``prefix_cache`` is step 6b's saving: a
+        :class:`~visbench.cache.PrefixCache` for the frozen blocks below the
+        cut. It is used only where it is *provably* equivalent — see
+        :meth:`BaseBackbone.can_use_prefix_cache` — and ignored otherwise, so
+        passing one can change how long a run takes but never what it reports.
         """
         if self.finetune_blocks == 0:
             raise ValueError(
@@ -314,6 +331,21 @@ class DenseTrainingTask(BaseTask):
             )
         self.trainable_params = backbone.unfreeze_last(self.finetune_blocks)
         self._backbone = backbone
+        # Resolved once, after the unfreeze: can_use_prefix_cache depends on
+        # trainable_blocks, so asking before this line would always say no.
+        #
+        # A *disabled* cache is treated as no cache at all rather than as one
+        # that always misses. The difference matters twice: the run takes 6a's
+        # code path, which is what `--no-prefix-cache` exists to measure, and
+        # the record says `prefix_cache: false` instead of claiming a saving it
+        # did not get.
+        usable = (
+            prefix_cache is not None
+            and getattr(prefix_cache, "enabled", True)
+            and backbone.can_use_prefix_cache(self.layers)
+        )
+        self._prefix_cache = prefix_cache if usable else None
+        self.uses_prefix_cache = usable
 
     def _backbone_dense(self, images: list) -> Any:
         """Preprocess a batch of PIL images and run the backbone over it.
@@ -323,6 +355,9 @@ class DenseTrainingTask(BaseTask):
         ordinary frozen path and this method stays honest about which one ran.
         """
         backbone = self._backbone
+        if self._prefix_cache is not None:
+            return self._dense_from_prefix(images)
+
         batch = backbone.preprocess(images)
         extract = (
             backbone.extract_features_trainable
@@ -331,6 +366,52 @@ class DenseTrainingTask(BaseTask):
         )
         features = extract(
             batch,
+            pooling=self.pooling,
+            layers=self.layers,
+            feature_mode=self.feature_mode,
+        )
+        return features["dense_layers"] if self.layers is not None else features["dense"]
+
+    def _dense_from_prefix(self, images: list) -> Any:
+        """Serve the frozen half from disk and recompute only the unfrozen blocks.
+
+        The saving of step 6b, and it is a saving of *compute only*: the tokens
+        below the cut are a pure function of the image and weights that do not
+        move, so a hit here returns exactly what recomputing would have. A test
+        asserts bit-equality against :meth:`_backbone_dense`'s other branch.
+
+        Misses are computed for the whole batch in one forward pass and written
+        back, so the first epoch pays roughly what the unbypassed path pays and
+        every later one reads.
+        """
+        backbone = self._backbone
+        cache = self._prefix_cache
+        backbone_key = backbone.cache_key()
+        cut = backbone.prefix_cut()
+
+        keys = [make_prefix_key(hash_image(image), backbone_key, cut) for image in images]
+        entries: list[Any] = [cache.get(key) for key in keys]
+
+        missing = [index for index, entry in enumerate(entries) if entry is None]
+        if missing:
+            batch = backbone.preprocess([images[index] for index in missing])
+            tokens, grid_hw = backbone.forward_prefix(batch)
+            for position, index in enumerate(missing):
+                cache.put(keys[index], tokens[position], grid_hw)
+                entries[index] = (tokens[position], grid_hw)
+
+        grids = {entry[1] for entry in entries}
+        if len(grids) != 1:
+            raise RuntimeError(
+                f"Cached prefixes in one batch disagree on the patch grid: {sorted(grids)}. "
+                "Stacking them would align every feature map against the wrong target."
+            )
+        grid_hw = entries[0][1]
+        prefix = torch.stack([entry[0].to(backbone.device) for entry in entries])
+
+        features = backbone.extract_features_from_prefix(
+            prefix,
+            grid_hw,
             pooling=self.pooling,
             layers=self.layers,
             feature_mode=self.feature_mode,
@@ -708,4 +789,8 @@ class DenseTrainingTask(BaseTask):
             "blocks": self.finetune_blocks,
             "backbone_lr": self.backbone_lr,
             "trainable_params": self.trainable_params,
+            # Cost, not result: a prefix-cached run and a recomputed one must
+            # report identical metrics, and recording which was which is what
+            # lets a reader check that rather than take it on faith.
+            "prefix_cache": self.uses_prefix_cache,
         }

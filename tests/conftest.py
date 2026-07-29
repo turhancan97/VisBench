@@ -113,6 +113,34 @@ class BlockViT(FakeViT):
             through.append((tokens, cls, grid_hw))
         return [through[index] for index in layers]
 
+    # -- prefix caching (step 6b) -------------------------------------------
+    #
+    # Cut and resume the same block loop the frozen path runs, so a test can
+    # assert the two agree. A fake that resumed from somewhere else would
+    # prove nothing about the mechanism under test.
+
+    supports_prefix_cache = True
+
+    def _forward_prefix(self, image, cut):
+        """Blocks ``[0:cut]``, with CLS carried as token 0 as DINOv2 does.
+
+        The prefix has to hold everything the resumption needs; reconstructing
+        CLS on the other side would make the two paths disagree, and a fake
+        that papered over that would prove the opposite of what it is for.
+        """
+        tokens, cls, grid_hw = super()._forward_features(image, [0])[0]
+        for block in list(self.blocks)[:cut]:
+            tokens = block(tokens)
+        return torch.cat([cls.unsqueeze(1), tokens], dim=1), grid_hw
+
+    def _forward_from_prefix(self, prefix, grid_hw, cut, layers):
+        cls, tokens = prefix[:, 0], prefix[:, 1:]
+        collected = {}
+        for offset, block in enumerate(list(self.blocks)[cut:]):
+            tokens = block(tokens)
+            collected[cut + offset] = tokens
+        return [(collected[index], cls, grid_hw) for index in layers]
+
 
 class ParameterlessViT(BlockViT):
     """Blocks holding no parameters — the no-op unfreeze that must be refused."""

@@ -11,7 +11,7 @@ import numpy as np
 import torch
 from PIL import Image
 
-__all__ = ["hash_image", "make_key"]
+__all__ = ["hash_image", "make_key", "make_prefix_key"]
 
 #: 128 bits of digest. Short enough for a readable filename, far past any
 #: realistic collision risk for a per-user feature cache.
@@ -95,3 +95,33 @@ def make_key(
             raise ValueError(f"{field} must not contain {SEPARATOR!r}: {value!r}")
     layer_field = "-" if layer is None else str(layer)
     return SEPARATOR.join([backbone_key, layer_field, pooling, feature_mode, image_hash])
+
+
+def make_prefix_key(image_hash: str, backbone_key: str, cut: int) -> str:
+    """Build the cache key for one frozen-prefix activation (step 6b).
+
+    A *prefix* is the token sequence a backbone produces after ``cut`` blocks,
+    before any pooling, feature mode or grid reshaping has been applied. It is
+    therefore keyed on strictly less than a feature entry: the image, the
+    weights, and where the forward pass was cut. Adding ``pooling`` or
+    ``feature_mode`` here would fragment the cache along axes the stored tensor
+    does not vary on, storing the same activation several times over.
+
+    ``cut`` is in the key because it names *which* activation this is. Two runs
+    fine-tuning different numbers of blocks cut in different places and their
+    prefixes are not interchangeable — serving one for the other would resume
+    the forward pass from the wrong depth, which produces a plausible feature
+    map rather than an error.
+
+    **The key namespace is deliberately disjoint from :func:`make_key`'s.** The
+    ``prefix@`` field cannot collide with a layer index, so a prefix activation
+    can never be handed to a caller expecting features, and vice versa. They
+    are stored by different classes in different directories as well; this is
+    the third of three independent reasons the mix-up cannot happen, because
+    the mix-up would be silent.
+    """
+    if SEPARATOR in backbone_key:
+        raise ValueError(f"backbone_key must not contain {SEPARATOR!r}: {backbone_key!r}")
+    if not isinstance(cut, int) or isinstance(cut, bool) or cut < 0:
+        raise ValueError(f"cut must be a non-negative int, got {cut!r}")
+    return SEPARATOR.join([backbone_key, f"prefix@{cut}", image_hash])

@@ -59,6 +59,11 @@ class DINOv2(BaseBackbone):
 
     has_cls_token = True
 
+    #: The forward pass is a plain loop over ``model.blocks`` from
+    #: ``prepare_tokens_with_masks``, so it can be cut at a block and resumed
+    #: (step 6b). Verified bit-identical against ``get_intermediate_layers``.
+    supports_prefix_cache = True
+
     def __init__(
         self,
         variant: str = "dinov2_vitb14",
@@ -142,9 +147,100 @@ class DINOv2(BaseBackbone):
 
         The same sequence layer indices address, so ``unfreeze_last(2)`` on a
         12-block model unfreezes exactly the blocks a ``layers=[10, 11]``
-        request would read.
+        request would read — which only holds while ``blocks`` is a flat
+        sequence, hence the guard.
         """
+        return self._blocks_or_refuse()
+
+    def _require_flat_blocks(self) -> None:
+        """Refuse the block-sliced paths on a chunked model.
+
+        Upstream can wrap ``blocks`` into ``BlockChunk``s for FSDP
+        (``block_chunks > 0``), in which case ``blocks`` is a sequence of
+        *chunks* and every index into it means something different: slicing it
+        would unfreeze or cut at the wrong depth and still run. The hub
+        entrypoints pass ``block_chunks=0``, so this is unreachable today —
+        which is exactly why it is a guard rather than a comment, since the day
+        it becomes reachable there is no symptom to notice.
+        """
+        if getattr(self.model, "chunked_blocks", False):
+            raise NotImplementedError(
+                f"{self.name} was loaded with chunked blocks, so block indices address "
+                "chunks rather than transformer blocks. Fine-tuning and prefix caching "
+                "both slice that sequence and would cut at the wrong depth. Load with "
+                "block_chunks=0, which is what the torch.hub entrypoints use."
+            )
+
+    def _blocks_or_refuse(self) -> Any:
+        self._require_flat_blocks()
         return self.model.blocks
+
+    def _forward_prefix(
+        self, image: torch.Tensor, cut: int
+    ) -> tuple[torch.Tensor, tuple[int, int]]:
+        """Patch-embed, add position encoding, and run blocks ``[0:cut]``.
+
+        Returns the *raw* token sequence — CLS, registers and patches, before
+        ``norm`` — because the norm belongs to the deepest layer read, not to
+        the cut. Applying it here would bake a second normalisation into every
+        resumed pass.
+        """
+        blocks = self._blocks_or_refuse()
+        grid_hw = self._grid_hw(image)
+        tokens = self.model.prepare_tokens_with_masks(image)
+        for block in list(blocks)[:cut]:
+            tokens = block(tokens)
+        return tokens, grid_hw
+
+    def _forward_from_prefix(
+        self,
+        prefix: torch.Tensor,
+        grid_hw: tuple[int, int],
+        cut: int,
+        layers: list[int],
+    ) -> list[LayerOutput]:
+        """Run blocks ``[cut:]`` over a cached prefix, collecting the requested depths.
+
+        Mirrors upstream's ``_get_intermediate_layers_not_chunked`` from the cut
+        onward, including the ``norm`` it applies per collected layer and the
+        ``1 + num_register_tokens`` split. Reproducing those here is what makes
+        a resumed pass bit-identical to a whole one, and a test asserts exactly
+        that against ``get_intermediate_layers``.
+        """
+        blocks = self._blocks_or_refuse()
+        expected = grid_hw[0] * grid_hw[1]
+        wanted = set(layers)
+
+        tokens = prefix
+        collected: dict[int, torch.Tensor] = {}
+        for offset, block in enumerate(list(blocks)[cut:]):
+            tokens = block(tokens)
+            index = cut + offset
+            if index in wanted:
+                collected[index] = tokens
+
+        result: list[LayerOutput] = []
+        for index in layers:
+            normed = self.model.norm(collected[index])
+            cls_token = normed[:, 0]
+            patch_tokens = normed[:, 1 + self.num_registers :]
+            if patch_tokens.shape[1] != expected:
+                raise RuntimeError(
+                    f"DINOv2 layer {index} resumed to {patch_tokens.shape[1]} patch tokens, "
+                    f"expected {expected} for a {grid_hw[0]}x{grid_hw[1]} grid. The cached "
+                    "prefix does not match this input resolution."
+                )
+            result.append((patch_tokens, cls_token, grid_hw))
+        return result
+
+    def _grid_hw(self, image: torch.Tensor) -> tuple[int, int]:
+        """Patch grid for an input, with the divisibility check both paths need."""
+        _, _, height, width = image.shape
+        patch = self.patch_size
+        assert patch is not None  # set in __init__; Optional only on the base class
+        if height % patch or width % patch:
+            raise ValueError(f"Input {height}x{width} is not a multiple of patch size {patch}")
+        return height // patch, width // patch
 
     def _forward_features(
         self,
@@ -157,12 +253,7 @@ class DINOv2(BaseBackbone):
         requested depth comes from a single forward pass. Register tokens, if
         the variant has them, are dropped here.
         """
-        _, _, height, width = image.shape
-        patch = self.patch_size
-        assert patch is not None  # set in __init__; Optional only on the base class
-        if height % patch or width % patch:
-            raise ValueError(f"Input {height}x{width} is not a multiple of patch size {patch}")
-        grid_hw = (height // patch, width // patch)
+        grid_hw = self._grid_hw(image)
 
         outputs = self.model.get_intermediate_layers(
             image,

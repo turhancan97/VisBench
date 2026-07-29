@@ -44,8 +44,8 @@ step is next rather than attempting the whole roadmap in one session.
 | 5i | Mid-level image similarity | done |
 | 5j | The CLI — last, once the dense-task Python API has settled | done |
 | 6a | Fine-tuning: unfreeze last N blocks, cache out of the path, DINOv2 only, proved on VOC segmentation | done |
-| **6b** | **Cache the frozen prefix — 6a measured what it would save and what floor it cannot beat; read below** | **next** |
-| 6c+ | Detection groundwork; low-level tasks if there is bandwidth | later |
+| 6b | Cache the frozen prefix — works, saves 21%, and found the real bottleneck | done |
+| **6c+** | **Detection groundwork; low-level tasks if there is bandwidth** | **next** |
 
 ---
 
@@ -55,12 +55,13 @@ step is next rather than attempting the whole roadmap in one session.
 the CLI. Everything below exists, is tested, and is on `main`. **v0.2.0 is
 released on PyPI** — `pip install visbench` works.
 
-**v0.3 is in progress: step 6a (fine-tuning) is done, merged and unreleased.**
-Dense probes take `finetune_blocks=N` / `--finetune-blocks N`, DINOv2 only,
-cache bypassed on that path, recorded under schema v6's `finetune` field. Proved
-on VOC at two scales: 0.7758 against the frozen 0.7328 on DINOv2-S, and 0.7992
-against 0.7533 on DINOv2-B. The next build step is **6b, whose cost model is
-now measured rather than assumed — read its entry before starting.**
+**v0.3 is in progress: steps 6a (fine-tuning) and 6b (prefix caching) are both
+done and unreleased.** Dense probes take `finetune_blocks=N` /
+`--finetune-blocks N`, DINOv2 only, recorded under schema v6's `finetune` field.
+Proved on VOC at two scales: 0.7758 against the frozen 0.7328 on DINOv2-S, and
+0.7992 against 0.7533 on DINOv2-B. 6b caches the frozen blocks below the cut in
+a separate `PrefixCache`, cutting a fine-tuned ViT-B run from ~345 s to ~272 s
+with the mIoU unchanged to four decimals. The next build step is **6c**.
 
 Registered names — `visbench.list_backbones()`, `list_probes()`,
 `visbench.heads.list_heads()`:
@@ -102,6 +103,8 @@ visbench/
                  timm_backbone, custom, pooling.py (feature modes)
   cache/         feature_cache.py (_Plan/_walk, extract_dataset, materialise)
                  streaming.py (CachedFeatures — a torch Dataset over the cache)
+                 prefix_cache.py (PrefixCache — frozen prefixes, 6b; nests in
+                   _prefix/ under the same root and is never counted as features)
   cli/           main.py (build_parser + the three commands),
                  datasets.py (ProbeSpec table: flags -> datasets, per probe)
   data/          image_folder (+ balanced_subset), pair_dataset
@@ -696,19 +699,91 @@ unfreezing, it is that **three separate things assume the backbone is frozen**:
   is saturated and could not show an effect either way.
 
 **Why the cache is bypassed rather than made to work in 6a.** The right answer
-is eventually 6b — the frozen prefix below the cut *is* deterministic given the
-image, so it can be cached and only the unfrozen suffix recomputed. It is
-blocked on something concrete: all three families tap layers through a
-whole-model API (`get_intermediate_layers`, `forward_intermediates`) and **none
-can resume a forward pass from block k**. Building that means reaching into
-three sets of model internals before a single fine-tuned number exists. So 6b
-is lifted out of a working 6a and measured against it, the same way
-`DenseTrainingTask` was lifted out of a working `DepthTask`.
+is 6b — the frozen prefix below the cut *is* deterministic given the image, so
+it can be cached and only the unfrozen suffix recomputed. 6a deferred it
+because all three families tap layers through a whole-model API
+(`get_intermediate_layers`, `forward_intermediates`) and none obviously resumes
+a forward pass from block k. So 6b was lifted out of a working 6a and measured
+against it, the same way `DenseTrainingTask` was lifted out of a working
+`DepthTask`.
 
-**And deferring it is exactly why 6b has a baseline to be measured against** —
-see the table above. Built first, it would have shipped as an optimisation with
-nothing to compare against, and the per-file floor that actually sizes it would
-never have surfaced.
+### Step 6b — **done**. It works, it saves 21%, and it found the next bottleneck
+
+**The blocker was smaller than it looked.** DINOv2's
+`_get_intermediate_layers_not_chunked` is a plain loop over `model.blocks` from
+`prepare_tokens_with_masks`, so the cut is clean: prefix = patch embed + pos
+encoding + blocks `[0:k]`, suffix = blocks `[k:]` + `norm` + the
+`1 + num_register_tokens` split. Verified **bit-identical** to
+`get_intermediate_layers` (max abs diff 0.0), which is what makes this a
+caching change and not a numerical one.
+
+Measured on VOC 2012 val, DINOv2-B/14, 2 unfrozen blocks, ten epochs, all in
+one session so the comparison is internal to it:
+
+| run | wall clock | mIoU |
+| --- | --- | --- |
+| recompute (6a's path) | 320.6 s, 368.9 s | 0.7992 |
+| prefix cache, cold | 379.5 s | 0.7992 |
+| prefix cache, warm | **268.2 s, 276.4 s** | 0.7992 |
+
+**Every run reports 0.7992**, identical to 6a's. That is the whole correctness
+claim, and a fast test asserts the same equality on fake backbones so CI keeps
+it. Cost: 2,913 prefix entries, 2.30 GB — one per image, ~772 KB at ViT-B.
+
+**The saving is ~21%, not the ~2x the 126 s floor suggested, and the profile
+says why.** Per ten epochs over 1,464 training images:
+
+| component | cost | on a prefix hit |
+| --- | --- | --- |
+| image decode | **128.3 s** | still paid |
+| content hashing for the key | 8.5 s | still paid |
+| preprocess (resize, normalise) | 24.3 s | skipped |
+
+**The ~126 s frozen floor was never reachable from the fine-tuning path.** It
+was measured on the frozen path, which streams precomputed features and never
+opens an image. A fine-tuning loop is image-driven by construction, so it pays
+a 128 s decode that no amount of prefix caching removes. The frozen blocks'
+forward compute was simply not the largest remaining term — which is the same
+shape of error as 6a's I/O conclusion, caught this time by profiling before
+concluding.
+
+**So the next optimisation is not more caching.** It is keying on *dataset
+identity* (path + mtime) rather than image content, so a hit never decodes at
+all — `FeatureCache` already has that machinery in its identity memo. That
+needs the dataset to yield identities instead of images when a prefix is
+available, which reaches into the data layer; do not start it without
+measuring, and note that it would make the cache miss on an edited file under
+an unchanged name, which content hashing catches today.
+
+### Step 6b — decisions, settled while building it
+
+- **A separate `PrefixCache`, not a mode on `FeatureCache`.** The entries are
+  not interchangeable and a mix-up is silent: a prefix resumed as features, or
+  features handed to a resumption, both produce plausible numbers. Three
+  independent things keep them apart — different classes, different
+  directories (`_prefix` under the same root), and a key namespace where
+  `prefix@10` cannot collide with any layer index.
+- **`FeatureCache.clear()` no longer `rmtree`s its own root**, because the
+  prefix store nests inside it: a whole-root delete would remove entries it
+  then failed to count, telling the caller it had removed fewer things than it
+  did. `stats()` excludes them for the same reason.
+- **Layers below the cut are refused, not approximated.** A single block-k
+  activation cannot serve a shallower depth, so a DPT run over `[2, 5, 8, 11]`
+  with two blocks unfrozen declines the prefix cache and recomputes.
+  `can_use_prefix_cache()` is the question a caller asks *before* choosing a
+  path; `extract_features_from_prefix` raises if asked anyway.
+- **The record says whether the cache was actually used**, not whether one was
+  offered (`finetune.prefix_cache`). A declined run that claimed the saving
+  would misattribute its own cost.
+- **`--no-prefix-cache` takes 6a's code path**, rather than using a cache that
+  always misses. Otherwise the flag would measure the resumption path with the
+  cache disabled, which is not the thing it exists to compare against.
+- **A chunked DINOv2 is refused by name.** `block_chunks > 0` makes
+  `model.blocks` a sequence of *chunks*, so every index into it means something
+  else — `unfreeze_last` and the cut would both slice at the wrong depth and
+  still run. The hub entrypoints pass `block_chunks=0`, so this is unreachable
+  today, which is exactly why it is a guard: the day it becomes reachable there
+  is no symptom.
 
 - Begin high-level detection support (lightweight head). Expect this to take
   longer than any other single addition — it's the hardest task to do cheaply

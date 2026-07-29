@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any
 
 import visbench
-from visbench.cache import FeatureCache
+from visbench.cache import FeatureCache, PrefixCache
 from visbench.data.pair_dataset import PairDataset, PairViewDataset
 from visbench.results.schema import ResultRecord, utc_timestamp
 from visbench.results.writer import ResultWriter
@@ -121,6 +121,7 @@ def run(
     seed: int | None = 0,
     device: str | None = None,
     notes: str | None = None,
+    use_prefix_cache: bool = True,
     **task_kwargs: Any,
 ) -> RunResult:
     """Run one task on one backbone over one dataset, and log the result.
@@ -175,13 +176,19 @@ def run(
     cache = cache if cache is not None else FeatureCache()
 
     if task.finetune_blocks:
-        # The cache is bypassed entirely, not keyed differently. Its keys name
-        # the weights through cache_key(), and fine-tuned weights differ at
-        # every optimiser step: an entry written here would be stale on arrival
-        # and — indistinguishable from a frozen one — served to every later
-        # frozen run of this backbone. So the task gets the datasets and runs
-        # the backbone itself, inside its own training loop.
-        task.attach_backbone(backbone)
+        # The *feature* cache is bypassed entirely, not keyed differently. Its
+        # keys name the weights through cache_key(), and fine-tuned weights
+        # differ at every optimiser step: an entry written there would be stale
+        # on arrival and — indistinguishable from a frozen one — served to every
+        # later frozen run of this backbone. So the task gets the datasets and
+        # runs the backbone itself, inside its own training loop.
+        #
+        # The *prefix* cache (step 6b) is a different store with a different
+        # invariant: the blocks below the cut never train, so their output is as
+        # fixed as a frozen backbone's. It is offered here and the task declines
+        # it unless it is provably equivalent for this run's layers.
+        prefix_cache = PrefixCache(root=cache.root, enabled=cache.enabled and use_prefix_cache)
+        task.attach_backbone(backbone, prefix_cache=prefix_cache)
         features, labels = dataset, None
         task.fit(train_dataset)
     else:
