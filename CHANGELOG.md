@@ -172,6 +172,19 @@ the assumption still holds for.
 - `--finetune-blocks` / `--backbone-lr` on every dense CLI subcommand, and on
   `examples/segment_semantic.py`.
 
+### Changed
+
+- **CLAUDE.md said the result schema was at v5 in one place and v6 in another.**
+  `SCHEMA_VERSION` has been 6 since 6a added `finetune`; the summary line in
+  "Current state" still named v5 and credited 5j's `dataset_params` as the most
+  recent addition. The two statements sat about 250 lines apart, so nothing
+  forced them to be read together. Corrected to v6, keeping the 5j attribution
+  as the previous bump. The failure mode is a session bumping to 7 for a field
+  6a already shipped, which is not additive — it repurposes a version number.
+- Recorded test counts refreshed to **1024 fast / 76 slow** (were 999 / 73,
+  which predate 6a and 6b). Re-verified on 2026-07-29: all five commands green,
+  no open issues on the tracker.
+
 ### Tidy-up after the v0.2.0 release
 
 From a full audit of the repository on 2026-07-29 — all five verification
