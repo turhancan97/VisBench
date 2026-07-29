@@ -9,9 +9,49 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
-Nothing yet. v0.3 opens with opt-in fine-tuning of the last N backbone blocks,
-which is the first change to challenge an assumption the feature cache has
-rested on since v0.1: that features depend on the image and the weights alone.
+No v0.3 feature work yet. v0.3 opens with opt-in fine-tuning of the last N
+backbone blocks, which is the first change to challenge an assumption the
+feature cache has rested on since v0.1: that features depend on the image and
+the weights alone.
+
+Post-release tidy-up only, from a full audit of the repository on 2026-07-29 —
+all five verification commands green (969 fast tests, 73 slow, three lint
+steps), no open issues.
+
+### Added
+
+- **`tests/test_readme.py` — every link and image in the README must be
+  absolute**, checked in the fast suite. The README is package metadata:
+  `pyproject.toml` names it as the long description, so PyPI renders it from
+  `pypi.org`, where a relative path resolves against nothing and 404s. GitHub
+  resolves the same path against the repository and looks perfect, so the
+  mistake is invisible everywhere it is normally read.
+
+  CI already runs `twine check dist/*` in its `build` job, which is
+  `readme_renderer` — the renderer PyPI itself uses — and it **cannot catch
+  this**: a relative link is valid markdown and renders without complaint. It
+  simply points nowhere. The two checks are for different failures and neither
+  substitutes for the other.
+
+  Every link in `README.md` was made absolute by hand while preparing v0.2.0,
+  and nothing stopped it drifting back; a PyPI version can never be reused, so
+  a broken link would ship until the next release. The test carries a second
+  assertion that the extraction pattern actually finds both link syntaxes and
+  roughly the expected number of them — a regex that matched nothing would pass
+  the guard forever, which is the failure the QuickGELU warning filter shipped
+  with for its whole life.
+
+### Changed
+
+- CLAUDE.md's release note said to check the README with `readme_renderer`
+  before an upload — a manual step, with the tool in no extra and no
+  automation behind it. It now points at the two checks that actually run:
+  CI's `twine check` for rendering, and the new test for relative paths.
+- The recorded fast-test count in CLAUDE.md was 932, six behind the 938 the
+  v0.2.0 work left, and is now 969.
+- Removed the stale `visbench-0.2.0` wheel and sdist from `dist/`. Gitignored,
+  so nothing tracked changed, but `twine upload dist/*` at the next release
+  would have tried to re-push a version PyPI will refuse.
 
 ## [0.2.0] — 2026-07-29
 
