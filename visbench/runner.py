@@ -174,11 +174,22 @@ def run(
 
     cache = cache if cache is not None else FeatureCache()
 
-    features, labels = _extract(cache, backbone, dataset, task, batch_size=batch_size)
-    if train_dataset is None:
-        task.fit(features)
+    if task.finetune_blocks:
+        # The cache is bypassed entirely, not keyed differently. Its keys name
+        # the weights through cache_key(), and fine-tuned weights differ at
+        # every optimiser step: an entry written here would be stale on arrival
+        # and — indistinguishable from a frozen one — served to every later
+        # frozen run of this backbone. So the task gets the datasets and runs
+        # the backbone itself, inside its own training loop.
+        task.attach_backbone(backbone)
+        features, labels = dataset, None
+        task.fit(train_dataset)
     else:
-        task.fit(*_extract(cache, backbone, train_dataset, task, batch_size=batch_size))
+        features, labels = _extract(cache, backbone, dataset, task, batch_size=batch_size)
+        if train_dataset is None:
+            task.fit(features)
+        else:
+            task.fit(*_extract(cache, backbone, train_dataset, task, batch_size=batch_size))
 
     metrics = task.evaluate(features, labels)
     # Merged after, and never allowed to overwrite: a task that returned a
@@ -210,6 +221,10 @@ def run(
         # the number, and means two different things on a 12- and a 24-block ViT.
         layers=(None if task.layers is None else backbone.resolve_layers(task.layers)),
         task_params=described["task_params"],
+        # None for a frozen probe, which is every task that cannot fine-tune.
+        # A fine-tuned score is not comparable to a frozen one and this is what
+        # says so in the record itself.
+        finetune=task.finetune(),
         # Whatever the dataset described beyond the fields above — max_warp,
         # image_size, num_triplets. Taken from the dataset's own describe()
         # rather than a fixed list, so a new dataset type carries its settings

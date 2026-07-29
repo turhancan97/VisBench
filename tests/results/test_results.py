@@ -284,4 +284,25 @@ class TestDatasetParams:
         assert ResultRecord.from_dict(payload).dataset_params == {}
 
     def test_the_version_moved(self):
-        assert SCHEMA_VERSION == 5
+        assert SCHEMA_VERSION == 6
+
+
+class TestFinetune:
+    """``finetune`` separates a fine-tuned number from a frozen one (v6)."""
+
+    def test_a_frozen_run_records_none(self):
+        """The default, and what every v0.1/v0.2 record carries by absence."""
+        assert make_record().finetune is None
+
+    def test_a_v5_record_still_reads(self):
+        """Additive-only: a file written before the field parses as frozen,
+        which is what it was — not as 'unknown'."""
+        payload = make_record().to_dict()
+        payload["schema_version"] = 5
+        del payload["finetune"]
+        assert ResultRecord.from_dict(payload).finetune is None
+
+    def test_a_finetuned_run_survives_a_round_trip(self):
+        record = make_record()
+        record.finetune = {"blocks": 2, "backbone_lr": 5e-6, "trainable_params": 1_774_080}
+        assert ResultRecord.from_dict(record.to_dict()).finetune == record.finetune

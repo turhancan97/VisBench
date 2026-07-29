@@ -76,6 +76,52 @@ class FakeViT(BaseBackbone):
         return f"fake_vit/{self.embed_dim}/{self.image_size}"
 
 
+class BlockViT(FakeViT):
+    """A fake ViT that can be fine-tuned, for the v0.3 unfreezing tests.
+
+    The blocks are not decoration: ``_forward_features`` routes through them, so
+    a gradient reaching a block's weight here means the same mechanism carries
+    one through a real transformer. A fake whose blocks were bypassed could not
+    tell a working unfreeze from a no-op — which is the whole failure being
+    guarded against.
+    """
+
+    def __init__(self, depth: int = 4, **kwargs):
+        super().__init__(**kwargs)
+        self.blocks = torch.nn.ModuleList(
+            [torch.nn.Linear(self.embed_dim, self.embed_dim) for _ in range(depth)]
+        )
+        self._depth = depth
+        # _finalize ran in FakeViT.__init__, before these existed.
+        for param in self.blocks.parameters():
+            param.requires_grad_(False)
+        self.eval()
+
+    @property
+    def num_layers(self):
+        return self._depth
+
+    def _blocks(self):
+        return self.blocks
+
+    def _forward_features(self, image, layers):
+        outputs = super()._forward_features(image, list(range(self._depth)))
+        tokens, cls, grid_hw = outputs[0]
+        through = []
+        for block in self.blocks:
+            tokens = block(tokens)
+            through.append((tokens, cls, grid_hw))
+        return [through[index] for index in layers]
+
+
+class ParameterlessViT(BlockViT):
+    """Blocks holding no parameters — the no-op unfreeze that must be refused."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.blocks = torch.nn.ModuleList([torch.nn.Identity() for _ in range(self._depth)])
+
+
 class FakeCNN(BaseBackbone):
     """CNN-shaped backbone: no CLS token, conv map flattened to tokens.
 
@@ -128,6 +174,11 @@ def fake_vit():
 @pytest.fixture
 def fake_cnn():
     return FakeCNN()
+
+
+@pytest.fixture
+def block_vit():
+    return BlockViT()
 
 
 @pytest.fixture

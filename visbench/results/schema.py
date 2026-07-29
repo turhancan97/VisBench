@@ -33,7 +33,13 @@ __all__ = ["ResultRecord", "SCHEMA_VERSION", "utc_timestamp"]
 #:    ``image_size`` a dense split was cropped to. They changed the
 #:    fingerprint, so two such runs were distinguishable — but only as "not the
 #:    same data", with nothing saying how they differed.
-SCHEMA_VERSION = 5
+#: 6. Added ``finetune``, for v0.3's opt-in unfreezing. A fine-tuned score and a
+#:    frozen one answer different questions — "what does this representation
+#:    already carry" against "what can it be adapted into" — and until now they
+#:    would have sat in one JSONL under one task name with nothing to separate
+#:    them. ``None`` means frozen, which is what every record written before
+#:    this carries by absence, so no reader needs a version check to ask.
+SCHEMA_VERSION = 6
 
 
 @dataclass
@@ -74,6 +80,13 @@ class ResultRecord:
         ``image_size``, a triplet split's ``num_triplets``. The dataset's
         counterpart to ``task_params``, and open for the same reason: a new
         dataset type must not force another schema bump.
+    finetune:
+        ``None`` for a frozen probe — every v0.1 and v0.2 run, and the default.
+        Otherwise ``{"blocks", "backbone_lr", "trainable_params"}`` describing
+        what was unfrozen. A frozen number measures what a representation
+        already carries; a fine-tuned one measures what it can be adapted into,
+        and averaging or ranking the two together is meaningless. This is the
+        field that makes the difference legible to a leaderboard.
     layer / layers:
         Which backbone depth the features came from. ``layer`` is the
         single-layer form and ``layers`` the resolved list a multiscale head
@@ -100,6 +113,7 @@ class ResultRecord:
     dataset_params: dict = field(default_factory=dict)
     layer: int | None = None
     layers: list[int] | None = None
+    finetune: dict | None = None
     seed: int | None = None
     duration_seconds: float | None = None
     notes: str | None = None

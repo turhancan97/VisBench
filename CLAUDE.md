@@ -43,7 +43,9 @@ step is next rather than attempting the whole roadmap in one session.
 | 5h | High-level semantic (multi-class) segmentation | done |
 | 5i | Mid-level image similarity | done |
 | 5j | The CLI — last, once the dense-task Python API has settled | done |
-| **6** | **v0.3 scope. Do not start before v0.2 is complete and reviewed** | **next** |
+| 6a | Fine-tuning: unfreeze last N blocks, cache out of the path, DINOv2 only, proved on VOC segmentation | done |
+| **6b** | **Cache the frozen prefix — but 6a's measurement undercuts its premise; read below before starting** | **next** |
+| 6c+ | Detection groundwork; low-level tasks if there is bandwidth | later |
 
 ---
 
@@ -51,8 +53,14 @@ step is next rather than attempting the whole roadmap in one session.
 
 **v0.1 and v0.2 are both complete** — every task, both backbone families, and
 the CLI. Everything below exists, is tested, and is on `main`. **v0.2.0 is
-released on PyPI** — `pip install visbench` works. The next build step is
-**6, v0.3 scope**.
+released on PyPI** — `pip install visbench` works.
+
+**v0.3 is in progress: step 6a (fine-tuning) is done and unreleased.** Dense
+probes take `finetune_blocks=N` / `--finetune-blocks N`, DINOv2 only, cache
+bypassed on that path, recorded under schema v6's `finetune` field. Proved on
+VOC: 0.7758 mIoU fine-tuned against the frozen 0.7328. The next build step is
+**6b — but read its entry first; 6a's timing measurement undercuts its
+premise.**
 
 Registered names — `visbench.list_backbones()`, `list_probes()`,
 `visbench.heads.list_heads()`:
@@ -301,6 +309,17 @@ designed up front; extend it the same way, from a case that already runs.
 - **mypy's `python_version` tracks the newest syntax any *dependency stub* uses,
   not the package's floor.** It is pinned to 3.12 in `pyproject.toml` because
   numpy 2.x uses PEP 695 `type` statements. Do not "fix" it down to the floor.
+- **A fine-tuned number and a frozen one are different measurements, and the
+  record is what keeps them apart.** Frozen asks what a representation already
+  carries; fine-tuned asks what it can be adapted into. Every published VisBench
+  number is frozen. Schema v6's `finetune` field is `None` for those and a dict
+  otherwise — never rank or average across it. The trainable forward pass is a
+  **separate entry point** (`extract_features_trainable`), not a flag on
+  `extract_features`, because the cache depends on getting detached tensors and
+  a keyword defaulting to the safe value puts the expensive mistake one typo
+  away. The unfrozen backbone **stays in `eval()`**: train mode would start
+  BatchNorm updating and dropout firing, moving a fine-tuned number for two
+  reasons at once with one of them unrecorded.
 - **Verify with the exact commands CI runs** (below). A local env with extra
   packages installed will pass checks that CI fails.
 - **A guard whose only test is `slow` is a guard CI never runs.** `addopts`
@@ -324,7 +343,7 @@ designed up front; extend it the same way, from a case that already runs.
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker is empty as of 2026-07-29.** All
-five verification commands were re-run on that date and are green: 969 fast
+five verification commands were re-run on that date and are green: 999 fast
 tests, 73 slow, and the three lint steps. If anything is red for you, that is
 new — do not go looking for a known cause here.
 
@@ -579,8 +598,89 @@ layer on cached features.**
 
 ## v0.3 — fine-tuning + detection groundwork
 
-- Fine-tuning mode: allow unfreezing the last N backbone blocks per task,
-  opt-in, off by default.
+### Step 6a — **done**. What it built, and the measurement that changes 6b
+
+Shipped: `BaseBackbone.unfreeze_last(n)` + `extract_features_trainable`,
+`finetune_blocks`/`backbone_lr` on every dense probe and its CLI subcommand,
+schema v6's `finetune` field, and the cache bypassed on that path.
+
+Measured on VOC 2012 val, DINOv2-S/14, linear head, ten epochs — same command
+either way, only `--finetune-blocks 2` added:
+
+| run | mIoU | mIoU/image | pixel acc | wall clock |
+| --- | --- | --- | --- | --- |
+| frozen | 0.7328 | 0.6841 | 0.9267 | 252 s |
+| fine-tuned, 2 blocks | **0.7758** | 0.7527 | 0.9405 | 238 s |
+
+The frozen run reproduces v0.2's 0.732 exactly, which is what makes the +4.3
+mIoU worth quoting.
+
+**Fine-tuning was not slower, and this was not expected.** 238 s against a
+*fully cached* frozen run's 252 s. The frozen path streams 1.3 GB of dense
+features off disk once per epoch, and that I/O costs more than recomputing them
+on a GPU that would otherwise be idle. **6b's premise was that caching the
+frozen prefix saves the recomputation — on this evidence it would put disk
+reads back into the loop, which is what was already dominating.** Do not start
+6b as an optimisation on faith; measure the frozen path's I/O against its
+compute first, on a backbone larger than ViT-S, and let that decide whether 6b
+is worth building at all. The FLOP argument below is what the design rested on
+and it is now known to be the wrong model of the cost.
+
+### Step 6a — the decisions, settled before it was built; do not re-derive them
+
+Fine-tuning is opt-in and off by default. What makes it hard is not the
+unfreezing, it is that **three separate things assume the backbone is frozen**:
+
+- `BaseBackbone._finalize()` calls `requires_grad_(False)` and `eval()`, and
+  `extract_features` is `@torch.no_grad()`. Gradients cannot flow at all.
+- **The cache keys on `backbone.cache_key()`**, i.e. on the weights. Fine-tuned
+  weights differ at every optimiser step, so a cached feature is stale the
+  instant it is written — and written under the *frozen* key it is **poison**,
+  served to every later frozen run of that backbone with nothing to say why the
+  number moved.
+- `run()` extracts before it fits, and `DenseTrainingTask` optimises
+  `self.head.parameters()` alone. Fine-tuning needs *images* in the loop.
+
+**Decided, 2026-07-29, after reading all three:**
+
+- **The fine-tuning path does not touch the cache. Not "keyed differently" —
+  untouched.** Keying on a per-step weights digest would grow the cache without
+  bound and still never hit.
+- **The backbone stays in `eval()` even when unfrozen**; only `requires_grad`
+  flips. Unfreezing a ResNet stage in train mode starts BatchNorm updating its
+  running statistics and activates dropout, which silently makes the v0.2
+  numbers incomparable. This is also standard for small-batch fine-tuning.
+- **A no-op unfreeze must raise.** If N resolves to zero trainable parameters,
+  the run trains exactly like a frozen probe and reports it as fine-tuned —
+  the QuickGELU failure in a new place. Guard it in the **fast** suite.
+- **Two learning rates.** The backbone needs roughly 10–100x below the head's
+  5e-4, or the pretrained features are destroyed in the first epoch. Both
+  recorded.
+- **Schema v6 adds one `finetune` field** (`blocks`, `backbone_lr`,
+  `trainable_params`), `None` for every run to date. A leaderboard mixing
+  frozen and fine-tuned numbers under one task name is meaningless, and this is
+  what stops it. `protocol` is unchanged — same loss, same metric, different
+  trainable set.
+- **DINOv2 only.** CLIP, timm and `CustomBackbone` raise "not supported yet".
+- **Proved on VOC semantic segmentation**, because measured frozen baselines
+  exist there (DINOv2-S 0.732, DINOv2-B 0.753 mIoU) and there is headroom.
+  Imagenette classification was rejected as the first proof: at 0.9939 top-1 it
+  is saturated and could not show an effect either way.
+
+**Why the cache is bypassed rather than made to work in 6a.** The right answer
+is eventually 6b — the frozen prefix below the cut *is* deterministic given the
+image, so it can be cached and only the unfrozen suffix recomputed. It is
+blocked on something concrete: all three families tap layers through a
+whole-model API (`get_intermediate_layers`, `forward_intermediates`) and **none
+can resume a forward pass from block k**. Building that means reaching into
+three sets of model internals before a single fine-tuned number exists. So 6b
+is lifted out of a working 6a and measured against it, the same way
+`DenseTrainingTask` was lifted out of a working `DepthTask`.
+
+**And deferring it is exactly why the premise got tested rather than assumed** —
+see the measurement above. Had 6b been built first, it would have shipped as an
+optimisation with nothing to compare against, and the fact that the frozen path
+is I/O-bound rather than compute-bound would never have surfaced.
 - Begin high-level detection support (lightweight head). Expect this to take
   longer than any other single addition — it's the hardest task to do cheaply
   on limited compute.
@@ -628,7 +728,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 969 fast tests
+pytest                                              # 999 fast tests
 pytest -m slow                                      # 73, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/
 ruff format --check visbench/ tests/ conftest.py examples/

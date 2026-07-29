@@ -94,6 +94,17 @@ class _WithTargets(Dataset):
         return self.source[index], self.targets[index]
 
 
+def _collate_images(batch: list) -> tuple[list, torch.Tensor]:
+    """Keep PIL images as a list, stack their targets.
+
+    The fine-tuning counterpart to :meth:`CachedFeatures.collate`. Images reach
+    the loop undecoded into tensors because each backbone owns its own
+    normalisation and resolution, so ``backbone.preprocess`` is what turns them
+    into a batch — the default collation cannot stack a PIL image at all.
+    """
+    return [item[0] for item in batch], torch.stack([torch.as_tensor(item[1]) for item in batch])
+
+
 class DenseTrainingTask(BaseTask):
     """A per-pixel probe: one pluggable head, trained on frozen dense features.
 
@@ -151,6 +162,8 @@ class DenseTrainingTask(BaseTask):
         warmup_epochs: float = 1.5,
         head_kwargs: dict | None = None,
         device: str | None = None,
+        finetune_blocks: int = 0,
+        backbone_lr: float | None = None,
     ) -> None:
         """Configure the probe; the head is built lazily in :meth:`fit`.
 
@@ -167,6 +180,28 @@ class DenseTrainingTask(BaseTask):
         epochs, lr, warmup_epochs:
             probe3d's ten-epoch schedule — AdamW at 5e-4, linear warmup over
             the first 1.5 epochs, then cosine decay to zero.
+        finetune_blocks:
+            Unfreeze this many trailing backbone blocks and train them with the
+            head (v0.3). ``0``, the default, is the frozen probe every v0.1 and
+            v0.2 number was measured with — **the two are not comparable**, and
+            the result record says which was which.
+
+            Fine-tuning reads images rather than cached features, because a
+            cache entry is keyed on the weights and fine-tuned weights change at
+            every step.
+
+            **Not necessarily slower**, which was a surprise: on VOC with
+            DINOv2-S/14 and two unfrozen blocks it ran in 238 s against the
+            fully cached frozen run's 252 s. The frozen path streams 1.3 GB of
+            dense features off disk once per epoch, and that I/O costs more than
+            recomputing them on a GPU that would otherwise sit idle. Expect the
+            balance to shift back with a larger backbone, more unfrozen blocks
+            or a faster disk.
+        backbone_lr:
+            Learning rate for the unfrozen blocks. Defaults to ``lr / 100``:
+            pretrained weights at the head's rate are destroyed within the first
+            epoch, which shows up as a fine-tuned score *below* the frozen
+            baseline rather than as an error.
         """
         if epochs < 1:
             raise ValueError(f"epochs must be >= 1, got {epochs}")
@@ -182,6 +217,14 @@ class DenseTrainingTask(BaseTask):
             )
         if layers is not None and len(layers) == 0:
             raise ValueError("layers=[] requests nothing; pass None for the last layer")
+        if finetune_blocks < 0:
+            raise ValueError(f"finetune_blocks must be >= 0, got {finetune_blocks}")
+        if backbone_lr is not None and finetune_blocks == 0:
+            raise ValueError(
+                f"backbone_lr={backbone_lr} was given with finetune_blocks=0, so nothing "
+                "in the backbone trains and the value would be silently ignored. Set "
+                "finetune_blocks, or drop backbone_lr."
+            )
 
         self.head_name = head
         self.layers = layers
@@ -193,8 +236,17 @@ class DenseTrainingTask(BaseTask):
         self.warmup_epochs = warmup_epochs
         self.head_kwargs = dict(head_kwargs or {})
         self.device = resolve_device(device)
+        self.finetune_blocks = finetune_blocks
+        self.backbone_lr = backbone_lr if backbone_lr is not None else lr / 100
 
         self.head: nn.Module | None = None
+
+        #: Set by :meth:`attach_backbone` when fine-tuning. ``None`` for every
+        #: frozen probe, which reads features and never sees a backbone at all.
+        self._backbone: Any = None
+        #: Parameter count the unfreeze actually made trainable, recorded so a
+        #: reader can tell a two-block fine-tune of ViT-S from one of ViT-L.
+        self.trainable_params: int = 0
 
         #: Set by :meth:`fit`. A diagnostic, not a result — a poor score with a
         #: high training loss means the probe underfitted, which is a different
@@ -240,6 +292,52 @@ class DenseTrainingTask(BaseTask):
         """Subclass-specific entries for the result record's ``task_params``."""
         return {}
 
+    # -- fine-tuning ---------------------------------------------------------
+
+    def attach_backbone(self, backbone: Any) -> None:
+        """Unfreeze the backbone and keep it, so :meth:`fit` trains through it.
+
+        Called by :func:`visbench.run` when :attr:`finetune_blocks` is set. The
+        task holds the backbone only in this mode; a frozen probe is handed
+        features and never learns which model produced them, which is what lets
+        it read them from a cache.
+
+        The unfreeze happens here rather than in ``__init__`` because the task
+        is constructed before it is paired with a backbone — and it is
+        :meth:`BaseBackbone.unfreeze_last` that refuses a family it cannot
+        support, or an unfreeze that would train nothing.
+        """
+        if self.finetune_blocks == 0:
+            raise ValueError(
+                "attach_backbone() on a probe with finetune_blocks=0. A frozen probe "
+                "reads cached features and must not hold a backbone, or it would run one "
+                "forward pass per epoch for no reason."
+            )
+        self.trainable_params = backbone.unfreeze_last(self.finetune_blocks)
+        self._backbone = backbone
+
+    def _backbone_dense(self, images: list) -> Any:
+        """Preprocess a batch of PIL images and run the backbone over it.
+
+        Picks the trainable entry point only while grads are enabled, so
+        :meth:`evaluate` and :meth:`predict` — both under ``no_grad`` — take the
+        ordinary frozen path and this method stays honest about which one ran.
+        """
+        backbone = self._backbone
+        batch = backbone.preprocess(images)
+        extract = (
+            backbone.extract_features_trainable
+            if torch.is_grad_enabled()
+            else backbone.extract_features
+        )
+        features = extract(
+            batch,
+            pooling=self.pooling,
+            layers=self.layers,
+            feature_mode=self.feature_mode,
+        )
+        return features["dense_layers"] if self.layers is not None else features["dense"]
+
     # -- feature sources -----------------------------------------------------
 
     def _source(self, features: Any, labels: Any | None, targets_required: bool = True) -> Dataset:
@@ -251,6 +349,26 @@ class DenseTrainingTask(BaseTask):
         of per-layer tensors — is wrapped to look the same. The loop below never
         learns which it got.
         """
+        if self._backbone is not None:
+            # Fine-tuning is handed the dataset itself: it already yields
+            # (image, target) at the working geometry, which is exactly the
+            # pairing the loop needs, and nothing about it may be cached.
+            if isinstance(features, (CachedFeatures, dict, torch.Tensor)):
+                raise TypeError(
+                    f"{self.display_name} is fine-tuning and needs the image dataset, not "
+                    f"extracted features (got {type(features).__name__}). Features are "
+                    "extracted with frozen weights and would not move as the backbone "
+                    "trains. visbench.run() passes the dataset for you."
+                )
+            if labels is not None:
+                raise ValueError(
+                    f"{self.display_name} is fine-tuning and reads its {self.target_noun} "
+                    "from the dataset, which already pairs each one with its own image. "
+                    "Passing them separately gives two sources of truth for the "
+                    "supervision, and these would be the ignored one."
+                )
+            return features
+
         if isinstance(features, CachedFeatures):
             if features.targets is not None:
                 if labels is not None:
@@ -288,7 +406,7 @@ class DenseTrainingTask(BaseTask):
             source,
             batch_size=self.batch_size,
             shuffle=shuffle,
-            collate_fn=CachedFeatures.collate,
+            collate_fn=_collate_images if self._backbone is not None else CachedFeatures.collate,
         )
 
     def _dense(self, features: Any) -> torch.Tensor | list:
@@ -333,6 +451,19 @@ class DenseTrainingTask(BaseTask):
         rather than from two code paths that could disagree.
         """
         sample_features, sample_target = source[0]  # type: ignore[index]
+        if self._backbone is not None:
+            # The sample is a PIL image, so the width has to come from a real
+            # forward pass rather than from embed_dim: feature_mode changes it
+            # (dense_cls_broadcast concatenates the CLS token onto every
+            # location), and building the head against the wrong width is a
+            # shape error a whole epoch later.
+            with torch.no_grad():
+                sample_features = self._backbone_dense([sample_features])
+            sample_features = (
+                [layer[0] for layer in sample_features]
+                if isinstance(sample_features, list)
+                else sample_features[0]
+            )
         if isinstance(sample_features, list):
             channels: Any = [layer.shape[0] for layer in sample_features]
         else:
@@ -412,9 +543,13 @@ class DenseTrainingTask(BaseTask):
         self.head = self._build_head(channels, output_size)
         self.head.train()
 
-        optimiser = torch.optim.AdamW(
-            self.head.parameters(), lr=self.lr, weight_decay=self.weight_decay
-        )
+        # Two groups when fine-tuning, at deliberately different rates: the head
+        # starts from noise and needs probe3d's 5e-4, while the backbone starts
+        # from pretrained weights that the same rate destroys inside one epoch.
+        groups: list[dict] = [{"params": list(self.head.parameters()), "lr": self.lr}]
+        if self._backbone is not None:
+            groups.append({"params": self._backbone.trainable_parameters(), "lr": self.backbone_lr})
+        optimiser = torch.optim.AdamW(groups, lr=self.lr, weight_decay=self.weight_decay)
         loader = self._loader(source, shuffle=True)
         steps_per_epoch = max(1, len(loader))
         scheduler = torch.optim.lr_scheduler.LambdaLR(
@@ -456,8 +591,15 @@ class DenseTrainingTask(BaseTask):
         return multiplier
 
     def _forward(self, dense: Any) -> torch.Tensor:
-        """A batch of features to a batch of predictions."""
+        """A batch of features to a batch of predictions.
+
+        When fine-tuning, the batch arrives as images and the backbone runs
+        here, inside the graph — that is the whole difference between the two
+        modes, and it is one branch rather than a second training loop.
+        """
         head = self._require_head()
+        if self._backbone is not None:
+            dense = self._backbone_dense(dense)
         if isinstance(dense, list):
             dense = [layer.to(self.device).float() for layer in dense]
         else:
@@ -552,3 +694,19 @@ class DenseTrainingTask(BaseTask):
             **self._task_params(),
         }
         return described
+
+    def finetune(self) -> dict | None:
+        """What was unfrozen, for the result record's ``finetune`` field.
+
+        ``None`` for a frozen probe — which is every v0.1 and v0.2 run, and the
+        value old records carry by absence. A fine-tuned score and a frozen one
+        are not the same measurement, and this is what keeps them apart when
+        both sit in the same JSONL under the same task name.
+        """
+        if self.finetune_blocks == 0:
+            return None
+        return {
+            "blocks": self.finetune_blocks,
+            "backbone_lr": self.backbone_lr,
+            "trainable_params": self.trainable_params,
+        }

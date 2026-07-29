@@ -121,6 +121,24 @@ def _dense_flags(parser: argparse.ArgumentParser, target_dir: str) -> None:
         default=8,
         help="batch size for training the head, distinct from --batch-size (extraction)",
     )
+    # v0.3. Off by default, and the record says which a number came from: a
+    # fine-tuned score and a frozen one answer different questions, so the two
+    # must never be compared without knowing which is which.
+    parser.add_argument(
+        "--finetune-blocks",
+        type=int,
+        default=0,
+        help="unfreeze this many trailing backbone blocks and train them with the head "
+        "(default: 0, a frozen probe). Bypasses the feature cache -- though measured no "
+        "slower than a cached frozen run on VOC; DINOv2 only for now",
+    )
+    parser.add_argument(
+        "--backbone-lr",
+        type=float,
+        default=None,
+        help="learning rate for the unfrozen blocks (default: --lr / 100). Only valid "
+        "with --finetune-blocks",
+    )
 
 
 def _dense_probe_kwargs(args: argparse.Namespace) -> dict:
@@ -133,6 +151,8 @@ def _dense_probe_kwargs(args: argparse.Namespace) -> dict:
         # The head's training batch, not the extraction batch --batch-size sets.
         "batch_size": args.train_batch_size,
         "device": args.device,
+        "finetune_blocks": args.finetune_blocks,
+        "backbone_lr": args.backbone_lr,
     }
 
 

@@ -162,6 +162,8 @@ class DepthTask(DenseTrainingTask):
         scale_invariant: bool = False,
         head_kwargs: dict | None = None,
         device: str | None = None,
+        finetune_blocks: int = 0,
+        backbone_lr: float | None = None,
     ) -> None:
         """Configure the probe; the head is built lazily in :meth:`fit`.
 
@@ -187,6 +189,8 @@ class DepthTask(DenseTrainingTask):
             warmup_epochs=warmup_epochs,
             head_kwargs=head_kwargs,
             device=device,
+            finetune_blocks=finetune_blocks,
+            backbone_lr=backbone_lr,
         )
         self.name = "depth"
         self.min_depth = min_depth

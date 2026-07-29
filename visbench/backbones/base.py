@@ -6,7 +6,7 @@ the whole point of this class (CLAUDE.md, "Feature extraction design").
 """
 
 from abc import ABC, abstractmethod
-from typing import cast
+from typing import Any, cast
 
 import torch
 import torch.nn as nn
@@ -76,6 +76,81 @@ class BaseBackbone(nn.Module, ABC):
         self.eval()
         self.to(self.device)
 
+    # -- fine-tuning (v0.3) --------------------------------------------------
+
+    #: How many trailing blocks :meth:`unfreeze_last` has unfrozen. ``0`` — the
+    #: default and the only value any v0.1/v0.2 run ever had — means a frozen
+    #: probe, and is what :meth:`extract_features_trainable` refuses on.
+    trainable_blocks: int = 0
+
+    def _blocks(self) -> Any:
+        """The sequence of blocks/stages fine-tuning may unfreeze, shallowest first.
+
+        Not implemented on the base class, and deliberately not defaulted to
+        something plausible: a wrong answer here silently unfreezes the wrong
+        parameters, which trains and reports a number rather than failing.
+        Subclasses that can support fine-tuning override it; the rest inherit
+        the refusal below, which names the backbone and the limitation.
+        """
+        raise NotImplementedError(
+            f"Fine-tuning is not supported for {self.name or type(self).__name__} yet — "
+            "step 6a covers DINOv2 only. Run it frozen, or open an issue for this family."
+        )
+
+    def unfreeze_last(self, n: int) -> int:
+        """Make the last ``n`` blocks trainable. Returns the parameter count.
+
+        Undoes exactly one half of :meth:`_finalize`: ``requires_grad`` on the
+        chosen blocks. The module **stays in eval() mode**, which is not an
+        oversight. Unfreezing a stage in train mode would start BatchNorm
+        updating its running statistics and activate dropout, so a fine-tuned
+        number would differ from its frozen baseline for two reasons at once
+        and neither would be visible in the record. Keeping eval() is also
+        standard practice for the small batches a probe trains with.
+
+        Raises rather than returning zero when nothing was unfrozen. A run that
+        unfreezes no parameters trains exactly like a frozen probe and reports
+        the result as fine-tuned — the same shape of failure as a warning filter
+        matching a phrase that is never emitted, and just as invisible.
+        """
+        if not isinstance(n, int) or isinstance(n, bool):
+            raise TypeError(f"n must be an int, got {n!r}")
+        if n < 1:
+            raise ValueError(
+                f"unfreeze_last(n) needs n >= 1, got {n}. For a frozen probe do not call "
+                "it at all — n=0 would leave a task claiming to fine-tune while training "
+                "nothing."
+            )
+
+        blocks = self._blocks()
+        depth = len(blocks)
+        if n > depth:
+            raise ValueError(
+                f"Cannot unfreeze {n} blocks: {self.name or type(self).__name__} has {depth}. "
+                "Fine-tuning the whole backbone is not probing, so this is not clamped."
+            )
+
+        trainable = 0
+        for block in list(blocks)[depth - n :]:
+            for param in block.parameters():
+                param.requires_grad_(True)
+                trainable += param.numel()
+
+        if trainable == 0:
+            raise RuntimeError(
+                f"unfreeze_last({n}) on {self.name or type(self).__name__} made 0 parameters "
+                "trainable, so this run would train exactly like a frozen probe while "
+                "reporting itself as fine-tuned. _blocks() is returning something without "
+                "parameters."
+            )
+
+        self.trainable_blocks = n
+        return trainable
+
+    def trainable_parameters(self) -> list[torch.nn.Parameter]:
+        """Every parameter :meth:`unfreeze_last` made trainable, for the optimiser."""
+        return [param for param in self.parameters() if param.requires_grad]
+
     @torch.no_grad()
     def extract_features(
         self,
@@ -133,6 +208,55 @@ class BaseBackbone(nn.Module, ABC):
             **last** requested layer. A multi-layer call is therefore a superset
             of the single-layer one: a task that only reads ``dense`` behaves
             identically whether or not the layer list was widened underneath it.
+        """
+        return self._features(image, pooling, layers, feature_mode)
+
+    def extract_features_trainable(
+        self,
+        image: torch.Tensor,
+        pooling: str = Pooling.DEFAULT,
+        layers: LayerSpec = None,
+        feature_mode: str = FeatureMode.DENSE_ONLY,
+    ) -> FeatureDict:
+        """:meth:`extract_features`, but building a graph for backpropagation.
+
+        The one entry point that does not suppress gradients, for fine-tuning
+        (v0.3). Separate from :meth:`extract_features` rather than a flag on it,
+        because every existing caller — the cache above all — depends on getting
+        detached tensors, and a keyword whose default preserved that would put
+        the expensive mistake one typo away.
+
+        **Nothing here may be cached.** Cache keys name the weights through
+        :meth:`cache_key`, and fine-tuned weights differ at every optimiser
+        step, so an entry written from this path is stale on arrival and, worse,
+        indistinguishable from a frozen one — it would be served to every later
+        frozen run of the same backbone.
+
+        Refuses outright until :meth:`unfreeze_last` has been called: a
+        graph-building forward pass over a fully frozen model produces no
+        gradients at all, so a caller who forgot would train nothing and report
+        the result as fine-tuned.
+        """
+        if self.trainable_blocks == 0:
+            raise RuntimeError(
+                f"{self.name or type(self).__name__} is fully frozen, so a trainable "
+                "forward pass would produce no gradients and train nothing. Call "
+                "unfreeze_last(n) first, or use extract_features() for a frozen probe."
+            )
+        return self._features(image, pooling, layers, feature_mode)
+
+    def _features(
+        self,
+        image: torch.Tensor,
+        pooling: str,
+        layers: LayerSpec,
+        feature_mode: str,
+    ) -> FeatureDict:
+        """The extraction itself, shared by the frozen and trainable entry points.
+
+        Split out so the two cannot drift on validation, layer resolution or
+        assembly — they must differ in exactly one respect, whether a graph is
+        built, and that difference lives in the decorator above.
         """
         if pooling not in POOLING_CHOICES:
             raise ValueError(f"Unknown pooling {pooling!r}; expected one of {POOLING_CHOICES}")

@@ -6,6 +6,7 @@ before pooling or grid reshaping when the variant has them.
 
 import hashlib
 from pathlib import Path
+from typing import Any
 
 import torch
 from PIL import Image
@@ -135,6 +136,15 @@ class DINOv2(BaseBackbone):
     def num_layers(self) -> int:
         """Transformer blocks — 12 for ViT-S/B, 24 for ViT-L."""
         return len(self.model.blocks)
+
+    def _blocks(self) -> Any:
+        """The transformer blocks, which are also what :attr:`num_layers` counts.
+
+        The same sequence layer indices address, so ``unfreeze_last(2)`` on a
+        12-block model unfreezes exactly the blocks a ``layers=[10, 11]``
+        request would read.
+        """
+        return self.model.blocks
 
     def _forward_features(
         self,
