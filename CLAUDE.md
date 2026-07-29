@@ -74,9 +74,15 @@ Package version is `0.2.0`, tagged `v0.2.0`, live on
 [PyPI](https://pypi.org/project/visbench/). **Publishing needs the maintainer's
 credentials and is theirs to run** — never attempt it. A version number on PyPI
 can never be reused, so anything that renders wrong ships until the next
-release: check the README with `readme_renderer` (what PyPI runs) before any
-upload. Relative image and file paths break there, which is why every link in
-`README.md` is absolute — do not "tidy" them back to relative.
+release: anything wrong in the README ships with it. Two separate checks cover
+that, and neither replaces the other. **Rendering** is CI's `build` job —
+`twine check dist/*` runs `readme_renderer`, which is what PyPI itself uses, so
+a README that fails to render cannot reach a tag. **Relative paths** are
+invisible to that check: they are valid markdown, render without complaint, and
+merely point nowhere once the page is served from `pypi.org` rather than
+GitHub. `tests/test_readme.py` is the guard for those, in the fast suite —
+every link and image must be absolute. Do not "tidy" one back to relative;
+point it at `.../blob/main/...`, or `raw.githubusercontent.com` for an image.
 Result schema is at **v5** (`dataset_params` added in 5j) and is **additive
 only**: never remove or repurpose a field, or old records stop being readable.
 
@@ -317,8 +323,13 @@ designed up front; extend it the same way, from a case that already runs.
 
 ### Open issues — read before assuming a red suite is your fault
 
-Filed on GitHub. `pytest -m slow` is currently **73 passed, 0 failed** — if it
-is red for you, that is new.
+**Every issue below is closed; the tracker is empty as of 2026-07-29.** All
+five verification commands were re-run on that date and are green: 969 fast
+tests, 73 slow, and the three lint steps. If anything is red for you, that is
+new — do not go looking for a known cause here.
+
+The entries are kept because each one records a *class* of failure this
+codebase has actually shipped, and the next one will rhyme with them.
 
 - **[#2] CI never ran `-m slow`** — fixed. `.github/workflows/slow.yml` runs it
   on every push to `main`, nightly at 03:00 UTC, and on demand, with the
@@ -617,7 +628,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 932 fast tests
+pytest                                              # 969 fast tests
 pytest -m slow                                      # 73, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/
 ruff format --check visbench/ tests/ conftest.py examples/
