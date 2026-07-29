@@ -822,11 +822,38 @@ when wrong: absolute pixels vs normalised `[0,1]`, and `xyxy` vs `xywh`. Pick
 one internally, convert at the loader boundary, and assert the choice in a fast
 test — a swapped pair loads, trains and scores.
 
-Prove it on **VOC2012 Detection**, whose `Annotations/` XML sits beside the
-`JPEGImages/` and `SegmentationClass/` this repo already runs on, so no new
-download is needed. `DetectionTask` is currently a `NotImplementedError` stub
-with `level`/`feature_mode`/`zero_shot` already declared — extend it, do not
-rewrite it.
+Prove it on **VOC2012 Detection**. Verified present on this machine
+2026-07-29, no download needed:
+
+```text
+/shared/sets/datasets/pascal_voc_2021/VOCdevkit/VOC2012/
+  Annotations/        17,125 XML          ImageSets/Main/  train 5,717 / val 5,823
+  JPEGImages/         17,125 JPEG         ImageSets/Segmentation/  the 1,464 / 1,449 5h used
+```
+
+Note the detection split is **~4x the segmentation split** — `ImageSets/Main`
+is not `ImageSets/Segmentation`, and the 1,464/1,449 figures quoted throughout
+this file are the segmentation ones. A ten-epoch schedule sized on those is not
+sized on these.
+
+Three properties of the VOC XML, all verified, all silent when mishandled:
+
+- **Boxes are `xyxy` and 1-indexed.** Minimum `xmin`/`ymin` across the whole
+  set is 1, not 0. Subtracting 1 at the loader is the convention most
+  implementations use; either choice is fine, but it must be *chosen*, not
+  inherited by accident, since a one-pixel shift moves mAP slightly and looks
+  like a weak backbone.
+- **4,462 objects are flagged `<difficult>1</difficult>`.** The VOC protocol
+  *excludes* these from evaluation. Counting them as false negatives depresses
+  mAP against every published number, which is the failure the `protocol` field
+  exists to prevent — so if they are kept, the record must not claim VOC's
+  protocol.
+- The XML carries `<size>` per image, which is what the box rescale needs, so
+  the original dimensions never have to be re-read from the JPEG.
+
+`DetectionTask` is currently a `NotImplementedError` stub with
+`level`/`feature_mode`/`zero_shot` already declared — extend it, do not rewrite
+it.
 
 **Known deferred**: keying the prefix cache on dataset identity (path + mtime)
 rather than image content, which 6b's profile identified as the 128.3 s
