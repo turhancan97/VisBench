@@ -817,10 +817,30 @@ head trained against silently shifted boxes still trains and merely scores
 badly. Getting a number early from a head on fixtures would prove nothing,
 because fake backbones cannot show it.
 
-Two conventions to settle **before** writing the dataset, since both are silent
-when wrong: absolute pixels vs normalised `[0,1]`, and `xyxy` vs `xywh`. Pick
-one internally, convert at the loader boundary, and assert the choice in a fast
-test — a swapped pair loads, trains and scores.
+**The internal box convention is `xyxy` in absolute pixels, 0-indexed.**
+Decided 2026-07-29, before the dataset was written, because both halves of it
+are silent when wrong. Convert at the loader boundary and nowhere else, and
+assert the choice in a fast test — a swapped pair loads, trains and scores.
+
+- **`xyxy`**, matching what VOC's XML already stores, so the common path does no
+  conversion and cannot get one backwards.
+- **0-indexed**, so subtract 1 from VOC's `xmin`/`ymin`/`xmax`/`ymax` on read.
+  VOC is 1-indexed (verified below) and every other coordinate in this codebase
+  is not; keeping VOC's origin would make boxes the one array indexed
+  differently from the tensor they describe.
+- **Absolute pixels**, not normalised `[0, 1]`.
+
+The hazard absolute pixels carry, and the reason it is written down rather
+than assumed: **an absolute box is meaningless without the resolution it refers
+to.** A normalised box survives the resize and crop untouched; an absolute one
+must be transformed alongside its image, and if it is not, nothing raises — the
+boxes simply describe the original 500x375 frame while the tensor is 224x224.
+So `DetectionFolderDataset` must return boxes in **post-transform** pixel
+space, matching the image tensor it returns in the same item, and a test must
+assert exactly that on a non-square image where a missed rescale is visible.
+This is the same rule dense targets already follow ("image and target must
+survive the *same* resize and crop"), applied to a target that transforms
+rather than resamples.
 
 Prove it on **VOC2012 Detection**. Verified present on this machine
 2026-07-29, no download needed:
@@ -839,10 +859,9 @@ sized on these.
 Three properties of the VOC XML, all verified, all silent when mishandled:
 
 - **Boxes are `xyxy` and 1-indexed.** Minimum `xmin`/`ymin` across the whole
-  set is 1, not 0. Subtracting 1 at the loader is the convention most
-  implementations use; either choice is fine, but it must be *chosen*, not
-  inherited by accident, since a one-pixel shift moves mAP slightly and looks
-  like a weak backbone.
+  set is 1, not 0 — which is why the loader subtracts 1, per the convention
+  decided above. A one-pixel shift moves mAP slightly and looks like a weak
+  backbone rather than an off-by-one.
 - **4,462 objects are flagged `<difficult>1</difficult>`.** The VOC protocol
   *excludes* these from evaluation. Counting them as false negatives depresses
   mAP against every published number, which is the failure the `protocol` field
