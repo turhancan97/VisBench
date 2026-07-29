@@ -190,13 +190,12 @@ class DenseTrainingTask(BaseTask):
             cache entry is keyed on the weights and fine-tuned weights change at
             every step.
 
-            **Not necessarily slower**, which was a surprise: on VOC with
-            DINOv2-S/14 and two unfrozen blocks it ran in 238 s against the
-            fully cached frozen run's 252 s. The frozen path streams 1.3 GB of
-            dense features off disk once per epoch, and that I/O costs more than
-            recomputing them on a GPU that would otherwise sit idle. Expect the
-            balance to shift back with a larger backbone, more unfrozen blocks
-            or a faster disk.
+            **Slower, and increasingly so with backbone size.** On VOC with two
+            unfrozen blocks: 200 s against a cached frozen run's 126-156 s on
+            DINOv2-S, and 279 s against 126 s on DINOv2-B. The frozen path's
+            cost barely moves between the two — it is dominated by per-file
+            reads over the split, not by the bytes streamed — while the
+            fine-tuned path tracks compute.
         backbone_lr:
             Learning rate for the unfrozen blocks. Defaults to ``lr / 100``:
             pretrained weights at the head's rate are destroyed within the first
