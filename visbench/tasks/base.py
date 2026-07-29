@@ -58,6 +58,12 @@ class BaseTask(ABC):
     #: while pretending to anticipate others.
     uses_pairs: bool = False
 
+    #: How many trailing backbone blocks this probe fine-tunes. ``0`` — every
+    #: task that is not a trained dense one, and the default everywhere — means
+    #: frozen features, which is what makes them cacheable. Declared on the base
+    #: so :func:`visbench.run` can ask any probe without a hasattr dance.
+    finetune_blocks: int = 0
+
     #: Backbone depths this task wants, or ``None`` for the last layer alone.
     #: A multiscale head needs several, and the task is what knows that — the
     #: same reason pooling is chosen here rather than on the backbone.
@@ -109,6 +115,15 @@ class BaseTask(ABC):
         score and a collision would overwrite a result.
         """
         return {}
+
+    def finetune(self) -> dict | None:
+        """What this run unfroze, or ``None`` for a frozen probe.
+
+        ``None`` for every task that cannot fine-tune, which is the same value
+        a v0.1 or v0.2 record carries by absence — so a reader distinguishing
+        frozen from fine-tuned numbers gets one answer for both.
+        """
+        return None
 
     def requires_labels(self) -> bool:
         """Whether :meth:`evaluate` needs ground-truth labels.

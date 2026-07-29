@@ -14,11 +14,97 @@ backbone blocks, which is the first change to challenge an assumption the
 feature cache has rested on since v0.1: that features depend on the image and
 the weights alone.
 
-Post-release tidy-up only, from a full audit of the repository on 2026-07-29 —
-all five verification commands green (969 fast tests, 73 slow, three lint
-steps), no open issues.
-
 ### Added
+
+- **Fine-tuning: unfreeze the last N backbone blocks** (step 6a), opt-in and
+  off by default. `finetune_blocks=2` on any dense probe, `--finetune-blocks 2`
+  on its CLI subcommand. **DINOv2 only** for now; every other family raises a
+  refusal naming itself rather than silently doing nothing.
+
+  Measured on Pascal VOC 2012 val, DINOv2-S/14, linear head, the same
+  ten-epoch schedule and the same command as the frozen run:
+
+  | run | mIoU | mIoU/image | pixel acc | mean class acc | wall clock |
+  | --- | --- | --- | --- | --- | --- |
+  | frozen (v0.2 baseline) | 0.7328 | 0.6841 | 0.9267 | 0.8271 | 252 s |
+  | fine-tuned, 2 blocks | **0.7758** | 0.7527 | 0.9405 | 0.8542 | 238 s |
+
+  The frozen run reproduces v0.2's recorded 0.732 exactly, which is what makes
+  the +4.3 mIoU comparison worth anything.
+
+  **The two numbers are not comparable and the record says so.** A frozen probe
+  measures what a representation already carries; a fine-tuned one measures what
+  it can be adapted into. Schema v6's `finetune` field is what keeps them apart
+  — see below.
+
+- **Fine-tuning was not slower, which contradicted the design assumption.**
+  238 s against the fully cached frozen run's 252 s. The frozen path streams
+  1.3 GB of dense features off disk once per epoch, and that I/O costs more than
+  recomputing the features on a GPU that would otherwise be idle. Every place
+  that had been written to warn "expect it to be much slower" now says what was
+  measured instead.
+
+  This matters for the planned step 6b, whose whole premise was that caching the
+  frozen prefix below the cut would save the recomputation. On this evidence
+  that trade may be the wrong way round at this scale: it would put disk reads
+  back into the loop, which is the thing that was already dominating. 6b now
+  needs to justify itself against a measurement rather than against a FLOP
+  count.
+
+- **`BaseBackbone.unfreeze_last(n)`** and `extract_features_trainable`. The
+  trainable forward pass is a **separate entry point**, not a flag on
+  `extract_features`: every existing caller — the cache above all — depends on
+  getting detached tensors, and a keyword whose default preserved that would put
+  the expensive mistake one typo away. `extract_features` keeps its
+  `@torch.no_grad()`, and a test asserts it still returns detached tensors after
+  an unfreeze, since that is what makes it safe to cache.
+
+  Three things it refuses rather than doing quietly:
+
+  - **a backbone family that cannot support it**, by name, rather than
+    unfreezing a plausible-looking wrong set of parameters;
+  - **an unfreeze that makes zero parameters trainable** — that run would train
+    exactly like a frozen probe and report itself as fine-tuned, which is the
+    CLIP QuickGELU failure in a new place;
+  - **a trainable forward pass on a still-frozen backbone**, which would build a
+    graph carrying no gradients.
+
+  The backbone **stays in `eval()` when unfrozen**; only `requires_grad` flips.
+  Train mode would start BatchNorm updating its running statistics and activate
+  dropout, so a fine-tuned number would differ from its frozen baseline for two
+  reasons at once with only one of them in the record.
+
+- **Two learning rates.** The head keeps probe3d's 5e-4; the backbone defaults
+  to `lr / 100`. Pretrained weights at the head's rate are destroyed inside the
+  first epoch, and the symptom is a fine-tuned score *below* the frozen
+  baseline rather than an error. Passing `backbone_lr` without
+  `finetune_blocks` raises instead of being ignored.
+
+- **Result schema v6 adds `finetune`** — `None` for a frozen probe, which is
+  every v0.1 and v0.2 run and what a pre-v6 record carries by absence, so no
+  reader needs a version check to ask the question. Otherwise `blocks`,
+  `backbone_lr` and `trainable_params` (3,550,464 for two ViT-S blocks).
+  `protocol` is unchanged at `visbench_semantic_seg`: the loss and metric are
+  the same, only the trainable set differs.
+
+- **The cache is bypassed on the fine-tuning path, not keyed differently.**
+  Cache keys name the weights through `cache_key()`, and fine-tuned weights
+  differ at every optimiser step: an entry written from them would be stale on
+  arrival *and* indistinguishable from a frozen one, so every later frozen run
+  of that backbone would silently read it. Keying on a per-step weights digest
+  would grow the cache without bound and still never hit. A test asserts a
+  fine-tuning run through `run()` writes **zero** cache entries, and the real
+  VOC run left a 1.3 GB cache byte-for-byte the same size.
+
+- `--finetune-blocks` / `--backbone-lr` on every dense CLI subcommand, and on
+  `examples/segment_semantic.py`.
+
+### Tidy-up after the v0.2.0 release
+
+From a full audit of the repository on 2026-07-29 — all five verification
+commands green, no open issues.
+
+#### Added
 
 - **`tests/test_readme.py` — every link and image in the README must be
   absolute**, checked in the fast suite. The README is package metadata:
@@ -41,7 +127,7 @@ steps), no open issues.
   the guard forever, which is the failure the QuickGELU warning filter shipped
   with for its whole life.
 
-### Changed
+#### Changed
 
 - CLAUDE.md's release note said to check the README with `readme_renderer`
   before an upload — a manual step, with the tool in no extra and no

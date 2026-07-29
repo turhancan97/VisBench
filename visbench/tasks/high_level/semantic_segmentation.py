@@ -81,6 +81,8 @@ class SemanticSegmentationTask(DenseTrainingTask):
         warmup_epochs: float = 1.5,
         head_kwargs: dict | None = None,
         device: str | None = None,
+        finetune_blocks: int = 0,
+        backbone_lr: float | None = None,
     ) -> None:
         if num_classes < 2:
             raise ValueError(
@@ -98,6 +100,8 @@ class SemanticSegmentationTask(DenseTrainingTask):
             warmup_epochs=warmup_epochs,
             head_kwargs=head_kwargs,
             device=device,
+            finetune_blocks=finetune_blocks,
+            backbone_lr=backbone_lr,
         )
         self.num_classes = num_classes
         self.name = "semantic_segmentation"

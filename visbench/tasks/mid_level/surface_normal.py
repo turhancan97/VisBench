@@ -152,6 +152,8 @@ class SurfaceNormalTask(DenseTrainingTask):
         normal_source: str | None = None,
         head_kwargs: dict | None = None,
         device: str | None = None,
+        finetune_blocks: int = 0,
+        backbone_lr: float | None = None,
     ) -> None:
         """Configure the probe; the head is built lazily in :meth:`fit`.
 
@@ -178,6 +180,8 @@ class SurfaceNormalTask(DenseTrainingTask):
             warmup_epochs=warmup_epochs,
             head_kwargs=head_kwargs,
             device=device,
+            finetune_blocks=finetune_blocks,
+            backbone_lr=backbone_lr,
         )
         self.name = "surface_normal"
         self.uncertainty_aware = uncertainty_aware

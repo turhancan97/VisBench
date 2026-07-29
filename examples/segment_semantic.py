@@ -48,8 +48,19 @@ images it underfits; ``train_loss`` is what separates "this representation lacks
 the structure" from "this probe did not converge". Raise ``--epochs`` and
 ``--lr`` rather than reading a low mIoU as a verdict on the backbone.
 
-This is an example, not the CLI, which is still deferred until the dense-task
-Python API has settled.
+**Fine-tuning (v0.3) is opt-in**, with ``--finetune-blocks N``. It unfreezes the
+last N backbone blocks and trains them alongside the head, at ``--lr / 100`` by
+default. Two things follow, and neither is a detail:
+
+* the **feature cache is bypassed**, because cache keys name the weights and
+  fine-tuned weights change at every optimiser step. That turns out not to cost
+  time here — 238 s against the cached frozen run's 252 s on VOC with
+  DINOv2-S/14 — because streaming 1.3 GB of dense features off disk once per
+  epoch costs more than recomputing them on an idle GPU;
+* the number answers a **different question** — what this representation can be
+  adapted into, rather than what it already carries. Every published VisBench
+  number is frozen. The result record's ``finetune`` field says which a run was,
+  so the two are never silently compared.
 """
 
 import argparse
@@ -100,6 +111,22 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--lr", type=float, default=5e-4)
     parser.add_argument("--batch-size", type=int, default=8)
+    parser.add_argument(
+        "--finetune-blocks",
+        type=int,
+        default=0,
+        help="unfreeze this many trailing backbone blocks and train them with the head "
+        "(v0.3). Default 0, a frozen probe -- which is what every published VisBench "
+        "number is. The two are not comparable, and the record says which is which",
+    )
+    parser.add_argument(
+        "--backbone-lr",
+        type=float,
+        default=None,
+        help="learning rate for the unfrozen blocks; default --lr / 100. The head's rate "
+        "destroys pretrained weights inside one epoch, and the symptom is a fine-tuned "
+        "score *below* the frozen baseline rather than an error",
+    )
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--device", default=None, help="cuda | cpu; default is best available")
     parser.add_argument("--cache", type=Path, default=Path(".visbench_cache"))
@@ -195,8 +222,19 @@ def main() -> None:
         lr=args.lr,
         batch_size=args.batch_size,
         device=args.device,
+        finetune_blocks=args.finetune_blocks,
+        backbone_lr=args.backbone_lr,
     )
 
+    if args.finetune_blocks:
+        # Worth saying out loud: this number answers a different question from
+        # the frozen one -- what the representation can be adapted into, not
+        # what it already carries.
+        print(
+            f"\nfine-tuning the last {args.finetune_blocks} block(s) of {backbone.name} "
+            f"at lr {probe.backbone_lr:g}, with the {args.head} head at {args.lr:g}."
+        )
+        print("  The feature cache is bypassed: fine-tuned weights change every step.")
     print(f"\nextracting with {backbone.name} and fitting the {args.head} head...")
     result = visbench.run(
         backbone,
@@ -218,6 +256,13 @@ def main() -> None:
     # Not a result: it separates "this representation lacks the structure" from
     # "this probe did not converge", which the metrics alone cannot.
     print(f"\n  train loss {result.probe.train_loss:.4f}")
+    if result.record.finetune:
+        unfrozen = result.record.finetune
+        print(
+            f"  fine-tuned {unfrozen['blocks']} block(s), "
+            f"{unfrozen['trainable_params'] / 1e6:.2f}M backbone parameters trained."
+        )
+        print("  Compare only against another fine-tuned run, never a frozen one.")
     print(f"\nrecord appended to {args.results}")
     print(json.dumps(result.record.to_dict(), indent=2)[:400] + " ...")
 
