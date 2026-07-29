@@ -140,6 +140,14 @@ def _dense_flags(parser: argparse.ArgumentParser, target_dir: str) -> None:
         help="learning rate for the unfrozen blocks (default: --lr / 100). Only valid "
         "with --finetune-blocks",
     )
+    parser.add_argument(
+        "--no-prefix-cache",
+        action="store_true",
+        help="recompute the frozen blocks every epoch instead of caching their output "
+        "(step 6b). The prefix cache is on by default and cannot change a metric -- the "
+        "blocks below the cut never train -- so this is for measuring what it saves, and "
+        "for trading disk against time on a small split",
+    )
 
 
 def _dense_probe_kwargs(args: argparse.Namespace) -> dict:

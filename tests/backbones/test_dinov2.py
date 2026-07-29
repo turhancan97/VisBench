@@ -198,3 +198,55 @@ class TestIntermediateLayers:
     def test_out_of_range_block_is_caught(self, dinov2, solid_images):
         with pytest.raises(ValueError, match="out of range"):
             dinov2.extract_features(dinov2.preprocess(solid_images[:1]), layers=[12])
+
+
+class TestPrefixResumption:
+    """Step 6b, against the real weights.
+
+    The fast suite proves the *mechanism* on a fake backbone. What only real
+    DINOv2 can show is that this file reproduces upstream's own tail correctly
+    — where ``norm`` is applied, and where the register tokens are split off.
+    Getting either wrong returns a plausible feature map, not an error.
+    """
+
+    def test_a_resumed_pass_is_bit_identical_to_a_whole_one(self):
+        backbone = visbench.get_backbone("dinov2_vits14", device="cpu")
+        backbone.unfreeze_last(2)
+        torch.manual_seed(0)
+        image = torch.randn(2, 3, 224, 224)
+
+        whole = backbone.extract_features_trainable(image, pooling="mean")
+        prefix, grid_hw = backbone.forward_prefix(image)
+        resumed = backbone.extract_features_from_prefix(prefix, grid_hw, pooling="mean")
+
+        # Exact, not close: the blocks below the cut are frozen, so this is the
+        # same arithmetic in the same order, merely read from disk.
+        assert torch.equal(whole["dense"], resumed["dense"])
+        assert torch.equal(whole["pooled"], resumed["pooled"])
+        assert whole["grid_hw"] == resumed["grid_hw"]
+
+    def test_the_prefix_matches_upstreams_own_intermediate_layer(self):
+        """Cross-check against ``get_intermediate_layers`` rather than only
+        against ourselves, so a shared mistake in both of our paths cannot pass."""
+        backbone = visbench.get_backbone("dinov2_vits14", device="cpu")
+        backbone.unfreeze_last(2)
+        image = torch.randn(1, 3, 224, 224)
+
+        prefix, grid_hw = backbone.forward_prefix(image)
+        resumed = backbone.extract_features_from_prefix(prefix, grid_hw, pooling="cls")
+
+        with torch.no_grad():
+            upstream = backbone.model.get_intermediate_layers(
+                image, n=[11], reshape=False, return_class_token=True, norm=True
+            )
+        patch_tokens, cls_token = upstream[0]
+
+        assert torch.equal(resumed["pooled"], cls_token)
+        expected = patch_tokens.reshape(1, *grid_hw, -1).permute(0, 3, 1, 2)
+        assert torch.equal(resumed["dense"], expected)
+
+    def test_the_cut_moves_with_the_number_of_unfrozen_blocks(self):
+        backbone = visbench.get_backbone("dinov2_vits14", device="cpu")
+        assert backbone.num_layers == 12
+        backbone.unfreeze_last(4)
+        assert backbone.prefix_cut() == 8

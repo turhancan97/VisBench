@@ -200,6 +200,7 @@ def _command_run(args: argparse.Namespace, out: Any) -> int:
         seed=args.seed,
         device=args.device,
         notes=args.notes,
+        use_prefix_cache=not getattr(args, "no_prefix_cache", False),
     )
 
     width = max(len(name) for name in result.metrics)

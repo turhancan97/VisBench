@@ -21,7 +21,7 @@ import torch
 from visbench.cache.keys import SEPARATOR, hash_image, make_key
 from visbench.types import FeatureDict, FeatureMode, LayerSpec, Pooling
 
-__all__ = ["FeatureCache", "DEFAULT_CACHE_DIR"]
+__all__ = ["FeatureCache", "DEFAULT_CACHE_DIR", "PREFIX_DIR"]
 
 #: Default location, relative to the working directory. In .gitignore.
 DEFAULT_CACHE_DIR = Path(".visbench_cache")
@@ -35,6 +35,12 @@ _KEEP_CHOICES = ("both", "pooled", "dense")
 #: Subdirectory holding the identity -> content-hash memo. Underscore-prefixed
 #: so it cannot collide with a sanitised backbone key.
 _IDENTITY_DIR = "_identity"
+
+#: Subdirectory owned by :class:`~visbench.cache.PrefixCache` (step 6b). Named
+#: here rather than there because it is a reserved name *within this root* —
+#: this class is what must not mistake its contents for features — and because
+#: defining it in the module that reads it keeps the dependency one-way.
+PREFIX_DIR = "_prefix"
 
 
 def _parts(choice: str) -> tuple[str, ...]:
@@ -694,30 +700,62 @@ class FeatureCache:
     # -- maintenance ---------------------------------------------------------
 
     def clear(self, backbone_key: str | None = None) -> int:
-        """Delete cached entries, optionally only those for one backbone.
+        """Delete cached features, optionally only those for one backbone.
 
         Returns the number of entries removed.
+
+        **Leaves the prefix cache alone**, which is why this cannot simply
+        remove the root. :class:`~visbench.cache.PrefixCache` nests beneath it,
+        and a whole-root ``rmtree`` would delete its entries while reporting a
+        count that excluded them — the caller would be told it removed 9,000
+        things having removed 12,000. Clearing both is
+        :meth:`PrefixCache.clear`'s job, called alongside this one.
         """
         if backbone_key is None:
-            targets = [self.root]
-        else:
-            safe = backbone_key.replace("/", "__").replace(os.sep, "__")
-            targets = [self.root / safe]
+            removed = 0
+            for path in self._entries():
+                path.unlink(missing_ok=True)
+                removed += 1
+            for child in self.root.iterdir() if self.root.exists() else ():
+                if child.is_dir() and child.name != PREFIX_DIR:
+                    shutil.rmtree(child)
+            if self.enabled:
+                self.root.mkdir(parents=True, exist_ok=True)
+            return removed
 
-        removed = 0
-        for target in targets:
-            if not target.exists():
-                continue
-            removed += sum(1 for _ in target.rglob(f"*{_ENTRY_SUFFIX}"))
-            shutil.rmtree(target)
-
+        safe = backbone_key.replace("/", "__").replace(os.sep, "__")
+        target = self.root / safe
+        if not target.exists():
+            return 0
+        removed = sum(1 for _ in target.rglob(f"*{_ENTRY_SUFFIX}"))
+        shutil.rmtree(target)
         if self.enabled:
             self.root.mkdir(parents=True, exist_ok=True)
         return removed
 
+    def _entries(self) -> list[Path]:
+        """Every feature entry on disk, excluding the prefix cache's.
+
+        :class:`~visbench.cache.PrefixCache` (step 6b) nests under this root so
+        a user has one directory to clear, but its entries are frozen *prefix
+        activations*, not features. Counting them here would report a cache as
+        holding twice what it holds, and would make "entries went up" ambiguous
+        between the two stores.
+        """
+        if not self.root.exists():
+            return []
+        return [
+            path
+            for path in self.root.rglob(f"*{_ENTRY_SUFFIX}")
+            if PREFIX_DIR not in path.relative_to(self.root).parts
+        ]
+
     def stats(self) -> dict:
-        """Entry count, on-disk size, and hit/miss counts for this session."""
-        entries = list(self.root.rglob(f"*{_ENTRY_SUFFIX}")) if self.root.exists() else []
+        """Entry count, on-disk size, and hit/miss counts for this session.
+
+        Counts features only. Ask :class:`PrefixCache` for its own.
+        """
+        entries = self._entries()
         return {
             "entries": len(entries),
             "bytes": sum(path.stat().st_size for path in entries),

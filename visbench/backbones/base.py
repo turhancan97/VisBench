@@ -245,6 +245,141 @@ class BaseBackbone(nn.Module, ABC):
             )
         return self._features(image, pooling, layers, feature_mode)
 
+    # -- frozen-prefix caching (step 6b) --------------------------------------
+
+    #: Whether this family can cut a forward pass at a block and resume it.
+    #: Default False, and the two hooks below refuse rather than approximate:
+    #: a family that cannot resume must fall back to a whole forward pass, not
+    #: silently return something else.
+    supports_prefix_cache: bool = False
+
+    def prefix_cut(self) -> int:
+        """Index of the first *trainable* block — where the frozen prefix ends.
+
+        Everything below this is frozen for the whole run, so its output
+        depends only on the image and weights that do not change. That is the
+        property the feature cache needs and fine-tuned features lack, and it
+        is why the prefix can be cached when the features cannot.
+        """
+        return self.num_layers - self.trainable_blocks
+
+    @torch.no_grad()
+    def forward_prefix(self, image: torch.Tensor) -> tuple[torch.Tensor, tuple[int, int]]:
+        """Run the frozen blocks only, returning ``(tokens, grid_hw)`` to cache.
+
+        Under ``no_grad`` unconditionally: the blocks below the cut are frozen
+        by definition, so a graph here would be built and discarded. That also
+        makes the result safe to hand to :class:`PrefixCache` without relying
+        on the caller to detach.
+
+        ``grid_hw`` is returned alongside because the token count alone gives
+        the number of patches, not their arrangement — a non-square input would
+        be reconstructed as the wrong grid, which misaligns features against
+        targets without raising.
+        """
+        self._require_prefix_support()
+        return self._forward_prefix(image.to(self.device), self.prefix_cut())
+
+    def extract_features_from_prefix(
+        self,
+        prefix: torch.Tensor,
+        grid_hw: tuple[int, int],
+        pooling: str = Pooling.DEFAULT,
+        layers: LayerSpec = None,
+        feature_mode: str = FeatureMode.DENSE_ONLY,
+    ) -> FeatureDict:
+        """Resume a forward pass from a cached prefix and build the features.
+
+        Gradients flow through the blocks *above* the cut, which are the ones
+        being fine-tuned. Nothing below it is executed at all — that is the
+        entire saving.
+
+        Mathematically identical to :meth:`extract_features_trainable`, not an
+        approximation — no parameter below the cut requires grad, so that path
+        never built a graph through those blocks either. The only difference is
+        that their forward pass is read from disk instead of recomputed.
+        """
+        self._require_prefix_support()
+        if self.trainable_blocks == 0:
+            raise RuntimeError(
+                f"{self.name or type(self).__name__} is fully frozen, so resuming from a "
+                "prefix would train nothing while reporting itself as fine-tuned. Call "
+                "unfreeze_last(n) first, or use extract_features() for a frozen probe."
+            )
+        if pooling not in POOLING_CHOICES:
+            raise ValueError(f"Unknown pooling {pooling!r}; expected one of {POOLING_CHOICES}")
+        if feature_mode not in FEATURE_MODE_CHOICES:
+            raise ValueError(
+                f"Unknown feature_mode {feature_mode!r}; expected one of {FEATURE_MODE_CHOICES}"
+            )
+        if prefix.ndim != 3:
+            raise ValueError(
+                f"Expected a prefix of shape (B, tokens, dim), got {tuple(prefix.shape)}. "
+                "This takes a cached activation, not an image — use "
+                "extract_features_trainable() for the latter."
+            )
+
+        cut = self.prefix_cut()
+        indices = self.resolve_layers(layers)
+        shallow = [index for index in indices if index < cut]
+        if shallow:
+            raise ValueError(
+                f"Layers {shallow} are below the cut at block {cut}, and a prefix holds one "
+                f"activation rather than the whole frozen half. Requesting them from a "
+                "resumed pass would return the wrong depth's features, so the caller must "
+                "fall back to a full forward pass. See can_use_prefix_cache()."
+            )
+
+        resolved = self.default_pooling() if pooling == Pooling.DEFAULT else pooling
+        outputs = self._forward_from_prefix(prefix.to(self.device), grid_hw, cut, indices)
+        return self._collect(
+            outputs, indices, resolved, layers, feature_mode, "_forward_from_prefix"
+        )
+
+    def can_use_prefix_cache(self, layers: LayerSpec = None) -> bool:
+        """Whether a prefix cache would be correct for this run's ``layers``.
+
+        False rather than raising, because this is the question a caller asks
+        *before* choosing a path. A run that reads layers below the cut — a DPT
+        head over ``[2, 5, 8, 11]`` while fine-tuning two blocks, say — is
+        perfectly valid; it simply cannot be served from a single cached
+        activation and must recompute the whole forward pass.
+        """
+        if not self.supports_prefix_cache or self.trainable_blocks == 0:
+            return False
+        cut = self.prefix_cut()
+        return all(index >= cut for index in self.resolve_layers(layers))
+
+    def _require_prefix_support(self) -> None:
+        if not self.supports_prefix_cache:
+            raise NotImplementedError(
+                f"Prefix caching is not supported for {self.name or type(self).__name__} — "
+                "step 6b covers DINOv2 only, since resuming a forward pass means reaching "
+                "into a family's internals. Fine-tune it without the prefix cache instead."
+            )
+
+    def _forward_prefix(
+        self, image: torch.Tensor, cut: int
+    ) -> tuple[torch.Tensor, tuple[int, int]]:
+        """Subclass hook: run blocks ``[0:cut]`` and return their raw tokens."""
+        raise NotImplementedError(
+            f"{type(self).__name__} declares supports_prefix_cache but does not implement "
+            "_forward_prefix"
+        )
+
+    def _forward_from_prefix(
+        self,
+        prefix: torch.Tensor,
+        grid_hw: tuple[int, int],
+        cut: int,
+        layers: list[int],
+    ) -> list[LayerOutput]:
+        """Subclass hook: run blocks ``[cut:]`` over ``prefix``, one output per layer."""
+        raise NotImplementedError(
+            f"{type(self).__name__} declares supports_prefix_cache but does not implement "
+            "_forward_from_prefix"
+        )
+
     def _features(
         self,
         image: torch.Tensor,
@@ -280,9 +415,32 @@ class BaseBackbone(nn.Module, ABC):
         image = image.to(self.device)
 
         outputs = self._forward_features(image, indices)
+        return self._collect(outputs, indices, resolved, layers, feature_mode, "_forward_features")
+
+    def _collect(
+        self,
+        outputs: list[LayerOutput],
+        indices: list[int],
+        resolved_pooling: str,
+        layers: LayerSpec,
+        feature_mode: str,
+        source: str,
+    ) -> FeatureDict:
+        """Per-layer tokens to the :class:`FeatureDict` every caller receives.
+
+        Shared by the image path and the prefix-resumption path (step 6b) for
+        the same reason :meth:`_features` is shared by the frozen and trainable
+        ones: the two must differ only in *where the tokens came from*. Pooling,
+        feature mode, the choice of headline layer and the multi-layer keys are
+        decided once, here, so a resumed forward pass cannot quietly assemble
+        its output differently from a whole one.
+
+        ``source`` names the hook that produced ``outputs``, so the arity check
+        below blames the right method.
+        """
         if len(outputs) != len(indices):
             raise RuntimeError(
-                f"{type(self).__name__}._forward_features returned {len(outputs)} layers "
+                f"{type(self).__name__}.{source} returned {len(outputs)} layers "
                 f"for {len(indices)} requested. A backbone must return one per index, in "
                 "the order asked, or the caller cannot tell which depth it is holding."
             )
@@ -294,7 +452,7 @@ class BaseBackbone(nn.Module, ABC):
         # also requested.
         patch_tokens, cls_token, grid_hw = outputs[-1]
         features: FeatureDict = {
-            "pooled": pool_tokens(patch_tokens, cls_token, resolved),
+            "pooled": pool_tokens(patch_tokens, cls_token, resolved_pooling),
             "grid_hw": grid_hw,
             "dense": assembled_layers[-1][0],
         }

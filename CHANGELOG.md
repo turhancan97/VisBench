@@ -9,12 +9,75 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
-No v0.3 feature work yet. v0.3 opens with opt-in fine-tuning of the last N
-backbone blocks, which is the first change to challenge an assumption the
-feature cache has rested on since v0.1: that features depend on the image and
-the weights alone.
+v0.3 opens with opt-in fine-tuning of the last N backbone blocks, which is the
+first change to challenge an assumption the feature cache has rested on since
+v0.1: that features depend on the image and the weights alone. Step 6a bypassed
+the cache to preserve it; step 6b restores caching for the half of the network
+the assumption still holds for.
 
 ### Added
+
+- **The frozen prefix is cached** (step 6b), so fine-tuning recomputes only the
+  blocks it is training. On by default when fine-tuning;
+  `--no-prefix-cache` / `use_prefix_cache=False` opts out.
+
+  The blocks *below* the cut never train, so their output is as fixed as a
+  frozen backbone's — the property 6a's bypass was protecting, restricted to
+  the half of the network that still has it. `PrefixCache` stores the token
+  sequence after those blocks; the run resumes from it.
+
+  Measured on VOC 2012 val, DINOv2-B/14, two unfrozen blocks, ten epochs, all
+  in one session:
+
+  | run | wall clock | mIoU |
+  | --- | --- | --- |
+  | recompute (6a's path) | 320.6 s, 368.9 s | 0.7992 |
+  | prefix cache, cold | 379.5 s | 0.7992 |
+  | prefix cache, warm | **268.2 s, 276.4 s** | 0.7992 |
+
+  **The metric is identical in every run**, and identical to 6a's — this
+  changes the clock and nothing else. The resumed forward pass is bit-identical
+  to a whole one (max abs diff 0.0 against DINOv2's own
+  `get_intermediate_layers`), and a fast test asserts the same equality through
+  `run()` so CI keeps it. Disk cost: 2,913 entries, 2.30 GB.
+
+  **~21%, and the profile explains the rest.** Per ten epochs over 1,464
+  images, a prefix hit still pays 128.3 s of image decoding and 8.5 s of
+  content hashing, and saves only the 24.3 s preprocess plus the frozen blocks'
+  compute. The ~126 s floor that sized this step was measured on the *frozen*
+  path, which streams precomputed features and never opens an image; a
+  fine-tuning loop is image-driven by construction and cannot reach it. The
+  frozen blocks were not the largest remaining term.
+
+- **`PrefixCache`**, deliberately not a mode on `FeatureCache`. The two entry
+  kinds are not interchangeable and confusing them is silent — a prefix resumed
+  as features, or features handed to a resumption, both produce plausible
+  numbers rather than errors. Three independent things keep them apart:
+  separate classes, separate directories (`_prefix` beneath the shared root),
+  and a key namespace where `prefix@10` cannot collide with any layer index.
+
+  Consequently `FeatureCache.clear()` no longer removes its own root wholesale:
+  that would delete prefix entries while reporting a count that excluded them.
+  `stats()` excludes them too.
+
+- **`BaseBackbone.forward_prefix` / `extract_features_from_prefix` /
+  `can_use_prefix_cache`**, with `supports_prefix_cache` declaring the family.
+  DINOv2 only. A backbone that cannot resume refuses by name rather than
+  approximating.
+
+  Layers below the cut are **refused, not approximated**: one block-k
+  activation cannot serve a shallower depth, so a DPT run over `[2, 5, 8, 11]`
+  with two blocks unfrozen declines the prefix cache and recomputes.
+  `can_use_prefix_cache()` is the question to ask before choosing a path.
+
+- **A chunked DINOv2 is refused by name.** `block_chunks > 0` makes
+  `model.blocks` a sequence of chunks, so `unfreeze_last` and the cut would
+  both slice at the wrong depth and still run. Unreachable through the hub
+  entrypoints, which is why it is a guard and not a comment.
+
+- `finetune.prefix_cache` in the result record says whether the cache was
+  actually **used**, not whether one was offered — a declined run claiming the
+  saving would misattribute its own cost.
 
 - **Fine-tuning: unfreeze the last N backbone blocks** (step 6a), opt-in and
   off by default. `finetune_blocks=2` on any dense probe, `--finetune-blocks 2`
