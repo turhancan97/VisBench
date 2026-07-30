@@ -18,6 +18,12 @@ from visbench.metrics.dense import (
     match_scale_and_shift,
     surface_normal_metrics,
 )
+from visbench.metrics.detection import (
+    COCO_IOU_THRESHOLDS,
+    average_precision,
+    box_iou,
+    detection_metrics,
+)
 from visbench.metrics.retrieval import mean_average_precision, recall_at_k
 
 __all__ = [
@@ -31,4 +37,8 @@ __all__ = [
     "depth_metrics",
     "match_scale_and_shift",
     "surface_normal_metrics",
+    "box_iou",
+    "average_precision",
+    "detection_metrics",
+    "COCO_IOU_THRESHOLDS",
 ]

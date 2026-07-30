@@ -172,6 +172,74 @@ the assumption still holds for.
 - `--finetune-blocks` / `--backbone-lr` on every dense CLI subcommand, and on
   `examples/segment_semantic.py`.
 
+- **Detection metrics** (step 6c-2) — `box_iou`, `average_precision`,
+  `detection_metrics` and `COCO_IOU_THRESHOLDS` in `visbench.metrics`, following
+  the Pascal VOC protocol as `VOCevaldet.m` defines it.
+
+  **Cross-checked against a literal transcription of that MATLAB**, over 3,060
+  randomly generated APs at three IoU thresholds: zero mismatches, maximum
+  absolute difference 0.0. The transcription is kept as a fast test rather than
+  run once, because the obvious future change is vectorising the per-detection
+  loop and the subtlety most likely to be lost is the one no analytic test
+  covers — see the matching note below.
+
+  Validated end to end on the real VOC val split, ground truth fed back as
+  predictions over 500 images (1,249 boxes, 115 difficult):
+
+  | predictions | mAP@50 | mAP@50:95 |
+  | --- | --- | --- |
+  | oracle (ground truth) | **1.0000** | **1.0000** |
+  | boxes jittered 3 px | 0.9224 | 0.6731 |
+  | half the objects dropped | 0.5270 | 0.5270 |
+  | nothing detected | 0.0000 | — |
+
+  An exact 1.0000 is the check that matters: an off-by-one in the matching, the
+  recall denominator or the interpolation would land near 1 without reaching it.
+
+  **`difficult` objects are ignored, not dropped — measured, not argued.** VOC
+  removes a detection matching a difficult object from the tally entirely,
+  neither true positive nor false positive. Dropping those objects from the
+  ground truth instead makes a *correct* detection of one a false **positive**.
+  Same oracle predictions, same 500 images, scored both ways:
+
+  | protocol | mAP@50 |
+  | --- | --- |
+  | VOC's rule (ignore) | **1.0000** |
+  | dropped from ground truth | 0.9567 |
+
+  **4.3 mAP points, and the wrong one is lower** — so it reads as a weaker
+  detector rather than a scoring bug. Only the first can claim VOC's protocol,
+  which is why `average_precision` takes a `difficult` mask and why a run headed
+  for scoring must build its dataset with `include_difficult=True`. 6c-1's
+  `include_difficult=False` default is correct for training targets and is not
+  sufficient here.
+
+  **AP is dataset-level, and this is the one place the codebase's "per image,
+  then averaged" rule does not apply.** Every other metric scores each image and
+  averages so uneven coverage cannot reweight the split; AP cannot, being the
+  area under one curve built by ranking every detection in the split. A test
+  constructs a case where the global answer is 2/3 and the per-image mean is
+  0.75, so the two cannot be quietly confused.
+
+  Other conventions, each stated because each moves the number:
+
+  - **Matching follows `VOCevaldet.m` including its order of checks** — a
+    detection matches the box it overlaps *most*, and only then is that box's
+    state consulted, difficult before already-claimed. There is deliberately no
+    fallback to the second-best box: a greedy variant that reassigned duplicates
+    scores higher than the reference and stops being comparable, while passing
+    every hand-computed test.
+  - **All-points interpolation** (VOC2010+ and COCO), not VOC2007's 11-point
+    sampling, which is systematically higher and must not share a table with it.
+  - **`map_50_95` is COCO-*style*, not a COCO number**: COCO's ten thresholds,
+    but all-points integration at each where COCO quantises recall to 101 points.
+    `map_50` is directly VOC-comparable.
+  - **A class with no non-difficult objects is `None`, not 0** — recall has no
+    denominator, and a 0 would drag mAP down in proportion to how many categories
+    a split omits. `classes_scored` reports the real denominator, which is not
+    always `num_classes`. A class that is present but entirely missed scores 0.0,
+    and the two stay distinct.
+
 - **A bounding-box dataset** (step 6c-1) — `DetectionFolderDataset`,
   `load_voc_boxes` and `VOC_CLASSES` in `visbench.data`. The first target in this
   codebase that **transforms rather than resamples**.
