@@ -9,11 +9,25 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.3.0] — 2026-07-31
+
+Two things v0.2 could not do: **adapt a backbone**, and **detect an object**.
+
 v0.3 opens with opt-in fine-tuning of the last N backbone blocks, which is the
 first change to challenge an assumption the feature cache has rested on since
 v0.1: that features depend on the image and the weights alone. Step 6a bypassed
 the cache to preserve it; step 6b restores caching for the half of the network
-the assumption still holds for.
+the assumption still holds for. It closes with detection — the ninth probe and
+the first task whose target *transforms* rather than resamples, built dataset
+first, then metric, then head, so the head was judged by a scorer already
+cross-checked against `VOCevaldet.m`.
+
+A fine-tuned number and a frozen one are **different measurements**, and the
+new `finetune` field on the result record is what keeps them apart. It is
+`None` for every number VisBench has published to date. Do not rank or average
+across it.
 
 ### Added
 
@@ -1165,6 +1179,7 @@ API philosophy.
 [#2]: https://github.com/turhancan97/VisBench/issues/2
 [#4]: https://github.com/turhancan97/VisBench/issues/4
 [#3]: https://github.com/turhancan97/VisBench/issues/3
-[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/turhancan97/VisBench/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/turhancan97/VisBench/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/turhancan97/VisBench/releases/tag/v0.1.0

@@ -18,10 +18,12 @@
 
 ---
 
-> **Status: v0.2.0, on PyPI.** Three backbone families (DINOv2, CLIP, timm
-> CNNs) and nine tasks run end-to-end, including four trained dense probes,
-> from Python or from the `visbench` command line.
-> See [Build order](#build-order).
+> **Status: v0.3.0, on PyPI.** Three backbone families (DINOv2, CLIP, timm
+> CNNs) and nine tasks run end-to-end, including four trained dense probes and
+> an anchor-free detection probe, from Python or from the `visbench` command
+> line. v0.3 adds opt-in fine-tuning of the last N blocks — a *different
+> measurement* from a frozen probe, kept apart in the record rather than
+> averaged with it. See [Build order](#build-order).
 
 ## What it is
 
