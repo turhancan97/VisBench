@@ -54,12 +54,12 @@ step is next rather than attempting the whole roadmap in one session.
 
 ## Current state
 
-**v0.1 and v0.2 are both complete** — every task, both backbone families, and
-the CLI. Everything below exists, is tested, and is on `main`. **v0.2.0 is
-released on PyPI** — `pip install visbench` works.
+**v0.1, v0.2 and v0.3 are all complete** — every task, all three backbone
+families, the CLI, fine-tuning and detection. Everything below exists, is
+tested, and is on `main`.
 
-**v0.3 is in progress and unreleased: 6a (fine-tuning), 6b (prefix caching) and
-all of 6c (detection) are done.** Dense probes take `finetune_blocks=N` /
+**v0.3.0 is tagged and its numbered steps are all done: 6a (fine-tuning), 6b
+(prefix caching) and all of 6c (detection).** Dense probes take `finetune_blocks=N` /
 `--finetune-blocks N`, DINOv2 only, recorded under schema v6's `finetune` field.
 Proved on VOC at two scales: 0.7758 against the frozen 0.7328 on DINOv2-S, and
 0.7992 against 0.7533 on DINOv2-B. 6b caches the frozen blocks below the cut in
@@ -87,9 +87,10 @@ The CLI exposes all nine probes: `visbench list`, `visbench run <probe>`,
 `list_probes()` are the same set, so a probe cannot ship unreachable from a
 shell by accident.
 
-Package version is `0.2.0`, tagged `v0.2.0`, live on
-[PyPI](https://pypi.org/project/visbench/). **Publishing needs the maintainer's
-credentials and is theirs to run** — never attempt it. A version number on PyPI
+Package version is `0.3.0`. **v0.2.0 is the newest version live on
+[PyPI](https://pypi.org/project/visbench/); v0.3.0 is tagged and not yet
+uploaded.** **Publishing needs the maintainer's credentials and is theirs to
+run** — never attempt it, and do not assume a tag means a release went out. A version number on PyPI
 can never be reused, so anything that renders wrong ships until the next
 release: anything wrong in the README ships with it. Two separate checks cover
 that, and neither replaces the other. **Rendering** is CI's `build` job —
@@ -1157,6 +1158,20 @@ environment with extra packages installed will pass checks that CI fails, so do
 not substitute your own invocations — particularly for mypy, which reads
 `python_version` from `pyproject.toml` and checks nothing useful if you
 override it.
+
+**CI gates two more jobs the five commands do not cover, and a release touches
+both.** `lock` runs `uv lock --check`, and `build` runs `python -m build` +
+`twine check dist/*`.
+
+- **A version bump requires `uv lock`.** `uv.lock` pins visbench *itself*, so
+  editing `version` in `pyproject.toml` desynchronises it and `lock` fails while
+  all five local commands pass — which is exactly what happened on the v0.3.0
+  PR. Re-lock in the same commit as the bump and confirm the diff is the one
+  line: anything more means dependencies moved too, which is a separate
+  decision and not part of a release.
+- **`twine check` is the only local proxy for how PyPI will render the README.**
+  Neither `build` nor `twine` is in `.venv/`; install them into a throwaway venv
+  rather than the project one, so `.venv/` keeps matching what CI has.
 
 Both suites and all three lint steps must be clean before a commit. Prove a
 new task end to end on a real backbone via its `examples/` script, not only
