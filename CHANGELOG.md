@@ -172,6 +172,54 @@ the assumption still holds for.
 - `--finetune-blocks` / `--backbone-lr` on every dense CLI subcommand, and on
   `examples/segment_semantic.py`.
 
+- **A bounding-box dataset** (step 6c-1) — `DetectionFolderDataset`,
+  `load_voc_boxes` and `VOC_CLASSES` in `visbench.data`. The first target in this
+  codebase that **transforms rather than resamples**.
+
+  Every dense target so far has been resized and cropped by the same loader that
+  resizes and crops its image, so the two cannot drift. A box is four numbers
+  that must be rescaled and shifted *by hand* to follow the image, and when that
+  is skipped **nothing raises** — the boxes describe the original 500x375 frame
+  while the tensor is 224x224, and the probe trains against supervision that is
+  wrong everywhere. That is the correspondence misalignment bug (recall@1px =
+  0.003) with a new coordinate convention.
+
+  So the convention is fixed and asserted: **`xyxy`, absolute pixels,
+  0-indexed, in post-transform space.** VOC is 1-indexed (its minimum
+  `xmin`/`ymin` over all 17,125 files is 1), so one is subtracted at the loader
+  boundary and nowhere else. The load-bearing test runs a non-square image
+  through a known geometry, where a missed rescale, a missed shift and a swapped
+  axis each produce a visibly different answer — fake backbones cannot show any
+  of that.
+
+  Boxes are rescaled by the **achieved** ratio rather than the nominal one: the
+  resize rounds and applies a floor, so `image_size / min(w, h)` is not quite
+  the factor actually used, and the difference is a sub-pixel error that grows
+  with box size and hides in any single image. The image half is byte-identical
+  to `DenseFolderDataset`'s crop, asserted by a test, because the box transform
+  is derived from that geometry.
+
+  A box outside the centre crop is **dropped**, not kept at zero area — scoring a
+  detector against an object absent from its input measures nothing — while a
+  straddling box is clipped, since its visible part is the correct target.
+  `boxes`, `labels` and `difficult` are indexed by one mask so they cannot
+  drift, and `num_original` keeps "this image has no objects" distinguishable
+  from "this image's objects were all dropped". An image with nothing left is
+  legitimate and does not raise.
+
+  **`difficult` is returned by the loader and filtered by the dataset**, not
+  filtered on read. VOC's protocol excludes those 4,462 objects from evaluation,
+  but hiding them inside the loader would make the exclusion invisible to the
+  result record, which is exactly what the `protocol` field exists to prevent.
+  `include_difficult=False` is the default, matching VOC, and appears in
+  `describe()`.
+
+  Verified on the real split, not only on fixtures: 5,823 val images, and **all
+  17,125 annotation files parse with zero failures**, giving 40,138 objects of
+  which 4,462 are difficult — a count that independently matches what `grep`
+  reports, which is the cross-check that the parser reads what the files say. No
+  box in the first 300 images falls outside its tensor or comes back degenerate.
+
 ### Changed
 
 - **CLAUDE.md said the result schema was at v5 in one place and v6 in another.**

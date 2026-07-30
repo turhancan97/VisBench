@@ -13,6 +13,7 @@ from visbench.data.dense import (
     load_mask,
     load_normal_map,
 )
+from visbench.data.detection import VOC_CLASSES, DetectionFolderDataset, load_voc_boxes
 from visbench.data.image_folder import ImageFolderDataset
 from visbench.data.pair_dataset import HomographyPairDataset, PairDataset, PairViewDataset
 from visbench.data.triplet import TwoAFCDataset
@@ -29,4 +30,7 @@ __all__ = [
     "load_mask",
     "load_label_map",
     "TwoAFCDataset",
+    "DetectionFolderDataset",
+    "load_voc_boxes",
+    "VOC_CLASSES",
 ]
