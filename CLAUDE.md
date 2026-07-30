@@ -45,7 +45,9 @@ step is next rather than attempting the whole roadmap in one session.
 | 5j | The CLI — last, once the dense-task Python API has settled | done |
 | 6a | Fine-tuning: unfreeze last N blocks, cache out of the path, DINOv2 only, proved on VOC segmentation | done |
 | 6b | Cache the frozen prefix — works, saves 21%, and found the real bottleneck | done |
-| **6c** | **Detection groundwork — dataset and metric first, head second** | **next** |
+| 6c-1 | Detection: the box dataset and VOC loader | done |
+| **6c-2** | **Detection: `average_precision`, mAP@50, mAP@50:95** | **next** |
+| 6c-3 | Detection: the head, against a metric already trusted | later |
 | 6d+ | Low-level tasks if there is bandwidth | later |
 
 ---
@@ -109,7 +111,9 @@ visbench/
                    _prefix/ under the same root and is never counted as features)
   cli/           main.py (build_parser + the three commands),
                  datasets.py (ProbeSpec table: flags -> datasets, per probe)
-  data/          image_folder (+ balanced_subset), pair_dataset
+  data/          detection.py (DetectionFolderDataset, load_voc_boxes,
+                   VOC_CLASSES — boxes transform, they do not resample)
+                 image_folder (+ balanced_subset), pair_dataset
                  (PairDataset, HomographyPairDataset, PairViewDataset),
                  triplet.py (TwoAFCDataset — NIGHTS-style 2AFC), dense.py
                  (DenseFolderDataset + stems= for official splits,
@@ -357,8 +361,8 @@ designed up front; extend it the same way, from a case that already runs.
 
 ### Open issues — read before assuming a red suite is your fault
 
-**Every issue below is closed; the tracker is empty as of 2026-07-29.** All
-five verification commands were re-run on that date and are green: 1024 fast
+**Every issue below is closed; the tracker is empty as of 2026-07-30.** All
+five verification commands were re-run on that date and are green: 1051 fast
 tests, 76 slow, and the three lint steps. If anything is red for you, that is
 new — do not go looking for a known cause here.
 
@@ -874,6 +878,55 @@ Three properties of the VOC XML, all verified, all silent when mishandled:
 `level`/`feature_mode`/`zero_shot` already declared — extend it, do not rewrite
 it.
 
+### Step 6c-1 — **done**. The dataset, and what it settled
+
+`visbench/data/detection.py`: `DetectionFolderDataset`, `load_voc_boxes`,
+`VOC_CLASSES`. 27 fast tests. Verified against the real split — 5,823 val
+images, and **all 17,125 annotation files parse with zero failures**, yielding
+40,138 objects of which 4,462 are `difficult`. That count matching the one
+measured independently by `grep` is the cross-check that the parser reads what
+the files say.
+
+Decisions made while building it, so they are not re-opened:
+
+- **Rescale by the *achieved* ratio, not the nominal one.** `_resized_size`
+  rounds and applies a `max()` floor, so the width actually used is not exactly
+  `image_size / min(w, h)` times the original. Using the nominal factor leaves a
+  sub-pixel error that grows with box size and is invisible in any one image.
+  The dataset divides the post-resize dimension by the original, per axis.
+- **The image half is byte-identical to `DenseFolderDataset`'s crop**, and a
+  test asserts it. The box transform is *derived* from that geometry, so if the
+  two ever diverge the boxes shift and nothing raises.
+- **A box outside the crop is dropped, not kept at zero area.** A centre crop
+  genuinely removes objects, and scoring a detector against an object absent
+  from its input measures nothing. Straddling boxes are clipped, since the
+  visible part is the correct target. `boxes`, `labels` and `difficult` are
+  indexed by one mask so they cannot drift, and `num_original` keeps "no
+  objects" distinguishable from "all objects dropped" — an image with zero
+  surviving boxes is legitimate and must not raise.
+- **`load_voc_boxes` returns `difficult`; the dataset filters it.** Filtering in
+  the loader would make VOC's exclusion invisible to the result record, which is
+  the one thing `protocol` exists to prevent. `include_difficult=False` is the
+  default and is recorded in `describe()`.
+- **Corners are treated as continuous coordinates**, so width is `x2 - x1`. VOC's
+  `xmax` is an inclusive *index*, so a literal reading gives `x2 - x1 + 1`. One
+  pixel, chosen rather than inherited.
+- Coordinates are parsed as float then rounded, because some VOC
+  redistributions write `174.0` where `int()` would raise.
+- `NotADirectoryError` for a missing directory, matching `DenseFolderDataset`
+  rather than inventing a second convention. Found by a test that compared the
+  two.
+
+**Still open for 6c-2, and it needs a decision before the metric is written:**
+`difficult` objects are excluded from the *targets* here, but VOC's protocol
+does not merely drop them — a detection that matches a difficult object is
+neither a true positive nor a false positive, it is **ignored**. Dropping them
+from the targets makes such a detection a false *positive*, which is not the
+same thing and still depresses mAP. The metric therefore has to see them.
+`DetectionFolderDataset(include_difficult=True)` plus a `difficult` mask passed
+into the metric is the likely shape; decide it there, and do not assume 6c-1's
+default already handles it.
+
 **Known deferred**: keying the prefix cache on dataset identity (path + mtime)
 rather than image content, which 6b's profile identified as the 128.3 s
 remaining cost. Explicitly not part of 6c — see 6b's closing note for why it
@@ -916,7 +969,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 1024 fast tests
+pytest                                              # 1051 fast tests
 pytest -m slow                                      # 76, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/
 ruff format --check visbench/ tests/ conftest.py examples/
