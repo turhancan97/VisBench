@@ -1159,6 +1159,20 @@ not substitute your own invocations — particularly for mypy, which reads
 `python_version` from `pyproject.toml` and checks nothing useful if you
 override it.
 
+**CI gates two more jobs the five commands do not cover, and a release touches
+both.** `lock` runs `uv lock --check`, and `build` runs `python -m build` +
+`twine check dist/*`.
+
+- **A version bump requires `uv lock`.** `uv.lock` pins visbench *itself*, so
+  editing `version` in `pyproject.toml` desynchronises it and `lock` fails while
+  all five local commands pass — which is exactly what happened on the v0.3.0
+  PR. Re-lock in the same commit as the bump and confirm the diff is the one
+  line: anything more means dependencies moved too, which is a separate
+  decision and not part of a release.
+- **`twine check` is the only local proxy for how PyPI will render the README.**
+  Neither `build` nor `twine` is in `.venv/`; install them into a throwaway venv
+  rather than the project one, so `.venv/` keeps matching what CI has.
+
 Both suites and all three lint steps must be clean before a commit. Prove a
 new task end to end on a real backbone via its `examples/` script, not only
 against the fake backbones in `tests/conftest.py`; the toy backbones cannot
