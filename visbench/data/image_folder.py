@@ -10,7 +10,7 @@ import hashlib
 from pathlib import Path
 from typing import Any
 
-from visbench.data.base import BaseDataset
+from visbench.data.base import BaseDataset, list_files
 from visbench.utils.image import load_image
 
 __all__ = ["ImageFolderDataset"]
@@ -68,11 +68,7 @@ class ImageFolderDataset(BaseDataset):
 
     def _image_files(self, directory: Path) -> list[Path]:
         """Sorted image files directly inside ``directory``."""
-        return sorted(
-            path
-            for path in directory.iterdir()
-            if path.is_file() and path.suffix.lower() in self.extensions
-        )
+        return list_files(directory, self.extensions)
 
     def __len__(self) -> int:
         return len(self.paths)
