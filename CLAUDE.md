@@ -46,8 +46,8 @@ step is next rather than attempting the whole roadmap in one session.
 | 6a | Fine-tuning: unfreeze last N blocks, cache out of the path, DINOv2 only, proved on VOC segmentation | done |
 | 6b | Cache the frozen prefix — works, saves 21%, and found the real bottleneck | done |
 | 6c-1 | Detection: the box dataset and VOC loader | done |
-| **6c-2** | **Detection: `average_precision`, mAP@50, mAP@50:95** | **next** |
-| 6c-3 | Detection: the head, against a metric already trusted | later |
+| 6c-2 | Detection: `average_precision`, mAP@50, mAP@50:95 | done |
+| **6c-3** | **Detection: the head, against a metric already trusted** | **next** |
 | 6d+ | Low-level tasks if there is bandwidth | later |
 
 ---
@@ -120,6 +120,8 @@ visbench/
                   load_depth_map, load_normal_map, load_mask, load_label_map)
   heads/         base.py (register_head/build_head), linear.py, dpt.py
   metrics/       classification, retrieval, correspondence, similarity, dense.py
+                 detection.py (box_iou, average_precision, detection_metrics —
+                   VOC protocol, dataset-level, difficult ignored not dropped)
   tasks/         base.py (BaseTask)
                  dense_base.py (DenseTrainingTask — shared by every dense probe)
                  high_level/  classification, retrieval, semantic_segmentation
@@ -362,7 +364,7 @@ designed up front; extend it the same way, from a case that already runs.
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker is empty as of 2026-07-30.** All
-five verification commands were re-run on that date and are green: 1051 fast
+five verification commands were re-run on that date and are green: 1080 fast
 tests, 76 slow, and the three lint steps. If anything is red for you, that is
 new — do not go looking for a known cause here.
 
@@ -917,15 +919,80 @@ Decisions made while building it, so they are not re-opened:
   rather than inventing a second convention. Found by a test that compared the
   two.
 
-**Still open for 6c-2, and it needs a decision before the metric is written:**
-`difficult` objects are excluded from the *targets* here, but VOC's protocol
-does not merely drop them — a detection that matches a difficult object is
-neither a true positive nor a false positive, it is **ignored**. Dropping them
-from the targets makes such a detection a false *positive*, which is not the
-same thing and still depresses mAP. The metric therefore has to see them.
-`DetectionFolderDataset(include_difficult=True)` plus a `difficult` mask passed
-into the metric is the likely shape; decide it there, and do not assume 6c-1's
-default already handles it.
+**Resolved in 6c-2**, and it went the way that note predicted: the metric takes
+the `difficult` mask and ignores those objects, so a run headed for scoring
+constructs `DetectionFolderDataset(include_difficult=True)`. 6c-1's
+`include_difficult=False` default is right for *training targets* and is **not
+sufficient for scoring** — see below for what the difference costs.
+
+### Step 6c-2 — **done**. The metric, and what each convention costs
+
+`visbench/metrics/detection.py`: `box_iou`, `average_precision`,
+`detection_metrics`, `COCO_IOU_THRESHOLDS`. 29 fast tests.
+
+**Cross-checked against a literal `VOCevaldet.m` transcription** over 3,060
+randomly generated APs at three IoU thresholds: **zero mismatches, maximum
+absolute difference 0.0.** That transcription is kept as a fast test rather than
+run once, because the obvious future change here is vectorising the
+per-detection loop, and the subtlety most likely to be lost is the one thing no
+analytic test covers — see below.
+
+Validated end to end against the real VOC val split, ground truth fed back as
+predictions over 500 images (1,249 boxes, 115 difficult):
+
+| predictions | mAP@50 | mAP@50:95 |
+| --- | --- | --- |
+| oracle (ground truth) | **1.0000** | **1.0000** |
+| boxes jittered 3 px | 0.9224 | 0.6731 |
+| half the objects dropped | 0.5270 | 0.5270 |
+| nothing detected | 0.0000 | — |
+
+An exact 1.0000 is the check that matters: any off-by-one in the matching, the
+recall denominator or the interpolation would land near 1 without reaching it.
+
+**The `difficult` decision, measured rather than argued.** Same oracle
+predictions, scored two ways on the same 500 images:
+
+| protocol | mAP@50 |
+| --- | --- |
+| VOC's rule — a detection matching a difficult object is **ignored** | **1.0000** |
+| difficult objects dropped from the ground truth | 0.9567 |
+
+**4.3 mAP points**, and the wrong one is *lower*, so it looks like a weaker
+detector rather than a scoring bug. Only the first can claim VOC's protocol.
+
+Decisions settled while building it:
+
+- **AP is dataset-level, and this is the one place "per image, then averaged"
+  does not apply.** Every other metric here scores each image and averages, so
+  uneven coverage cannot reweight the split. AP cannot: it is the area under one
+  curve built by ranking *every* detection in the split. A test constructs a case
+  where the global answer is 2/3 and the per-image mean is 0.75, so the two
+  cannot be confused. Semantic segmentation resolves the same tension by
+  reporting both; here there is no defensible per-image version, so there is one
+  number.
+- **Matching follows `VOCevaldet.m` exactly, including its order of checks**: a
+  detection is matched to the box it overlaps *most*, and only then is that box's
+  state consulted — difficult first, then already-claimed. There is deliberately
+  **no fallback to the second-best box**. A greedy variant that reassigned
+  duplicates scores higher than the reference and stops being comparable, while
+  passing every hand-computed test. That is what the transcription test exists
+  to catch.
+- **All-points interpolation** (VOC2010+, COCO), not VOC2007's 11-point
+  sampling, which is systematically higher and must not share a table.
+- **`map_50_95` is COCO-*style*, not a COCO number.** It averages COCO's ten
+  thresholds but integrates all points at each, where COCO quantises recall to
+  101 points. `map_50` is directly VOC-comparable; the docstring says so.
+- **A class with no non-difficult objects scores `None`, not 0.** Recall has no
+  denominator there, and scoring 0 would drag mAP down in proportion to how many
+  categories a split happens to omit. `detection_metrics` excludes them and
+  reports `classes_scored`, which is the actual mAP denominator and is **not
+  always `num_classes`** — a caller comparing two runs should check it matches.
+- **A class present but entirely missed scores 0.0**, which is distinct from
+  `None` and must stay so.
+- `box_iou` uses continuous corners (width `x2 - x1`), matching the dataset. The
+  two disagreeing about box size would shift every IoU and therefore which
+  detections match.
 
 **Known deferred**: keying the prefix cache on dataset identity (path + mtime)
 rather than image content, which 6b's profile identified as the 128.3 s
@@ -969,7 +1036,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 1051 fast tests
+pytest                                              # 1080 fast tests
 pytest -m slow                                      # 76, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/
 ruff format --check visbench/ tests/ conftest.py examples/
