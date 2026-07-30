@@ -70,6 +70,41 @@ def dense_folder(tmp_path):
     return root
 
 
+@pytest.fixture
+def voc_folder(tmp_path):
+    """``root/{train,val}/{JPEGImages,Annotations}`` — VOC's layout, in miniature.
+
+    One object per image, and every ``val`` image carries a second object
+    flagged ``difficult`` so a test can see whether the CLI kept it. That
+    asymmetry is the point: the scored split must keep them (VOC ignores a
+    detection matching one) and the training split must not.
+    """
+    root = tmp_path / "voc"
+    for split, count in (("train", 6), ("val", 4)):
+        images = root / split / "JPEGImages"
+        annotations = root / split / "Annotations"
+        images.mkdir(parents=True)
+        annotations.mkdir(parents=True)
+        for index in range(count):
+            Image.new("RGB", (64, 64), (30 + 20 * index, 120, 200)).save(
+                images / f"{index:02d}.jpg"
+            )
+            objects = [("cat", 5, 5, 40, 40, 0)]
+            if split == "val":
+                objects.append(("dog", 42, 42, 60, 60, 1))
+            body = "".join(
+                f"<object><name>{name}</name><difficult>{flag}</difficult>"
+                f"<bndbox><xmin>{x1}</xmin><ymin>{y1}</ymin>"
+                f"<xmax>{x2}</xmax><ymax>{y2}</ymax></bndbox></object>"
+                for name, x1, y1, x2, y2, flag in objects
+            )
+            (annotations / f"{index:02d}.xml").write_text(
+                f"<annotation><size><width>64</width><height>64</height>"
+                f"<depth>3</depth></size>{body}</annotation>"
+            )
+    return root
+
+
 class CliResult(NamedTuple):
     """Everything one invocation produced.
 

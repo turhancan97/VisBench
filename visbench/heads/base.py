@@ -47,7 +47,7 @@ def _ensure_imported() -> None:
     """Import the head modules so their decorators have run."""
     import importlib
 
-    for module in ("visbench.heads.linear", "visbench.heads.dpt"):
+    for module in ("visbench.heads.linear", "visbench.heads.dpt", "visbench.heads.detection"):
         importlib.import_module(module)
 
 

@@ -128,9 +128,9 @@ class TestSpecLookup:
 
     def test_a_registered_but_unsupported_probe_says_so(self, monkeypatch):
         """The message must not imply the user mistyped a real name."""
-        monkeypatch.setattr(visbench, "list_probes", lambda: ["detection"])
+        monkeypatch.setattr(visbench, "list_probes", lambda: ["edge_detection"])
         with pytest.raises(KeyError, match="registered probe but the CLI"):
-            spec_for("detection")
+            spec_for("edge_detection")
 
 
 class TestMissingExtras:

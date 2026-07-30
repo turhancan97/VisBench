@@ -172,10 +172,11 @@ def test_similarity_is_zero_shot():
 def test_unregistered_task_fails_informatively():
     """The error must list what does exist.
 
-    ``detection`` is v0.3 and the longest-lived remaining stub; when it lands,
-    point this at whatever is still a stub rather than deleting it — the check
-    is that an unknown name is *helpfully* rejected, not which name.
+    ``detection`` held this slot until step 6c-3 registered it. There are no
+    stubs left, so the name is now a *planned* low-level task (v0.3+); point it
+    at whatever is still unbuilt rather than deleting it — the check is that an
+    unknown name is *helpfully* rejected, not which name.
     """
     with pytest.raises(KeyError, match="Unknown task") as excinfo:
-        visbench.get_probe("detection")
+        visbench.get_probe("edge_detection")
     assert "correspondence" in str(excinfo.value)

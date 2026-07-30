@@ -13,6 +13,7 @@ from PIL import Image
 import visbench
 from tests.cli.conftest import FAKE_BACKBONE
 from visbench.cli.datasets import spec_for
+from visbench.cli.main import build_parser
 from visbench.results import read_records
 
 
@@ -202,6 +203,64 @@ class TestRun:
         result = _run(run_cli, "similarity", root, cache_dir, results)
         assert result.code == 0
         assert "accuracy" in result.out
+
+    def test_detection_runs_end_to_end(self, run_cli, voc_folder, cache_dir, tmp_path):
+        results = tmp_path / "out.jsonl"
+        result = _run(
+            run_cli,
+            "detection",
+            voc_folder,
+            cache_dir,
+            results,
+            "--image-size",
+            "64",
+            "--epochs",
+            "2",
+            "--train-batch-size",
+            "2",
+        )
+        assert result.code == 0
+        record = read_records(results)[0]
+        assert "map_50" in record.metrics and "map_50_95" in record.metrics
+        assert record.level == "high_level"
+        # Not probe3d's and not VOC's detector: the metric is VOC's, the head is
+        # this codebase's, and a protocol field that overclaims is worse than none.
+        assert record.task_params["protocol"] == "visbench_anchor_free_det"
+
+    def test_detection_scores_with_difficult_objects_and_trains_without_them(
+        self, run_cli, voc_folder
+    ):
+        """The two splits differ in one setting, deliberately.
+
+        VOC *ignores* a detection matching a difficult object rather than
+        counting it wrong, which needs those boxes present when scoring — worth
+        4.3 mAP on VOC val (step 6c-2). Training against them is a separate
+        question and the answer is no. A CLI that used one setting for both
+        would silently pick the wrong protocol for one half.
+        """
+        parser = build_parser()
+        args = parser.parse_args(["run", "detection", "--data", str(voc_folder)])
+        args.limit = None
+        args.device = "cpu"
+        splits = spec_for("detection").build(args)
+
+        assert splits.evaluate.include_difficult is True
+        assert splits.train.include_difficult is False
+        # And it is visible in the data, not only in the flag.
+        assert bool(splits.evaluate.target(0)["difficult"].any())
+        assert not bool(splits.train.target(0)["difficult"].any())
+
+    def test_detection_gives_the_dataset_and_the_probe_one_image_size(self, run_cli, voc_folder):
+        """Box targets are absolute pixels, so two values would misplace every cell."""
+        parser = build_parser()
+        args = parser.parse_args(
+            ["run", "detection", "--data", str(voc_folder), "--image-size", "64"]
+        )
+        args.limit = None
+        args.device = "cpu"
+        splits = spec_for("detection").build(args)
+        assert splits.evaluate.image_size == 64
+        assert spec_for("detection").probe_kwargs(args)["image_size"] == 64
 
     def test_a_dense_probe_runs(self, run_cli, dense_folder, cache_dir, tmp_path):
         results = tmp_path / "out.jsonl"
