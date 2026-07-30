@@ -28,7 +28,6 @@ already-stacked feature dict still works and is convenient for small splits;
 letting a run discover the problem by being killed.
 """
 
-import math
 from collections.abc import Iterator
 from typing import Any
 
@@ -40,6 +39,7 @@ from visbench.cache.keys import hash_image, make_prefix_key
 from visbench.cache.streaming import CachedFeatures
 from visbench.heads import build_head
 from visbench.tasks.base import BaseTask
+from visbench.tasks.schedule import check_schedule, warmup_cosine
 from visbench.types import FeatureMode, MetricsDict, Pooling
 from visbench.utils.device import resolve_device
 
@@ -207,14 +207,7 @@ class DenseTrainingTask(BaseTask):
             raise ValueError(f"epochs must be >= 1, got {epochs}")
         if batch_size < 1:
             raise ValueError(f"batch_size must be >= 1, got {batch_size}")
-        if warmup_epochs < 0 or warmup_epochs >= epochs:
-            raise ValueError(
-                f"warmup_epochs must be in [0, epochs), got {warmup_epochs} with "
-                f"epochs={epochs} — the schedule would still be warming up when training "
-                "ended. Pass warmup_epochs=0 for a short run; the default 1.5 assumes "
-                "probe3d's 10 epochs. Clamping it silently would report a number produced "
-                "by a schedule nobody chose."
-            )
+        check_schedule(epochs, warmup_epochs)
         if layers is not None and len(layers) == 0:
             raise ValueError("layers=[] requests nothing; pass None for the last layer")
         if finetune_blocks < 0:
@@ -658,17 +651,12 @@ class DenseTrainingTask(BaseTask):
         return self
 
     def _schedule(self, total_steps: int, steps_per_epoch: int):
-        """Linear warmup then cosine decay, as a step-indexed multiplier."""
-        warmup_steps = int(self.warmup_epochs * steps_per_epoch)
+        """Linear warmup then cosine decay, as a step-indexed multiplier.
 
-        def multiplier(step: int) -> float:
-            if warmup_steps and step < warmup_steps:
-                return (step + 1) / warmup_steps
-            remaining = max(1, total_steps - warmup_steps)
-            progress = min(1.0, (step - warmup_steps) / remaining)
-            return 0.5 * (1.0 + math.cos(math.pi * progress))
-
-        return multiplier
+        Shared with :class:`~visbench.tasks.high_level.detection.DetectionTask`,
+        which cannot subclass this base but must train under the same schedule.
+        """
+        return warmup_cosine(total_steps, steps_per_epoch, self.warmup_epochs)
 
     def _forward(self, dense: Any) -> torch.Tensor:
         """A batch of features to a batch of predictions.

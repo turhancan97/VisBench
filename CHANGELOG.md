@@ -240,6 +240,80 @@ the assumption still holds for.
     always `num_classes`. A class that is present but entirely missed scores 0.0,
     and the two stay distinct.
 
+- **The detection probe** (step 6c-3) — `DetectionTask`, registered as
+  `detection`, plus a `DetectionHead` registered as `detection` and a
+  `visbench run detection` subcommand. This completes step 6c: dataset (6c-1),
+  metric (6c-2), head (6c-3), in that order and for the reason that order was
+  chosen — the head is judged by a scorer that was cross-checked against
+  `VOCevaldet.m` to zero difference *before* it existed, so a low mAP here says
+  something about the head or the features and nothing about the metric.
+
+  **Anchor-free and single-scale**, deliberately. One 1x1 convolution for class
+  logits and one for box distances, over the backbone's patch grid at its native
+  stride. FCOS's centre-inside-box assignment reduced to one level (smallest area
+  wins an ambiguous cell, which is FCOS's own within-level tie-break — with no
+  pyramid there is nothing else left of the rule), sigmoid focal loss on
+  classification, GIoU loss on the positives.
+
+  Focal because a dense anchor-free grid is overwhelmingly background and plain
+  BCE there converges to predicting nothing while its loss falls. GIoU because
+  the plain IoU loss has **zero gradient when the boxes do not overlap**, which
+  is the state every prediction starts in. The classification bias is
+  initialised to the focal prior, without which the schedule is mostly spent
+  discovering that background is common.
+
+  **The absolute mAP is low and that is the design, not a defect.** A
+  single-scale linear head has no feature pyramid, so small objects fall between
+  cells and are unrecoverable. Records say
+  `protocol: "visbench_anchor_free_det"` — not `probe3d` (that paper has no
+  detection task) and not VOC's (the *metric* is VOC's, the head is not). Read
+  the number against another backbone, never against published detectors.
+
+  **Not a `DenseTrainingTask` subclass, and not a close call.** That base assumes
+  a stackable `(B, C, H, W)` target and recovers a split metric by weighting
+  per-image metrics by batch size. Detection has neither: its target is a
+  variable-length box list, and average precision is a dataset-level ranking
+  that no weighted mean of per-batch numbers reproduces. What the two *do* share
+  — probe3d's warmup/cosine schedule — was lifted into a new
+  `visbench/tasks/schedule.py` and is now used by both, so a detection number and
+  a segmentation number differ in the head and the loss rather than in the
+  optimisation. `DenseTrainingTask` behaviour is unchanged.
+
+  **The scored split keeps `difficult` objects; the training split drops them.**
+  6c-2 measured that asymmetry at 4.3 mAP: VOC *ignores* a detection matching a
+  difficult object, and dropping those boxes from the ground truth instead reads
+  as a weaker detector rather than a changed protocol. The CLI builds the two
+  splits accordingly and `DetectionTask` drops them from assignment as well, so
+  one dataset with `include_difficult=True` can serve both halves.
+
+  **`--image-size` reaches the dataset and the probe from one flag**, in the CLI
+  and in `examples/detect.py`. Box targets are absolute post-transform pixels, so
+  two different values put every grid cell at the wrong coordinate — and the run
+  trains, scores badly, and reads as a weak backbone. The probe range-checks its
+  targets, but that only catches one direction of the mismatch; sharing the flag
+  is what catches both.
+
+  Two tests carry the correctness claim. `_decode` applied to a hand-built
+  "perfect" head output must reproduce the exact box — the detection counterpart
+  of 6c-2's oracle check, since any off-by-one in the cell centres, the stride or
+  the corner arithmetic lands *near* the box without reaching it. And a probe
+  trained on features that literally encode the answer must reach **1.0 mAP**,
+  which it does: assignment, both losses, the exp/stride decoding and VOC's AP
+  all have to describe the same box for that to be reachable at all.
+
+  Proved on real weights against VOC 2012 Detection (`ImageSets/Main`), 600
+  train / 600 val at 224px, linear head, ten epochs:
+
+  | backbone | map_50 | map_50_95 | classes_scored | dets/image | train_loss |
+  | --- | --- | --- | --- | --- | --- |
+  | DINOv2-S/14 | 0.2127 | 0.0722 | 20 of 20 | 84.6 | 1.2076 |
+  | DINOv2-B/14 | **0.2616** | **0.0930** | 20 of 20 | 88.5 | 1.1124 |
+
+  DINOv2-B leads by 4.9 mAP@50 — recorded as an observation, not as a check the
+  probe passed; mid-level similarity still ranks the two the other way. The
+  split is 600/600 rather than the full 5,717/5,823, so these establish that the
+  probe runs end to end on real features, not a headline number.
+
 - **A bounding-box dataset** (step 6c-1) — `DetectionFolderDataset`,
   `load_voc_boxes` and `VOC_CLASSES` in `visbench.data`. The first target in this
   codebase that **transforms rather than resamples**.

@@ -19,7 +19,7 @@
 ---
 
 > **Status: v0.2.0, on PyPI.** Three backbone families (DINOv2, CLIP, timm
-> CNNs) and eight tasks run end-to-end, including four trained dense probes,
+> CNNs) and nine tasks run end-to-end, including four trained dense probes,
 > from Python or from the `visbench` command line.
 > See [Build order](#build-order).
 
@@ -146,7 +146,7 @@ Following [Chen, Marks & Cheng (arXiv:2411.17474)](https://arxiv.org/abs/2411.17
 |---|---|---|
 | **High-level** — semantic / category | classification, retrieval | v0.1 |
 | | semantic (multi-class) segmentation | v0.2 |
-| | detection | v0.3 |
+| | detection (anchor-free, single-scale) | v0.3 |
 | **Mid-level** — geometry & generic structure | geometric correspondence | v0.1 |
 | | depth, surface normals, generic (binary) segmentation, mid-level similarity | v0.2 |
 | **Low-level** — signal properties | edge detection, optical flow, texture, IQA | v0.3+, [scope only](https://github.com/turhancan97/VisBench/blob/main/visbench/tasks/low_level/README.md) |
@@ -187,6 +187,14 @@ This is a multi-month roadmap, built one reviewed step at a time.
 - [x] **5j.** the CLI, a thin wrapper over `visbench.run()` — which also
       taught `run()` to cover correspondence, the one task it had never been
       able to express
+- [x] **6a.** opt-in fine-tuning — unfreeze the last N backbone blocks, with the
+      feature cache out of the path and the result record saying which a number
+      came from
+- [x] **6b.** cache the *frozen prefix*, so a fine-tuned run recomputes only the
+      blocks it is training
+- [x] **6c.** detection, in three parts and in this order: the box dataset, then
+      the VOC metric, then the head — so the head is judged by a scorer that was
+      already cross-checked against `VOCevaldet.m`
 
 ## Roadmap
 
@@ -194,7 +202,7 @@ This is a multi-month roadmap, built one reviewed step at a time.
 
 **v0.2** — ResNet/timm + custom backbones *(done)*, pluggable heads (linear + DPT) *(done)*, multi-layer extraction *(done)*, depth estimation *(done)*, surface normals *(done)*, generic (binary) segmentation *(done)*, semantic segmentation *(done)*, mid-level similarity *(done)*, CLI *(done)*.
 
-**v0.3** — opt-in fine-tuning of the last N blocks, detection groundwork, HF Hub probe sharing and a public leaderboard.
+**v0.3** — opt-in fine-tuning of the last N blocks *(done)*, prefix caching *(done)*, detection *(done)*, low-level tasks if there is bandwidth, HF Hub probe sharing and a public leaderboard.
 
 ## Reproducibility
 
@@ -301,6 +309,12 @@ visbench run semantic_segmentation --data VOCdevkit/VOC2012 \
     --stems ImageSets/Segmentation/val.txt \
     --train-stems ImageSets/Segmentation/train.txt \
     --num-classes 21 --backbone dinov2_vits14
+
+# detection reads the same way, from ImageSets/Main
+visbench run detection --data VOCdevkit/VOC2012 \
+    --stems ImageSets/Main/val.txt \
+    --train-stems ImageSets/Main/train.txt \
+    --backbone dinov2_vits14
 ```
 
 That last one reports `miou 0.733` on VOC val, against the 0.732 the Python API
@@ -398,6 +412,59 @@ partition the test set by whether the reference came from ImageNet, so a gap
 between them is a contamination signal rather than a similarity result. For
 `dinov2_vits14` that gap is **0.882 against 0.854** — worth knowing before
 reading 0.870 as a clean measure of perceptual alignment.
+
+### Detection
+
+[`examples/detect.py`](https://github.com/turhancan97/VisBench/blob/main/examples/detect.py) trains an **anchor-free,
+single-scale** box head on frozen dense features: two 1x1 convolutions over the
+patch grid, FCOS-style centre-inside-box assignment, focal loss on the classes
+and GIoU on the boxes. It reads the Pascal VOC devkit directly, using
+`ImageSets/**Main**` — the detection split, roughly four times the segmentation
+one:
+
+```bash
+python examples/detect.py --data /path/to/pascal_voc --voc
+```
+
+**Read these numbers against another backbone, never against published VOC
+detectors.** A single-scale head has no feature pyramid, so small objects fall
+between grid cells and are simply unrecoverable. That ceiling is the point: the
+probe measures what a frozen representation carries, and every point an FPN
+would add is a point about the FPN. Records say
+`protocol: "visbench_anchor_free_det"` so the number cannot be mistaken for a
+detector's.
+
+Measured on VOC 2012, 600 train / 600 val images at 224px, ten epochs:
+
+| metric | DINOv2-S/14 | DINOv2-B/14 |
+| --- | --- | --- |
+| `map_50` (VOC-comparable) | 0.213 | **0.262** |
+| `map_50_95` (COCO-*style*) | 0.072 | **0.093** |
+| `classes_scored` | 20 of 20 | 20 of 20 |
+| `detections_per_image` | 84.6 | 88.5 |
+| `train_loss` | 1.208 | 1.112 |
+
+`map_50` follows VOC's protocol as `VOCevaldet.m` defines it, cross-checked
+against a literal transcription of that MATLAB over 3,060 generated APs with
+zero mismatches. `map_50_95` averages COCO's ten IoU thresholds but integrates
+all recall points at each, where COCO quantises recall to 101 — so it is
+COCO-*style*, not a COCO number.
+
+DINOv2-B leads DINOv2-S here by 4.9 mAP@50, the same direction as semantic
+segmentation and the opposite of mid-level similarity. That is a recorded
+observation, not a check the probe passed — see the similarity numbers above
+for why "did the bigger model win?" is not a way to validate a task.
+
+Two things that are protocol rather than detail:
+
+- **`difficult` objects are ignored, not dropped.** VOC removes a detection
+  matching one from the tally entirely; dropping those boxes from the ground
+  truth instead scores **4.3 mAP lower** on VOC val and reads as a weaker
+  detector. So the scored split is built with `include_difficult=True` and the
+  training split without — the example and the CLI both do this.
+- **`classes_scored` is mAP's real denominator.** A class with no non-difficult
+  objects in the split has undefined AP and is excluded rather than scored 0.
+  Check it matches before comparing two runs.
 
 ### Dense tasks
 

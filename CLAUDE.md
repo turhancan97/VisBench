@@ -47,8 +47,8 @@ step is next rather than attempting the whole roadmap in one session.
 | 6b | Cache the frozen prefix — works, saves 21%, and found the real bottleneck | done |
 | 6c-1 | Detection: the box dataset and VOC loader | done |
 | 6c-2 | Detection: `average_precision`, mAP@50, mAP@50:95 | done |
-| **6c-3** | **Detection: the head, against a metric already trusted** | **next** |
-| 6d+ | Low-level tasks if there is bandwidth | later |
+| 6c-3 | Detection: the head, against a metric already trusted | done |
+| **6d+** | **Low-level tasks if there is bandwidth** | **next** |
 
 ---
 
@@ -58,13 +58,18 @@ step is next rather than attempting the whole roadmap in one session.
 the CLI. Everything below exists, is tested, and is on `main`. **v0.2.0 is
 released on PyPI** — `pip install visbench` works.
 
-**v0.3 is in progress: steps 6a (fine-tuning) and 6b (prefix caching) are both
-done and unreleased.** Dense probes take `finetune_blocks=N` /
+**v0.3 is in progress and unreleased: 6a (fine-tuning), 6b (prefix caching) and
+all of 6c (detection) are done.** Dense probes take `finetune_blocks=N` /
 `--finetune-blocks N`, DINOv2 only, recorded under schema v6's `finetune` field.
 Proved on VOC at two scales: 0.7758 against the frozen 0.7328 on DINOv2-S, and
 0.7992 against 0.7533 on DINOv2-B. 6b caches the frozen blocks below the cut in
 a separate `PrefixCache`, cutting a fine-tuned ViT-B run from ~345 s to ~272 s
-with the mIoU unchanged to four decimals. The next build step is **6c**.
+with the mIoU unchanged to four decimals. 6c added the box dataset, the VOC
+metric and an anchor-free single-scale detection probe, in that order. **The
+schema is still v6 — detection needed no bump**, because `task_params` and
+`dataset_params` are both open dicts and the protocol, the decoding settings and
+`include_difficult` all land in them. The next build step is **6d+**, which is
+low-level tasks if there is bandwidth.
 
 Registered names — `visbench.list_backbones()`, `list_probes()`,
 `visbench.heads.list_heads()`:
@@ -73,11 +78,11 @@ Registered names — `visbench.list_backbones()`, `list_probes()`,
 backbones  dinov2_vits14, dinov2_vitb14, clip_vitb16, clip_vitb32,
            resnet18, resnet50            (+ CustomBackbone, unregistered)
 probes     classification, retrieval, correspondence, depth, surface_normal,
-           generic_segmentation, semantic_segmentation, similarity
-heads      linear, dpt
+           generic_segmentation, semantic_segmentation, similarity, detection
+heads      linear, dpt, detection
 ```
 
-The CLI exposes all eight probes: `visbench list`, `visbench run <probe>`,
+The CLI exposes all nine probes: `visbench list`, `visbench run <probe>`,
 `visbench cache stats|clear`. A test asserts the CLI's table and
 `list_probes()` are the same set, so a probe cannot ship unreachable from a
 shell by accident.
@@ -118,27 +123,30 @@ visbench/
                  triplet.py (TwoAFCDataset — NIGHTS-style 2AFC), dense.py
                  (DenseFolderDataset + stems= for official splits,
                   load_depth_map, load_normal_map, load_mask, load_label_map)
-  heads/         base.py (register_head/build_head), linear.py, dpt.py
+  heads/         base.py (register_head/build_head), linear.py, dpt.py,
+                 detection.py (DetectionHead — cls + box branches, focal prior)
   metrics/       classification, retrieval, correspondence, similarity, dense.py
                  detection.py (box_iou, average_precision, detection_metrics —
                    VOC protocol, dataset-level, difficult ignored not dropped)
   tasks/         base.py (BaseTask)
                  dense_base.py (DenseTrainingTask — shared by every dense probe)
-                 high_level/  classification, retrieval, semantic_segmentation
-                              (+ stubs)
+                 schedule.py (warmup_cosine/check_schedule — probe3d's schedule,
+                   shared by DenseTrainingTask and DetectionTask)
+                 high_level/  classification, retrieval, semantic_segmentation,
+                              detection (anchor-free, single-scale, 6c-3)
                  mid_level/   correspondence, depth, surface_normal,
                               generic_segmentation, similarity
   results/       schema.py (ResultRecord, SCHEMA_VERSION), writer.py
   runner.py      visbench.run() — the one call the CLI wraps
 examples/        classify, retrieve, correspond, depth, normals, segment,
-                 segment_semantic, similarity
+                 segment_semantic, similarity, detect
 ```
 
 ### The CLI — add a probe by adding a row
 
 `visbench/cli/datasets.py` holds one `ProbeSpec` per probe: its summary, the
 folder layout it expects, the flags it adds, how those become `Splits`, and the
-kwargs its constructor takes. That is a **table, not a hierarchy** — the eight
+kwargs its constructor takes. That is a **table, not a hierarchy** — the nine
 probes share flag *groups* (`_dense_flags`, `_split_flags`) but not a class
 tree, because what they have in common is a set of options, not behaviour.
 
@@ -993,6 +1001,106 @@ Decisions settled while building it:
 - `box_iou` uses continuous corners (width `x2 - x1`), matching the dataset. The
   two disagreeing about box size would shift every IoU and therefore which
   detections match.
+
+### Step 6c-3 — **done**. The head, and the decisions behind it
+
+`visbench/heads/detection.py` (`DetectionHead`), `visbench/tasks/high_level/
+detection.py` (`DetectionTask`), a `detection` CLI subcommand,
+`examples/detect.py`, and `visbench/tasks/schedule.py`. 43 fast tests for the
+probe plus 3 for the CLI row.
+
+**Anchor-free and single-scale.** Two 1x1 convolutions over the patch grid at
+its native stride: `num_classes` logits and 4 box distances. FCOS's
+centre-inside-box assignment reduced to one level, sigmoid focal loss on
+classification, GIoU on the positives' distances, then threshold → per-class
+NMS → cap.
+
+**Measured on VOC 2012 Detection**, 600 train / 600 val images from
+`ImageSets/Main` at 224px, linear head (`hidden_dim=0`), ten epochs, one V100:
+
+| backbone | map_50 | map_50_95 | classes_scored | dets/image | train_loss |
+| --- | --- | --- | --- | --- | --- |
+| DINOv2-S/14 | 0.2127 | 0.0722 | 20 of 20 | 84.6 | 1.2076 |
+| DINOv2-B/14 | **0.2616** | **0.0930** | 20 of 20 | 88.5 | 1.1124 |
+
+**Do not read the +4.9 as a pass criterion.** It is the same direction as
+semantic segmentation and the opposite of mid-level similarity, and the
+standing rule above ("bigger is not better on every task") is not suspended
+because it happened to hold here. What the numbers *are* good for is a floor to
+re-measure against if the head changes. The absolute level is low by design —
+see the first bullet below — and the split is 600/600, not the full
+5,717/5,823, so it is a proof that the probe runs end to end on real weights,
+not a headline number.
+
+Decisions settled while building it, so they are not re-opened:
+
+- **The low absolute mAP is the design.** A single-scale head has no feature
+  pyramid; small objects fall between cells and are unrecoverable. The number
+  ranks representations, which is what VisBench is for. `protocol:
+  "visbench_anchor_free_det"` — not `probe3d` (no detection task there) and not
+  VOC's (the *metric* is VOC's, the head is not). **Do not "fix" a low number by
+  adding an FPN** without deciding first that VisBench wants to measure necks.
+- **It does not subclass `DenseTrainingTask`, and that was not close.** That
+  base assumes a stackable `(B, C, H, W)` target and recovers a split metric by
+  weighting per-image metrics by batch size. Detection has neither — a
+  variable-length box list, and an AP that is a split-level ranking (6c-2). The
+  *shared* part, probe3d's warmup/cosine schedule, was lifted into
+  `tasks/schedule.py` and both now call it, the same move that produced
+  `DenseTrainingTask` from a working `DepthTask`. So a detection number and a
+  segmentation number differ in head and loss, not in optimisation.
+- **Focal loss, not BCE, and the prior bias init is not optional.** A dense
+  anchor-free grid is overwhelmingly background; plain BCE converges to
+  predicting nothing while its loss falls, which reads as a dead representation.
+  The classification bias starts at `-log((1-0.01)/0.01)` so the schedule is not
+  spent discovering that background is common.
+- **GIoU, not IoU loss.** Plain IoU loss is flat at 1.0 for every disjoint pair,
+  so it has **no gradient in the state every box starts in**. A test asserts
+  GIoU keeps rising as boxes separate; that is the whole reason for the choice.
+- **`exp(raw) * stride` for the distances, with the exponent clamped at 8.**
+  Unclamped `exp` can reach `inf` in one bad step, and every later loss is then
+  `nan` while the run reports 0.0 mAP as though the features were useless.
+- **The scored split keeps `difficult`; the training split drops them.** Not an
+  inconsistency: 6c-2 measured VOC's ignore rule at 4.3 mAP above dropping them
+  from the ground truth, so scoring needs them present. Training against an
+  object the annotators called unreasonable is a separate question. The task
+  drops them in assignment regardless of what the dataset kept, so one
+  `include_difficult=True` dataset can serve both halves.
+- **`--image-size` reaches the dataset and the probe from one flag**, in the CLI
+  and the example. Boxes are absolute post-transform pixels, so two values put
+  every cell centre at the wrong coordinate — trains, scores badly, reads as a
+  weak backbone. The probe range-checks its targets but that catches only the
+  direction where boxes exceed the frame; sharing the flag catches both.
+- **No schema bump.** `task_params` and `dataset_params` are open dicts, so the
+  protocol, the three decoding settings and `include_difficult` all land in a
+  record without touching `SCHEMA_VERSION`. That is what those two fields were
+  added for (v3 and v5); resist adding a column.
+- **Fine-tuning is not wired up here.** `finetune_blocks` stays 0 — the
+  trainable-backbone path lives on `DenseTrainingTask` and detection does not
+  inherit it. A test asserts `finetune()` is `None`, so the probe cannot claim a
+  record it never produced.
+
+**Observed while proving it, and worth fixing before 6c runs at full scale:
+`DetectionFolderDataset` construction is slow on a network mount, and it is not
+the images.** `_index_directory` maps *every* stem in `JPEGImages` and
+`Annotations` to a path, `is_file()`-ing each — about 34,000 stat calls per
+split over VOC's 17,125 files, whether or not `stems=` names 600 of them. Warm
+page cache, one split: **10.4 s**. The cold run on
+`/shared/sets/datasets/pascal_voc_2021` took roughly twenty minutes of wall
+clock while the result record's `duration_seconds` said **124 s** — everything
+before `run()` starts timing. The mechanism above is the obvious explanation and
+matches the warm measurement, but it has been observed **once cold** on a shared
+machine, so treat it as a lead rather than a finding (see the wall-clock rule
+6a paid for). The fix, when someone measures it properly: when `stems=` is
+given, resolve only those stems instead of indexing the whole directory. That
+changes 6c-1's already-merged constructor, so it is not part of 6c-3.
+
+**Two tests carry the correctness claim, both fast.** `_decode` applied to a
+hand-built perfect head output must reproduce the exact box — 6c-2's oracle
+check in a new place, because any off-by-one in the cell centres, the stride or
+the corner arithmetic lands *near* the box without reaching it. And a probe
+trained on features that literally encode the answer must reach **1.0 mAP**:
+assignment, both losses, the exp/stride decoding and VOC's AP all have to
+describe the same box for that to be reachable at all.
 
 **Known deferred**: keying the prefix cache on dataset identity (path + mtime)
 rather than image content, which 6b's profile identified as the 128.3 s

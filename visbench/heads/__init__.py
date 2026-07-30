@@ -6,6 +6,7 @@ multiscale head, selectable per task run; the interface stays open for more.
 """
 
 from visbench.heads.base import BaseHead, build_head, get_head, list_heads, register_head
+from visbench.heads.detection import DetectionHead
 from visbench.heads.dpt import DPTHead
 from visbench.heads.linear import LinearHead
 
@@ -13,6 +14,7 @@ __all__ = [
     "BaseHead",
     "LinearHead",
     "DPTHead",
+    "DetectionHead",
     "register_head",
     "get_head",
     "build_head",

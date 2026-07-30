@@ -23,8 +23,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, NamedTuple
 
-from visbench.data import DenseFolderDataset, ImageFolderDataset
+from visbench.data import DenseFolderDataset, DetectionFolderDataset, ImageFolderDataset
 from visbench.data.dense import load_label_map, load_mask, load_normal_map
+from visbench.data.detection import VOC_CLASSES
 from visbench.data.pair_dataset import HomographyPairDataset
 from visbench.data.triplet import TwoAFCDataset
 
@@ -297,6 +298,121 @@ def _semantic_splits(args: argparse.Namespace) -> Splits:
     return _dense_splits(args, functools.partial(load_label_map, ignore_index=ignore))
 
 
+def _detection_flags(parser: argparse.ArgumentParser) -> None:
+    _split_flags(parser, evaluate="val", train="train")
+    parser.add_argument("--image-dir", default="JPEGImages", help="image folder (VOC's name)")
+    parser.add_argument(
+        "--annotation-dir", default="Annotations", help="box XML folder (VOC's name)"
+    )
+    parser.add_argument(
+        "--image-size",
+        type=int,
+        default=224,
+        help="working resolution; must be a multiple of the backbone's patch size. Passed to "
+        "the dataset AND the probe from this one flag, because box targets are absolute "
+        "pixels and two different values would silently misplace every cell",
+    )
+    parser.add_argument(
+        "--stems",
+        type=Path,
+        default=None,
+        help="file listing the scored split's stems (e.g. VOC's ImageSets/Main/val.txt). "
+        "Makes --data the dataset root directly",
+    )
+    parser.add_argument(
+        "--train-stems",
+        type=Path,
+        default=None,
+        help="the same for the training split; required alongside --stems",
+    )
+    parser.add_argument("--head", default="detection", help="see `visbench list heads`")
+    parser.add_argument(
+        "--hidden-dim",
+        type=int,
+        default=0,
+        help="width of an optional 3x3 stem; 0 (default) keeps the head linear, which is "
+        "what makes a difference between backbones a difference between representations",
+    )
+    parser.add_argument("--epochs", type=int, default=10)
+    parser.add_argument("--lr", type=float, default=5e-4)
+    parser.add_argument("--train-batch-size", type=int, default=8)
+    parser.add_argument(
+        "--min-box-size",
+        type=float,
+        default=1.0,
+        help="drop boxes smaller than this after the centre crop",
+    )
+    parser.add_argument("--score-threshold", type=float, default=0.05)
+    parser.add_argument("--nms-iou", type=float, default=0.5)
+    parser.add_argument("--max-detections", type=int, default=100)
+
+
+def _detection_splits(args: argparse.Namespace) -> Splits:
+    """Both halves of a detection run.
+
+    **The two splits differ in one setting, and it is not a slip.** The scored
+    split keeps ``difficult`` objects because VOC's protocol *ignores* a
+    detection that matches one rather than counting it wrong — worth 4.3 mAP on
+    VOC val (step 6c-2). The training split drops them, because an object the
+    annotators judged unreasonable to require is not supervision anyone wants.
+    ``DetectionTask`` drops them from assignment as well, so this is belt and
+    braces rather than the only guard.
+    """
+    if (args.stems is None) != (args.train_stems is None):
+        raise ValueError(
+            "Pass --stems and --train-stems together, or neither. One split named by a "
+            "file and the other by a directory would silently mix two layouts."
+        )
+
+    def load(split: str, listing: Path | None, include_difficult: bool) -> DetectionFolderDataset:
+        stems = None
+        if listing is not None:
+            if not listing.is_file():
+                raise FileNotFoundError(f"No split list at {listing}")
+            stems = listing.read_text().split()
+            if args.limit is not None:
+                stems = stems[: args.limit]
+        dataset = DetectionFolderDataset(
+            args.data if listing is not None else args.data / split,
+            image_dir=args.image_dir,
+            annotation_dir=args.annotation_dir,
+            split=split,
+            stems=stems,
+            image_size=args.image_size,
+            include_difficult=include_difficult,
+            min_box_size=args.min_box_size,
+        )
+        if listing is not None or args.limit is None:
+            return dataset
+        # subset() reindexes the three parallel lists together; slicing one by
+        # hand would pair an image with another image's boxes.
+        return dataset.subset(args.limit)
+
+    return Splits(
+        evaluate=load(args.split, args.stems, include_difficult=True),
+        train=load(args.train_split, args.train_stems, include_difficult=False),
+    )
+
+
+def _detection_kwargs(args: argparse.Namespace) -> dict:
+    return {
+        # From the dataset's class list rather than a flag: the loader's classes
+        # and the head's width are the same fact, and a flag would let them
+        # disagree without raising.
+        "num_classes": len(VOC_CLASSES),
+        "image_size": args.image_size,
+        "head": args.head,
+        "hidden_dim": args.hidden_dim,
+        "epochs": args.epochs,
+        "lr": args.lr,
+        "batch_size": args.train_batch_size,
+        "score_threshold": args.score_threshold,
+        "nms_iou": args.nms_iou,
+        "max_detections": args.max_detections,
+        "device": args.device,
+    }
+
+
 # -- mid level ---------------------------------------------------------------
 
 
@@ -444,6 +560,13 @@ SPECS: dict[str, ProbeSpec] = {
             **_dense_probe_kwargs(args),
             "num_classes": args.num_classes,
         },
+    ),
+    "detection": ProbeSpec(
+        summary="anchor-free single-scale box probe, scored mAP@50 the VOC way",
+        layout="<data>/<split>/{JPEGImages,Annotations}/  (or --stems on a VOC root)",
+        add_arguments=_detection_flags,
+        build=_detection_splits,
+        probe_kwargs=_detection_kwargs,
     ),
     "depth": ProbeSpec(
         summary="probe3d's 256-bin depth protocol",

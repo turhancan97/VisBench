@@ -128,6 +128,7 @@ _REGISTRATION_MODULES: dict[str, str | None] = {
     "visbench.tasks.high_level.classification": None,
     "visbench.tasks.high_level.retrieval": None,
     "visbench.tasks.high_level.semantic_segmentation": None,
+    "visbench.tasks.high_level.detection": None,
     "visbench.tasks.mid_level.correspondence": None,
     "visbench.tasks.mid_level.depth": None,
     "visbench.tasks.mid_level.surface_normal": None,
