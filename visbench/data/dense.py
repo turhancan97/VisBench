@@ -36,6 +36,7 @@ __all__ = [
     "load_normal_map",
     "load_mask",
     "load_label_map",
+    "load_edge_map",
 ]
 
 #: Target file suffixes understood without a custom ``target_loader``.
@@ -233,6 +234,73 @@ def load_label_map(path: Path, ignore_index: int | None = 255) -> torch.Tensor:
     return labels
 
 
+def load_edge_map(path: Path, scale: float = 65535.0) -> torch.Tensor:
+    """Read an edge-magnitude map as a ``(H, W)`` float32 tensor.
+
+    ``.npy`` is taken at face value. An image file is read **without any mode
+    conversion** and divided by ``scale``.
+
+    Two things here are the opposite of :func:`load_depth_map`, and both are
+    silent when got wrong.
+
+    **The file is 16-bit, and converting it would quantise it.** Taskonomy's
+    ``edge_texture`` maps are mode ``I;16``, whose raw values run to about
+    10,500. ``convert("L")`` would rescale that into 0-255, throwing away six
+    bits of edge magnitude; the probe would then train and score against a
+    coarsened target with nothing raising. This is the same failure
+    :func:`load_label_map` guards against for palette files, in a different
+    container — the general rule being that a target's storage mode is part of
+    its meaning, so the read must not normalise it away.
+
+    **Zero is a real value: it means "no edge here".** Depth and normals treat
+    0 and zero-length as "no ground truth", and a metric that reused that
+    convention here would discard every flat, textureless region — which is
+    most of most frames — and score the probe only where it already knows an
+    edge exists. Edge magnitude is a *measurement everywhere*, so there is no
+    validity mask and nothing is excluded. For the same reason, **do not pass
+    ``max_target``** to :class:`DenseFolderDataset` for an edge map: it marks
+    values invalid, and against this target it would delete exactly the
+    strongest edges.
+
+    Parameters
+    ----------
+    scale:
+        Divisor applied to integer files. Defaults to **65535**, the full range
+        of the uint16 container, which is the meaningful choice for a bare call:
+        it says "normalise this container" and nothing about any one dataset.
+
+        :class:`~visbench.data.taskonomy.TaskonomyDataset` deliberately passes
+        **1000** instead, and its docstring carries the measurement. In short:
+        real maps reach only about 0.16 of the container, so at 65535 a frame's
+        mean edge magnitude is 0.011 — and the probe's L1 loss has a sign-valued
+        gradient whose step size does not shrink to match, so it oscillates
+        rather than converging. Ignored for ``.npy``.
+    """
+    if path.suffix.lower() == ".npy":
+        array = np.load(path)
+    else:
+        with Image.open(path) as handle:
+            if handle.mode == "RGB":
+                raise ValueError(
+                    f"{path.name} is an RGB image; an edge-magnitude map is single-channel. "
+                    "Pass target_loader= for a layout this does not cover."
+                )
+            # No convert(): mode I;16 reads straight to uint16 here, which is
+            # the magnitude the file stores. See the docstring.
+            array = np.array(handle)
+
+    if array.ndim != 2:
+        raise ValueError(
+            f"{path.name} holds a {array.ndim}D array {array.shape}; an edge map is 2D. "
+            "Pass target_loader= for a layout this does not cover."
+        )
+
+    edges = torch.from_numpy(array.astype(np.float32))
+    if scale != 1.0:
+        edges = edges / scale
+    return edges
+
+
 class DenseFolderDataset(BaseDataset):
     """Images and their per-pixel targets, in two parallel folders.
 
@@ -292,9 +360,15 @@ class DenseFolderDataset(BaseDataset):
             from either folder raises, so a truncated split file cannot quietly
             shrink the run. Left ``None``, every stem must appear in both.
         """
-        self.root = Path(root)
-        if not self.root.is_dir():
-            raise NotADirectoryError(f"Dataset root does not exist: {self.root}")
+        self._init_geometry(
+            root=root,
+            split=split,
+            image_size=image_size,
+            target_scale=target_scale,
+            max_target=max_target,
+            target_loader=target_loader,
+        )
+        self.extensions = tuple(ext.lower() for ext in extensions)
 
         image_root = self.root / image_dir
         target_root = self.root / target_dir
@@ -303,19 +377,6 @@ class DenseFolderDataset(BaseDataset):
                 raise NotADirectoryError(
                     f"{label}={directory.name!r} is not a directory under {self.root}"
                 )
-
-        if image_size < 1:
-            raise ValueError(f"image_size must be >= 1, got {image_size}")
-        if max_target is not None and max_target <= 0:
-            raise ValueError(f"max_target must be positive, got {max_target}")
-
-        self.name = self.root.name
-        self.split = split
-        self.image_size = image_size
-        self.target_scale = target_scale
-        self.max_target = max_target
-        self.extensions = tuple(ext.lower() for ext in extensions)
-        self._target_loader = target_loader
 
         images = {path.stem: path for path in list_files(image_root, self.extensions)}
         targets = {path.stem: path for path in list_files(target_root, _TARGET_SUFFIXES)}
@@ -351,6 +412,43 @@ class DenseFolderDataset(BaseDataset):
         self.stems = selected
         self.image_paths = [images[stem] for stem in self.stems]
         self.target_paths = [targets[stem] for stem in self.stems]
+
+    def _init_geometry(
+        self,
+        root: str | Path,
+        split: str,
+        image_size: int,
+        target_scale: float,
+        max_target: float | None,
+        target_loader: Callable[[Path], torch.Tensor] | None,
+    ) -> None:
+        """Validate and store everything :meth:`target` and :meth:`_crop_image` read.
+
+        Split out of ``__init__`` so that a subclass indexing a *different*
+        folder layout — :class:`~visbench.data.taskonomy.TaskonomyDataset`, whose
+        files are nested per building and whose two domains do not share a
+        filename — reuses this geometry rather than reimplementing it.
+
+        That reuse is the point. Step 6c-1 kept
+        :class:`~visbench.data.detection.DetectionFolderDataset`'s crop
+        byte-identical to this one and asserted it in a test, because a target
+        and its image drifting apart is silent. Sharing the code is the stronger
+        version of the same guarantee: there is no second copy to drift.
+        """
+        self.root = Path(root)
+        if not self.root.is_dir():
+            raise NotADirectoryError(f"Dataset root does not exist: {self.root}")
+        if image_size < 1:
+            raise ValueError(f"image_size must be >= 1, got {image_size}")
+        if max_target is not None and max_target <= 0:
+            raise ValueError(f"max_target must be positive, got {max_target}")
+
+        self.name = self.root.name
+        self.split = split
+        self.image_size = image_size
+        self.target_scale = target_scale
+        self.max_target = max_target
+        self._target_loader = target_loader
 
     # -- reading -------------------------------------------------------------
 

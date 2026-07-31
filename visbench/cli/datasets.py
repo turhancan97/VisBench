@@ -23,7 +23,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, NamedTuple
 
-from visbench.data import DenseFolderDataset, DetectionFolderDataset, ImageFolderDataset
+from visbench.data import (
+    DenseFolderDataset,
+    DetectionFolderDataset,
+    ImageFolderDataset,
+    TaskonomyDataset,
+)
 from visbench.data.dense import load_label_map, load_mask, load_normal_map
 from visbench.data.detection import VOC_CLASSES
 from visbench.data.pair_dataset import HomographyPairDataset
@@ -74,26 +79,18 @@ def _split_flags(parser: argparse.ArgumentParser, evaluate: str, train: str | No
 
 
 def _dense_flags(parser: argparse.ArgumentParser, target_dir: str) -> None:
-    """The geometry, head and schedule flags every dense probe shares."""
+    """The folder-layout flags plus everything in :func:`_head_schedule_flags`.
+
+    Split in two when the edge probe arrived (step 6d-1): Taskonomy is indexed
+    from a split list rather than from two named folders, so it wants the head
+    and schedule half without ``--image-dir``, ``--target-dir`` or ``--stems``,
+    which would appear in its ``--help`` promising something they cannot do.
+    """
     parser.add_argument("--image-dir", default="images", help="image folder inside a split")
     parser.add_argument(
         "--target-dir",
         default=target_dir,
         help=f"target folder inside a split (default: {target_dir})",
-    )
-    parser.add_argument(
-        "--image-size",
-        type=int,
-        default=224,
-        help="working resolution; must be a multiple of the backbone's patch size",
-    )
-    parser.add_argument("--head", default="linear", help="linear | dpt; see `visbench list heads`")
-    parser.add_argument(
-        "--layers",
-        type=int,
-        nargs="+",
-        default=None,
-        help="backbone depths to read, e.g. --layers 2 5 8 11; dpt needs several",
     )
     # A real benchmark names its splits in a file, not by foldering its images:
     # VOC ships 17k images beside 2.9k segmentation labels and lists split
@@ -112,6 +109,28 @@ def _dense_flags(parser: argparse.ArgumentParser, target_dir: str) -> None:
         type=Path,
         default=None,
         help="the same for the training split; required alongside --stems",
+    )
+    _head_schedule_flags(parser)
+
+
+def _head_schedule_flags(parser: argparse.ArgumentParser) -> None:
+    """Working resolution, head choice, and the training schedule.
+
+    Shared by every trained dense probe regardless of how its data is indexed.
+    """
+    parser.add_argument(
+        "--image-size",
+        type=int,
+        default=224,
+        help="working resolution; must be a multiple of the backbone's patch size",
+    )
+    parser.add_argument("--head", default="linear", help="linear | dpt; see `visbench list heads`")
+    parser.add_argument(
+        "--layers",
+        type=int,
+        nargs="+",
+        default=None,
+        help="backbone depths to read, e.g. --layers 2 5 8 11; dpt needs several",
     )
     parser.add_argument("--hidden-dim", type=int, default=512, help="DPT width")
     parser.add_argument("--epochs", type=int, default=10)
@@ -465,6 +484,47 @@ def _generic_seg_splits(args: argparse.Namespace) -> Splits:
     return _dense_splits(args, functools.partial(load_mask, ignore_index=ignore))
 
 
+def _edge_flags(parser: argparse.ArgumentParser) -> None:
+    """Taskonomy is indexed from its own split lists, so no folder flags here."""
+    _split_flags(parser, evaluate="val", train="train")
+    _head_schedule_flags(parser)
+    parser.add_argument(
+        "--partition",
+        default="tiny",
+        help="Taskonomy download size naming the split files, splits/<partition>_<split>.csv "
+        "(tiny, medium, fullplus). Part of what the number means, so it is recorded",
+    )
+    parser.add_argument(
+        "--domain",
+        default="edge_texture",
+        help="target domain directory (default: edge_texture). Domains derived from the 3D "
+        "reconstruction are refused: their invalid regions live in mask_valid/, which is "
+        "not read yet",
+    )
+
+
+def _edge_splits(args: argparse.Namespace) -> Splits:
+    """Both halves, from the official building-disjoint split lists.
+
+    ``--limit`` reaches the constructor as ``max_images`` rather than becoming a
+    ``subset()`` afterwards. The tiny train list is 272,296 rows, so building
+    every path only to discard all but a few hundred is pure waste — and unlike
+    a labelled image folder, a prefix here is not one class, because the rows
+    are already interleaved across buildings.
+    """
+    common = {
+        "root": args.data,
+        "domain": args.domain,
+        "partition": args.partition,
+        "image_size": args.image_size,
+        "max_images": args.limit,
+    }
+    return Splits(
+        evaluate=TaskonomyDataset(split=args.split, **common),
+        train=TaskonomyDataset(split=args.train_split, **common),
+    )
+
+
 def _correspondence_flags(parser: argparse.ArgumentParser) -> None:
     _split_flags(parser, evaluate="", train=None)
     parser.add_argument("--max-warp", type=float, default=0.2, help="corner shift, 0-0.5")
@@ -595,6 +655,13 @@ SPECS: dict[str, ProbeSpec] = {
         layout=_DENSE_LAYOUT % "masks",
         add_arguments=_generic_seg_flags,
         build=_generic_seg_splits,
+        probe_kwargs=_dense_probe_kwargs,
+    ),
+    "edge": ProbeSpec(
+        summary="dense edge-magnitude regression; quote edge_correlation",
+        layout="<data>/rgb/<building>/*.png, <data>/edge_texture/..., <data>/splits/*.csv",
+        add_arguments=_edge_flags,
+        build=_edge_splits,
         probe_kwargs=_dense_probe_kwargs,
     ),
     "correspondence": ProbeSpec(

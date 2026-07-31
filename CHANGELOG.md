@@ -9,6 +9,62 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+### Added
+
+- **Edge detection — the first low-level task** (step 6d-1), filling a folder
+  that had been a documented placeholder since v0.1. `EdgeTask` is a dense
+  edge-magnitude regression over frozen features: one channel, identity
+  activation, L1 loss, scored by per-image Pearson correlation. Registered as
+  `edge`, reachable as `visbench run edge`, with `examples/edges.py`.
+
+  Also new: `visbench.data.taskonomy` (`TaskonomyDataset`, `load_taskonomy_split`,
+  `TASKONOMY_DOMAINS`), `visbench.data.dense.load_edge_map`, and
+  `visbench.metrics.dense.edge_metrics`.
+
+  Measured on Taskonomy `edge_texture`, 600 train / 600 val frames at 224px,
+  linear head, ten epochs, one V100:
+
+  | backbone | `edge_correlation` | `rmse` | `mae` | `train_loss` |
+  | --- | --- | --- | --- | --- |
+  | DINOv2-S/14 | **0.4558** | 0.9226 | 0.5028 | 0.5721 |
+  | DINOv2-B/14 | 0.4481 | 0.9265 | 0.4972 | 0.5631 |
+
+  DINOv2-S edges out DINOv2-B by 0.008 — the same ordering as mid-level
+  similarity, the opposite of segmentation and detection. Small enough to report
+  as consistent with the level taxonomy, not as evidence for it.
+
+  Four decisions worth keeping:
+
+  - **`protocol: "visbench_edge_regression"` — not BSDS500's.** BSDS is the
+    canonical edge benchmark, but ODS/OIS/AP matches edge pixels by bipartite
+    correspondence after non-maximum suppression, swept over thresholds, against
+    several annotators. These numbers must not share a table with published BSDS
+    ones. BSDS500 is also not on the build machine, whereas Taskonomy is.
+  - **Nothing is masked.** Depth's holes and normals' zero-length vectors mean
+    "no ground truth"; an edge map's 0 means *no edge*, a real reading covering
+    most of most frames. Reusing the earlier convention would have scored the
+    probe only where an edge already is.
+  - **The activation is the identity, and rectifying destroys the probe.** On
+    features that encode the answer, ReLU scores 0.0000 (dead, zero prediction
+    variance) and softplus -0.9851 (collapsed to a constant) against 0.9997 for
+    the identity. Non-negativity is learned from the targets rather than imposed.
+  - **`target_scale` defaults to 1000, not the container's 65535.** L1's
+    gradient is sign-valued, so its step size does not shrink with the target;
+    at 65535 a frame's mean is 0.011 and the optimiser oscillates rather than
+    converging. Correlation goes 0.047 → 0.285 → 0.456 → 0.467 as the scale
+    goes 65535 → 6553.5 → 1000 → 100, so 1000 sits at the knee. Scaling the
+    target rather than raising the learning rate keeps this number under the
+    same training budget as every other dense probe.
+
+### Fixed
+
+- **`TaskonomyDataset(target_scale=...)` had no effect** in its first form:
+  `DenseFolderDataset.target()` applies `target_scale` only on its default depth
+  path, so a custom `target_loader` silently dropped it — while `describe()`
+  still reported the value and the fingerprint still folded it in. Caught by a
+  scale sweep that returned four identical numbers, and now bound into the
+  loader with a test asserting the target actually changes.
+
 ### Changed
 
 - **Folder datasets list directories with `os.scandir` instead of `iterdir()` +
