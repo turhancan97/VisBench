@@ -9,7 +9,34 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed
+
+- **Folder datasets list directories with `os.scandir` instead of `iterdir()` +
+  `Path.is_file()`**, which on a network filesystem is the difference between
+  **0.05 s and 5.69 s** over a cold 2,913-file directory. `Path.is_file()`
+  cannot reuse what `readdir` already returned, so it costs one stat round trip
+  per entry; `scandir` reads the file type the listing carried anyway.
+
+  On VOC over NFSv4.2, first call in a fresh process: indexing the 17,125-file
+  `Annotations` went from **76 s to 0.16 s**, and building a 600-stem
+  `DetectionFolderDataset` from **5.86 s to 0.32 s**.
+
+  The pattern was in all three folder datasets — `DetectionFolderDataset`,
+  `DenseFolderDataset` and `ImageFolderDataset` — so VOC segmentation and
+  Imagenette paid it too. All three now share `visbench.data.base.list_files`.
+
+  **Timing only.** The same paths come back in the same sorted order, with
+  directories and broken symlinks excluded and real symlinks followed;
+  `tests/data/test_list_files.py` pins that, including an equality test against
+  the expression it replaced.
+
+  Worth recording *why this was not found sooner*: the cost is paid before
+  `run()` starts its timer, so a result record reported `duration_seconds: 124`
+  inside a wall clock of roughly twenty minutes. Step 6c-3 noted the symptom,
+  named the right mechanism and predicted the wrong fix — resolving only the
+  named stems, which would have changed a merged constructor and bought less.
+  Profiling before optimising is what kept the cheaper fix in view, the same way
+  it did in 6b.
 
 ## [0.3.0] — 2026-07-31
 

@@ -27,7 +27,7 @@ import numpy as np
 import torch
 from PIL import Image
 
-from visbench.data.base import BaseDataset
+from visbench.data.base import BaseDataset, list_files
 from visbench.utils.image import load_image
 
 __all__ = [
@@ -317,16 +317,8 @@ class DenseFolderDataset(BaseDataset):
         self.extensions = tuple(ext.lower() for ext in extensions)
         self._target_loader = target_loader
 
-        images = {
-            path.stem: path
-            for path in sorted(image_root.iterdir())
-            if path.is_file() and path.suffix.lower() in self.extensions
-        }
-        targets = {
-            path.stem: path
-            for path in sorted(target_root.iterdir())
-            if path.is_file() and path.suffix.lower() in _TARGET_SUFFIXES
-        }
+        images = {path.stem: path for path in list_files(image_root, self.extensions)}
+        targets = {path.stem: path for path in list_files(target_root, _TARGET_SUFFIXES)}
         if not images:
             raise ValueError(f"No images with extensions {self.extensions} under {image_root}")
 

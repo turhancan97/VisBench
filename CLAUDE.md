@@ -1080,20 +1080,48 @@ Decisions settled while building it, so they are not re-opened:
   inherit it. A test asserts `finetune()` is `None`, so the probe cannot claim a
   record it never produced.
 
-**Observed while proving it, and worth fixing before 6c runs at full scale:
-`DetectionFolderDataset` construction is slow on a network mount, and it is not
-the images.** `_index_directory` maps *every* stem in `JPEGImages` and
-`Annotations` to a path, `is_file()`-ing each — about 34,000 stat calls per
-split over VOC's 17,125 files, whether or not `stems=` names 600 of them. Warm
-page cache, one split: **10.4 s**. The cold run on
-`/shared/sets/datasets/pascal_voc_2021` took roughly twenty minutes of wall
-clock while the result record's `duration_seconds` said **124 s** — everything
-before `run()` starts timing. The mechanism above is the obvious explanation and
-matches the warm measurement, but it has been observed **once cold** on a shared
-machine, so treat it as a lead rather than a finding (see the wall-clock rule
-6a paid for). The fix, when someone measures it properly: when `stems=` is
-given, resolve only those stems instead of indexing the whole directory. That
-changes 6c-1's already-merged constructor, so it is not part of 6c-3.
+**Observed while proving it: `DetectionFolderDataset` construction was slow on
+a network mount, and it was not the images.** Measured and fixed afterwards —
+see the next section. 6c-3's guess at the cause was right and its guess at the
+*fix* was wrong, which is why it was recorded as a lead rather than acted on.
+
+### Step 6d-0 — the dataset listing, measured then fixed
+
+**`Path.is_file()` was the whole cost, and the fix is `os.scandir`.** Not the
+constructor change 6c-3 predicted. `Path.is_file()` cannot reuse what `readdir`
+already returned, so it is one stat round trip per entry; `scandir` answers the
+same question from the file type the listing carried anyway.
+
+Measured over NFSv4.2, one strategy per fresh process on cold directories:
+
+| listing | 2,913 files, cold |
+| --- | --- |
+| `iterdir()` + `Path.is_file()` | **5.69 s** |
+| `os.scandir()` + `entry.is_file()` | **0.05 s** |
+
+And on VOC itself, first call in a fresh process: `_index_directory` over the
+17,125-file `Annotations` went from **76 s** to **0.16 s**; the whole 600-stem
+constructor from 5.86 s to 0.32 s, or 0.53 s to 0.22 s once warm.
+
+- **The cost is invisible to every result record.** It is paid before `run()`
+  starts timing, which is why a `duration_seconds` of 124 s sat inside a
+  twenty-minute wall clock and nobody looked. When something feels slow and the
+  record disagrees, the gap is *outside* the timer.
+- **One helper, `visbench.data.base.list_files`, and three call sites.** The
+  same `iterdir` + `is_file` pattern was in `DetectionFolderDataset`,
+  `DenseFolderDataset` and `ImageFolderDataset` — i.e. in every folder dataset
+  the library has, so VOC segmentation and Imagenette paid it too, not just
+  detection.
+- **6c-1's constructor is unchanged, and deliberately so.** Resolving only the
+  named stems would have worked, but it costs an API change and a rule that a
+  stem implies its extension — and once the stat is gone, indexing all 17,125
+  entries costs 0.16 s. Measuring first is what kept the cheaper fix in view.
+  This is the second time in v0.3 that profiling overturned the obvious
+  optimisation; see 6b's closing note for the first.
+- **This changes timing only.** `list_files` returns the same paths in the same
+  sorted order, with directories and broken symlinks still excluded and a real
+  symlink still followed — pinned by `tests/data/test_list_files.py`, including
+  a test asserting equality with the `iterdir` expression it replaced.
 
 **Two tests carry the correctness claim, both fast.** `_decode` applied to a
 hand-built perfect head output must reproduce the exact box — 6c-2's oracle

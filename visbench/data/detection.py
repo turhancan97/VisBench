@@ -39,7 +39,7 @@ from typing import Any
 import torch
 from PIL import Image
 
-from visbench.data.base import BaseDataset
+from visbench.data.base import BaseDataset, list_files
 from visbench.utils.image import load_image
 
 __all__ = [
@@ -308,11 +308,14 @@ class DetectionFolderDataset(BaseDataset):
 
         Two files sharing a stem (``2007_000027.jpg`` and ``2007_000027.png``)
         would make the pairing depend on iteration order, which is silent.
+
+        The whole directory is indexed even when ``stems=`` names a fraction of
+        it, because a stem does not say its extension. That is affordable only
+        because :func:`~visbench.data.base.list_files` avoids a stat per entry —
+        see its docstring for what the stat version cost on VOC over NFS.
         """
         index: dict[str, Path] = {}
-        for path in sorted(directory.iterdir()):
-            if not path.is_file():
-                continue
+        for path in list_files(directory):
             if path.stem in index:
                 raise ValueError(
                     f"{directory} holds two files with stem {path.stem!r} "
