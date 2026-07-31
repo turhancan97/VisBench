@@ -9,6 +9,36 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.4.0] — 2026-07-31
+
+**The third level.** VisBench's task taxonomy has had three tiers since v0.1 —
+high-level, mid-level, low-level — and `visbench/tasks/low_level/` has been a
+folder containing a README explaining why it was empty. This release fills it.
+
+Edge detection is dense edge-magnitude regression on Taskonomy's `edge_texture`
+maps: the tenth probe, and the first whose target has **no invalid value at
+all**. Depth's holes and normals' zero-length vectors mean "no ground truth";
+an edge map's zeros mean *no edge*, which is a real reading covering most of a
+frame. That is the third validity convention in the codebase, and inheriting
+the nearest one would have scored the probe only where an edge already is.
+
+Two of the decisions behind it were reached by measurement overturning the
+obvious answer, which is the more useful thing to carry forward than the score.
+Rectifying the output looks plainly correct — an edge magnitude cannot be
+negative — and destroys the probe: ReLU dies outright and softplus collapses to
+a constant, against 0.9997 for the identity. And the probe's first real run
+scored 0.047, which `train_loss` identified as non-convergence rather than a
+representation without edges; the cause was L1's sign-valued gradient not
+shrinking to match a target whose mean is 0.011 of its container's range.
+
+Also here: dataset construction got **up to 475x faster** — indexing VOC's
+17,125-file `Annotations` fell from 76 s to 0.16 s — by asking `os.scandir` for
+what `readdir` already returned instead of paying `Path.is_file()` a stat round
+trip per entry. No result record ever showed that cost, because it is paid
+before `run()` starts its timer.
+
 ### Added
 
 - **Edge detection — the first low-level task** (step 6d-1), filling a folder
@@ -1262,7 +1292,8 @@ API philosophy.
 [#2]: https://github.com/turhancan97/VisBench/issues/2
 [#4]: https://github.com/turhancan97/VisBench/issues/4
 [#3]: https://github.com/turhancan97/VisBench/issues/3
-[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/turhancan97/VisBench/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/turhancan97/VisBench/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/turhancan97/VisBench/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/turhancan97/VisBench/releases/tag/v0.1.0

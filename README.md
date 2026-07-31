@@ -18,16 +18,13 @@
 
 ---
 
-> **Status: v0.3.0, on PyPI.** Three backbone families (DINOv2, CLIP, timm
+> **Status: v0.4.0, on PyPI.** Three backbone families (DINOv2, CLIP, timm
 > CNNs) and ten tasks run end-to-end across all three levels — high, mid and
 > now low — including five trained dense probes and an anchor-free detection
-> probe, from Python or from the `visbench` command line. v0.3 adds opt-in
-> fine-tuning of the last N blocks — a *different measurement* from a frozen
-> probe, kept apart in the record rather than averaged with it. See
-> [Build order](#build-order).
->
-> The tenth task, edge detection, landed after the v0.3.0 upload, so it is on
-> `main` but not yet in the published wheel — install from source for that one.
+> probe, from Python or from the `visbench` command line. v0.4 fills the
+> low-level tier with edge detection; v0.3 added opt-in fine-tuning of the last
+> N blocks — a *different measurement* from a frozen probe, kept apart in the
+> record rather than averaged with it. See [Build order](#build-order).
 
 ## What it is
 
