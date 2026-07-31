@@ -25,6 +25,9 @@
 > fine-tuning of the last N blocks — a *different measurement* from a frozen
 > probe, kept apart in the record rather than averaged with it. See
 > [Build order](#build-order).
+>
+> The tenth task, edge detection, landed after the v0.3.0 upload, so it is on
+> `main` but not yet in the published wheel — install from source for that one.
 
 ## What it is
 
