@@ -48,7 +48,9 @@ step is next rather than attempting the whole roadmap in one session.
 | 6c-1 | Detection: the box dataset and VOC loader | done |
 | 6c-2 | Detection: `average_precision`, mAP@50, mAP@50:95 | done |
 | 6c-3 | Detection: the head, against a metric already trusted | done |
-| **6d+** | **Low-level tasks if there is bandwidth** | **next** |
+| 6d-0 | Dataset listing: `scandir`, not a stat per file | done |
+| 6d-1 | Edge detection — the first low-level task, on Taskonomy | done |
+| **6d-2+** | **More low-level tasks, or HF Hub + leaderboard** | **next** |
 
 ---
 
@@ -68,8 +70,15 @@ with the mIoU unchanged to four decimals. 6c added the box dataset, the VOC
 metric and an anchor-free single-scale detection probe, in that order. **The
 schema is still v6 — detection needed no bump**, because `task_params` and
 `dataset_params` are both open dicts and the protocol, the decoding settings and
-`include_difficult` all land in them. The next build step is **6d+**, which is
-low-level tasks if there is bandwidth.
+`include_difficult` all land in them.
+
+**6d-1 added the first low-level task**, so all three levels of the taxonomy now
+have entries and `visbench/tasks/low_level/` is no longer a placeholder. Edge
+detection is dense magnitude regression on Taskonomy's `edge_texture`, scored by
+per-image Pearson correlation and recorded as `visbench_edge_regression` — not
+BSDS500's, which is a correspondence metric and a step of its own. **Still
+schema v6**: a tenth probe needed no new field. The next step is **6d-2+** —
+another low-level task, or the HF Hub / leaderboard work.
 
 Registered names — `visbench.list_backbones()`, `list_probes()`,
 `visbench.heads.list_heads()`:
@@ -78,11 +87,12 @@ Registered names — `visbench.list_backbones()`, `list_probes()`,
 backbones  dinov2_vits14, dinov2_vitb14, clip_vitb16, clip_vitb32,
            resnet18, resnet50            (+ CustomBackbone, unregistered)
 probes     classification, retrieval, correspondence, depth, surface_normal,
-           generic_segmentation, semantic_segmentation, similarity, detection
+           generic_segmentation, semantic_segmentation, similarity, detection,
+           edge
 heads      linear, dpt, detection
 ```
 
-The CLI exposes all nine probes: `visbench list`, `visbench run <probe>`,
+The CLI exposes all ten probes: `visbench list`, `visbench run <probe>`,
 `visbench cache stats|clear`. A test asserts the CLI's table and
 `list_probes()` are the same set, so a probe cannot ship unreachable from a
 shell by accident.
@@ -123,10 +133,16 @@ visbench/
                  (PairDataset, HomographyPairDataset, PairViewDataset),
                  triplet.py (TwoAFCDataset — NIGHTS-style 2AFC), dense.py
                  (DenseFolderDataset + stems= for official splits,
-                  load_depth_map, load_normal_map, load_mask, load_label_map)
+                  _init_geometry() — the crop, shared with taskonomy.py,
+                  load_depth_map, load_normal_map, load_mask, load_label_map,
+                  load_edge_map)
+                 taskonomy.py (TaskonomyDataset — building-nested, indexed from
+                   splits/*.csv; subclasses DenseFolderDataset for geometry only)
+                 base.py (BaseDataset, list_files — scandir, never a stat/entry)
   heads/         base.py (register_head/build_head), linear.py, dpt.py,
                  detection.py (DetectionHead — cls + box branches, focal prior)
   metrics/       classification, retrieval, correspondence, similarity, dense.py
+                 (+ edge_metrics — per-image Pearson, no validity mask)
                  detection.py (box_iou, average_precision, detection_metrics —
                    VOC protocol, dataset-level, difficult ignored not dropped)
   tasks/         base.py (BaseTask)
@@ -137,10 +153,11 @@ visbench/
                               detection (anchor-free, single-scale, 6c-3)
                  mid_level/   correspondence, depth, surface_normal,
                               generic_segmentation, similarity
+                 low_level/   edge (EdgeTask — 6d-1; no longer a placeholder)
   results/       schema.py (ResultRecord, SCHEMA_VERSION), writer.py
   runner.py      visbench.run() — the one call the CLI wraps
 examples/        classify, retrieve, correspond, depth, normals, segment,
-                 segment_semantic, similarity, detect
+                 segment_semantic, similarity, detect, edges
 ```
 
 ### The CLI — add a probe by adding a row
@@ -215,6 +232,10 @@ designed up front; extend it the same way, from a case that already runs.
   probe to answer foreground everywhere. `SemanticSegmentationTask` inherits
   this: `IGNORE_INDEX = -1`, and it is what `cross_entropy(ignore_index=)` and
   the confusion matrix both mask on, so loss and metric drop the same pixels.
+  **Edge maps are the third case and have no invalid value at all** (6d-1): 0
+  means "no edge", a real reading covering most of a frame, so `edge_metrics`
+  masks nothing. Three targets, three conventions — check which one a new dense
+  task needs rather than inheriting the nearest.
 - **A label map must be read without mode conversion, and this is silent when
   wrong.** VOC's `SegmentationClass` PNGs are palette images (mode `P`) whose
   raw bytes *are* the class indices; `convert("L")` resolves the palette and
@@ -235,11 +256,14 @@ designed up front; extend it the same way, from a case that already runs.
   no weighted mean of per-batch ratios equals the ratio of the sums. Do not
   collapse them to one number.
 - **Not every dense task gets to borrow probe3d.** It has no binary or semantic
-  segmentation task, so `GenericSegmentationTask` and `SemanticSegmentationTask`
-  keep only its *optimiser* schedule and record `protocol:
-  "visbench_binary_seg"` / `"visbench_semantic_seg"`. Do not let a record
-  claim `"probe3d"` for a loss and metric that paper never defined; the whole
-  value of the field is that it says what a number is comparable to.
+  segmentation task, and no edge task, so `GenericSegmentationTask`,
+  `SemanticSegmentationTask` and `EdgeTask` keep only its *optimiser* schedule
+  and record `protocol: "visbench_binary_seg"` / `"visbench_semantic_seg"` /
+  `"visbench_edge_regression"`. Do not let a record claim `"probe3d"` for a loss
+  and metric that paper never defined; the whole value of the field is that it
+  says what a number is comparable to. The same applies to *other* papers'
+  protocols: the edge probe must not claim BSDS500's, which is a correspondence
+  metric it does not implement.
 - **The ten-epoch schedule assumes NYUv2-sized data.** Measured on 80 training
   images: 0.16 IoU at the defaults, 0.87 at `epochs=40, lr=5e-3`, identical
   features. That is underfitting, not a weak representation, and `train_loss`
@@ -249,9 +273,10 @@ designed up front; extend it the same way, from a case that already runs.
   ten epochs with `train_loss` 0.19, so the schedule is not the problem, small
   splits are.
 - **Bigger is not better on every task, and this is the point of the library.**
-  DINOv2-S beats DINOv2-B on mid-level similarity (0.870 vs 0.858) while losing
-  to it on semantic segmentation (0.732 vs 0.753). Do not "sanity check" a new
-  task by asking whether the larger model won.
+  DINOv2-S beats DINOv2-B on mid-level similarity (0.870 vs 0.858) and on
+  low-level edges (0.4558 vs 0.4481) while losing to it on semantic
+  segmentation (0.732 vs 0.753) and detection (0.213 vs 0.262). Do not "sanity
+  check" a new task by asking whether the larger model won.
 - **The NIGHTS ImageNet split is a contamination check, not a subset.**
   `test_imagenet` and `test_no_imagenet` partition the test set by whether the
   reference image came from ImageNet. DINOv2-S scores 0.882 against 0.854 across
@@ -1135,6 +1160,124 @@ describe the same box for that to be reachable at all.
 rather than image content, which 6b's profile identified as the 128.3 s
 remaining cost. Explicitly not part of 6c — see 6b's closing note for why it
 reaches into the data layer and what it would break.
+
+### Step 6d-1 — **done**. Edge detection, and why it is not on BSDS500
+
+`visbench/data/taskonomy.py` (`TaskonomyDataset`, `load_taskonomy_split`,
+`TASKONOMY_DOMAINS`), `load_edge_map` in `data/dense.py`, `edge_metrics` in
+`metrics/dense.py`, `visbench/tasks/low_level/edge.py` (`EdgeTask`), an `edge`
+CLI subcommand and `examples/edges.py`. 35 fast tests. **`low_level/` was a
+documented placeholder from v0.1 until this**, so all three levels of the
+taxonomy now have entries.
+
+Measured on Taskonomy `edge_texture`, 600 train / 600 val frames at 224px,
+linear head, ten epochs, one V100:
+
+| backbone | `edge_correlation` | `rmse` | `mae` | `train_loss` |
+| --- | --- | --- | --- | --- |
+| DINOv2-S/14 | **0.4558** | 0.9226 | 0.5028 | 0.5721 |
+| DINOv2-B/14 | 0.4481 | 0.9265 | 0.4972 | 0.5631 |
+
+DINOv2-S wins by 0.008 — same ordering as mid-level similarity, opposite to
+segmentation and detection. **Do not read that as a pass criterion**; the
+standing rule that bigger is not better on every task is not suspended because
+it happened to point the way the taxonomy would predict, and 0.008 is small.
+The value of these numbers is as a floor to re-measure against.
+
+**BSDS500 is not on this machine, and that is not why it was skipped.** The
+`bsds300` directory under `/shared/sets/datasets/` is the MAF *density
+estimation* benchmark — `bsds300.hdf5` beside `gas` and `hepmass`, 8x8 patches
+flattened to vectors, no images and no annotations. BSDS500 itself downloads in
+67.5 MB (only the `www2.eecs.berkeley.edu` host still serves it; the canonical
+`www.` URL 404s). The real cost is the **protocol**: ODS/OIS/AP matches
+predicted edge pixels to several annotators' by bipartite correspondence after
+non-maximum suppression, swept over ~99 thresholds, canonically via Goldberg's
+CSA solver in C. That is a step of its own, it would need `scipy` promoted from
+a transitive dependency to a declared one for the `.mat` ground truth, and the
+rule about borrowing protocols exactly applies in full. Taskonomy was on disk,
+dense, and describable honestly.
+
+### Step 6d-1 — decisions, settled while building it
+
+- **`edge_texture` and not the other five Taskonomy domains on disk.** It is
+  computed from the RGB frame, so every pixel is a real measurement.
+  `depth_zbuffer`, `edge_occlusion`, `normal`, `principal_curvature` and
+  `reshading` are derived from the 3D reconstruction and have invalid regions in
+  `mask_valid/` (whose files are confusingly named `_domain_depth_zbuffer.png`).
+  `TaskonomyDataset` **refuses them by name** rather than silently scoring
+  against reprojection holes, which would depress every backbone equally.
+- **Zero is a real reading, and this is the third validity convention here.**
+  Depth: 0 means no ground truth. Label maps: 0 is a real class, negative is
+  unlabelled. Edges: **0 means "no edge"** and there is no invalid value at all,
+  so nothing is masked. Reusing depth's rule would have scored the probe only
+  where an edge already is — the easy half — and it would not have raised.
+- **The metric is per-image Pearson correlation, not RMSE.** Edge magnitude is
+  concentrated near zero, so a probe predicting the split's mean everywhere gets
+  a *small* RMSE while having learned nothing. Correlation is scale- and
+  offset-invariant, so it asks only *where* the edges are and scores that probe
+  0 by construction. RMSE and MAE ride along because correlation is blind to the
+  complementary failure (right shape, wrong magnitude). A fast test pins the
+  constant-predictor case.
+- **The activation is the identity, and both ways of imposing non-negativity
+  destroy the probe.** Measured on features that encode the answer, ceiling 1.0:
+  ReLU **0.0000** (dead — prediction variance exactly 0), softplus **-0.9851**
+  (collapsed to a constant, whose residual noise anti-correlates), identity
+  **0.9997**. Softplus is the more dangerous of the two because it looks
+  reasonable: to emit 0.065 it needs a raw value near -2.7, where its own
+  gradient is `sigmoid(-2.7)` ~ 0.06, so it attenuates ~16x in exactly the band
+  this target occupies. Non-negativity is **learned from the targets**. A test
+  asserts `_activate` is the identity, because reinstating a rectifier is the
+  natural tidy-up and costs only a mediocre score.
+- **`target_scale` is 1000, not the container's 65535, and this is optimisation
+  not honesty.** L1's gradient is `sign(pred - target)`, magnitude 1 regardless
+  of target size, so the step size does not shrink to match a small target and
+  the optimiser oscillates. Measured, DINOv2-S, probe3d's schedule:
+
+  | `target_scale` | frame mean | `edge_correlation` |
+  | --- | --- | --- |
+  | 65535 | 0.011 | 0.047 |
+  | 6553.5 | 0.109 | 0.285 |
+  | **1000** | **0.717** | **0.456** |
+  | 100 | 7.165 | 0.467 |
+
+  It plateaus once the target is order 1, so 1000 is the knee. **Scale the
+  target, not the learning rate**: the scale is arbitrary (65535 is just uint16
+  max) and the headline metric is invariant to it, while the learning rate is
+  what keeps this number under the same training budget as every other dense
+  probe. Raising the rate is also worse — lr 5e-3 reaches 0.348, lr 5e-2
+  collapses to 0.066.
+- **`TaskonomyDataset` subclasses `DenseFolderDataset` for its geometry**, via a
+  new `_init_geometry()` lifted out of that constructor. Taskonomy is nested per
+  building and its two halves never share a filename, so the *indexing* cannot
+  be reused — but the resize, crop and nearest-neighbour target resampling must
+  be identical, and sharing the code is a stronger guarantee than 6c-1's
+  "byte-identical, and a test asserts it".
+- **The split lists are not stat-ed at construction.** They name up to 272k
+  frames; confirming them is exactly the per-file stat 6d-0 removed. A frame
+  named but absent raises when read, naming the stem — late, but not silent.
+  `fingerprint()` is overridden for the same reason: a Taskonomy partition is a
+  fixed published release, so `(partition, split, building, point, view)`
+  identifies the bytes without stat-ing 2N files.
+- **`--limit` reaches the constructor as `max_images`**, not `subset()`
+  afterwards, since building 272k paths to discard all but 600 is waste. Safe as
+  a prefix here, unlike a labelled image folder, because the rows are already
+  interleaved across buildings.
+- **The splits are disjoint by building** — 25 / 4 / 5, verified — so a val
+  number comes from rooms the probe never saw. Two buildings on disk
+  (`taskonomy`, `wiconisco`) appear in no split.
+- **`_dense_flags` was split in two.** The head and schedule half is now
+  `_head_schedule_flags`, because Taskonomy is indexed from a split list and
+  `--image-dir` / `--target-dir` / `--stems` would appear in `visbench run edge
+  --help` promising something they cannot do.
+
+**A parameter that is recorded but does nothing is the QuickGELU failure again.**
+`target_scale` was accepted, returned by `describe()` and folded into the
+fingerprint while having no effect: `DenseFolderDataset.target()` applies it only
+on its *default* depth path, and `TaskonomyDataset` always passes a custom
+`target_loader`. Nothing raised; the sweep above simply returned four identical
+rows. It is now bound into the loader with `functools.partial`, and a fast test
+asserts two scales give two different targets. **When a dataset takes a
+numeric parameter, test that changing it changes the data.**
 
 ---
 

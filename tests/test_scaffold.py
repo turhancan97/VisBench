@@ -61,8 +61,15 @@ def test_feature_modes_declared():
     }
 
 
-def test_low_level_is_empty():
-    """Low-level stays a documented placeholder until v0.3+."""
+def test_low_level_holds_its_first_task():
+    """A documented placeholder from v0.1 until step 6d-1 filled it.
+
+    Was `test_low_level_is_empty`, asserting the folder stayed a placeholder
+    "until v0.3+". That is now the wrong assertion rather than a broken one, so
+    it becomes its complement: edge detection is here, and the level it declares
+    is what puts it in the third tier of the task taxonomy.
+    """
     import visbench.tasks.low_level as low
 
-    assert low.__all__ == []
+    assert low.__all__ == ["EdgeTask"]
+    assert low.EdgeTask.level == "low_level"

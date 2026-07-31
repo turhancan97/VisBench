@@ -19,11 +19,12 @@
 ---
 
 > **Status: v0.3.0, on PyPI.** Three backbone families (DINOv2, CLIP, timm
-> CNNs) and nine tasks run end-to-end, including four trained dense probes and
-> an anchor-free detection probe, from Python or from the `visbench` command
-> line. v0.3 adds opt-in fine-tuning of the last N blocks — a *different
-> measurement* from a frozen probe, kept apart in the record rather than
-> averaged with it. See [Build order](#build-order).
+> CNNs) and ten tasks run end-to-end across all three levels — high, mid and
+> now low — including five trained dense probes and an anchor-free detection
+> probe, from Python or from the `visbench` command line. v0.3 adds opt-in
+> fine-tuning of the last N blocks — a *different measurement* from a frozen
+> probe, kept apart in the record rather than averaged with it. See
+> [Build order](#build-order).
 
 ## What it is
 
@@ -151,7 +152,8 @@ Following [Chen, Marks & Cheng (arXiv:2411.17474)](https://arxiv.org/abs/2411.17
 | | detection (anchor-free, single-scale) | v0.3 |
 | **Mid-level** — geometry & generic structure | geometric correspondence | v0.1 |
 | | depth, surface normals, generic (binary) segmentation, mid-level similarity | v0.2 |
-| **Low-level** — signal properties | edge detection, optical flow, texture, IQA | v0.3+, [scope only](https://github.com/turhancan97/VisBench/blob/main/visbench/tasks/low_level/README.md) |
+| **Low-level** — signal properties | edge detection (dense magnitude regression) | v0.3 |
+| | optical flow, texture, IQA | [scope only](https://github.com/turhancan97/VisBench/blob/main/visbench/tasks/low_level/README.md) |
 
 Mid-level is where VisBench aims to be strongest relative to existing tooling.
 Note that **mid-level image similarity and high-level retrieval are separate
@@ -197,6 +199,8 @@ This is a multi-month roadmap, built one reviewed step at a time.
 - [x] **6c.** detection, in three parts and in this order: the box dataset, then
       the VOC metric, then the head — so the head is judged by a scorer that was
       already cross-checked against `VOCevaldet.m`
+- [x] **6d.** the first low-level task — edge detection on Taskonomy, filling a
+      folder that had been a documented placeholder since v0.1
 
 ## Roadmap
 
@@ -204,7 +208,7 @@ This is a multi-month roadmap, built one reviewed step at a time.
 
 **v0.2** — ResNet/timm + custom backbones *(done)*, pluggable heads (linear + DPT) *(done)*, multi-layer extraction *(done)*, depth estimation *(done)*, surface normals *(done)*, generic (binary) segmentation *(done)*, semantic segmentation *(done)*, mid-level similarity *(done)*, CLI *(done)*.
 
-**v0.3** — opt-in fine-tuning of the last N blocks *(done)*, prefix caching *(done)*, detection *(done)*, low-level tasks if there is bandwidth, HF Hub probe sharing and a public leaderboard.
+**v0.3** — opt-in fine-tuning of the last N blocks *(done)*, prefix caching *(done)*, detection *(done)*, edge detection — the first low-level task *(done)*, HF Hub probe sharing and a public leaderboard.
 
 ## Reproducibility
 
@@ -467,6 +471,52 @@ Two things that are protocol rather than detail:
 - **`classes_scored` is mAP's real denominator.** A class with no non-difficult
   objects in the split has undefined AP and is excluded rather than scored 0.
   Check it matches before comparing two runs.
+
+### Edge detection
+
+[`examples/edges.py`](https://github.com/turhancan97/VisBench/blob/main/examples/edges.py) is the first
+**low-level** probe: dense edge-magnitude regression on
+[Taskonomy](https://arxiv.org/abs/1804.08328)'s `edge_texture` maps.
+
+```bash
+python examples/edges.py --data /path/to/taskonomy --limit 600
+visbench run edge --data /path/to/taskonomy --limit 600
+```
+
+Taskonomy's splits are **disjoint by building** — 25 rooms train, 4 validate,
+5 test — so a val number is measured in rooms the probe has never seen.
+
+600 train / 600 val frames at 224px, linear head, ten epochs:
+
+| metric | DINOv2-S/14 | DINOv2-B/14 |
+| --- | --- | --- |
+| `edge_correlation` (quote this) | **0.4558** | 0.4481 |
+| `rmse` | 0.9226 | 0.9265 |
+| `mae` | 0.5028 | 0.4972 |
+| `train_loss` | 0.5721 | 0.5631 |
+
+DINOv2-S edges out DINOv2-B here, by 0.008 — the same ordering as mid-level
+similarity and the opposite of segmentation and detection. The margin is small
+enough to be worth stating as *consistent with* the level taxonomy rather than
+as evidence for it.
+
+Three things that are protocol rather than detail:
+
+- **Quote `edge_correlation`, not `rmse`.** Edge magnitude is concentrated near
+  zero, so a probe that ignores its input and predicts the split's mean
+  everywhere gets a *small* RMSE while having learned nothing. Pearson
+  correlation is invariant to scale and offset, so it asks only whether the
+  representation knows **where** the edges are, and scores that probe 0. RMSE
+  and MAE are reported alongside because correlation is blind to the opposite
+  failure — right shape, wrong magnitude.
+- **Nothing is masked.** Depth has holes and normals have zero-length vectors,
+  both meaning "no ground truth". Here 0 means *no edge*, a real reading
+  covering most of most frames. Masking it away would score the probe only
+  where an edge already is.
+- **This is not BSDS500's protocol and must not share a table with one.** BSDS's
+  ODS/OIS/AP matches edge pixels by bipartite correspondence after non-maximum
+  suppression, swept over thresholds, against several annotators. Records say
+  `protocol: "visbench_edge_regression"`.
 
 ### Dense tasks
 

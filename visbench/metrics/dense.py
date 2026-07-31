@@ -32,6 +32,7 @@ __all__ = [
     "match_scale_and_shift",
     "surface_normal_metrics",
     "binary_iou",
+    "edge_metrics",
     "SEGMENTATION_THRESHOLD",
     "confusion_matrix",
     "metrics_from_confusion",
@@ -388,6 +389,73 @@ def binary_iou(pred: torch.Tensor, target: torch.Tensor) -> MetricsDict:
         "iou": iou.mean().item(),
         "f1": f1.mean().item(),
         "pixel_acc": (correct / num_valid.clamp(min=1)).mean().item(),
+    }
+
+
+# -- edge magnitude ------------------------------------------------------------
+
+
+def edge_metrics(pred: torch.Tensor, target: torch.Tensor) -> MetricsDict:
+    """Agreement between a predicted and a ground-truth edge-magnitude map.
+
+    ``{"edge_correlation", "rmse", "mae"}``, each a per-image value averaged
+    over the batch. **Quote ``edge_correlation``.**
+
+    Parameters
+    ----------
+    pred, target:
+        ``(B, 1, H, W)`` or ``(B, H, W)`` edge magnitudes. Unlike every other
+        dense metric here there is **no validity mask**: 0 means "no edge", a
+        real reading, so every pixel is scored. See
+        :func:`~visbench.data.dense.load_edge_map`.
+
+    Notes
+    -----
+    **Why correlation leads, and it is not a stylistic choice.** Edge magnitude
+    is heavily concentrated near zero — on Taskonomy the mean over a frame is
+    about 0.011 of the container range while the peak is 0.13. A probe that
+    ignores its input and predicts that constant everywhere therefore achieves a
+    *small* RMSE, and a reader comparing two backbones on RMSE alone would be
+    comparing how well each matched the mean intensity of the split. Pearson
+    correlation is invariant to scale and offset, so it asks only the question
+    the probe exists to answer — does the representation know **where** the
+    edges are — and it scores a constant prediction at 0 by construction.
+
+    ``rmse`` and ``mae`` are reported alongside because correlation is blind to
+    the complementary failure: a prediction perfectly shaped but at the wrong
+    magnitude scores 1.0. The pair together pin both.
+
+    A map with no variance contributes ``0.0`` to ``edge_correlation``. For a
+    constant *prediction* that is the honest score. For a constant *target* —
+    a blank frame, which does not occur in Taskonomy and can in a fixture —
+    there is no spatial structure to recover, and scoring it 0 rather than
+    dropping the image keeps every image weighted equally, which is what lets
+    :meth:`~visbench.tasks.dense_base.DenseTrainingTask.evaluate` recover the
+    split number from batch means.
+    """
+    pred, gt = _as_maps(pred, target, noun="edge map")
+
+    flat_pred = pred.flatten(1)
+    flat_gt = gt.flatten(1)
+
+    centred_pred = flat_pred - flat_pred.mean(dim=1, keepdim=True)
+    centred_gt = flat_gt - flat_gt.mean(dim=1, keepdim=True)
+    norm_pred = centred_pred.norm(dim=1)
+    norm_gt = centred_gt.norm(dim=1)
+
+    # Guarded rather than clamped: a zero norm means one side is constant, and
+    # dividing by a floor would return an arbitrary large-magnitude ratio from
+    # what is numerically noise. 1e-8 is comfortably below any real frame's
+    # variation at float32.
+    degenerate = (norm_pred < 1e-8) | (norm_gt < 1e-8)
+    correlation = (centred_pred * centred_gt).sum(dim=1) / (norm_pred * norm_gt).clamp(min=1e-8)
+    correlation = torch.where(degenerate, torch.zeros_like(correlation), correlation)
+
+    error = flat_pred - flat_gt
+    return {
+        "edge_correlation": correlation.mean().item(),
+        "rmse": error.pow(2).mean(dim=1).sqrt().mean().item(),
+        "mae": error.abs().mean(dim=1).mean().item(),
     }
 
 
