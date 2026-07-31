@@ -97,10 +97,14 @@ The CLI exposes all ten probes: `visbench list`, `visbench run <probe>`,
 `list_probes()` are the same set, so a probe cannot ship unreachable from a
 shell by accident.
 
-Package version is `0.3.0`. **v0.2.0 is the newest version live on
-[PyPI](https://pypi.org/project/visbench/); v0.3.0 is tagged and not yet
-uploaded.** **Publishing needs the maintainer's credentials and is theirs to
-run** — never attempt it, and do not assume a tag means a release went out. A version number on PyPI
+Package version is `0.3.0`, and **v0.3.0 is live on
+[PyPI](https://pypi.org/project/visbench/)** (uploaded 2026-07-31; 0.2.0 and
+0.3.0 are the two releases there). Work merged since that upload — currently
+6d-0 and 6d-1 — is on `main` but **not** in the published wheel, so
+`pip install visbench` does not yet get the edge probe.
+**Publishing needs the maintainer's credentials and is theirs to
+run** — never attempt it, and do not assume a tag means a release went out, or
+that `main` matches what is installable. A version number on PyPI
 can never be reused, so anything that renders wrong ships until the next
 release: anything wrong in the README ships with it. Two separate checks cover
 that, and neither replaces the other. **Rendering** is CI's `build` job —
