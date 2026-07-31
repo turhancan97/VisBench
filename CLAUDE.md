@@ -56,11 +56,13 @@ step is next rather than attempting the whole roadmap in one session.
 
 ## Current state
 
-**v0.1, v0.2 and v0.3 are all complete** — every task, all three backbone
-families, the CLI, fine-tuning and detection. Everything below exists, is
-tested, and is on `main`.
+**v0.1 through v0.4 are all complete** — every task, all three backbone
+families, the CLI, fine-tuning, detection and the first low-level probe.
+Everything below exists, is tested, and is on `main`. **v0.4.0 is tagged and
+released on GitHub** (2026-07-31); it is the release that filled the low-level
+tier.
 
-**v0.3.0 is tagged and its numbered steps are all done: 6a (fine-tuning), 6b
+**v0.3's numbered steps are all done: 6a (fine-tuning), 6b
 (prefix caching) and all of 6c (detection).** Dense probes take `finetune_blocks=N` /
 `--finetune-blocks N`, DINOv2 only, recorded under schema v6's `finetune` field.
 Proved on VOC at two scales: 0.7758 against the frozen 0.7328 on DINOv2-S, and
@@ -401,10 +403,11 @@ designed up front; extend it the same way, from a case that already runs.
 
 ### Open issues — read before assuming a red suite is your fault
 
-**Every issue below is closed; the tracker is empty as of 2026-07-30.** All
-five verification commands were re-run on that date and are green: 1080 fast
-tests, 76 slow, and the three lint steps. If anything is red for you, that is
-new — do not go looking for a known cause here.
+**Every issue below is closed; the tracker is empty as of 2026-07-31.** All
+five verification commands were re-run on that date and are green: 1176 fast
+tests, 76 slow, and the three lint steps — plus CI's two extra jobs, `lock` and
+`build`. If anything is red for you, that is new — do not go looking for a
+known cause here.
 
 The entries are kept because each one records a *class* of failure this
 codebase has actually shipped, and the next one will rhyme with them.
@@ -561,7 +564,7 @@ tasks/
   mid_level/    generic (binary) object segmentation, depth estimation,
                 surface normal estimation, geometric correspondence,
                 mid-level image similarity
-  low_level/    placeholder only until v0.3+ — edge detection, optical flow,
+  low_level/    edge detection (v0.4) — still scope only: optical flow,
                 texture/reflectance, image quality
 ```
 
@@ -574,9 +577,10 @@ tasks/
   resemblance between candidates and a reference (scene layout, geometry),
   not category membership. Do not merge these two into one task even though
   both are "similarity"-flavored.
-- **Low-level** is a folder with a README describing future scope only —
-  nothing implemented there before v0.3, and possibly not even then without
-  contributor bandwidth.
+- **Low-level** = signal-level properties recoverable without naming an object.
+  Was a README describing future scope only until step 6d-1 (v0.4), which added
+  edge detection. The folder's own README now separates what is implemented from
+  what is still scope, and is the place to look before starting a second one.
 
 ---
 
@@ -833,9 +837,10 @@ an unchanged name, which content hashing catches today.
 
 ### Still open in v0.3, beyond the numbered steps
 
-- Low-level tasks get their first real entries if there's contributor
-  bandwidth (edge detection, optical flow); otherwise the folder stays a
-  placeholder.
+- ~~Low-level tasks get their first real entry~~ — **done in 6d-1**, shipped in
+  v0.4.0. Edge detection is in; optical flow, texture/reflectance and IQA are
+  still scope only, and `visbench/tasks/low_level/README.md` says what each
+  would cost.
 - HF Hub integration for sharing pretrained probe heads and a public
   leaderboard, once there's enough task/backbone coverage for a leaderboard
   to be meaningful.
@@ -1320,7 +1325,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 1080 fast tests
+pytest                                              # 1176 fast tests
 pytest -m slow                                      # 76, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/
 ruff format --check visbench/ tests/ conftest.py examples/
