@@ -93,9 +93,35 @@ METRIC_DIRECTIONS: dict[str, Direction] = {
     "edge_correlation": "higher",
     "keypoint_correlation": "higher",
     "occlusion_edge_correlation": "higher",
+    # retrieval
+    "mAP": "higher",
     # detection
     "map_50": "higher",
     "map_50_95": "higher",
+}
+
+#: Directions for metrics whose names carry a **parameter** after ``@``.
+#:
+#: `retrieval` emits ``recall@1``/``recall@5``/``recall@10`` and
+#: `correspondence` emits ``recall@1p`` and ``auc@0.5p`` — the k, or the pixel
+#: threshold, is part of the name. Enumerating every value is impossible: the
+#: thresholds are a constructor argument, so ``recall@3px`` is one CLI flag away
+#: from existing.
+#:
+#: This is still a listed table, not the name heuristic the module refuses
+#: elsewhere. The names are *generated*, by ``f"recall@{k}"`` in
+#: ``metrics/retrieval.py`` and ``f"auc@{format_threshold(...)}"`` in
+#: ``metrics/correspondence.py``, so the stem before ``@`` **is** the metric's
+#: identity and the suffix is only which setting of it. Reading the stem is
+#: parsing a known format, not guessing from a word.
+#:
+#: Found by running the real corpus: `retrieval` and `correspondence` both
+#: ranked *nothing*, because every metric they emit is parametrised and none was
+#: in the exact table. `shared_metrics` skips a name it cannot direct, so two of
+#: twelve probes produced an empty leaderboard section rather than an error.
+PARAMETRISED_METRIC_DIRECTIONS: dict[str, Direction] = {
+    "recall": "higher",
+    "auc": "higher",
 }
 
 #: Metrics that are diagnostics rather than scores, so ranking on one is
@@ -113,6 +139,12 @@ DIAGNOSTIC_METRICS: frozenset[str] = frozenset(
         "classes_scored",
         "tie_rate",
         "num_corr",
+        # How many detections survived the score threshold and NMS, and how many
+        # correspondences were proposed. Both describe how much the probe emitted,
+        # not how good any of it was: a head that fires everywhere scores higher
+        # on these and worse on mAP.
+        "detections_per_image",
+        "num_matches",
     }
 )
 
@@ -318,15 +350,23 @@ def metric_direction(name: str) -> Direction:
             f"{name!r} is a diagnostic, not a score. Ranking on it would order runs "
             "by how much was measurable rather than by how well anything did."
         )
-    try:
+    if name in METRIC_DIRECTIONS:
         return METRIC_DIRECTIONS[name]
-    except KeyError:
-        raise UnknownMetric(
-            f"No recorded direction for metric {name!r}. Add it to "
-            "METRIC_DIRECTIONS rather than defaulting: a lower-is-better metric "
-            "assumed higher-is-better ranks the leaderboard backwards, and that "
-            "reads as a finding rather than a bug."
-        ) from None
+
+    # Parametrised names: the stem before "@" identifies the metric, the suffix
+    # is which setting of it. Checked after the exact table so a literal name
+    # containing "@" could still be listed outright if one ever needs to be.
+    stem, separator, _ = name.partition("@")
+    if separator and stem in PARAMETRISED_METRIC_DIRECTIONS:
+        return PARAMETRISED_METRIC_DIRECTIONS[stem]
+
+    raise UnknownMetric(
+        f"No recorded direction for metric {name!r}. Add it to METRIC_DIRECTIONS "
+        "(or PARAMETRISED_METRIC_DIRECTIONS if the name carries an '@parameter') "
+        "rather than defaulting: a lower-is-better metric assumed "
+        "higher-is-better ranks the leaderboard backwards, and that reads as a "
+        "finding rather than a bug."
+    )
 
 
 def shared_metrics(records: Iterable[ResultRecord]) -> list[str]:

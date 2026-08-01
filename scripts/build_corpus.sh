@@ -32,10 +32,23 @@ VOC_BINARY="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/data/voc_binary"
 IMAGENETTE=/shared/sets/datasets/Imagenette/imagenette2
 NIGHTS=/shared/sets/datasets/vision/nights
 TASKONOMY=/shared/sets/datasets/taskonomy-dataset/taskonomy
+NYU=/shared/sets/datasets/vision/probing_3D/nyuv2_new
 
 RESULTS=${RESULTS:-results/corpus/visbench.jsonl}
 BACKBONES=${BACKBONES:-"dinov2_vits14 dinov2_vitb14"}
 DRY_RUN=${DRY_RUN:-}
+
+# Where the feature cache lives. Left unset, `visbench run` defaults to
+# ./.visbench_cache, which on this machine is under a 60 GB NFS home quota that
+# is already 90% full -- and dense features are ~0.8 MB per image per backbone,
+# so a full corpus run can exhaust it mid-array. Hitting a quota does not fail
+# cleanly: it surfaces as a truncated cache write or a half-written record, and
+# is then reported as some unrelated exception several steps later.
+#
+# Point it at a filesystem with room. The path is not recorded in a result, so
+# it cannot affect comparability -- two runs differing only in cache location
+# produce identical records.
+VISBENCH_CACHE=${VISBENCH_CACHE:-}
 
 # Taskonomy and detection splits are held at 600/600 because that is what the
 # published numbers used; changing it does not make them better, it makes them
@@ -47,15 +60,19 @@ mkdir -p "$(dirname "$RESULTS")"
 
 run() {
   local probe=$1; shift
+  local cache_args=()
+  [[ -n "$VISBENCH_CACHE" ]] && cache_args=(--cache "$VISBENCH_CACHE")
+
   for backbone in $BACKBONES; do
     echo "=== $probe / $backbone"
     if [[ -n "$DRY_RUN" ]]; then
-      echo "visbench run $probe --backbone $backbone $* --results $RESULTS"
+      echo "visbench run $probe --backbone $backbone $* ${cache_args[*]} --results $RESULTS"
       continue
     fi
     # Deliberately not `set -e`-fatal: one probe failing should not discard the
     # runs already appended. The summary at the end reports what is missing.
-    visbench run "$probe" --backbone "$backbone" "$@" --results "$RESULTS" || \
+    visbench run "$probe" --backbone "$backbone" "$@" \
+      "${cache_args[@]}" --results "$RESULTS" || \
       echo "!!! FAILED: $probe / $backbone" >&2
   done
 }
@@ -127,15 +144,34 @@ probe_occlusion_edge() {
   run occlusion_edge --data "$TASKONOMY" --partition tiny --limit "$TASKONOMY_LIMIT"
 }
 
-# depth and surface_normal are deliberately absent.
-#
-# Their published Taskonomy numbers (d1 0.5832/0.5986, mean 26.66/27.37) were
-# produced by code that was never committed: only edge, keypoints2d and
-# occlusion_edge have Taskonomy rows in the CLI, and both examples/depth.py and
-# the depth CLI row take a flat <root>/<split>/{images,targets} layout that
-# Taskonomy's building-nested store does not have. Adding them to the corpus
-# needs a Taskonomy build for those two rows first -- a code change, not a
-# command.
+probe_depth() {
+  # NYUv2, not Taskonomy. probe3d's own copy, whose layout happens to be exactly
+  # the <root>/<split>/{images,targets} one the CLI already expects, so these
+  # two probes need no code change after all.
+  #
+  # --target-scale 1.0 is load-bearing. The flag exists because depth datasets
+  # ship millimetres in a 16-bit image container, and NYUv2's PNG distribution
+  # uses 1000 -- but these are .npy already in metres. Passing 1000 here would
+  # divide a 3-metre reading down to 3 millimetres, and depth_metrics reports
+  # RMSE in whatever unit it is handed, so the number would look superb and
+  # mean nothing.
+  run depth --data "$NYU" --split test --train-split train \
+    --image-dir images --target-dir depths \
+    --target-scale 1.0 --max-depth 10.0
+}
+
+probe_surface_normal() {
+  # The normals here are DENSE: not one zero-length vector in the 40 frames
+  # sampled, including across the ~28% of pixels where the depth map has no
+  # ground truth at all. So load_normal_map's validity rule marks nothing, and
+  # this probe is scored everywhere, including on GeoNet's filled geometry.
+  # That is what probe3d's own files support -- no mask ships beside them -- but
+  # it means the number is not restricted to measured surfaces, and it is not
+  # comparable with a masked normals probe such as the Taskonomy one.
+  run surface_normal --data "$NYU" --split test --train-split train \
+    --image-dir images --target-dir normals
+}
+
 ALL_PROBES=(
   classification
   retrieval
@@ -144,6 +180,8 @@ ALL_PROBES=(
   semantic_segmentation
   generic_segmentation
   detection
+  depth
+  surface_normal
   edge
   keypoints2d
   occlusion_edge

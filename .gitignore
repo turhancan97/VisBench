@@ -41,3 +41,10 @@ checkpoints/
 .vscode/
 .idea/
 .DS_Store
+
+# Slurm job logs, and the per-task JSONL the array writes. Both are run
+# artifacts of one machine; results/corpus/visbench.jsonl is the deliverable
+# that merge_corpus.sh builds from them, and tracking both would store every
+# record twice.
+logs/
+results/corpus/parts/
