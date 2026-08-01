@@ -108,10 +108,11 @@ The CLI exposes all twelve probes: `visbench list`, `visbench run <probe>`,
 shell by accident.
 
 Package version is `0.5.0`. The last upload to
-[PyPI](https://pypi.org/project/visbench/) this file witnessed was **v0.4.0 on
-2026-07-31** — wheel and sdist both, verified by reading the published wheel
-rather than by trusting the version number. Whether v0.5.0 followed it is not
-something this paragraph can know.
+[PyPI](https://pypi.org/project/visbench/) this file witnessed was **v0.5.0 on
+2026-08-01** — wheel and sdist both, verified by downloading the published wheel
+and reading `__version__` and the three new modules out of it, rather than by
+trusting the version number. Whether anything followed it is not something this
+paragraph can know.
 **Publishing needs the maintainer's credentials and is theirs to
 run** — never attempt it, and do not assume a tag means a release went out, or
 that `main` matches what is installable; check
