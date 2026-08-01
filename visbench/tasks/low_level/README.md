@@ -59,6 +59,30 @@ them. **Check the tail before assuming this protocol transfers.**
 | Texture / reflectance | Intrinsic-image decomposition; ground truth is scarce outside synthetic data. **Taskonomy does not ship a reflectance domain**, so this is not unblocked by 6d-2. `principal_curvature` and `reshading` are present and are still refused, but no longer for want of a mask — see below. |
 | Image quality assessment | No-reference IQA against human MOS ratings. Closest in shape to mid-level similarity, which is zero-shot; IQA is not. |
 | Edge detection on BSDS500 | The correspondence metric above, as a second protocol beside the Taskonomy one rather than a replacement. |
+| Corner / blob detection (Harris, DoG) | The classical-target counterpart to `keypoints2d`'s learned response maps. **Needs no dataset** — see below. |
+| Local orientation / gradient fields | Structure-tensor or HOG-style. Vector-valued, so closer in shape to surface normals than to the magnitude probes. Needs no dataset. |
+| Superpixel / texture segmentation | Grouping by local photometric similarity alone, with no depth or figure-ground reasoning. Needs no dataset. |
+| Color constancy / illuminant estimation | A per-image scalar/vector target rather than a dense one, and it needs measured illuminant ground truth. |
+| Vanishing point / line detection | Published as a Taskonomy domain, but **not in the copy on this machine** — that download carries eight domains and this is not one. |
+
+### The three that need no dataset
+
+`edge_texture` is a target Taskonomy *computed from the RGB frame*. Corner and
+blob responses, structure-tensor orientation and photometric superpixels are all
+equally derivable, deterministically, from any image folder already present —
+so each is a target generator plus a `DenseMagnitudeTask` subclass, both of
+which already exist, rather than a data acquisition step. That makes them the
+cheapest entries here by a wide margin.
+
+Two cautions specific to a derived target:
+
+- **Check the tail first.** A corner response is spikier than an edge response,
+  and the occlusion-edge case above is what happens when L1 and Pearson pull
+  apart: the probe scores low *and stops ranking backbones*.
+- **`protocol` must name the generator, not the family.** "Harris corners" is
+  not a definition — the k parameter, window, smoothing and non-maximum
+  suppression all move the target, so two runs claiming `"harris"` need not be
+  comparable. That is the same failure the field exists to prevent.
 
 ### Why `principal_curvature` and `reshading` are still refused
 
