@@ -9,7 +9,99 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **`mask_valid/` support in `TaskonomyDataset`** (step 6d-2), which unblocks
+  the domains derived from Taskonomy's 3D reconstruction. Four of the six
+  refused domains are now supported: `depth_zbuffer`, `normal`,
+  `edge_occlusion` and `keypoints3d`. Each declares how it marks an invalid
+  pixel, and the dataset writes *that* marker rather than exposing a mask, so
+  nothing downstream needs to know a mask was involved.
+- **2D keypoint detection** (`keypoints2d`), the second low-level probe, on
+  Taskonomy's `keypoints2d` response maps. Dense magnitude regression scored by
+  per-image Pearson correlation, recorded as
+  `protocol: "visbench_keypoint2d_regression"`.
+- **Occlusion-edge detection** (`occlusion_edge`), a mid-level probe on
+  `edge_occlusion`. It shares every line of implementation with the low-level
+  edge probe and differs only in what it reads, which makes running both on the
+  same frames a direct comparison of the two tiers: recovering a depth
+  discontinuity needs scene geometry, recovering an intensity one does not.
+- `visbench/tasks/magnitude_base.py` (`DenseMagnitudeTask`), lifted out of a
+  working `EdgeTask` now that there are three magnitude probes — the same move
+  that produced `DenseTrainingTask` from `DepthTask` and `tasks/schedule.py`
+  from `DetectionTask`.
+- `magnitude_metrics`, `load_valid_mask`, `TASKONOMY_SUPPORTED_DOMAINS`, and a
+  `_load_raw_target` hook on `DenseFolderDataset` so a subclass can consult a
+  second file for the same item without reimplementing the geometry.
+- Twelve probes now: `visbench run keypoints2d` and `visbench run
+  occlusion_edge`, plus `examples/keypoints.py` and
+  `examples/occlusion_edges.py`.
+
+Measured on Taskonomy, 600 train / 600 val frames at 224px, linear head, ten
+epochs, one V100:
+
+| probe | level | DINOv2-S/14 | DINOv2-B/14 |
+| --- | --- | --- | --- |
+| `keypoints2d` | low | **0.2356** | 0.2248 |
+| `occlusion_edge` | mid | 0.2924 | **0.3167** |
+
+The low-level probe favours the smaller backbone and the mid-level one the
+larger, which is the direction the taxonomy would predict — but the standing
+rule that bigger is not better on every task is not suspended because an
+ordering came out convenient, and the keypoint gap is 0.011. These are floors to
+re-measure against, not results.
+
+### Fixed
+
+- **`keypoints3d` was silently unmasked in v0.4.0.** It was listed as a known
+  Taskonomy domain and was absent from the refusal set, so it constructed and
+  read like an image-derived target while actually coming from the 3D
+  reconstruction, holes and all. Nothing raised — it would simply have trained
+  against fabricated readings. It is now masked like the other three.
+- **A Taskonomy probe could be pointed at another probe's domain.**
+  `visbench run edge --domain keypoints2d` loaded, trained and recorded a
+  keypoint number as `visbench_edge_regression`, which is the exact
+  mislabelling the `protocol` field exists to prevent. `--domain` is now
+  restricted per probe to what its recorded protocol describes.
+
+### Changed
+
+- `edge_metrics` is now a thin wrapper over `magnitude_metrics`, which takes the
+  correlation's key and masks non-finite target pixels. On an all-finite target
+  it reduces exactly to the previous computation, which a test pins — no
+  published `edge_correlation` moves.
+- `TaskonomyDataset.target_scale` defaults **per domain** rather than to one
+  number. `depth_zbuffer` is fixed at 512 and refuses to be changed: that
+  divisor is what puts the target in metres, and depth metrics report RMSE in
+  whatever unit they are given, so rescaling it would quietly change what the
+  number means rather than rescaling a free parameter.
+- `keypoints2d`'s default scale is 30 rather than 100, measured (0.176 → 0.210
+  on a 400-frame split).
+
+### The finding worth carrying forward
+
+**The magnitude protocol does not transfer on tail weight alone, and the
+occlusion-edge probe is where that showed up.** L1 was chosen for these probes
+precisely so a handful of strong pixels cannot dominate the loss; Pearson
+correlation is *dominated* by those same pixels. On a moderately heavy tail the
+two coexist. On `edge_occlusion`, where 46% of the total target mass sits in the
+strongest 1% of pixels (against ~0.10 for `edge_texture` and `keypoints2d`),
+they pull in opposite directions and the probe measures nothing: it scored 0.088
+and was flat under four target scales spanning 30x, four times the training
+budget, and a ten times higher learning rate. Its DINOv2-S-versus-B gap was
+0.0035 — noise — so it could not have ranked two backbones, which is the one
+thing a probe has to do.
+
+A `log1p` on the target brings the tail to 0.09, the correlation to 0.29/0.32,
+and the gap to 0.024 in DINOv2-B's favour. So `edge_occlusion` is loaded in log
+space and **no other domain is**: their tails are already mild, `edge_texture`'s
+published v0.4.0 number is a linear-target number, and a log-space correlation
+is not the same measurement as a linear-space one. `dataset_params` records
+`target_transform` so the two can never be pooled.
+
+The general form, for whoever adds the fourth magnitude probe: **check the tail
+before assuming the protocol transfers.** A probe that is flat under every
+hyperparameter is not underfitting.
 
 ## [0.4.0] — 2026-07-31
 

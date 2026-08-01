@@ -319,7 +319,10 @@ class DenseFolderDataset(BaseDataset):
     #: All three are in dataset order and :meth:`BaseDataset.subset` reindexes
     #: them together. Slicing one alone would pair a target with the wrong
     #: image — silently, since every later step would still see equal lengths.
-    _parallel_attrs = ("stems", "image_paths", "target_paths")
+    #: Annotated rather than inferred, so a subclass may add to it —
+    #: TaskonomyDataset appends ``mask_paths``, and a narrowed 3-tuple type
+    #: would make that an error.
+    _parallel_attrs: tuple[str, ...] = ("stems", "image_paths", "target_paths")
 
     def __init__(
         self,
@@ -479,6 +482,33 @@ class DenseFolderDataset(BaseDataset):
         top = (height - self.image_size) // 2
         return image.crop((left, top, left + self.image_size, top + self.image_size))
 
+    def _load_raw_target(self, index: int) -> torch.Tensor:
+        """The target as stored, before any geometry — ``(H, W)`` or ``(C, H, W)``.
+
+        Split out of :meth:`target` so a subclass can consult a *second* file for
+        the same item, which ``target_loader`` cannot express: it is one callable
+        taking one path, and there is nowhere to pass a companion.
+        :class:`~visbench.data.taskonomy.TaskonomyDataset` needs exactly that for
+        the domains whose invalid regions live in ``mask_valid/`` rather than in
+        the target's own values.
+
+        Overriding **this** rather than :meth:`target` is the point: everything
+        after — the shape check, the resize, the centre crop, the
+        nearest-neighbour resampling and ``max_target`` — stays shared, so a
+        masked target cannot pick up a different geometry from an unmasked one.
+        That is the same reasoning that put :meth:`_init_geometry` here.
+
+        Masking belongs *before* the resize, and is done there by every caller.
+        The invalid marker survives nearest-neighbour resampling unchanged (a 0
+        stays 0, a ``NaN`` stays ``NaN``), whereas masking afterwards would need
+        the mask resized in lockstep — a second geometry to keep in agreement,
+        which is the failure this class exists to avoid.
+        """
+        path = self.target_paths[index]
+        if self._target_loader is not None:
+            return self._target_loader(path)
+        return load_depth_map(path, scale=self.target_scale)
+
     def target(self, index: int) -> torch.Tensor:
         """The target for item ``index``, at the working resolution.
 
@@ -496,10 +526,7 @@ class DenseFolderDataset(BaseDataset):
         not even unit length.
         """
         path = self.target_paths[index]
-        if self._target_loader is not None:
-            target = self._target_loader(path)
-        else:
-            target = load_depth_map(path, scale=self.target_scale)
+        target = self._load_raw_target(index)
 
         if target.ndim not in (2, 3):
             raise ValueError(

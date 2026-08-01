@@ -13,6 +13,7 @@ codebase has already paid for that once at recall@1px = 0.003.
 """
 
 import csv
+import shutil
 from pathlib import Path
 
 import numpy as np
@@ -22,6 +23,7 @@ from PIL import Image
 
 from visbench.data import (
     TASKONOMY_DOMAINS,
+    TASKONOMY_SUPPORTED_DOMAINS,
     DenseFolderDataset,
     TaskonomyDataset,
     load_edge_map,
@@ -39,6 +41,18 @@ def _write_edge_png(path: Path, array: np.ndarray) -> None:
     Image.fromarray(array.astype(np.uint16)).save(path)
 
 
+def _write_mask_png(path: Path, array: np.ndarray) -> None:
+    """Write an 8-bit 0/255 mask, as ``mask_valid/`` ships them."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    Image.fromarray(array.astype(np.uint8)).save(path)
+
+
+def _write_normal_png(path: Path, array: np.ndarray) -> None:
+    """Write an 8-bit RGB normal map, as Taskonomy ships them."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    Image.fromarray(array.astype(np.uint8)).save(path)
+
+
 def _stripe(height: int, width: int, column: int, value: int) -> np.ndarray:
     """A blank field with one bright vertical stripe — a locatable feature."""
     array = np.zeros((height, width), dtype=np.uint16)
@@ -46,14 +60,25 @@ def _stripe(height: int, width: int, column: int, value: int) -> np.ndarray:
     return array
 
 
+#: Columns 40-49 of every fixture frame are marked invalid in ``mask_valid/``.
+#: They sit mid-frame on purpose: a 64 x 96 frame resized short-side to 32 and
+#: centre-cropped keeps only original columns 16-80, so an invalid region at the
+#: left edge would be cropped away and every validity test would pass vacuously.
+INVALID_COLUMNS = slice(40, 50)
+
+
 @pytest.fixture
 def taskonomy(tmp_path: Path) -> Path:
-    """A miniature Taskonomy tree: two buildings, two frames each, one domain.
+    """A miniature Taskonomy tree: two buildings, two frames each, every domain.
 
     Frames are deliberately **non-square** (64 x 96). Step 6c-1 settled that a
     missed rescale is invisible on a square image — the resize factor is the
     same on both axes, so getting it wrong still lands the feature in the right
     place. Only a non-square frame separates the two.
+
+    Every supported domain is written, along with ``mask_valid/``, because 6d-2's
+    whole subject is that the four reconstruction-derived domains each express
+    invalidity differently and a probe reads the marker rather than the mask.
     """
     rows = []
     for building in BUILDINGS:
@@ -64,12 +89,40 @@ def taskonomy(tmp_path: Path) -> Path:
             image_path.parent.mkdir(parents=True, exist_ok=True)
             Image.fromarray(rgb).save(image_path)
 
+            stem = f"point_{point}_view_{view}"
+            for domain, value in (("edge_texture", 9000), ("keypoints2d", 900)):
+                _write_edge_png(
+                    tmp_path / domain / building / f"{stem}_domain_{domain}.png",
+                    _stripe(64, 96, 20, value),
+                )
+            for domain, value in (("edge_occlusion", 400), ("keypoints3d", 40000)):
+                # Real data holds plain magnitudes inside the holes — which is
+                # exactly why these need the mask file. The fixture matches:
+                # nothing here distinguishes the invalid columns by value.
+                _write_edge_png(
+                    tmp_path / domain / building / f"{stem}_domain_{domain}.png",
+                    _stripe(64, 96, 20, value),
+                )
+
+            # Taskonomy's depth sentinel is the uint16 maximum, and it must be
+            # inside the masked region here so a test can tell the two checks
+            # apart from the outside.
+            depth = np.full((64, 96), 1536, dtype=np.uint16)  # 3 m at 1/512 m
+            depth[:, INVALID_COLUMNS] = 65535
             _write_edge_png(
-                tmp_path
-                / "edge_texture"
-                / building
-                / f"point_{point}_view_{view}_domain_edge_texture.png",
-                _stripe(64, 96, 20, 9000),
+                tmp_path / "depth_zbuffer" / building / f"{stem}_domain_depth_zbuffer.png", depth
+            )
+
+            # (128, 128, 128) is what Taskonomy stores in a normal map's holes,
+            # and load_normal_map already zeroes it by its length threshold.
+            normal = np.full((64, 96, 3), 255, dtype=np.uint8)
+            normal[:, INVALID_COLUMNS] = 128
+            _write_normal_png(tmp_path / "normal" / building / f"{stem}_domain_normal.png", normal)
+
+            mask = np.full((64, 96), 255, dtype=np.uint8)
+            mask[:, INVALID_COLUMNS] = 0
+            _write_mask_png(
+                tmp_path / "mask_valid" / building / f"{stem}_domain_depth_zbuffer.png", mask
             )
             rows.append({"building": building, "point": str(point), "view": str(view)})
 
@@ -212,14 +265,155 @@ def test_geometry_matches_dense_folder_dataset(tmp_path: Path, taskonomy: Path):
     assert np.array_equal(np.array(dataset[0][0]), np.array(reference[0][0]))
 
 
-def test_a_reconstruction_derived_domain_is_refused(taskonomy: Path):
-    """Those have invalid regions in mask_valid/ that this does not read.
+class TestValidity:
+    """One invalid region, four conventions — 6d-2's whole subject.
 
-    Scoring against reprojection holes would depress every backbone equally and
-    silently, which is worse than not supporting the domain.
+    The mask marks the same columns invalid in every domain; what differs is the
+    *marker* the dataset writes there, and it must be the one that domain's own
+    loss and metric already read as "no ground truth". Getting this wrong does
+    not raise: the probe trains against fabricated readings and merely scores
+    badly, which is indistinguishable from a weak backbone.
     """
-    with pytest.raises(NotImplementedError, match="mask_valid"):
-        TaskonomyDataset(taskonomy, domain="normal", split="train")
+
+    def test_depth_marks_holes_zero_and_is_in_metres(self, taskonomy: Path):
+        """Depth's in-band sentinel, which every depth metric here already reads."""
+        dataset = TaskonomyDataset(taskonomy, domain="depth_zbuffer", split="train", image_size=32)
+        target = dataset.target(0)
+        assert (target == 0).any(), "the masked region must be marked invalid"
+        # 1536 / 512: the scale is what makes this metres rather than a raw
+        # integer, and depth_metrics reports RMSE in whatever unit it is given.
+        assert target[target > 0].unique().tolist() == pytest.approx([3.0])
+
+    def test_the_depth_sentinel_is_zeroed_even_where_the_mask_says_valid(self, taskonomy: Path):
+        """Belt and braces, and deliberately so.
+
+        65535 decodes to 128 m, which no indoor `max_target` would catch and
+        which would enter the loss as a real reading. The mask and the sentinel
+        agreed on all 150 real frames sampled; this asserts the sentinel alone
+        is sufficient, so a frame where they disagree still cannot leak 128 m.
+        """
+        mask = taskonomy / "mask_valid" / BUILDINGS[0] / "point_0_view_0_domain_depth_zbuffer.png"
+        _write_mask_png(mask, np.full((64, 96), 255, dtype=np.uint8))
+        target = TaskonomyDataset(
+            taskonomy, domain="depth_zbuffer", split="train", image_size=32
+        ).target(0)
+        assert target.max().item() == pytest.approx(3.0)
+
+    def test_normals_mark_holes_with_a_zero_length_vector(self, taskonomy: Path):
+        """The convention `load_normal_map` has emitted since v0.2, unchanged.
+
+        Taskonomy stores (128, 128, 128) in a normal map's holes, which that
+        loader already zeroes by its length threshold — measured to match
+        `mask_valid` pixel for pixel on 150 real frames. So the surface-normal
+        probe reaches Taskonomy with no change to itself.
+        """
+        target = TaskonomyDataset(taskonomy, domain="normal", split="train", image_size=32).target(
+            0
+        )
+        lengths = target.norm(dim=0)
+        assert (lengths == 0).any(), "the masked region must be marked invalid"
+        assert lengths[lengths > 0].max().item() == pytest.approx(1.0, abs=1e-5)
+
+    @pytest.mark.parametrize("domain", ["edge_occlusion", "keypoints3d"])
+    def test_a_masked_magnitude_domain_marks_holes_nan(self, taskonomy: Path, domain: str):
+        """The fourth convention, and the reason it has to exist.
+
+        A magnitude map has no impossible value — 0 means "no edge", a real
+        reading. So validity cannot be in band, and NaN is the only float that
+        is not a possible magnitude. It is also the loud choice: unmasked, it
+        makes the loss NaN on the first step rather than training quietly.
+        """
+        target = TaskonomyDataset(taskonomy, domain=domain, split="train", image_size=32).target(0)
+        assert torch.isnan(target).any(), "the masked region must be marked invalid"
+        assert torch.isfinite(target).any(), "the rest of the frame must survive"
+
+    @pytest.mark.parametrize("domain", ["edge_texture", "keypoints2d"])
+    def test_an_image_derived_domain_masks_nothing(self, taskonomy: Path, domain: str):
+        """The complement, and 6d-1's finding restated.
+
+        These are computed from the RGB frame, so every pixel is a real
+        measurement even inside the reconstruction's holes — verified on real
+        data, where their invalid regions hold ordinary values. Masking them
+        would throw away good supervision.
+        """
+        target = TaskonomyDataset(taskonomy, domain=domain, split="train", image_size=32).target(0)
+        assert torch.isfinite(target).all()
+        assert (target == 0).any(), "a blank region is a real 'no edge' reading"
+
+    def test_a_masked_domain_without_the_mask_directory_raises(self, taskonomy: Path):
+        """Late and loud beats silently unmasked.
+
+        A download missing mask_valid/ would otherwise yield fabricated zeros
+        across every hole, and the run would look merely mediocre.
+        """
+        shutil.rmtree(taskonomy / "mask_valid")
+        with pytest.raises(NotADirectoryError, match="mask_valid"):
+            TaskonomyDataset(taskonomy, domain="edge_occlusion", split="train")
+
+    def test_an_unmasked_domain_does_not_need_the_mask_directory(self, taskonomy: Path):
+        """...and the requirement must not spread to domains that do not use it."""
+        shutil.rmtree(taskonomy / "mask_valid")
+        assert len(TaskonomyDataset(taskonomy, domain="edge_texture", split="train")) == 4
+
+    def test_masking_and_the_convention_reach_the_record(self, taskonomy: Path):
+        """A masked number and an unmasked one are different measurements."""
+        described = TaskonomyDataset(taskonomy, domain="edge_occlusion", split="train").describe()
+        assert described["invalid"] == "nan"
+        assert described["masked"] is True
+
+
+class TestUnsupportedDomains:
+    def test_principal_curvature_and_reshading_are_refused_with_a_reason(self, taskonomy: Path):
+        """Named and explained, not reported as unknown.
+
+        Neither is blocked by the mask any more — both are blocked because no
+        probe here consumes their target, which is a task decision rather than
+        a loader one, and the message has to say which.
+        """
+        for domain in ("principal_curvature", "reshading"):
+            with pytest.raises(NotImplementedError, match=domain):
+                TaskonomyDataset(taskonomy, domain=domain, split="train")
+
+    def test_they_are_still_named_as_known_domains(self):
+        assert {"principal_curvature", "reshading"} <= set(TASKONOMY_DOMAINS)
+        assert not {"principal_curvature", "reshading"} & set(TASKONOMY_SUPPORTED_DOMAINS)
+
+
+def test_keypoints3d_is_not_silently_unmasked(taskonomy: Path):
+    """The bug 6d-2 found in shipped v0.4.0, pinned so it cannot come back.
+
+    `keypoints3d` was listed as a known domain and was *absent* from the
+    refusal set, so it constructed and read like an image-derived target — while
+    actually being derived from the 3D reconstruction, holes and all. It never
+    raised; it would simply have trained against fabricated readings.
+    """
+    target = TaskonomyDataset(taskonomy, domain="keypoints3d", split="train", image_size=32).target(
+        0
+    )
+    assert torch.isnan(target).any()
+
+
+def test_the_depth_scale_cannot_be_changed_away_from_metres(taskonomy: Path):
+    """The one scale in this table that is not free.
+
+    Every other domain's scale is arbitrary and the correlation metric is
+    invariant to it. Depth metrics report RMSE in the target's own unit, so a
+    rescaled depth target produces a record whose RMSE quietly means something
+    other than metres.
+    """
+    with pytest.raises(ValueError, match="out of metres"):
+        TaskonomyDataset(taskonomy, domain="depth_zbuffer", split="train", target_scale=1000.0)
+
+
+def test_each_domain_carries_its_own_default_scale(taskonomy: Path):
+    """A single default cannot suit targets whose raw ranges differ by ~1000x."""
+    scales = {
+        domain: TaskonomyDataset(taskonomy, domain=domain, split="train").target_scale
+        for domain in TASKONOMY_SUPPORTED_DOMAINS
+    }
+    assert scales["depth_zbuffer"] == 512.0
+    assert scales["edge_texture"] == 1000.0
+    assert len(set(scales.values())) > 1
 
 
 def test_an_unknown_domain_is_refused(taskonomy: Path):

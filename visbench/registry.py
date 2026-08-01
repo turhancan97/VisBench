@@ -134,7 +134,9 @@ _REGISTRATION_MODULES: dict[str, str | None] = {
     "visbench.tasks.mid_level.surface_normal": None,
     "visbench.tasks.mid_level.generic_segmentation": None,
     "visbench.tasks.mid_level.similarity": None,
+    "visbench.tasks.mid_level.occlusion_edge": None,
     "visbench.tasks.low_level.edge": None,
+    "visbench.tasks.low_level.keypoints": None,
 }
 
 _IMPORTED = False

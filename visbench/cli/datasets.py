@@ -484,8 +484,17 @@ def _generic_seg_splits(args: argparse.Namespace) -> Splits:
     return _dense_splits(args, functools.partial(load_mask, ignore_index=ignore))
 
 
-def _edge_flags(parser: argparse.ArgumentParser) -> None:
-    """Taskonomy is indexed from its own split lists, so no folder flags here."""
+def _taskonomy_flags(parser: argparse.ArgumentParser, *, domain: str) -> None:
+    """Taskonomy is indexed from its own split lists, so no folder flags here.
+
+    ``--domain`` is restricted to the single domain this probe's ``protocol``
+    describes, and that is deliberate rather than a placeholder. In v0.4.0 the
+    edge probe accepted any domain the dataset would load, so
+    ``visbench run edge --domain keypoints2d`` produced a keypoint number
+    recorded as ``visbench_edge_regression`` — the exact mislabelling the
+    ``protocol`` field exists to prevent. The flag is kept, restricted, so that
+    a probe growing a second honest domain has somewhere to put it.
+    """
     _split_flags(parser, evaluate="val", train="train")
     _head_schedule_flags(parser)
     parser.add_argument(
@@ -496,14 +505,14 @@ def _edge_flags(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--domain",
-        default="edge_texture",
-        help="target domain directory (default: edge_texture). Domains derived from the 3D "
-        "reconstruction are refused: their invalid regions live in mask_valid/, which is "
-        "not read yet",
+        default=domain,
+        choices=(domain,),
+        help=f"target domain directory (default and only: {domain}). Restricted to what this "
+        "probe's recorded protocol describes",
     )
 
 
-def _edge_splits(args: argparse.Namespace) -> Splits:
+def _taskonomy_splits(args: argparse.Namespace) -> Splits:
     """Both halves, from the official building-disjoint split lists.
 
     ``--limit`` reaches the constructor as ``max_images`` rather than becoming a
@@ -660,8 +669,27 @@ SPECS: dict[str, ProbeSpec] = {
     "edge": ProbeSpec(
         summary="dense edge-magnitude regression; quote edge_correlation",
         layout="<data>/rgb/<building>/*.png, <data>/edge_texture/..., <data>/splits/*.csv",
-        add_arguments=_edge_flags,
-        build=_edge_splits,
+        add_arguments=functools.partial(_taskonomy_flags, domain="edge_texture"),
+        build=_taskonomy_splits,
+        probe_kwargs=_dense_probe_kwargs,
+    ),
+    "keypoints2d": ProbeSpec(
+        summary="dense 2D keypoint-response regression; quote keypoint_correlation",
+        layout="<data>/rgb/<building>/*.png, <data>/keypoints2d/..., <data>/splits/*.csv",
+        add_arguments=functools.partial(_taskonomy_flags, domain="keypoints2d"),
+        build=_taskonomy_splits,
+        probe_kwargs=_dense_probe_kwargs,
+    ),
+    "occlusion_edge": ProbeSpec(
+        # The one Taskonomy probe here whose target has holes; mask_valid/ is
+        # required on disk and the dataset refuses to run without it.
+        summary="dense occlusion-edge regression; quote occlusion_edge_correlation",
+        layout=(
+            "<data>/rgb/<building>/*.png, <data>/edge_occlusion/..., "
+            "<data>/mask_valid/..., <data>/splits/*.csv"
+        ),
+        add_arguments=functools.partial(_taskonomy_flags, domain="edge_occlusion"),
+        build=_taskonomy_splits,
         probe_kwargs=_dense_probe_kwargs,
     ),
     "correspondence": ProbeSpec(

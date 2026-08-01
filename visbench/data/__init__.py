@@ -17,7 +17,13 @@ from visbench.data.dense import (
 from visbench.data.detection import VOC_CLASSES, DetectionFolderDataset, load_voc_boxes
 from visbench.data.image_folder import ImageFolderDataset
 from visbench.data.pair_dataset import HomographyPairDataset, PairDataset, PairViewDataset
-from visbench.data.taskonomy import TASKONOMY_DOMAINS, TaskonomyDataset, load_taskonomy_split
+from visbench.data.taskonomy import (
+    TASKONOMY_DOMAINS,
+    TASKONOMY_SUPPORTED_DOMAINS,
+    TaskonomyDataset,
+    load_taskonomy_split,
+    load_valid_mask,
+)
 from visbench.data.triplet import TwoAFCDataset
 
 __all__ = [
@@ -39,4 +45,6 @@ __all__ = [
     "TaskonomyDataset",
     "load_taskonomy_split",
     "TASKONOMY_DOMAINS",
+    "TASKONOMY_SUPPORTED_DOMAINS",
+    "load_valid_mask",
 ]
