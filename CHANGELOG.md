@@ -9,6 +9,45 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+### Added
+
+- **`visbench/results/leaderboard.py`** (step 6e-1), the comparability rules as
+  code. The schema has carried the fields a leaderboard needs since v0.1; what
+  it never carried is the *rules* for which records answer the same question.
+  Those lived as prose, which is why every published table was assembled by
+  hand — and why one of them had drifted by the time it was noticed.
+  - `comparability_key` — everything that must agree before two records may be
+    ranked. The backbone is deliberately excluded, since it is the thing being
+    compared; `finetune`, `protocol`, `dataset_fingerprint`, `task_params` and
+    `dataset_params` are all included.
+  - `rank`, which refuses rather than ranks: incomparable records, a metric
+    missing from any record, a context metric, a diagnostic, or a metric with
+    no recorded direction.
+  - `ranking_disagreements`, which reports metric pairs that order the same
+    backbones differently — because a task can disagree with itself.
+  - `latest_per_backbone`, `shared_metrics`, `group_comparable`.
+
+Validated against the 16 real records on disk. It reproduces every published
+number exactly — VOC frozen 0.7328/0.7533, fine-tuned 0.7758/0.7992, Taskonomy
+edge 0.4558/0.4481 — and separates them into four groups no two of which are
+rankable against each other.
+
+### The finding worth carrying forward
+
+**`METRIC_DIRECTIONS` lists names instead of inferring them, and surface
+normals are why.** `mean` and `median` are angular error in degrees, where
+lower is better. Nothing about either word says so. Any heuristic that read
+"mean" as a score would rank that leaderboard precisely upside down and the
+result would read as a surprising finding rather than a bug — so an unknown
+metric raises instead of defaulting to higher-is-better.
+
+The same reasoning made three other things refusals rather than conveniences:
+a metric absent from one record (ranking the rest presents a partial comparison
+as a complete one), a `classes_scored` mismatch (two mAPs over different
+denominators are averages of different quantities), and a `ceiling_` context
+metric (correspondence's ceiling describes the split, so ranking on it ranks
+the data).
+
 ## [0.5.0] — 2026-08-01
 
 **Two probes, and a mask that was missing.** v0.4.0 refused six of Taskonomy's
