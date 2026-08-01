@@ -25,6 +25,11 @@
 > low-level tier with edge detection; v0.3 added opt-in fine-tuning of the last
 > N blocks — a *different measurement* from a frozen probe, kept apart in the
 > record rather than averaged with it. See [Build order](#build-order).
+>
+> `main` is ahead of the release: it carries **twelve** probes, adding 2D
+> keypoint detection and occlusion-edge detection, and reads the Taskonomy
+> domains that need `mask_valid/`. `pip install visbench` gets the ten in
+> v0.4.0.
 
 ## What it is
 
@@ -152,7 +157,9 @@ Following [Chen, Marks & Cheng (arXiv:2411.17474)](https://arxiv.org/abs/2411.17
 | | detection (anchor-free, single-scale) | v0.3 |
 | **Mid-level** — geometry & generic structure | geometric correspondence | v0.1 |
 | | depth, surface normals, generic (binary) segmentation, mid-level similarity | v0.2 |
+| | occlusion-edge detection | unreleased |
 | **Low-level** — signal properties | edge detection (dense magnitude regression) | v0.3 |
+| | 2D keypoint detection | unreleased |
 | | optical flow, texture, IQA | [scope only](https://github.com/turhancan97/VisBench/blob/main/visbench/tasks/low_level/README.md) |
 
 Mid-level is where VisBench aims to be strongest relative to existing tooling.
@@ -201,6 +208,9 @@ This is a multi-month roadmap, built one reviewed step at a time.
       already cross-checked against `VOCevaldet.m`
 - [x] **6d.** the first low-level task — edge detection on Taskonomy, filling a
       folder that had been a documented placeholder since v0.1
+- [x] **6d-2.** `mask_valid/`, so the reconstruction-derived Taskonomy domains
+      can be read at all; 2D keypoints and occlusion edges on the lifted
+      `DenseMagnitudeTask`
 
 ## Roadmap
 
@@ -208,7 +218,9 @@ This is a multi-month roadmap, built one reviewed step at a time.
 
 **v0.2** — ResNet/timm + custom backbones *(done)*, pluggable heads (linear + DPT) *(done)*, multi-layer extraction *(done)*, depth estimation *(done)*, surface normals *(done)*, generic (binary) segmentation *(done)*, semantic segmentation *(done)*, mid-level similarity *(done)*, CLI *(done)*.
 
-**v0.3** — opt-in fine-tuning of the last N blocks *(done)*, prefix caching *(done)*, detection *(done)*, edge detection — the first low-level task *(done)*, HF Hub probe sharing and a public leaderboard.
+**v0.3** — opt-in fine-tuning of the last N blocks *(done)*, prefix caching *(done)*, detection *(done)*, edge detection — the first low-level task *(done)*.
+
+**Next** — 2D keypoints, occlusion edges and Taskonomy's masked domains are on `main` *(done, unreleased)*. Still open: HF Hub probe sharing and a public leaderboard.
 
 ## Reproducibility
 
@@ -517,6 +529,47 @@ Three things that are protocol rather than detail:
   ODS/OIS/AP matches edge pixels by bipartite correspondence after non-maximum
   suppression, swept over thresholds, against several annotators. Records say
   `protocol: "visbench_edge_regression"`.
+
+### Keypoints, and occlusion edges
+
+Two more probes share the edge probe's implementation and differ only in what
+they read — [`examples/keypoints.py`](https://github.com/turhancan97/VisBench/blob/main/examples/keypoints.py)
+on Taskonomy's `keypoints2d` response maps, and
+[`examples/occlusion_edges.py`](https://github.com/turhancan97/VisBench/blob/main/examples/occlusion_edges.py)
+on its `edge_occlusion` maps.
+
+```bash
+visbench run keypoints2d     --data /path/to/taskonomy --limit 600
+visbench run occlusion_edge  --data /path/to/taskonomy --limit 600
+```
+
+600 train / 600 val frames at 224px, linear head, ten epochs:
+
+| probe | level | DINOv2-S/14 | DINOv2-B/14 |
+| --- | --- | --- | --- |
+| `keypoints2d` (`keypoint_correlation`) | low | **0.2356** | 0.2248 |
+| `occlusion_edge` (`occlusion_edge_correlation`) | mid | 0.2924 | **0.3167** |
+
+**The occlusion-edge probe is mid-level and the texture-edge probe is
+low-level, and they are otherwise the same code.** An occlusion edge is a depth
+discontinuity — a painted line on a wall is not one, and the silhouette of a
+chair against a similarly-toned wall is one with almost no intensity gradient —
+so recovering it needs scene geometry. Running both on the same frames is about
+as direct a comparison of the two tiers as VisBench offers.
+
+Two things worth knowing before adding a fourth probe of this shape:
+
+- **`edge_occlusion` is loaded in log space, and nothing else is.** Its target
+  holds 46% of its mass in the strongest 1% of pixels, against ~0.10 for the
+  other two. At that tail the L1 loss (chosen so strong pixels cannot dominate)
+  and the Pearson metric (dominated by exactly those pixels) pull apart: the
+  linear-target probe scored 0.088 and stayed flat under four target scales, 4x
+  the training budget and a 10x learning rate. `dataset_params` records
+  `target_transform`, so a log-space correlation can never be pooled with a
+  linear-space one.
+- **Ask whether a probe ranks, not whether its number is high.** The linear
+  occlusion probe's DINOv2-S-versus-B gap was 0.0035 — noise. A low score can be
+  by design; failing to separate two backbones never is.
 
 ### Dense tasks
 

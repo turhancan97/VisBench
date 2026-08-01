@@ -33,6 +33,7 @@ __all__ = [
     "surface_normal_metrics",
     "binary_iou",
     "edge_metrics",
+    "magnitude_metrics",
     "SEGMENTATION_THRESHOLD",
     "confusion_matrix",
     "metrics_from_confusion",
@@ -392,7 +393,55 @@ def binary_iou(pred: torch.Tensor, target: torch.Tensor) -> MetricsDict:
     }
 
 
-# -- edge magnitude ------------------------------------------------------------
+# -- dense magnitude (edges, keypoint heatmaps) --------------------------------
+
+
+def magnitude_metrics(
+    pred: torch.Tensor,
+    target: torch.Tensor,
+    correlation_key: str = "correlation",
+) -> MetricsDict:
+    """Agreement between a predicted and a ground-truth dense magnitude map.
+
+    ``{correlation_key, "rmse", "mae"}``, each a per-image value averaged over
+    the batch. **Quote the correlation.** :func:`edge_metrics` is this under the
+    key ``edge_correlation``.
+
+    Parameters
+    ----------
+    pred, target:
+        ``(B, 1, H, W)`` or ``(B, H, W)`` magnitudes.
+    correlation_key:
+        Name the correlation is returned under. Each probe passes its own, so
+        two magnitude numbers from different targets cannot be mistaken for the
+        same measurement in a record — an occlusion-edge correlation and a
+        texture-edge correlation are not comparable and must not share a key.
+
+    Notes
+    -----
+    **Invalid pixels are marked ``NaN``, and this is the fourth validity
+    convention in this codebase.** Depth uses 0, normals a zero-length vector,
+    label maps a negative index — each an in-band sentinel, available because
+    the value in question cannot occur legitimately. A magnitude map has no
+    such value: 0 means "no edge here", which is a real reading covering most of
+    most frames (this is exactly why :func:`edge_metrics` on an image-derived
+    target masks nothing). So a domain that *does* have holes —
+    Taskonomy's ``edge_occlusion`` and ``keypoints3d``, whose targets come from
+    the 3D reconstruction — must carry validity out of band, and ``NaN`` is the
+    only float that is not a possible magnitude.
+
+    It is also the loud choice: a ``NaN`` that reaches an unmasked loss makes
+    the loss ``NaN`` on the first step, where a fabricated 0 would train
+    quietly and merely score badly. Both this function and
+    :meth:`~visbench.tasks.low_level.magnitude.DenseMagnitudeTask._loss` mask
+    on ``isfinite``, so the two agree about which pixels exist — which they
+    must, or the probe is optimised against pixels it is not scored on.
+
+    On an all-finite target every pixel is valid and this reduces exactly to the
+    unmasked computation, which a test pins; the mask costs the image-derived
+    domains nothing.
+    """
+    return _magnitude_metrics(pred, target, correlation_key)
 
 
 def edge_metrics(pred: torch.Tensor, target: torch.Tensor) -> MetricsDict:
@@ -401,12 +450,16 @@ def edge_metrics(pred: torch.Tensor, target: torch.Tensor) -> MetricsDict:
     ``{"edge_correlation", "rmse", "mae"}``, each a per-image value averaged
     over the batch. **Quote ``edge_correlation``.**
 
+    :func:`magnitude_metrics` under the key this codebase's texture-edge numbers
+    are published with; see there for the ``NaN`` validity convention, which
+    Taskonomy's ``edge_texture`` never exercises.
+
     Parameters
     ----------
     pred, target:
-        ``(B, 1, H, W)`` or ``(B, H, W)`` edge magnitudes. Unlike every other
-        dense metric here there is **no validity mask**: 0 means "no edge", a
-        real reading, so every pixel is scored. See
+        ``(B, 1, H, W)`` or ``(B, H, W)`` edge magnitudes. For an image-derived
+        edge map there is **no validity mask**: 0 means "no edge", a real
+        reading, so every pixel is scored. See
         :func:`~visbench.data.dense.load_edge_map`.
 
     Notes
@@ -433,29 +486,51 @@ def edge_metrics(pred: torch.Tensor, target: torch.Tensor) -> MetricsDict:
     :meth:`~visbench.tasks.dense_base.DenseTrainingTask.evaluate` recover the
     split number from batch means.
     """
-    pred, gt = _as_maps(pred, target, noun="edge map")
+    return _magnitude_metrics(pred, target, "edge_correlation")
+
+
+def _magnitude_metrics(
+    pred: torch.Tensor, target: torch.Tensor, correlation_key: str
+) -> MetricsDict:
+    """Shared body of :func:`magnitude_metrics` and :func:`edge_metrics`."""
+    pred, gt = _as_maps(pred, target, noun="magnitude map")
 
     flat_pred = pred.flatten(1)
     flat_gt = gt.flatten(1)
 
-    centred_pred = flat_pred - flat_pred.mean(dim=1, keepdim=True)
-    centred_gt = flat_gt - flat_gt.mean(dim=1, keepdim=True)
+    # Out of band, not in band: see magnitude_metrics' notes. All-finite input
+    # makes this an all-ones mask and every line below reduces to the plain
+    # computation.
+    valid = torch.isfinite(flat_gt).float()
+    count = valid.sum(dim=1)
+    # Zeroed rather than left as NaN: a single NaN survives every sum and would
+    # poison an image's correlation even after masking, since the mask
+    # multiplies rather than selects (selection cannot be batched over images
+    # with differing valid counts).
+    flat_gt = torch.where(valid.bool(), flat_gt, torch.zeros_like(flat_gt))
+
+    mean_pred = (flat_pred * valid).sum(dim=1, keepdim=True) / count.clamp(min=1).unsqueeze(1)
+    mean_gt = (flat_gt * valid).sum(dim=1, keepdim=True) / count.clamp(min=1).unsqueeze(1)
+    centred_pred = (flat_pred - mean_pred) * valid
+    centred_gt = (flat_gt - mean_gt) * valid
     norm_pred = centred_pred.norm(dim=1)
     norm_gt = centred_gt.norm(dim=1)
 
     # Guarded rather than clamped: a zero norm means one side is constant, and
     # dividing by a floor would return an arbitrary large-magnitude ratio from
     # what is numerically noise. 1e-8 is comfortably below any real frame's
-    # variation at float32.
-    degenerate = (norm_pred < 1e-8) | (norm_gt < 1e-8)
+    # variation at float32. An image with no valid pixels at all lands here too,
+    # and scores 0 for the same reason a constant target does.
+    degenerate = (norm_pred < 1e-8) | (norm_gt < 1e-8) | (count < 1)
     correlation = (centred_pred * centred_gt).sum(dim=1) / (norm_pred * norm_gt).clamp(min=1e-8)
     correlation = torch.where(degenerate, torch.zeros_like(correlation), correlation)
 
-    error = flat_pred - flat_gt
+    error = (flat_pred - flat_gt) * valid
+    denominator = count.clamp(min=1)
     return {
-        "edge_correlation": correlation.mean().item(),
-        "rmse": error.pow(2).mean(dim=1).sqrt().mean().item(),
-        "mae": error.abs().mean(dim=1).mean().item(),
+        correlation_key: correlation.mean().item(),
+        "rmse": (error.pow(2).sum(dim=1) / denominator).sqrt().mean().item(),
+        "mae": (error.abs().sum(dim=1) / denominator).mean().item(),
     }
 
 

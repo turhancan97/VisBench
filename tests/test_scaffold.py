@@ -61,15 +61,32 @@ def test_feature_modes_declared():
     }
 
 
-def test_low_level_holds_its_first_task():
+def test_low_level_holds_its_tasks():
     """A documented placeholder from v0.1 until step 6d-1 filled it.
 
     Was `test_low_level_is_empty`, asserting the folder stayed a placeholder
     "until v0.3+". That is now the wrong assertion rather than a broken one, so
-    it becomes its complement: edge detection is here, and the level it declares
-    is what puts it in the third tier of the task taxonomy.
+    it becomes its complement: the low-level probes are here, and the level each
+    declares is what puts it in the third tier of the task taxonomy.
     """
     import visbench.tasks.low_level as low
 
-    assert low.__all__ == ["EdgeTask"]
+    assert low.__all__ == ["EdgeTask", "Keypoint2DTask"]
     assert low.EdgeTask.level == "low_level"
+    assert low.Keypoint2DTask.level == "low_level"
+
+
+def test_the_occlusion_edge_probe_is_mid_level():
+    """Its low-level twin shares every line of implementation with it.
+
+    The two differ in what they read and therefore in which tier they belong to:
+    recovering a depth discontinuity needs scene geometry, recovering an
+    intensity one does not. Since the classes are otherwise identical, the level
+    attribute is the only thing keeping the taxonomy honest.
+    """
+    from visbench.tasks.low_level import EdgeTask
+    from visbench.tasks.mid_level import OcclusionEdgeTask
+
+    assert OcclusionEdgeTask.level == "mid_level"
+    assert EdgeTask.level == "low_level"
+    assert OcclusionEdgeTask.protocol != EdgeTask.protocol

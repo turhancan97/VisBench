@@ -121,6 +121,31 @@ class TestDefaults:
             assert args.target_dir == expected
 
 
+class TestTaskonomyDomains:
+    """Three probes read one dataset, and each may claim only its own domain."""
+
+    def test_each_probe_defaults_to_the_domain_its_protocol_names(self, parser):
+        for probe, domain in [
+            ("edge", "edge_texture"),
+            ("keypoints2d", "keypoints2d"),
+            ("occlusion_edge", "edge_occlusion"),
+        ]:
+            args = parser.parse_args(["run", probe, "--data", "x"])
+            assert args.domain == domain
+
+    def test_a_probe_cannot_be_pointed_at_another_probe_s_domain(self, parser, capsys):
+        """The mislabelling v0.4.0 shipped, now refused at the parser.
+
+        `visbench run edge --domain keypoints2d` used to load, train and record
+        a keypoint number as `visbench_edge_regression`. Nothing raised; the
+        record was simply wrong about what it measured, which is the one thing
+        the protocol field exists to prevent.
+        """
+        with pytest.raises(SystemExit):
+            parser.parse_args(["run", "edge", "--data", "x", "--domain", "keypoints2d"])
+        assert "invalid choice" in capsys.readouterr().err
+
+
 class TestSpecLookup:
     def test_unknown_probe_lists_what_exists(self):
         with pytest.raises(KeyError, match="Unknown probe"):

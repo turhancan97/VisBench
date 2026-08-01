@@ -50,7 +50,8 @@ step is next rather than attempting the whole roadmap in one session.
 | 6c-3 | Detection: the head, against a metric already trusted | done |
 | 6d-0 | Dataset listing: `scandir`, not a stat per file | done |
 | 6d-1 | Edge detection — the first low-level task, on Taskonomy | done |
-| **6d-2+** | **More low-level tasks, or HF Hub + leaderboard** | **next** |
+| 6d-2 | `mask_valid`, keypoints2d + occlusion_edge, `DenseMagnitudeTask` | done |
+| **6d-3+** | **More tasks, or HF Hub + leaderboard** | **next** |
 
 ---
 
@@ -78,9 +79,17 @@ schema is still v6 — detection needed no bump**, because `task_params` and
 have entries and `visbench/tasks/low_level/` is no longer a placeholder. Edge
 detection is dense magnitude regression on Taskonomy's `edge_texture`, scored by
 per-image Pearson correlation and recorded as `visbench_edge_regression` — not
-BSDS500's, which is a correspondence metric and a step of its own. **Still
-schema v6**: a tenth probe needed no new field. The next step is **6d-2+** —
-another low-level task, or the HF Hub / leaderboard work.
+BSDS500's, which is a correspondence metric and a step of its own.
+
+**6d-2 wired up `mask_valid/` and added two more probes** (unreleased, on
+`main` after v0.4.0). Four of the six Taskonomy domains that were refused are
+now supported — `depth_zbuffer`, `normal`, `edge_occlusion`, `keypoints3d` —
+each declaring how it marks an invalid pixel rather than exposing a mask.
+`keypoints2d` (low-level) and `occlusion_edge` (mid-level) joined `edge` on a
+lifted `DenseMagnitudeTask`. **Still schema v6**: twelve probes, and the new
+`target_transform` / `invalid` / `masked` settings land in `dataset_params`,
+which is what that field was added for. The next step is **6d-3+** — another
+task, or the HF Hub / leaderboard work.
 
 Registered names — `visbench.list_backbones()`, `list_probes()`,
 `visbench.heads.list_heads()`:
@@ -90,18 +99,20 @@ backbones  dinov2_vits14, dinov2_vitb14, clip_vitb16, clip_vitb32,
            resnet18, resnet50            (+ CustomBackbone, unregistered)
 probes     classification, retrieval, correspondence, depth, surface_normal,
            generic_segmentation, semantic_segmentation, similarity, detection,
-           edge
+           edge, keypoints2d, occlusion_edge
 heads      linear, dpt, detection
 ```
 
-The CLI exposes all ten probes: `visbench list`, `visbench run <probe>`,
+The CLI exposes all twelve probes: `visbench list`, `visbench run <probe>`,
 `visbench cache stats|clear`. A test asserts the CLI's table and
 `list_probes()` are the same set, so a probe cannot ship unreachable from a
 shell by accident.
 
-Package version is `0.4.0`, tagged and released on GitHub. **v0.3.0 was the
-last upload to [PyPI](https://pypi.org/project/visbench/)** (2026-07-31);
-whether 0.4.0 has followed it is not something this file can know.
+Package version is `0.4.0`, tagged and released on GitHub, and **v0.4.0 was
+uploaded to [PyPI](https://pypi.org/project/visbench/) on 2026-07-31** — wheel
+and sdist both, verified by reading the published wheel rather than by trusting
+the version number. 6d-2's work is on `main` and is **not** in it: the installed
+package has ten probes, `main` has twelve.
 **Publishing needs the maintainer's credentials and is theirs to
 run** — never attempt it, and do not assume a tag means a release went out, or
 that `main` matches what is installable; check
@@ -143,27 +154,33 @@ visbench/
                   load_depth_map, load_normal_map, load_mask, load_label_map,
                   load_edge_map)
                  taskonomy.py (TaskonomyDataset — building-nested, indexed from
-                   splits/*.csv; subclasses DenseFolderDataset for geometry only)
+                   splits/*.csv; subclasses DenseFolderDataset for geometry only.
+                   _DOMAIN_SPECS: per-domain loader, scale, invalid convention,
+                   log_transform. load_valid_mask — mask_valid/, 6d-2)
                  base.py (BaseDataset, list_files — scandir, never a stat/entry)
   heads/         base.py (register_head/build_head), linear.py, dpt.py,
                  detection.py (DetectionHead — cls + box branches, focal prior)
   metrics/       classification, retrieval, correspondence, similarity, dense.py
-                 (+ edge_metrics — per-image Pearson, no validity mask)
+                 (+ magnitude_metrics — per-image Pearson, masks NaN;
+                    edge_metrics is it under the published key)
                  detection.py (box_iou, average_precision, detection_metrics —
                    VOC protocol, dataset-level, difficult ignored not dropped)
   tasks/         base.py (BaseTask)
                  dense_base.py (DenseTrainingTask — shared by every dense probe)
+                 magnitude_base.py (DenseMagnitudeTask — edge/keypoints2d/
+                   occlusion_edge; identity activation, masked L1, correlation)
                  schedule.py (warmup_cosine/check_schedule — probe3d's schedule,
                    shared by DenseTrainingTask and DetectionTask)
                  high_level/  classification, retrieval, semantic_segmentation,
                               detection (anchor-free, single-scale, 6c-3)
                  mid_level/   correspondence, depth, surface_normal,
-                              generic_segmentation, similarity
-                 low_level/   edge (EdgeTask — 6d-1; no longer a placeholder)
+                              generic_segmentation, similarity, occlusion_edge
+                 low_level/   edge (6d-1), keypoints (Keypoint2DTask, 6d-2)
   results/       schema.py (ResultRecord, SCHEMA_VERSION), writer.py
   runner.py      visbench.run() — the one call the CLI wraps
 examples/        classify, retrieve, correspond, depth, normals, segment,
-                 segment_semantic, similarity, detect, edges
+                 segment_semantic, similarity, detect, edges, keypoints,
+                 occlusion_edges
 ```
 
 ### The CLI — add a probe by adding a row
@@ -240,8 +257,16 @@ designed up front; extend it the same way, from a case that already runs.
   the confusion matrix both mask on, so loss and metric drop the same pixels.
   **Edge maps are the third case and have no invalid value at all** (6d-1): 0
   means "no edge", a real reading covering most of a frame, so `edge_metrics`
-  masks nothing. Three targets, three conventions — check which one a new dense
-  task needs rather than inheriting the nearest.
+  masks nothing. **`NaN` is the fourth, and exists because the third has no
+  spare value** (6d-2): a magnitude map derived from Taskonomy's 3D
+  reconstruction *does* have holes, and they hold a plain 0 that is
+  indistinguishable from a real reading, so validity has to travel out of band.
+  `NaN` is also the loud choice — it makes an unmasked loss `NaN` on the first
+  step, where a fabricated 0 trains quietly and merely scores badly. Four
+  targets, four conventions — check which one a new dense task needs rather
+  than inheriting the nearest, and note that `depth_zbuffer` and `normal` on
+  Taskonomy needed *none* of the new machinery because their existing in-band
+  sentinels turned out to match `mask_valid/` pixel for pixel.
 - **A label map must be read without mode conversion, and this is silent when
   wrong.** VOC's `SegmentationClass` PNGs are palette images (mode `P`) whose
   raw bytes *are* the class indices; `convert("L")` resolves the palette and
@@ -279,10 +304,21 @@ designed up front; extend it the same way, from a case that already runs.
   ten epochs with `train_loss` 0.19, so the schedule is not the problem, small
   splits are.
 - **Bigger is not better on every task, and this is the point of the library.**
-  DINOv2-S beats DINOv2-B on mid-level similarity (0.870 vs 0.858) and on
-  low-level edges (0.4558 vs 0.4481) while losing to it on semantic
-  segmentation (0.732 vs 0.753) and detection (0.213 vs 0.262). Do not "sanity
-  check" a new task by asking whether the larger model won.
+  DINOv2-S beats DINOv2-B on mid-level similarity (0.870 vs 0.858), low-level
+  edges (0.4558 vs 0.4481) and low-level keypoints (0.2356 vs 0.2248) while
+  losing to it on semantic segmentation (0.732 vs 0.753), detection (0.213 vs
+  0.262), occlusion edges (0.2924 vs 0.3167) and Taskonomy depth (d1 0.5832 vs
+  0.5986). Do not "sanity check" a new task by asking whether the larger model
+  won. **And a task can disagree with itself**: on Taskonomy normals DINOv2-S
+  wins on mean angular error while DINOv2-B wins on the 11.25° threshold, so
+  quoting one and dropping the other manufactures a result.
+- **Ask whether a new probe *ranks*, not whether its number is high.** A low
+  absolute score can be by design — detection's 0.21 mAP is, because a
+  single-scale head has no pyramid. What is never acceptable is failing to
+  separate two backbones, and that is the question a suspiciously low number
+  should prompt. 6d-2 nearly shipped an occlusion-edge probe scoring 0.088 with
+  an S-versus-B gap of 0.0035; the score alone looked like "a hard task", and
+  the gap is what showed it was measuring nothing.
 - **The NIGHTS ImageNet split is a contamination check, not a subset.**
   `test_imagenet` and `test_no_imagenet` partition the test set by whether the
   reference image came from ImageNet. DINOv2-S scores 0.882 against 0.854 across
@@ -404,7 +440,7 @@ designed up front; extend it the same way, from a case that already runs.
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker is empty as of 2026-07-31.** All
-five verification commands were re-run on that date and are green: 1176 fast
+five verification commands were re-run on 2026-08-01 and are green: 1216 fast
 tests, 76 slow, and the three lint steps — plus CI's two extra jobs, `lock` and
 `build`. If anything is red for you, that is new — do not go looking for a
 known cause here.
@@ -563,10 +599,18 @@ tasks/
   high_level/   classification, semantic (multi-class) segmentation, detection
   mid_level/    generic (binary) object segmentation, depth estimation,
                 surface normal estimation, geometric correspondence,
-                mid-level image similarity
-  low_level/    edge detection (v0.4) — still scope only: optical flow,
-                texture/reflectance, image quality
+                mid-level image similarity, occlusion-edge detection (6d-2)
+  low_level/    edge detection (v0.4), 2D keypoint detection (6d-2)
+                — still scope only: optical flow, texture/reflectance,
+                image quality
 ```
+
+The occlusion-edge and texture-edge probes **share every line of their
+implementation and sit one tier apart**, which is the cleanest statement of what
+the tiers mean that this codebase has: recovering a depth discontinuity needs
+scene geometry, recovering an intensity one does not. Taskonomy has no
+reflectance domain, so the texture/reflectance row is *not* unblocked by 6d-2's
+mask work — see `visbench/tasks/low_level/README.md`.
 
 - **High-level** = semantic/category understanding.
 - **Mid-level** = geometry and generic structure prior to semantic labeling —
@@ -1288,6 +1332,105 @@ rows. It is now bound into the loader with `functools.partial`, and a fast test
 asserts two scales give two different targets. **When a dataset takes a
 numeric parameter, test that changing it changes the data.**
 
+### Step 6d-2 — **done**. `mask_valid`, two more probes, and one that had to be fixed
+
+`load_valid_mask` + `_DOMAIN_SPECS` in `data/taskonomy.py`, a
+`_load_raw_target` hook on `DenseFolderDataset`, `magnitude_metrics` in
+`metrics/dense.py`, `tasks/magnitude_base.py` (`DenseMagnitudeTask`),
+`tasks/low_level/keypoints.py`, `tasks/mid_level/occlusion_edge.py`, two CLI
+rows and two examples. Fast suite 1176 → 1216.
+
+Four of the six previously-refused Taskonomy domains are supported:
+`depth_zbuffer`, `normal`, `edge_occlusion`, `keypoints3d`.
+`principal_curvature` and `reshading` are still refused, but **no longer for
+want of a mask** — each is blocked on a task decision, and the error says which.
+
+Measured on Taskonomy tiny, 600 train / 600 val at 224px, linear head, ten
+epochs, one V100. The two new probes:
+
+| probe | level | DINOv2-S/14 | DINOv2-B/14 |
+| --- | --- | --- | --- |
+| `keypoints2d` | low | **0.2356** | 0.2248 |
+| `occlusion_edge` | mid | 0.2924 | **0.3167** |
+
+And the two existing probes, on domains they could not read before:
+
+| probe | domain | DINOv2-S/14 | DINOv2-B/14 |
+| --- | --- | --- | --- |
+| `depth` | `depth_zbuffer` | d1 0.5832, RMSE 0.7947 m | **d1 0.5986**, RMSE 0.7876 m |
+| `surface_normal` | `normal` | **mean 26.66°**, d1 0.2727 | mean 27.37°, **d1 0.2787** |
+
+Note the normals row **disagrees with itself** — DINOv2-S wins on mean angular
+error and DINOv2-B on the 11.25° threshold — which is a useful reminder that
+"which backbone won" is not always a well-formed question. Do not quote one of
+those two and drop the other.
+
+### Step 6d-2 — the findings, in the order they overturned something
+
+- **Two of the five "blocked" domains were never blocked.** `depth_zbuffer`'s
+  invalid region is *exactly* `depth == 65535` and `normal`'s is exactly what
+  `load_normal_map`'s length threshold already zeroes — verified pixel for
+  pixel against `mask_valid/` on 150 frames across 10 buildings. So the depth
+  and surface-normal probes reached Taskonomy with **no change to either**, and
+  the conventions they have carried since v0.2 turned out to be Taskonomy's
+  conventions too. The mask file is still read for both, because "exact on 150
+  frames" is evidence rather than a guarantee and an `or` of two agreeing tests
+  costs nothing.
+- **`keypoints3d` was silently unmasked in shipped v0.4.0.** It was in
+  `TASKONOMY_DOMAINS` and *absent* from `_NEEDS_VALID_MASK`, so it constructed
+  and read like an image-derived target while actually coming from the
+  reconstruction. Nothing raised. This is the shape of bug a per-domain table
+  prevents and a hand-maintained exclusion set invites: the set has to be
+  right about every member, and being wrong about one is invisible.
+- **The magnitude protocol does not transfer on tail weight alone, and this
+  nearly shipped a probe that measures nothing.** L1 was chosen for these
+  probes so a handful of strong pixels cannot dominate the loss; Pearson
+  correlation is *dominated* by those same pixels. Share of total target mass
+  in the strongest 1% of pixels: `edge_texture` 0.10, `keypoints2d` 0.11,
+  **`edge_occlusion` 0.46**. At 0.46 the two pull apart and the probe scored
+  0.088 — flat under four target scales spanning 30x, four times the training
+  budget, and a ten times higher learning rate, with an S-versus-B gap of
+  0.0035. **A probe flat under every hyperparameter is not underfitting.**
+  `log1p` on the target brings the tail to 0.09, the score to 0.29/0.32 and the
+  gap to 0.024. So `edge_occlusion` loads in log space and **nothing else
+  does**: the other tails are mild, `edge_texture`'s published number is a
+  linear-target number, and a log-space correlation is not the same
+  measurement. `dataset_params` records `target_transform`.
+- **The ranking check is what caught it, not the absolute number.** 0.088 looks
+  like "a hard task", which detection's 0.21 mAP already established as
+  acceptable by design. What is *not* acceptable is failing to separate two
+  backbones, and that is the question to ask of a new probe whose score comes
+  out low. Detection's 0.21 ranks; the linear occlusion probe did not.
+- **`NaN` is the fourth validity convention, and it is deliberately loud.** A
+  magnitude map has no spare in-band value — 0 means "no edge here" — so
+  validity for the reconstruction-derived magnitude domains travels out of
+  band. `NaN` makes an unmasked loss `NaN` on the first step, where a
+  fabricated 0 would train quietly and merely score badly. Both
+  `magnitude_metrics` and `DenseMagnitudeTask._loss` mask on `isfinite`, and a
+  test asserts the masked metric equals scoring the unmasked crop, so the two
+  cannot drift.
+- **Masking happens before the geometry, in `_load_raw_target`.** The marker
+  survives nearest-neighbour resampling unchanged (a 0 stays 0, a `NaN` stays
+  `NaN`), whereas masking afterwards would need the mask resized in lockstep —
+  a second geometry to keep in agreement, which is the failure
+  `DenseFolderDataset` exists to prevent. Overriding that hook rather than
+  `target()` keeps the resize, crop and `max_target` shared.
+- **`target_scale` is per domain now, and one of them is not free.**
+  `depth_zbuffer` is fixed at 512 and *raises* if changed: that divisor is what
+  puts the target in metres, and `depth_metrics` reports RMSE in whatever unit
+  it is handed, so rescaling it would quietly change what the number means. The
+  other scales are arbitrary and the correlation metric is invariant to them.
+- **`--domain` is restricted per probe.** In v0.4.0 `visbench run edge --domain
+  keypoints2d` loaded, trained and recorded a keypoint number as
+  `visbench_edge_regression`. The flag survives with `choices` of exactly what
+  the probe's protocol describes, so a probe that grows a second honest domain
+  has somewhere to put it.
+- **Every mask file is named `..._domain_depth_zbuffer.png`** whatever it masks.
+  Taskonomy derived one mask per frame from the depth render and never renamed
+  it, so mask paths are built from the `mask_valid` directory with that suffix
+  hard-coded rather than from the requested domain. Reading one as depth would
+  give a map of 0 and 255 that loads, trains and scores.
+
 ---
 
 ## Engineering conventions
@@ -1325,7 +1468,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 1176 fast tests
+pytest                                              # 1216 fast tests
 pytest -m slow                                      # 76, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/
 ruff format --check visbench/ tests/ conftest.py examples/
