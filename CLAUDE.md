@@ -959,17 +959,30 @@ is the part a contributor cannot see: **which of these have data on this
 machine**, checked on 2026-08-01 rather than assumed. A candidate whose dataset
 is absent is not cheap, however simple its protocol.
 
-**Verified present under `/shared/sets/datasets/`:** `ADE20K`
-(`ADEChallengeData2016`), `COCO` (`annotations/` has `instances_*`,
-`captions_*`, `person_keypoints_*` — **no panoptic and no stuff**),
-`cub_200_2011`, `stanford_cars`, `stanford_dogs`, many ImageNet variants,
-`Imagenette`.
+**`/shared/sets/datasets/` has a `vision/` subdirectory, and a top-level listing
+does not see into it.** 96 more datasets live there, including ones a first pass
+recorded as absent. Check both levels before concluding anything is missing —
+this note exists because the first version of this section did not, and said
+Places365 and NIGHTS were absent when both are on disk.
 
-**Verified absent:** Places365, any optical-flow set (Sintel, KITTI,
-FlyingChairs), NYUv2, any intrinsic-image set. `bsds300` is still the MAF
-density-estimation benchmark, not BSDS500 — see 6d-1. `davis` exists but holds
-two sequences of derived output (`dpt/`, `epipolar_error*`), not the DAVIS
-annotations, so it is not a video-segmentation benchmark.
+**Verified present at the top level:** `ADE20K` (`ADEChallengeData2016`), `COCO`
+(`annotations/` has `instances_*`, `captions_*`, `person_keypoints_*` — **no
+panoptic and no stuff**), `cub_200_2011`, `stanford_cars`, `stanford_dogs`, many
+ImageNet variants, `Imagenette`.
+
+**Verified present under `vision/`:** `nights` (`data.csv`, `ref/`, `distort/` —
+this is what the `similarity` probe reads), `places365_standard` (`train/`,
+`val/`, `categories_places365.txt`), `SUN397`, `mit67_indoor_scenes`,
+`caltech101`, `country211`, `CUB-200`, `oxford_flowers102`. **Scene
+classification is therefore a dataset-swap on the existing linear-probe path**,
+not an acquisition step.
+
+**Verified absent, both levels:** any optical-flow set (Sintel, KITTI,
+FlyingChairs), NYUv2, any intrinsic-image set (IIW, SAW, MIT intrinsic).
+`bsds300` is still the MAF density-estimation benchmark, not BSDS500 — see 6d-1.
+`davis` exists but holds two sequences of derived output (`dpt/`,
+`epipolar_error*`), not the DAVIS annotations, so it is not a video-segmentation
+benchmark.
 
 **The Taskonomy copy on disk carries eight domains only**: `depth_zbuffer`,
 `edge_occlusion`, `edge_texture`, `keypoints2d`, `keypoints3d`, `normal`,
