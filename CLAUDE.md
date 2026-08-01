@@ -889,6 +889,53 @@ an unchanged name, which content hashing catches today.
   leaderboard, once there's enough task/backbone coverage for a leaderboard
   to be meaningful.
 
+### The candidate task backlog — and what is actually on this machine
+
+`README.md` has the public version of this list, grouped by cost. What follows
+is the part a contributor cannot see: **which of these have data on this
+machine**, checked on 2026-08-01 rather than assumed. A candidate whose dataset
+is absent is not cheap, however simple its protocol.
+
+**Verified present under `/shared/sets/datasets/`:** `ADE20K`
+(`ADEChallengeData2016`), `COCO` (`annotations/` has `instances_*`,
+`captions_*`, `person_keypoints_*` — **no panoptic and no stuff**),
+`cub_200_2011`, `stanford_cars`, `stanford_dogs`, many ImageNet variants,
+`Imagenette`.
+
+**Verified absent:** Places365, any optical-flow set (Sintel, KITTI,
+FlyingChairs), NYUv2, any intrinsic-image set. `bsds300` is still the MAF
+density-estimation benchmark, not BSDS500 — see 6d-1. `davis` exists but holds
+two sequences of derived output (`dpt/`, `epipolar_error*`), not the DAVIS
+annotations, so it is not a video-segmentation benchmark.
+
+**The Taskonomy copy on disk carries eight domains only**: `depth_zbuffer`,
+`edge_occlusion`, `edge_texture`, `keypoints2d`, `keypoints3d`, `normal`,
+`principal_curvature`, `reshading`, plus `rgb` and `mask_valid`. Taskonomy
+*publishes* `vanishing_point`, `room_layout`, `segment_unsup2d/25d` and
+`point_matching`, and none of them are here. So the roadmap items that look like
+free Taskonomy wins — vanishing points, room layout, superpixel segmentation —
+each need a download first, and are not in the same cost class as 6d-1 and 6d-2
+were.
+
+**The cheapest items on the list need no dataset at all, and that is the useful
+observation.** `edge_texture` is a target Taskonomy *computed from the RGB
+frame*; Harris corners, DoG blobs, structure-tensor orientation and photometric
+superpixels are all equally derivable, deterministically, from any image folder
+already here. That makes them a target generator plus a `DenseMagnitudeTask`
+subclass — the two pieces that already exist — rather than a data acquisition
+step. If a low-level probe is wanted next, start there.
+
+Two hazards to carry into any of them, both already paid for once:
+
+- **Check the tail before assuming the magnitude protocol transfers.** A corner
+  response is spikier than an edge response, and `edge_occlusion` at 46% mass in
+  its strongest 1% of pixels is the case where L1 and Pearson pull apart and the
+  probe stops ranking backbones. 6d-2's note has the numbers.
+- **A derived target is only as honest as its generator, and `protocol` must say
+  which generator.** "Harris corners" is a family, not a definition — the
+  k parameter, the window, the smoothing and the non-maximum suppression all
+  move the target. A record claiming a bare `"harris"` says less than it looks.
+
 ### Step 6c — detection groundwork. Scope decided 2026-07-29, before any code
 
 Expect this to take longer than any other single addition — it's the hardest

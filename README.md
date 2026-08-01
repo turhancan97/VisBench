@@ -223,6 +223,73 @@ This is a multi-month roadmap, built one reviewed step at a time.
 
 **Next** — HF Hub probe sharing and a public leaderboard.
 
+## Future directions
+
+A candidate pool, not a commitment. VisBench is built one reviewed step at a
+time, so these are ordered by *what they would cost*, not by preference — and
+several are cheap only because the machinery they need already exists.
+
+Anything here is open to contribution. `visbench/tasks/dense_base.py` supplies
+everything a trained dense probe needs bar four methods, and
+`visbench/tasks/magnitude_base.py` supplies the rest when the target is a
+magnitude map.
+
+### Cheapest — targets derived from the image itself
+
+No new dataset. Taskonomy's `edge_texture` is already a target *computed from
+the RGB frame*, and the same is true of these, so a target generator plus a
+`DenseMagnitudeTask` subclass is most of the work.
+
+| Task | Level | Note |
+|---|---|---|
+| Corner / blob detection (Harris, DoG) | low | Classical-target counterpart to the learned `keypoints2d` response maps |
+| Local orientation / gradient fields (structure tensor, HOG-style) | low | Vector-valued rather than magnitude; closer to surface normals in shape |
+| Superpixel / texture segmentation | low | Grouping by local photometric similarity alone, no figure-ground reasoning |
+
+### Reachable with data already common
+
+| Task | Level | Note |
+|---|---|---|
+| Instance segmentation | high | The category-labelled counterpart to the existing binary segmentation; COCO-style polygon annotations |
+| Fine-grained recognition | high | Reuses the existing linear-probe classification path; only the dataset changes |
+| Scene classification (Places365) | high | Same, at scene rather than object granularity |
+| Relative depth ordering | mid | A ranking-only weakening of the existing depth probe — different protocol, same targets |
+| Intrinsic image decomposition (albedo vs shading) | mid | Classic Marr-style separation of appearance from geometry and lighting. Ground truth is scarce outside synthetic data |
+| Room / scene layout estimation | mid | Floor–wall–ceiling boundaries |
+| Vanishing point / line detection | low | Published as a Taskonomy domain |
+| Color constancy / illuminant estimation | low | Needs measured illuminant ground truth |
+
+### Harder — new machinery, not just a new dataset
+
+| Task | Level | Note |
+|---|---|---|
+| Optical flow | low | Needs image pairs and a flow head. `PairViewDataset` already expresses the pairing; the head is the real cost |
+| Relative camera pose (essential / fundamental matrix) | mid | Pairwise, regressing a geometric relation rather than a per-pixel map |
+| Multi-view stereo / point-cloud / mesh recovery | mid | Multi-view input and a non-raster output; the largest departure from every probe here |
+| Motion / video object segmentation | mid | Grouping by motion, not identity. Needs video input, which nothing here consumes yet |
+| Action / activity recognition | high | Same video constraint |
+| Amodal completion of occluded boundaries | mid | Targets extend beyond visible evidence |
+| Symmetry / repeated-structure detection | mid | Annotation is scarce |
+| Object counting without recognition | mid | Scalar-per-image target rather than dense or categorical |
+| Attribute recognition (material, function) | high | Multi-label rather than multi-class |
+| Panoptic segmentation | high | Instance segmentation plus stuff classes |
+| Image captioning / VQA | high | Needs a language decoder — a different kind of probe from anything here |
+| Zero-shot / open-vocabulary classification | high | Only meaningful for backbones with a text tower, so it does not rank the full set |
+| Animal identification | high | Fine-grained recognition at individual rather than species level |
+
+### Already partly answered
+
+Worth naming so they are not re-scoped from scratch:
+
+- **Edge / contour detection** is implemented (v0.4) as dense magnitude
+  regression on Taskonomy. What is missing is **BSDS500's** ODS/OIS/AP boundary
+  protocol, which is a bipartite matching after non-maximum suppression and a
+  step of its own — not a dataset swap.
+- **Occlusion-edge detection** (v0.5) already covers the depth-discontinuity
+  half of contour detection, at mid level.
+- **Texture / reflectance** overlaps with intrinsic decomposition above.
+  Taskonomy ships no reflectance domain, so `mask_valid/` did not unblock it.
+
 ## Reproducibility
 
 Every run logs a structured JSON record — backbone, weights key, task, dataset,
