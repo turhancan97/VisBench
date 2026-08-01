@@ -51,7 +51,11 @@ step is next rather than attempting the whole roadmap in one session.
 | 6d-0 | Dataset listing: `scandir`, not a stat per file | done |
 | 6d-1 | Edge detection — the first low-level task, on Taskonomy | done |
 | 6d-2 | `mask_valid`, keypoints2d + occlusion_edge, `DenseMagnitudeTask` | done |
-| **6d-3+** | **More tasks, or HF Hub + leaderboard** | **next** |
+| 6e-1 | Leaderboard: the comparability rules, as pure functions | done |
+| 6e-2 | Leaderboard: regenerate a record corpus for all twelve probes | next |
+| 6e-3 | Leaderboard: render it, and generate the README tables from records | |
+| 6e-4 | Hub: serialise a trained head, with the backbone identity beside it | |
+| 6e-5 | Hub: push/pull through `huggingface_hub`, behind a `[hub]` extra | |
 
 ---
 
@@ -888,6 +892,65 @@ an unchanged name, which content hashing catches today.
 - HF Hub integration for sharing pretrained probe heads and a public
   leaderboard, once there's enough task/backbone coverage for a leaderboard
   to be meaningful.
+
+### Step 6e-1 — **done**. The comparability rules, and two things that surprised it
+
+`visbench/results/leaderboard.py`, 41 fast tests. Pure functions over records:
+no rendering, no I/O beyond `writer.py`, no network. A number that should not
+have gone in a table is wrong long before anyone formats it.
+
+**Two prerequisites for this whole track were discovered by looking, not
+assumed, and both change the plan:**
+
+- **There is no record corpus.** `results/*.jsonl` is gitignored, so nothing is
+  committed, and what is on disk locally is **16 records covering 2 of the 12
+  probes** — leftovers from 6a/6b's timing work. Every published number was
+  produced ad hoc and hand-copied; most of the records behind them are gone.
+  That is what 6e-2 is for, and it is the expensive step.
+- **Probe heads cannot be serialised at all.** No `save`, `load`, `state_dict`
+  or `torch.save` anywhere in `visbench/tasks/` or `visbench/heads/`. "HF Hub
+  probe sharing" means distributing trained head weights, so 6e-4 is a
+  prerequisite for 6e-5 rather than part of it. **The Hub work and the
+  leaderboard work are two projects** that were bundled under one roadmap
+  bullet; they share almost no code.
+
+Validated against the 16 real records: it reproduces VOC frozen 0.7328/0.7533,
+fine-tuned 0.7758/0.7992 and Taskonomy edge 0.4558/0.4481 exactly, and splits
+them into four mutually unrankable groups.
+
+Decisions settled while building it, so they are not re-opened:
+
+- **Directions are a listed table, never inferred from the name.** `mean` and
+  `median` are surface-normal *angular error in degrees*, so lower is better,
+  and nothing about either word says so. A heuristic reading "mean" as a score
+  ranks that board upside down, and the output reads as a finding rather than a
+  bug. An unrecorded metric therefore **raises** instead of defaulting.
+- **Four things are refused rather than handled.** Incomparable records; a
+  metric missing from any one record (ranking the rest presents a partial
+  comparison as a complete one); a `classes_scored` mismatch (mAP over 18
+  classes and over 20 are averages of different quantities — that field is the
+  real denominator and is not always `num_classes`); and a `ceiling_` context
+  metric (correspondence's ceiling describes the split, so ranking on it ranks
+  the data).
+- **`trainable_params` is excluded from the key, everything else is in.** It
+  differs between ViT-S and ViT-B for the *same* `blocks` setting, so including
+  it would make the one comparison fine-tuning exists to support look
+  incomparable. `task_params` and `dataset_params` are otherwise included
+  wholesale — conservative on purpose, because enumerating "the settings that
+  matter" means editing this module every time a task grows one. `ignore=` is
+  the escape hatch, and every name passed to it is a claim.
+- **A task can disagree with itself, so `ranking_disagreements` is not
+  optional.** Taskonomy normals: DINOv2-S wins on mean angular error, DINOv2-B
+  on the 11.25° threshold. The real corpus produced a second case unprompted —
+  on Taskonomy edges, `edge_correlation` ranks S first and `mae` ranks B first.
+  A renderer that picks a headline metric silently will manufacture a result;
+  an empty dict from this function is a real answer, not an absence.
+- **`describe()` is lossy and `short_id()` exists because of it.** The corpus
+  holds two `edge` groups identical in task, dataset, split, protocol and
+  frozen-ness, differing only in `target_scale` (65535 against 1000, from
+  6d-1's sweep, scoring 0.047 and 0.456). Described alone they read as one
+  group listed twice. A digest rather than a diff, because which field differs
+  depends on which two keys you hold.
 
 ### The candidate task backlog — and what is actually on this machine
 
