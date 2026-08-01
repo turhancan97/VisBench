@@ -18,7 +18,7 @@
 
 ---
 
-> **Status: v0.5.0.** Three backbone families (DINOv2, CLIP, timm CNNs) and
+> **Status: v0.5.0, on PyPI.** Three backbone families (DINOv2, CLIP, timm CNNs) and
 > twelve tasks run end-to-end across all three levels — high, mid and low —
 > including seven trained dense probes and an anchor-free detection probe, from
 > Python or from the `visbench` command line. v0.5 adds 2D keypoint detection
@@ -154,9 +154,9 @@ Following [Chen, Marks & Cheng (arXiv:2411.17474)](https://arxiv.org/abs/2411.17
 | | detection (anchor-free, single-scale) | v0.3 |
 | **Mid-level** — geometry & generic structure | geometric correspondence | v0.1 |
 | | depth, surface normals, generic (binary) segmentation, mid-level similarity | v0.2 |
-| | occlusion-edge detection | unreleased |
-| **Low-level** — signal properties | edge detection (dense magnitude regression) | v0.3 |
-| | 2D keypoint detection | unreleased |
+| | occlusion-edge detection | v0.5 |
+| **Low-level** — signal properties | edge detection (dense magnitude regression) | v0.4 |
+| | 2D keypoint detection | v0.5 |
 | | optical flow, texture, IQA | [scope only](https://github.com/turhancan97/VisBench/blob/main/visbench/tasks/low_level/README.md) |
 
 Mid-level is where VisBench aims to be strongest relative to existing tooling.
@@ -215,9 +215,13 @@ This is a multi-month roadmap, built one reviewed step at a time.
 
 **v0.2** — ResNet/timm + custom backbones *(done)*, pluggable heads (linear + DPT) *(done)*, multi-layer extraction *(done)*, depth estimation *(done)*, surface normals *(done)*, generic (binary) segmentation *(done)*, semantic segmentation *(done)*, mid-level similarity *(done)*, CLI *(done)*.
 
-**v0.3** — opt-in fine-tuning of the last N blocks *(done)*, prefix caching *(done)*, detection *(done)*, edge detection — the first low-level task *(done)*.
+**v0.3** — opt-in fine-tuning of the last N blocks *(done)*, prefix caching *(done)*, detection *(done)*.
 
-**Next** — 2D keypoints, occlusion edges and Taskonomy's masked domains are on `main` *(done, unreleased)*. Still open: HF Hub probe sharing and a public leaderboard.
+**v0.4** — edge detection, the first low-level task *(done)*.
+
+**v0.5** — Taskonomy's `mask_valid/` and the four domains it unblocks *(done)*, 2D keypoint detection *(done)*, occlusion-edge detection *(done)*.
+
+**Next** — HF Hub probe sharing and a public leaderboard.
 
 ## Reproducibility
 
