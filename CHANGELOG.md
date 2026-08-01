@@ -9,6 +9,22 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-08-01
+
+**Two probes, and a mask that was missing.** v0.4.0 refused six of Taskonomy's
+domains because they are derived from its 3D reconstruction and carry holes that
+no in-band value marks. This release reads `mask_valid/` and unblocks four of
+them — and in doing so found that one, `keypoints3d`, had never been refused at
+all: it was listed as a known domain and omitted from the refusal set, so v0.4.0
+would read it as though every pixel were a real measurement. Nothing raised.
+That fix is the reason to upgrade even if neither new probe interests you.
+
+The two new probes are `keypoints2d` (low-level) and `occlusion_edge`
+(mid-level). They share every line of their implementation with the existing
+edge probe and sit one tier apart, which is the sharpest statement of what the
+tiers mean this codebase has: recovering a depth discontinuity needs scene
+geometry, recovering an intensity one does not.
+
 ### Added
 
 - **`mask_valid/` support in `TaskonomyDataset`** (step 6d-2), which unblocks
@@ -1384,7 +1400,8 @@ API philosophy.
 [#2]: https://github.com/turhancan97/VisBench/issues/2
 [#4]: https://github.com/turhancan97/VisBench/issues/4
 [#3]: https://github.com/turhancan97/VisBench/issues/3
-[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/turhancan97/VisBench/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/turhancan97/VisBench/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/turhancan97/VisBench/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/turhancan97/VisBench/compare/v0.1.0...v0.2.0

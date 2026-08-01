@@ -18,18 +18,15 @@
 
 ---
 
-> **Status: v0.4.0, on PyPI.** Three backbone families (DINOv2, CLIP, timm
-> CNNs) and ten tasks run end-to-end across all three levels — high, mid and
-> now low — including five trained dense probes and an anchor-free detection
-> probe, from Python or from the `visbench` command line. v0.4 fills the
-> low-level tier with edge detection; v0.3 added opt-in fine-tuning of the last
-> N blocks — a *different measurement* from a frozen probe, kept apart in the
-> record rather than averaged with it. See [Build order](#build-order).
->
-> `main` is ahead of the release: it carries **twelve** probes, adding 2D
-> keypoint detection and occlusion-edge detection, and reads the Taskonomy
-> domains that need `mask_valid/`. `pip install visbench` gets the ten in
-> v0.4.0.
+> **Status: v0.5.0.** Three backbone families (DINOv2, CLIP, timm CNNs) and
+> twelve tasks run end-to-end across all three levels — high, mid and low —
+> including seven trained dense probes and an anchor-free detection probe, from
+> Python or from the `visbench` command line. v0.5 adds 2D keypoint detection
+> and occlusion-edge detection, and reads the Taskonomy domains that need
+> `mask_valid/`; v0.4 filled the low-level tier with edge detection; v0.3 added
+> opt-in fine-tuning of the last N blocks — a *different measurement* from a
+> frozen probe, kept apart in the record rather than averaged with it. See
+> [Build order](#build-order).
 
 ## What it is
 

@@ -57,11 +57,11 @@ step is next rather than attempting the whole roadmap in one session.
 
 ## Current state
 
-**v0.1 through v0.4 are all complete** — every task, all three backbone
-families, the CLI, fine-tuning, detection and the first low-level probe.
-Everything below exists, is tested, and is on `main`. **v0.4.0 is tagged and
-released on GitHub** (2026-07-31); it is the release that filled the low-level
-tier.
+**v0.1 through v0.5 are all complete** — every task, all three backbone
+families, the CLI, fine-tuning, detection and two of the low-level probes.
+Everything below exists, is tested, and is on `main`. v0.4.0 filled the
+low-level tier; **v0.5.0 is the `mask_valid` release** (2026-08-01), which
+unblocked four Taskonomy domains and added the eleventh and twelfth probes.
 
 **v0.3's numbered steps are all done: 6a (fine-tuning), 6b
 (prefix caching) and all of 6c (detection).** Dense probes take `finetune_blocks=N` /
@@ -81,9 +81,8 @@ detection is dense magnitude regression on Taskonomy's `edge_texture`, scored by
 per-image Pearson correlation and recorded as `visbench_edge_regression` — not
 BSDS500's, which is a correspondence metric and a step of its own.
 
-**6d-2 wired up `mask_valid/` and added two more probes** (unreleased, on
-`main` after v0.4.0). Four of the six Taskonomy domains that were refused are
-now supported — `depth_zbuffer`, `normal`, `edge_occlusion`, `keypoints3d` —
+**6d-2 wired up `mask_valid/` and added two more probes**, released as v0.5.0.
+Four of the six Taskonomy domains that were refused are now supported — `depth_zbuffer`, `normal`, `edge_occlusion`, `keypoints3d` —
 each declaring how it marks an invalid pixel rather than exposing a mask.
 `keypoints2d` (low-level) and `occlusion_edge` (mid-level) joined `edge` on a
 lifted `DenseMagnitudeTask`. **Still schema v6**: twelve probes, and the new
@@ -108,11 +107,11 @@ The CLI exposes all twelve probes: `visbench list`, `visbench run <probe>`,
 `list_probes()` are the same set, so a probe cannot ship unreachable from a
 shell by accident.
 
-Package version is `0.4.0`, tagged and released on GitHub, and **v0.4.0 was
-uploaded to [PyPI](https://pypi.org/project/visbench/) on 2026-07-31** — wheel
-and sdist both, verified by reading the published wheel rather than by trusting
-the version number. 6d-2's work is on `main` and is **not** in it: the installed
-package has ten probes, `main` has twelve.
+Package version is `0.5.0`. The last upload to
+[PyPI](https://pypi.org/project/visbench/) this file witnessed was **v0.4.0 on
+2026-07-31** — wheel and sdist both, verified by reading the published wheel
+rather than by trusting the version number. Whether v0.5.0 followed it is not
+something this paragraph can know.
 **Publishing needs the maintainer's credentials and is theirs to
 run** — never attempt it, and do not assume a tag means a release went out, or
 that `main` matches what is installable; check
