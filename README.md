@@ -292,6 +292,15 @@ Worth naming so they are not re-scoped from scratch:
 
 ## Reproducibility
 
+**Twelve probes against six backbones, as records:
+[LEADERBOARD.md](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md).**
+Every board there — and every measured table below — is generated from
+[`results/corpus/visbench.jsonl`](https://github.com/turhancan97/VisBench/blob/main/results/corpus/visbench.jsonl),
+the committed corpus, by
+[`scripts/render_tables.py`](https://github.com/turhancan97/VisBench/blob/main/scripts/render_tables.py).
+A test in the fast suite fails if any of them drifts from the records, so a
+published number and the run behind it cannot disagree.
+
 Every run logs a structured JSON record — backbone, weights key, task, dataset,
 pooling, feature mode, metrics, seed, timestamp — under one schema from v0.1,
 so leaderboard tooling never needs a retrofit. Dependencies are pinned in
@@ -481,12 +490,22 @@ backbone can be strong at one and ordinary at the other.
 Measured on the NIGHTS test split (1,824 triplets, `min_votes=6`), pooled
 features at 224px. Humans chose "right" 49.1% of the time, so chance is ~51%:
 
-| backbone | accuracy | f1 |
-| --- | --- | --- |
-| dinov2_vits14 | **0.870** | 0.869 |
-| dinov2_vitb14 | 0.858 | 0.858 |
-| clip_vitb16 | 0.828 | 0.827 |
-| resnet50 | 0.827 | 0.828 |
+<!-- visbench:board task=similarity metrics=accuracy,f1 heading=4 -->
+#### similarity
+
+| backbone | `accuracy` | `f1` | `tie_rate` |
+| --- | --- | --- | --- |
+| `dinov2_vits14` | **0.8701** | **0.8687** | 0.0000 |
+| `dinov2_vitb14` | 0.8580 | 0.8575 | 0.0000 |
+| `clip_vitb32` | 0.8465 | 0.8443 | 0.0000 |
+| `resnet18` | 0.8317 | 0.8307 | 0.0000 |
+| `clip_vitb16` | 0.8284 | 0.8266 | 0.0000 |
+| `resnet50` | 0.8273 | 0.8282 | 0.0000 |
+
+Ordered by `accuracy`, which **disagrees with `f1`, `recall`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
+
+<sub>similarity on nights/test, protocol=midvision_2afc, frozen [0cc388a0]</sub>
+<!-- /visbench:board -->
 
 **The small DINOv2 beats the base one here** — the reverse of semantic
 segmentation, where B leads S (0.753 against 0.732). Two tasks, two orderings,
@@ -522,13 +541,24 @@ detector's.
 
 Measured on VOC 2012, 600 train / 600 val images at 224px, ten epochs:
 
-| metric | DINOv2-S/14 | DINOv2-B/14 |
-| --- | --- | --- |
-| `map_50` (VOC-comparable) | 0.213 | **0.262** |
-| `map_50_95` (COCO-*style*) | 0.072 | **0.093** |
-| `classes_scored` | 20 of 20 | 20 of 20 |
-| `detections_per_image` | 84.6 | 88.5 |
-| `train_loss` | 1.208 | 1.112 |
+<!-- visbench:board task=detection metrics=map_50,map_50_95 heading=4 -->
+#### detection
+
+| backbone | `map_50` | `map_50_95` | `classes_scored` | `detections_per_image` |
+| --- | --- | --- | --- | --- |
+| `dinov2_vitb14` | **0.2895** | **0.0978** | 20 | 88.5217 |
+| `dinov2_vits14` | 0.2291 | 0.0702 | 20 | 83.0333 |
+| `clip_vitb16` | 0.1894 | 0.0622 | 20 | 88.7500 |
+| `clip_vitb32` | 0.1886 | 0.0584 | 20 | 91.3833 |
+| `resnet50` | 0.1380 | 0.0420 | 20 | 48.2133 |
+| `resnet18` | 0.0912 | 0.0270 | 20 | 57.1033 |
+
+Ordered by `map_50`.
+
+> **Read this first.** Absolute mAP is low by design: the head is anchor-free and single-scale, so it has no feature pyramid and small objects fall between cells. The board ranks representations, which is what it is for — it is not a detector benchmark.
+
+<sub>detection on detection_folder/val, protocol=visbench_anchor_free_det, frozen [4d3fbeb4]</sub>
+<!-- /visbench:board -->
 
 `map_50` follows VOC's protocol as `VOCevaldet.m` defines it, cross-checked
 against a literal transcription of that MATLAB over 3,060 generated APs with
@@ -568,12 +598,22 @@ Taskonomy's splits are **disjoint by building** — 25 rooms train, 4 validate,
 
 600 train / 600 val frames at 224px, linear head, ten epochs:
 
-| metric | DINOv2-S/14 | DINOv2-B/14 |
-| --- | --- | --- |
-| `edge_correlation` (quote this) | **0.4558** | 0.4481 |
-| `rmse` | 0.9226 | 0.9265 |
-| `mae` | 0.5028 | 0.4972 |
-| `train_loss` | 0.5721 | 0.5631 |
+<!-- visbench:board task=edge metrics=edge_correlation,rmse,mae heading=4 -->
+#### edge
+
+| backbone | `edge_correlation` | `rmse` | `mae` |
+| --- | --- | --- | --- |
+| `clip_vitb16` | **0.4565** | 0.9340 | **0.4882** |
+| `dinov2_vits14` | 0.4558 | **0.9226** | 0.5028 |
+| `dinov2_vitb14` | 0.4481 | 0.9265 | 0.4972 |
+| `clip_vitb32` | 0.3834 | 0.9656 | 0.5080 |
+| `resnet50` | 0.3549 | 0.9770 | 0.5056 |
+| `resnet18` | 0.3430 | 0.9797 | 0.5153 |
+
+Ordered by `edge_correlation`, which **disagrees with `mae`, `rmse`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
+
+<sub>edge on taskonomy_edge_texture/val, protocol=visbench_edge_regression, frozen [f8d2af2a]</sub>
+<!-- /visbench:board -->
 
 DINOv2-S edges out DINOv2-B here, by 0.008 — the same ordering as mid-level
 similarity and the opposite of segmentation and detection. The margin is small
@@ -613,10 +653,42 @@ visbench run occlusion_edge  --data /path/to/taskonomy --limit 600
 
 600 train / 600 val frames at 224px, linear head, ten epochs:
 
-| probe | level | DINOv2-S/14 | DINOv2-B/14 |
+The two probes share every line of their implementation and sit one tier apart,
+so they render as two boards rather than one row each:
+
+<!-- visbench:board task=keypoints2d metrics=keypoint_correlation,mae,rmse heading=4 -->
+#### keypoints2d
+
+| backbone | `keypoint_correlation` | `mae` | `rmse` |
 | --- | --- | --- | --- |
-| `keypoints2d` (`keypoint_correlation`) | low | **0.2356** | 0.2248 |
-| `occlusion_edge` (`occlusion_edge_correlation`) | mid | 0.2924 | **0.3167** |
+| `dinov2_vits14` | **0.2356** | **1.1281** | **2.5472** |
+| `dinov2_vitb14` | 0.2248 | 1.1294 | 2.5541 |
+| `clip_vitb16` | 0.2175 | 1.1533 | 2.5770 |
+| `clip_vitb32` | 0.1933 | 1.1474 | 2.5891 |
+| `resnet50` | 0.1792 | 1.2374 | 2.6163 |
+| `resnet18` | 0.1659 | 1.2579 | 2.6282 |
+
+Ordered by `keypoint_correlation`, which **disagrees with `mae`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
+
+<sub>keypoints2d on taskonomy_keypoints2d/val, protocol=visbench_keypoint2d_regression, frozen [e647c722]</sub>
+<!-- /visbench:board -->
+
+<!-- visbench:board task=occlusion_edge metrics=occlusion_edge_correlation,mae,rmse heading=4 -->
+#### occlusion_edge
+
+| backbone | `occlusion_edge_correlation` | `mae` | `rmse` |
+| --- | --- | --- | --- |
+| `dinov2_vitb14` | **0.3167** | **0.2061** | **0.4315** |
+| `dinov2_vits14` | 0.2924 | 0.2205 | 0.4373 |
+| `clip_vitb16` | 0.2558 | 0.2149 | 0.4415 |
+| `clip_vitb32` | 0.2174 | 0.2203 | 0.4440 |
+| `resnet50` | 0.1979 | 0.2294 | 0.4502 |
+| `resnet18` | 0.1745 | 0.2418 | 0.4578 |
+
+Ordered by `occlusion_edge_correlation`, which **disagrees with `mae`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
+
+<sub>occlusion_edge on taskonomy_edge_occlusion/val, protocol=visbench_occlusion_edge_regression, frozen [d12a4923]</sub>
+<!-- /visbench:board -->
 
 **The occlusion-edge probe is mid-level and the texture-edge probe is
 low-level, and they are otherwise the same code.** An occlusion edge is a depth
@@ -667,13 +739,22 @@ python examples/segment_semantic.py --data /path/to/pascal_voc --voc
 Measured on VOC 2012 val (1449 images), linear head, 224px, at the default
 ten-epoch schedule:
 
-| metric | DINOv2-S/14 | DINOv2-B/14 |
-| --- | --- | --- |
-| `miou` (dataset-level) | 0.732 | **0.753** |
-| `miou_per_image` | 0.683 | 0.712 |
-| `pixel_acc` | 0.926 | 0.931 |
-| `mean_acc` | 0.831 | 0.838 |
-| `train_loss` | 0.193 | 0.166 |
+<!-- visbench:board task=semantic_segmentation metrics=miou,miou_per_image,pixel_acc,mean_acc heading=4 -->
+#### semantic_segmentation
+
+| backbone | `miou` | `miou_per_image` | `pixel_acc` | `mean_acc` |
+| --- | --- | --- | --- | --- |
+| `dinov2_vitb14` | **0.7533** | **0.7161** | **0.9316** | **0.8403** |
+| `dinov2_vits14` | 0.7328 | 0.6841 | 0.9267 | 0.8271 |
+| `clip_vitb16` | 0.6546 | 0.6683 | 0.9019 | 0.7312 |
+| `clip_vitb32` | 0.5813 | 0.6067 | 0.8731 | 0.6633 |
+| `resnet50` | 0.4574 | 0.5163 | 0.8322 | 0.5248 |
+| `resnet18` | 0.4212 | 0.4497 | 0.8205 | 0.4915 |
+
+Ordered by `miou`.
+
+<sub>semantic_segmentation on VOC2012/val, protocol=visbench_semantic_seg, frozen [e14b47db]</sub>
+<!-- /visbench:board -->
 
 **Report the linear head.** It is the default and the only one under which a
 difference between two backbones is a difference between two *feature maps*.
@@ -723,18 +804,67 @@ Things that will bite otherwise:
 
 ### Measured on Imagenette
 
-3,925-image val split, one V100. Correspondence on 50 pairs at `max_warp=0.2`.
+3,925-image val split, one V100. Correspondence on 200 pairs at `max_warp=0.2`.
 
-| task | metric | DINOv2 ViT-S/14 | CLIP ViT-B/16 | ResNet-50 |
-|---|---|---|---|---|
-| classification | top1 | 0.9939 | 0.9954 | 0.9980\* |
-| retrieval | recall@1 | 0.9921 | 0.9893 | 0.9901\* |
-| retrieval | mAP | 0.8893 | 0.9102 | 0.9357\* |
-| correspondence | recall@1p | 0.7650 | 0.6993 | 0.8443 |
-| correspondence | ceiling | 0.9408 | 0.9505 | 0.9709 |
-| dense grid @224 | | 16x16 | 14x14 | 7x7 |
+<!-- visbench:board task=classification metrics=top1,top5 heading=4 -->
+#### classification
 
-**\* Read the ResNet column with care.** Imagenette's ten classes are ImageNet-1k
+| backbone | `top1` | `top5` |
+| --- | --- | --- |
+| `resnet50` | **0.9980** | 0.9997 |
+| `dinov2_vitb14` | 0.9975 | **1.0000** |
+| `clip_vitb16` | 0.9954 | 0.9997 |
+| `dinov2_vits14` | 0.9939 | 0.9997 |
+| `clip_vitb32` | 0.9921 | 0.9992 |
+| `resnet18` | 0.9888 | 0.9995 |
+
+Ordered by `top1`, which **disagrees with `top5`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
+
+<sub>classification on val/val, frozen [12e02eff]</sub>
+<!-- /visbench:board -->
+
+<!-- visbench:board task=retrieval metrics=mAP,recall@1,recall@5 heading=4 -->
+#### retrieval
+
+| backbone | `mAP` | `recall@1` | `recall@5` |
+| --- | --- | --- | --- |
+| `resnet50` | **0.9357** | 0.9901 | **0.9987** |
+| `dinov2_vitb14` | 0.9171 | **0.9954** | 0.9977 |
+| `clip_vitb16` | 0.9102 | 0.9893 | 0.9975 |
+| `dinov2_vits14` | 0.8893 | 0.9921 | 0.9972 |
+| `clip_vitb32` | 0.8680 | 0.9806 | 0.9941 |
+| `resnet18` | 0.8648 | 0.9725 | 0.9944 |
+
+Ordered by `mAP`, which **disagrees with `recall@1`, `recall@5`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
+
+<sub>retrieval on val/val, frozen [eb312a7b]</sub>
+<!-- /visbench:board -->
+
+<!-- visbench:board task=correspondence metrics=recall@1p,auc@1p heading=4 -->
+#### correspondence
+
+| backbone | `recall@1p` | `auc@1p` | `ceiling_auc@1p` | `ceiling_recall@1p` | `num_matches` |
+| --- | --- | --- | --- | --- | --- |
+| `resnet18` | **0.8927** | **0.5128** | 0.6055 | 0.9762 | 4,911 |
+| `resnet50` | 0.8601 | 0.4832 | 0.6051 | 0.9785 | 4,373 |
+| `clip_vitb32` | 0.7992 | 0.4554 | 0.6029 | 0.9741 | 4,283 |
+| `dinov2_vits14` | 0.7834 | 0.4267 | 0.5914 | 0.9509 | 23,439 |
+| `dinov2_vitb14` | 0.7594 | 0.4064 | 0.5841 | 0.9471 | 27,590 |
+| `clip_vitb16` | 0.7179 | 0.4167 | 0.6063 | 0.9584 | 12,798 |
+
+Ordered by `recall@1p`, which **disagrees with `auc@0.5p`, `auc@1p`, `auc@4p`, `recall@0.5p`, `recall@2p`, `recall@4p`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
+
+> **Read this first.** `recall@t` is an average over the matches **each backbone proposed for itself** — `num_matches` is that denominator, and it varies by more than 5x across this board. A coarse patch grid proposes fewer, easier, better-separated candidates, so row order here reflects grid resolution as much as feature quality. Normalising by `ceiling_` does not remove the effect. Read the columns, not the order.
+
+<sub>correspondence on val/val, frozen [1ac52b90]</sub>
+<!-- /visbench:board -->
+
+The patch grid at 224px is 16x16 for DINOv2 (patch 14), 14x14 for CLIP-B/16 and
+7x7 for CLIP-B/32 and both ResNets. Hold that beside the correspondence board:
+it is what `num_matches` tracks, and it moves the score without saying anything
+about feature quality.
+
+**Read the ResNet rows with care.** Imagenette's ten classes are ImageNet-1k
 wnids, and `resnet50.a1_in1k` was trained on ImageNet-1k with labels — it has
 seen these exact categories, while DINOv2 is self-supervised and CLIP is
 image-text. Its semantic scores are close to in-distribution recall, not a

@@ -15,6 +15,8 @@ hand for v0.2.0 and nothing stopped it coming back.
 """
 
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -66,3 +68,47 @@ def test_the_pattern_finds_the_links_it_claims_to():
     assert len(targets) > 20, "the README has more links than this; the pattern missed some"
     assert any("arxiv.org" in t for t in targets), "no markdown link found"
     assert any("raw.githubusercontent.com" in t for t in targets), "no HTML image found"
+
+
+# --------------------------------------------------------------------------
+# Generated tables (step 6e-3)
+# --------------------------------------------------------------------------
+
+
+def test_the_generated_tables_match_the_corpus():
+    """The README's measured numbers must equal what the records say.
+
+    Every one of these was hand-copied from a terminal until step 6e-3, and one
+    had drifted by the time anyone noticed. This is the guard that makes drift
+    impossible rather than merely unlikely, and it belongs in the *fast* suite:
+    a wrong number ships to PyPI on the next release, and a version there can
+    never be reused.
+
+    If this fails, run ``scripts/render_tables.py`` — do not edit the tables by
+    hand, since the next regeneration would overwrite the edit.
+    """
+    script = Path(__file__).resolve().parent.parent / "scripts" / "render_tables.py"
+    result = subprocess.run(
+        [sys.executable, str(script), "--check"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, (
+        f"README tables are stale against results/corpus/visbench.jsonl.\n"
+        f"Run scripts/render_tables.py to regenerate.\n{result.stdout}{result.stderr}"
+    )
+
+
+def test_every_marker_is_closed_and_carries_a_task():
+    """A malformed marker renders nothing and fails silently.
+
+    The regex simply would not match it, so the stale table underneath survives
+    and ``--check`` passes — which is the failure mode the generator exists to
+    remove, reintroduced by a typo.
+    """
+    text = (Path(__file__).resolve().parent.parent / "README.md").read_text()
+    opens = re.findall(r"<!-- visbench:board ([^>]*?) -->", text)
+    assert len(opens) == text.count("<!-- /visbench:board -->"), "unbalanced markers"
+    assert opens, "no generated boards in the README"
+    for attrs in opens:
+        assert "task=" in attrs, f"marker without a task: {attrs!r}"
