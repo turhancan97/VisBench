@@ -1264,6 +1264,38 @@ import to module scope passed. Reload the module that *holds* the import.
 notes above. The diff here is seven lines and no version moved;
 `huggingface_hub` was already in the lock transitively via timm.
 
+**And that last fact is what broke CI.** Three pull tests used
+`monkeypatch.setattr("huggingface_hub.hf_hub_download", ...)`, which needs the
+real module to import. It does here — transitively via timm — and **CI installs
+`.[dev]` only**, so it failed on both 3.10 and 3.12 with `ModuleNotFoundError`
+at monkeypatch time. This is the "a local env with extra packages installed will
+pass checks that CI fails" rule, hit exactly as written, by the person who wrote
+the tests for the optional extra.
+
+The fix is a stub module injected with `monkeypatch.setitem(sys.modules, ...)`,
+not a `skipif`. Skipping would leave the **pull** path — the half that loads
+someone else's file — untested in precisely the install where most users will
+run it.
+
+**To check an optional extra locally, block the import rather than trusting the
+venv.** A pytest plugin inserting a `find_spec` that raises for the package
+reproduces CI's environment in one command:
+
+```python
+# /tmp/blockhub.py, then: PYTHONPATH=/tmp pytest -p blockhub
+import sys
+class _Block:
+    def find_spec(self, name, path=None, target=None):
+        if name.split(".")[0] == "huggingface_hub":
+            raise ModuleNotFoundError(f"No module named {name!r}")
+        return None
+sys.meta_path.insert(0, _Block())
+```
+
+Run this whenever a test touches `clip`, `timm` or `hub` — the five verification
+commands cannot catch it, because they run in the environment that has
+everything.
+
 ### The candidate task backlog — and what is actually on this machine
 
 `README.md` has the public version of this list, grouped by cost. What follows

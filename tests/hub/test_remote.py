@@ -56,6 +56,42 @@ def fake_api(monkeypatch):
     return api
 
 
+class FakeHub:
+    """A stand-in ``huggingface_hub`` module, recording what it was asked for."""
+
+    def __init__(self):
+        self.path: str | None = None
+        self.calls: list[dict] = []
+
+    def hf_hub_download(self, **kwargs):
+        self.calls.append(kwargs)
+        return self.path
+
+
+@pytest.fixture
+def fake_hub(monkeypatch):
+    """Install a stub ``huggingface_hub`` in ``sys.modules``.
+
+    Injected rather than monkeypatched onto the real package, because **CI
+    installs `.[dev]` only** — no clip, no timm, no hub — so the real module is
+    absent there and ``monkeypatch.setattr("huggingface_hub....")`` raises
+    ModuleNotFoundError at collection. It passed locally because this venv has
+    huggingface_hub transitively via timm, which is exactly the "a local env
+    with extra packages passes checks CI fails" trap.
+
+    Skipping instead would have left the *pull* path untested in a core
+    install, and pull is the half that loads someone else's file.
+    """
+    import sys
+    import types
+
+    stub = FakeHub()
+    module = types.ModuleType("huggingface_hub")
+    module.hf_hub_download = stub.hf_hub_download
+    monkeypatch.setitem(sys.modules, "huggingface_hub", module)
+    return stub
+
+
 # --------------------------------------------------------------------------
 # Push
 # --------------------------------------------------------------------------
@@ -141,19 +177,19 @@ def _as_file(payload: bytes, path):
 # --------------------------------------------------------------------------
 
 
-def test_a_pulled_probe_predicts_what_was_pushed(fitted, fake_vit, tmp_path, monkeypatch):
+def test_a_pulled_probe_predicts_what_was_pushed(fitted, fake_vit, tmp_path, fake_hub):
     task, features, _ = fitted
     before = task.predict(features)
 
     path = tmp_path / "probe.pt"
     save_probe(task, path, backbone=fake_vit)
-    monkeypatch.setattr("huggingface_hub.hf_hub_download", lambda **kwargs: str(path))
+    fake_hub.path = str(path)
 
     loaded = load_probe_from_hub("someone/a-probe", backbone=fake_vit)
     assert torch.equal(before, loaded.predict(features))
 
 
-def test_a_pulled_probe_gets_the_same_identity_checks(fitted, fake_vit, tmp_path, monkeypatch):
+def test_a_pulled_probe_gets_the_same_identity_checks(fitted, fake_vit, tmp_path, fake_hub):
     """The reason pull is `load_probe` with a download in front of it.
 
     A separate remote path is how one of them ends up without the backbone check
@@ -163,7 +199,7 @@ def test_a_pulled_probe_gets_the_same_identity_checks(fitted, fake_vit, tmp_path
     task, _, _ = fitted
     path = tmp_path / "probe.pt"
     save_probe(task, path, backbone=fake_vit)
-    monkeypatch.setattr("huggingface_hub.hf_hub_download", lambda **kwargs: str(path))
+    fake_hub.path = str(path)
 
     other = visbench.get_probe("classification")
     other.pooling = "mean"
@@ -171,23 +207,17 @@ def test_a_pulled_probe_gets_the_same_identity_checks(fitted, fake_vit, tmp_path
         load_probe_from_hub("someone/a-probe", backbone=fake_vit, task=other)
 
 
-def test_a_revision_is_passed_through(fitted, fake_vit, tmp_path, monkeypatch):
+def test_a_revision_is_passed_through(fitted, fake_vit, tmp_path, fake_hub):
     """A Hub repo is mutable; `main` today is not promised to be `main` later."""
     task, _, _ = fitted
     path = tmp_path / "probe.pt"
     save_probe(task, path, backbone=fake_vit)
+    fake_hub.path = str(path)
 
-    seen: dict = {}
-
-    def fake_download(**kwargs):
-        seen.update(kwargs)
-        return str(path)
-
-    monkeypatch.setattr("huggingface_hub.hf_hub_download", fake_download)
     load_probe_from_hub("someone/a-probe", backbone=fake_vit, revision="abc123")
 
-    assert seen["revision"] == "abc123"
-    assert seen["filename"] == "probe.pt"
+    assert fake_hub.calls[0]["revision"] == "abc123"
+    assert fake_hub.calls[0]["filename"] == "probe.pt"
 
 
 # --------------------------------------------------------------------------
