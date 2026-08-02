@@ -48,7 +48,32 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Changed
 
-- **The README opens with the demo**, rather than with what the library is.
+- **The README is reorganised around a reader, not around the project's
+  history.** It was 1,020 lines with `Install` at line 390 — a newcomer scrolled
+  past build order, roadmap and future directions before learning how to
+  install anything. It is now **397 lines**, ordered: run something, install it,
+  understand it, then the interfaces.
+
+  Two large sections moved out rather than being deleted:
+
+  - **`docs/tasks.md`** — the per-probe reference: every probe's data layout,
+    the example that runs it, and its measured numbers. All nine generated
+    tables live here now.
+  - **`docs/roadmap.md`** — build order, roadmap and the candidate task
+    backlog. These answer "what is the plan", not "how do I use this".
+
+  A new **Where to go next** table at the foot of the README points at both,
+  plus the leaderboard, the changelog and NOTICE.
+
+- **`scripts/render_tables.py` takes a list of marked files**, since the
+  generated boards no longer live in the README. A file in that list with no
+  markers is an **error**, not a silent skip — moving a table without updating
+  the list fails loudly instead of quietly leaving a stale copy behind.
+
+  Two new tests: the README must actually link to the pages it split into, and
+  relative links inside `docs/` must resolve. The second is deliberately the
+  *opposite* rule to the README's — `docs/` is not package metadata, so relative
+  links are correct there.
 
 ## [0.6.1] — 2026-08-02
 
