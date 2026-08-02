@@ -38,14 +38,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--num-corr", type=int, default=1000)
     parser.add_argument("--ratio", type=float, default=0.9, help="Lowe ratio threshold")
     parser.add_argument(
-        "--units", default="patch", choices=("patch", "pixel"), help="threshold units"
+        "--units", default="pixel", choices=("patch", "pixel"), help="threshold units"
     )
     parser.add_argument(
         "--thresholds",
         type=float,
         nargs="+",
         default=None,
-        help="default: 0.5 1 2 4 patch widths, or 1 2 5 10 pixels",
+        help="default: 1 2 5 10 pixels, or 0.5 1 2 4 patch widths",
     )
     parser.add_argument("--limit", type=int, default=200, help="number of pairs")
     parser.add_argument("--image-size", type=int, default=224, help="must match the backbone")

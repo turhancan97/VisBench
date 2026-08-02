@@ -47,8 +47,10 @@ def test_grid_matches_patch_size(clip, solid_images):
 def test_grid_differs_from_dinov2(clip, solid_images):
     """16px patches against DINOv2's 14px: 14x14 versus 16x16 at the same input.
 
-    This is exactly why correspondence reports error in patch widths — in
-    pixels these two would be measured with different rulers.
+    This is exactly why correspondence reports error in **pixels**. A patch is a
+    different physical distance on each of these backbones, so a threshold in
+    patch widths asks each of them a different question — which ranked that
+    board upside down until v0.6.1. See `CorrespondenceTask.threshold_units`.
     """
     dinov2 = visbench.get_backbone("dinov2_vits14", device="cpu")
 

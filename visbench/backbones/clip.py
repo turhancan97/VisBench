@@ -100,7 +100,9 @@ class CLIP(BaseBackbone):
 
     Patch size is 16 or 32 against DINOv2's 14, so the two produce different
     grids at the same input resolution. That is why correspondence measures
-    error in patch widths rather than pixels.
+    error in **pixels**: a patch width means a different physical distance on
+    each backbone, so a threshold expressed in patch widths asks each of them a
+    different question.
     """
 
     has_cls_token = True
