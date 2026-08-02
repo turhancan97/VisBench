@@ -53,8 +53,8 @@ step is next rather than attempting the whole roadmap in one session.
 | 6d-2 | `mask_valid`, keypoints2d + occlusion_edge, `DenseMagnitudeTask` | done |
 | 6e-1 | Leaderboard: the comparability rules, as pure functions | done |
 | 6e-2 | Leaderboard: regenerate a record corpus for all twelve probes | done |
-| 6e-3 | Leaderboard: render it, and generate the README tables from records | next |
-| 6e-4 | Hub: serialise a trained head, with the backbone identity beside it | |
+| 6e-3 | Leaderboard: render it, and generate the README tables from records | done |
+| 6e-4 | Hub: serialise a trained head, with the backbone identity beside it | next |
 | 6e-5 | Hub: push/pull through `huggingface_hub`, behind a `[hub]` extra | |
 
 ---
@@ -1113,6 +1113,51 @@ range that does not match `probes x backbones` unless `VISBENCH_PARTIAL=1` says
 the gap is deliberate. Worth the guard because the failure is invisible: a short
 array simply omits probes, and the corpus then looks complete, since every group
 it *does* contain holds every backbone.
+
+### Step 6e-3 — **done**. The renderer, and the two bugs it took to get right
+
+`visbench/results/render.py` (28 fast tests), `scripts/render_tables.py`,
+`LEADERBOARD.md`, and nine marker-delimited boards in `README.md`.
+`tests/test_readme.py` runs `--check` in the **fast** suite, so a table that
+drifts from the corpus fails a build instead of shipping to PyPI.
+
+**The split from `leaderboard.py` is one-directional and must stay that way.**
+That module decides what may be compared; this one only formats an answer.
+Nothing in `render.py` may relax a rule from it — no backbone metadata table, no
+"known good" number, no per-task special case beyond two listed dicts.
+
+- **`HEADLINE_METRICS` is listed, and a task without an entry raises.** A board
+  ordered by whichever metric sorted first asserts a ranking nobody chose. A
+  test checks the dict against `list_probes()`, so adding a probe and forgetting
+  the table fails immediately rather than at the next corpus run.
+- **Bolding is per column, never per row**, and the disagreement note names the
+  metrics that fight the ordering. `edge` orders its three metrics three ways;
+  bolding a winning row would assert an outright winner that does not exist.
+- **Diagnostics and ceilings are columns, not omissions.** `rank` refuses them,
+  correctly — but a table that then drops `num_matches` presents a comparison
+  whose terms differ as though they did not. `CAVEATS` carries the prose.
+- **Narrowing for width cannot launder a board.** `metrics=` trims *rankable*
+  columns only: diagnostics always survive, ceilings survive for the metrics
+  kept, and the disagreement note is computed over every shared metric. All
+  three are tested, and the denominator test was **vacuous when first written** —
+  it asserted `` `num_matches` `` appeared in the rendered page, which the
+  caveat prose satisfies whether or not the column exists. Assert against the
+  header row. Found by mutation-testing, not by reading.
+- **`COUNT_METRICS` is listed for the same reason directions are.** "Any
+  diagnostic" renders `tie_rate` 0.0 as `0`; "any integral value" renders a
+  saturated `ceiling_recall@4p` of 1.0 as `1`. Only `num_matches` and
+  `classes_scored` are counts; `detections_per_image` is a mean.
+- **A lazy `.*?` cannot delimit a possibly-empty marker body.** With `-->\n`
+  consumed by the open group there is nothing left to match, so the regex ran on
+  to the *next* pair's close marker and swallowed the open marker between them:
+  nine empty markers produced four boards and silently deleted four. The body
+  pattern is now "anything that is not another marker", and `rewrite()` asserts
+  the marker count is unchanged before writing. **A generator that can delete
+  its own inputs and report success is worse than no generator.**
+
+**`render_leaderboard` has a caller on purpose.** It writes `LEADERBOARD.md`,
+all twelve groups unnarrowed. A declared-but-uncalled mechanism is the QuickGELU
+failure, and this module is exactly where one would hide.
 
 ### The candidate task backlog — and what is actually on this machine
 

@@ -145,6 +145,30 @@ rather than asserted.
   is deliberate — an incomplete corpus is invisible afterwards, because every
   group it *does* contain still holds every backbone it ran.
 
+- **`visbench/results/render.py`** (step 6e-3), markdown tables built from
+  records, plus `scripts/render_tables.py` and a generated
+  [`LEADERBOARD.md`](LEADERBOARD.md) holding all twelve boards.
+
+  Nine tables in `README.md` are now delimited by HTML comment markers and
+  regenerated from `results/corpus/visbench.jsonl`. `tests/test_readme.py` runs
+  the generator's `--check` in the **fast** suite, so a table that drifts from
+  the records fails a build rather than shipping — which matters because a
+  version number on PyPI can never be reused.
+
+  The module formats; it never decides. `leaderboard.py` remains the only place
+  comparability and ordering are determined, and `render.py` may not relax a
+  rule from it. In practice that means two listed dicts and nothing else:
+  `HEADLINE_METRICS`, so a board's ordering is declared rather than picked, and
+  `CAVEATS`, so what a reader must know travels with the board it qualifies.
+
+  What a table is not allowed to hide: the winner is bolded **per column**, so a
+  task that ranks its backbones three different ways shows that instead of
+  implying an outright winner; diagnostics and ceilings are rendered as columns
+  even though ranking on them is refused, because a board that drops
+  `num_matches` presents a comparison whose terms differ as though they did not;
+  and narrowing a board for width cannot drop a denominator, drop the ceiling of
+  a metric it keeps, or suppress a disagreement note.
+
 ### Known, and unresolved
 
 **The correspondence board ranks on an average whose denominator each backbone
