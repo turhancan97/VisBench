@@ -222,6 +222,12 @@ def run(
         dataset_size=described["dataset_size"],
         dataset_fingerprint=described["dataset_fingerprint"],
         pooling=_resolve(backbone, task),
+        # Both, because they answer different questions. The resolved value says
+        # what representation produced the number; this one says what protocol
+        # asked for it, and only the request makes a ViT and a CNN comparable --
+        # "default" resolves to cls on one and mean on the other, so a
+        # leaderboard keyed on the resolution alone can never rank them together.
+        pooling_requested=str(getattr(task.pooling, "value", task.pooling)),
         feature_mode=described["feature_mode"],
         # Resolved against this backbone's depth, for the same reason pooling
         # is: a record saying [-4, -1] does not name the layers that produced

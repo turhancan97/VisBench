@@ -132,9 +132,9 @@ merely point nowhere once the page is served from `pypi.org` rather than
 GitHub. `tests/test_readme.py` is the guard for those, in the fast suite —
 every link and image must be absolute. Do not "tidy" one back to relative;
 point it at `.../blob/main/...`, or `raw.githubusercontent.com` for an image.
-Result schema is at **v6** (`finetune` added in 6a; `dataset_params` was 5j) and
-is **additive only**: never remove or repurpose a field, or old records stop
-being readable.
+Result schema is at **v7** (`pooling_requested` added in 6e-2b; `finetune` was
+6a; `dataset_params` was 5j) and is **additive only**: never remove or repurpose
+a field, or old records stop being readable.
 
 ### Layout worth knowing before editing
 
@@ -1040,6 +1040,79 @@ an unrelated exception several steps later.
 it at `SegmentationClass` directly**: `load_mask` converts a palette PNG, so
 void 255 resolves to light grey and is scored as foreground — measured 0.078
 foreground against a true 0.0399, and **0 void pixels recovered out of 5,355**.
+
+### Step 6e-2b — **done**. Six backbones, and the field that made them comparable
+
+The corpus covers **DINOv2-S/B, CLIP-B/16 and B/32, ResNet-18 and ResNet-50
+across all twelve probes** — twelve comparability groups, each holding all six.
+The eight dense probes rank them in the order the taxonomy would predict
+(DINOv2 > CLIP > ResNet, and B/16 > B/32, RN50 > RN18), which is the strongest
+evidence to date that these probes measure representation quality rather than
+capacity.
+
+**Schema v7 adds `pooling_requested`, and widening the corpus is what forced
+it.** `pooling` is recorded *resolved* — right for reading one record, wrong for
+comparing two, because `default` resolves to `cls` on a ViT and `mean` on a CNN.
+Keyed on the resolution, **four of the twelve probes split along an
+architectural line**: classification, retrieval, correspondence and similarity
+each became two groups, and a CNN could never be ranked against a ViT. That
+matters concretely — `resnet50` scores 0.9980 top-1 and 0.9357 mAP, which puts
+it *first* on both boards ahead of DINOv2-B, and the split hid it.
+
+- **The request is the protocol; the resolution is a property of the backbone.**
+  `comparability_key` uses `pooling_requested`, falling back to `pooling` for v6
+  and earlier. Two runs that both asked for `default` are comparable. Two that
+  named `cls` and `mean` explicitly are **still not**, and a test pins that —
+  without it the fix is indistinguishable from dropping pooling from the key,
+  which would silently rank a CLS-pooled number against a mean-pooled one.
+- **A v6 record groups with a v7 record that asked for `cls`, not with one that
+  asked for `default`.** It cannot say which its `cls` was, so it takes the
+  conservative side rather than joining a group defined by a request it may not
+  have made.
+- **`run()` must actually write the field, and there is a test for that alone.**
+  A field declared and never populated is the QuickGELU failure in a new place.
+  `FakeCNN` gained a real `preprocess` so the ViT-versus-CNN case is proved
+  through `run()` rather than on hand-built records.
+- **Do not read `resnet50` topping classification and retrieval as a finding.**
+  `resnet50.a1_in1k` was trained on ImageNet-1k *with labels* and Imagenette is
+  an ImageNet subset. The README already records this; the row belongs on the
+  board with the caveat attached, not suppressed.
+
+**Unresolved, and 6e-3 must not render the correspondence board until it is:
+`recall@t` is an average over a denominator each backbone chooses for itself.**
+It is `(errors <= t).mean()` over the matches `nn_match` + the ratio test
+proposed, and `num_matches` is that denominator. Across the six:
+
+| backbone | recall@1p | ceiling | num_matches |
+| --- | --- | --- | --- |
+| resnet18 | **0.8927** | 0.9762 | **4,911** |
+| resnet50 | 0.8601 | 0.9785 | 4,373 |
+| clip_vitb32 | 0.7992 | 0.9741 | 4,283 |
+| dinov2_vits14 | 0.7834 | 0.9509 | 23,439 |
+| dinov2_vitb14 | 0.7594 | 0.9471 | **27,590** |
+| clip_vitb16 | 0.7179 | 0.9584 | 12,798 |
+
+**ResNet-18 tops the board while proposing 5.6x fewer matches than DINOv2-B**,
+and a coarse 7x7 grid proposes few, easy, well-separated candidates. This is
+exactly the `classes_scored` case 6e-1 already refuses — two averages over
+different denominators are averages of different quantities — except that here
+*every* backbone differs, so making `num_matches` a guard metric would render
+correspondence permanently unrankable rather than fixing it. Normalising by the
+ceiling does not resolve it either (RN18 still leads, 0.9145 against 0.8238).
+
+Do not ship this row as "ResNet-18 is the best correspondence backbone". The
+options are a fixed candidate set across backbones, a match-count-matched
+protocol, or rendering the board with `num_matches` beside every score and
+saying plainly what it does to the comparison. That is a protocol decision, and
+it is the first thing 6e-3 has to settle.
+
+**`slurm/corpus.sbatch` takes `VISBENCH_BACKBONES`** so the matrix widens
+without editing it. The `--array` range **cannot** be derived from that list —
+`#SBATCH` directives are read before the script runs — so the script refuses a
+range that does not match `probes x backbones` unless `VISBENCH_PARTIAL=1` says
+the gap is deliberate. Worth the guard because the failure is invisible: a short
+array simply omits probes, and the corpus then looks complete, since every group
+it *does* contain holds every backbone.
 
 ### The candidate task backlog — and what is actually on this machine
 

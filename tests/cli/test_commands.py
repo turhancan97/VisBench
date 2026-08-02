@@ -302,7 +302,7 @@ class TestRun:
         )
         payload = json.loads(result.out[result.out.index("{") :])
         assert payload["task"] == "retrieval"
-        assert payload["schema_version"] == 6
+        assert payload["schema_version"] == 7
 
     def test_no_cache_still_runs(self, run_cli, image_folder, cache_dir, tmp_path):
         result = _run(

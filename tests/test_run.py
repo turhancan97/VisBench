@@ -123,6 +123,39 @@ def test_explicit_pooling_passes_through(fake_vit, splits, cache):
     assert result.record.pooling == "mean"
 
 
+def test_the_request_is_recorded_beside_the_resolution(fake_vit, splits, cache):
+    """Schema v7. A field that is declared and never filled is dead weight.
+
+    This codebase has shipped that failure before — the CLIP QuickGELU guard
+    passed its own tests for a year while checking a phrase open_clip never
+    emitted. `pooling_requested` only earns its schema bump if `run()` actually
+    writes it.
+    """
+    _, val = splits
+    result = visbench.run(fake_vit, "retrieval", val, cache=cache)
+    assert result.record.pooling == "cls"
+    assert result.record.pooling_requested == "default"
+
+
+def test_a_vit_and_a_cnn_asked_for_the_same_thing(fake_vit, fake_cnn, splits, cache):
+    """The resolution differs by architecture; the request does not.
+
+    This is the whole of schema v7, end to end rather than on a hand-built
+    record: without `pooling_requested` these two runs are unrankable against
+    each other, which is what a leaderboard exists to do.
+    """
+    _, val = splits
+    vit = visbench.run(fake_vit, "retrieval", val, cache=cache).record
+    cnn = visbench.run(fake_cnn, "retrieval", val, cache=cache).record
+
+    assert (vit.pooling, cnn.pooling) == ("cls", "mean")
+    assert vit.pooling_requested == cnn.pooling_requested == "default"
+
+    from visbench.results.leaderboard import comparability_key
+
+    assert comparability_key(vit) == comparability_key(cnn)
+
+
 def test_seed_and_duration_are_recorded(fake_vit, splits, cache):
     _, val = splits
     result = visbench.run(fake_vit, "retrieval", val, cache=cache, seed=7)

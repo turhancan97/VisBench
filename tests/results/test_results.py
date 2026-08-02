@@ -284,7 +284,7 @@ class TestDatasetParams:
         assert ResultRecord.from_dict(payload).dataset_params == {}
 
     def test_the_version_moved(self):
-        assert SCHEMA_VERSION == 6
+        assert SCHEMA_VERSION == 7
 
 
 class TestFinetune:
