@@ -9,6 +9,25 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.6.0] — 2026-08-02
+
+**The leaderboard release.** Every VisBench number published before this was
+produced ad hoc and hand-copied into a markdown table; most of the records
+behind them no longer existed. This release replaces all of that with a
+committed corpus of result records, comparability rules that decide which of
+them may be ranked together, and generated tables that a test refuses to let
+drift. It also makes a trained probe something you can hand to someone else.
+
+Twelve probes against six backbones — DINOv2-S/B, CLIP-B/16 and B/32, ResNet-18
+and ResNet-50 — in twelve comparability groups, each holding all six. The eight
+dense probes rank them DINOv2 > CLIP > ResNet, with B/16 > B/32 and RN50 > RN18.
+
+Result schema moves to **v7**, additively as always: `pooling_requested` joins
+the resolved `pooling`, because keying comparability on the resolution alone
+could never rank a CNN against a ViT.
+
 ### Added
 
 - **`visbench/results/leaderboard.py`** (step 6e-1), the comparability rules as
@@ -214,22 +233,6 @@ rather than asserted.
   for an unfitted or zero-shot probe happens *before* the repository is created,
   so a rejected push leaves nothing behind.
 
-### Known, and unresolved
-
-**The correspondence board ranks on an average whose denominator each backbone
-picks for itself.** `recall@t` is `(errors <= t).mean()` over the matches that
-backbone's own features proposed, and `num_matches` is that denominator —
-4,911 for ResNet-18 against 27,590 for DINOv2-B. ResNet-18 tops the board while
-proposing 5.6x fewer, easier candidates from a coarse 7x7 grid, and normalising
-by the per-backbone ceiling does not change the ordering.
-
-This is the `classes_scored` situation the leaderboard already refuses, except
-that every backbone differs, so guarding on it would make correspondence
-unrankable rather than comparable. It is a protocol question, recorded here
-rather than papered over, and it is the first thing the renderer has to settle.
-
-### Changed (continued)
-
 - **Depth and surface normals are measured on NYUv2, not Taskonomy.** Their
   Taskonomy numbers came from uncommitted code and were unreachable from any
   entry point. probe3d's own NYUv2 copy has exactly the
@@ -244,6 +247,20 @@ rather than papered over, and it is the first thing the renderer has to settle.
   across 40 sampled frames, including across the ~28% of pixels where the depth
   map has no ground truth, so the probe is scored on filled geometry and is not
   comparable with a masked normals probe.
+
+### Known, and unresolved
+
+**The correspondence board ranks on an average whose denominator each backbone
+picks for itself.** `recall@t` is `(errors <= t).mean()` over the matches that
+backbone's own features proposed, and `num_matches` is that denominator —
+4,911 for ResNet-18 against 27,590 for DINOv2-B. ResNet-18 tops the board while
+proposing 5.6x fewer, easier candidates from a coarse 7x7 grid, and normalising
+by the per-backbone ceiling does not change the ordering.
+
+This is the `classes_scored` situation the leaderboard already refuses, except
+that every backbone differs, so guarding on it would make correspondence
+unrankable rather than comparable. It is a protocol question, recorded here
+rather than papered over, and it is the first thing the renderer has to settle.
 
 ## [0.5.0] — 2026-08-01
 
