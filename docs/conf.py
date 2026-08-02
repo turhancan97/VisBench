@@ -106,6 +106,57 @@ intersphinx_mapping = {
 }
 intersphinx_timeout = 15
 
+
+def _tolerate_unreachable_inventories(app):
+    """Stop a network hiccup from failing a `-W` build.
+
+    intersphinx fetches five ``objects.inv`` over the network on every cold
+    build. When one is unreachable Sphinx logs a warning, and under ``-W`` that
+    warning fails the build — which is what happened on the first deploy: a
+    ``ConnectionResetError`` reaching ``docs.python.org`` turned a perfectly
+    good site into a red X.
+
+    Losing intersphinx degrades the site gracefully by itself: with
+    ``nitpicky = False`` the affected references simply render as plain text.
+    So the *warning* is the only real problem, and it carries no ``type=``,
+    which means ``suppress_warnings`` cannot target it — hence a filter on the
+    message.
+
+    Deliberately narrow: it matches the inventory-fetch message only. Reference
+    resolution warnings still surface, which is what matters when ``nitpicky``
+    is eventually turned on.
+    """
+    import logging as _logging
+    import sys as _sys
+
+    class _DropUnreachableInventories(_logging.Filter):
+        def filter(self, record: _logging.LogRecord) -> bool:
+            if "failed to reach any of the inventories" not in record.getMessage():
+                return True
+            # Not silently: the site is still built, but its links to Python,
+            # NumPy and PyTorch are now plain text, and a reader of the build
+            # log should be able to see why.
+            print(
+                "NOTE: intersphinx could not fetch an inventory; external type "
+                "links will render as plain text in this build.",
+                file=_sys.stderr,
+            )
+            return False
+
+    # Attached to the handlers rather than the logger: Sphinx emits from
+    # per-module child loggers, and a parent logger's filters are not applied to
+    # a propagated record — only its handlers are.
+    #
+    # Inserted at position 0, not appended. Sphinx implements ``-W`` as a filter
+    # on the same handler that *raises* when it sees a warning, so a filter
+    # added after it never runs.
+    for handler in _logging.getLogger("sphinx").handlers:
+        handler.filters.insert(0, _DropUnreachableInventories())
+
+
+def setup(app):
+    _tolerate_unreachable_inventories(app)
+
 # Left False on purpose. Many of the 371 cross-references are bare -- `:meth:`
 # `fit``, `:meth:`evaluate`` -- and resolve only from the owning class's own
 # context. With nitpicky off an unresolved reference renders as literal text and
