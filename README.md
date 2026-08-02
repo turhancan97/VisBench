@@ -32,6 +32,43 @@
 > [LEADERBOARD.md](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md)
 > and [Build order](#build-order).
 
+## Try it in thirty seconds
+
+No dataset, no configuration, no large download:
+
+```bash
+pip install visbench
+visbench demo
+```
+
+```text
+drawing 20 images per class for 4 shapes...
+loading resnet18 (torchvision, ~45 MB on first run)...
+running the classification probe...
+
+  top1         0.8125
+
+  chance is 0.25 — the shapes differ in outline only.
+```
+
+That is a real probe, on a real pretrained backbone, through the same code path
+every other run uses. The images are generated: four shapes with **colour,
+size, position and rotation randomised**, so only geometry identifies a class
+and a backbone that has not learned shape scores about chance.
+
+The number is deliberately not 1.0. Turn the difficulty up and watch it fall:
+
+```bash
+visbench demo --noise 90      # top1 ~0.31, against a chance of 0.25
+```
+
+| `--noise` | 28 | **45** (default) | 60 | 75 | 90 |
+|---|---|---|---|---|---|
+| top1 | 0.975 | **0.812** | 0.550 | 0.438 | 0.312 |
+
+A probe whose score does not move when you destroy the signal is not measuring
+the signal. That slide into chance is the demo's actual point.
+
 ## What it is
 
 VisBench answers one question with as little ceremony as possible: *what does
@@ -426,6 +463,7 @@ Installing the package puts a `visbench` command on your path. It is a thin
 wrapper over `visbench.run()` — same cache, same result records, same numbers.
 
 ```bash
+visbench demo                       # a real probe on generated data, no setup
 visbench list                       # backbones, probes and heads that exist
 visbench run retrieval --data /path/to/imagenette2 --split val
 visbench cache stats

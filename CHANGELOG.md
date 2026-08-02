@@ -9,7 +9,46 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **`visbench demo`** — a real probe run that needs no dataset, no
+  configuration and no large download. Thirty seconds from `pip install` to an
+  interpretable number:
+
+  ```
+  $ visbench demo
+  drawing 20 images per class for 4 shapes...
+  loading resnet18 (torchvision, ~45 MB on first run)...
+  running the classification probe...
+
+    top1         0.8125
+
+    chance is 0.25 — the shapes differ in outline only.
+  ```
+
+  All thirteen `examples/` require `--data`, so the shortest path to a first
+  number went through finding a dataset, laying it out correctly and fetching a
+  1.7 GB backbone. This removes that.
+
+  Nothing is special-cased: the same `visbench.run`, the same cache, the same
+  result record as any other run, so what it demonstrates is the actual
+  library. The backbone is torchvision's ResNet-18 — a **core** dependency,
+  ~45 MB — wrapped in `CustomBackbone`, which is also the path a user takes for
+  their own model.
+
+  **The score is deliberately not 1.0.** Colour, size, position and rotation are
+  randomised so only geometry identifies a class, and a first pass without that
+  scored a flat 1.0 — the saturation this project rejects elsewhere. At the
+  defaults it reads 0.812 against a chance of 0.25, and `--noise` walks it into
+  chance: 0.975 / 0.812 / 0.550 / 0.438 / 0.312 across five settings. A probe
+  whose score does not move when the signal is destroyed is not measuring the
+  signal, and that slide is the demo's real lesson.
+
+  New public helpers in `visbench.demo`: `synthesise` and `demo_backbone`.
+
+### Changed
+
+- **The README opens with the demo**, rather than with what the library is.
 
 ## [0.6.1] — 2026-08-02
 
