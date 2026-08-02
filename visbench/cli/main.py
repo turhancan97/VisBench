@@ -106,6 +106,37 @@ def build_parser() -> argparse.ArgumentParser:
     )
     clear.add_argument("--yes", action="store_true", help="do not ask for confirmation")
 
+    demo = commands.add_parser(
+        "demo",
+        help="run a probe on generated data — no dataset, no setup",
+        description=(
+            "Draws a small labelled set of geometric shapes, wraps torchvision's "
+            "ResNet-18 (~45 MB, a core dependency) and runs a real probe over "
+            "them through the ordinary visbench.run path.\n\n"
+            "Colour carries no information and the shapes are rotated, scaled "
+            "and noised, so the score means something: ~0.81 top1 against a "
+            "0.25 chance baseline. Raise --noise to watch it fall toward chance."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    demo.add_argument(
+        "--probe",
+        default="classification",
+        choices=("classification", "retrieval"),
+        help="default: classification",
+    )
+    demo.add_argument("--images", type=int, default=20, help="per class per split")
+    demo.add_argument("--noise", type=float, default=45.0, help="pixel noise; raise to harden")
+    demo.add_argument(
+        "--data",
+        type=Path,
+        default=None,
+        help="where to write the images; default is a temporary directory",
+    )
+    demo.add_argument("--cache", type=Path, default=DEFAULT_CACHE_DIR)
+    demo.add_argument("--device", default=None, help="cuda | cpu; default is best available")
+    demo.add_argument("--seed", type=int, default=0)
+
     return parser
 
 
@@ -214,7 +245,64 @@ def _command_run(args: argparse.Namespace, out: Any) -> int:
     return 0
 
 
-_COMMANDS = {"list": _command_list, "run": _command_run, "cache": _command_cache}
+def _command_demo(args: argparse.Namespace, out: Any) -> int:
+    """A full probe run on generated data, through the ordinary code path.
+
+    Nothing here is special-cased: the same ``visbench.run``, the same cache and
+    the same result record as any other run. A demo that took a shortcut would
+    prove the shortcut works.
+    """
+    import tempfile
+
+    from visbench.data import ImageFolderDataset
+    from visbench.demo import SHAPES, demo_backbone, synthesise
+
+    with tempfile.TemporaryDirectory() as scratch:
+        root = args.data if args.data is not None else Path(scratch) / "shapes"
+        print(f"drawing {args.images} images per class for {len(SHAPES)} shapes...", file=out)
+        synthesise(root, per_class=args.images, seed=args.seed, noise=args.noise)
+        print(f"  {root}", file=out)
+
+        print("loading resnet18 (torchvision, ~45 MB on first run)...", file=out)
+        backbone = demo_backbone(device=args.device)
+
+        train = ImageFolderDataset(root / "train", split="train")
+        val = ImageFolderDataset(root / "val", split="val")
+
+        kwargs: dict = {}
+        if args.probe == "classification":
+            kwargs["train_dataset"] = train
+
+        print(f"running the {args.probe} probe...\n", file=out)
+        result = visbench.run(
+            backbone,
+            args.probe,
+            val,
+            cache=FeatureCache(root=args.cache),
+            device=args.device,
+            seed=args.seed,
+            **kwargs,
+        )
+
+        for name, value in result.metrics.items():
+            print(f"  {name:12s} {value:.4f}", file=out)
+        chance = 1.0 / len(SHAPES)
+        print(f"\n  chance is {chance:.2f} — the shapes differ in outline only.", file=out)
+        print("  Colour, size, position and rotation are randomised, so a", file=out)
+        print("  backbone that has not learned geometry scores about chance.", file=out)
+        print(f"\nRecord: {result.record.backbone} / {result.record.task}, ", end="", file=out)
+        print(f"pooling={result.record.pooling}, seed={result.record.seed}", file=out)
+        print("\nNext: `visbench run --help`, or point a probe at your own folder.", file=out)
+
+    return 0
+
+
+_COMMANDS = {
+    "list": _command_list,
+    "run": _command_run,
+    "cache": _command_cache,
+    "demo": _command_demo,
+}
 
 #: Failures that mean "your inputs were wrong", reported as one line rather
 #: than a traceback. Deliberately not a bare ``Exception``: a bug inside a
