@@ -22,7 +22,29 @@ htmlcov/
 results/*.jsonl
 checkpoints/
 
+# ...but the leaderboard corpus is tracked. Ad-hoc runs stay ignored above;
+# results/corpus/ is the reviewed set a leaderboard is built from, and a
+# benchmark whose records nobody else can see is not a benchmark.
+!results/corpus/
+!results/corpus/*.jsonl
+
+# Locally derived datasets (scripts/binarise_voc_masks.py writes here). Large,
+# reproducible from the script, and machine specific.
+#
+# The leading slash is load-bearing: a bare `data/` matches a directory of that
+# name at ANY depth, so it silently swallows `visbench/data/` and `tests/data/`
+# -- 17 source files dropped from ruff and mypy, and any new module added under
+# visbench/data/ never committed at all, because `git add -A` would not see it.
+/data/
+
 # Editors / OS
 .vscode/
 .idea/
 .DS_Store
+
+# Slurm job logs, and the per-task JSONL the array writes. Both are run
+# artifacts of one machine; results/corpus/visbench.jsonl is the deliverable
+# that merge_corpus.sh builds from them, and tracking both would store every
+# record twice.
+logs/
+results/corpus/parts/

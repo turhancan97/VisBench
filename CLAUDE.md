@@ -52,8 +52,8 @@ step is next rather than attempting the whole roadmap in one session.
 | 6d-1 | Edge detection — the first low-level task, on Taskonomy | done |
 | 6d-2 | `mask_valid`, keypoints2d + occlusion_edge, `DenseMagnitudeTask` | done |
 | 6e-1 | Leaderboard: the comparability rules, as pure functions | done |
-| 6e-2 | Leaderboard: regenerate a record corpus for all twelve probes | next |
-| 6e-3 | Leaderboard: render it, and generate the README tables from records | |
+| 6e-2 | Leaderboard: regenerate a record corpus for all twelve probes | done |
+| 6e-3 | Leaderboard: render it, and generate the README tables from records | next |
 | 6e-4 | Hub: serialise a trained head, with the backbone identity beside it | |
 | 6e-5 | Hub: push/pull through `huggingface_hub`, behind a `[hub]` extra | |
 
@@ -951,6 +951,95 @@ Decisions settled while building it, so they are not re-opened:
   6d-1's sweep, scoring 0.047 and 0.456). Described alone they read as one
   group listed twice. A digest rather than a diff, because which field differs
   depends on which two keys you hold.
+
+### Step 6e-2 — **done**. The corpus, and the two probes it found ranking nothing
+
+`results/corpus/visbench.jsonl` — **26 records, schema v6, all frozen, twelve
+comparability groups and all twelve hold both backbones.** Produced by
+`scripts/build_corpus.sh` (one function per probe, flags in one place),
+`slurm/corpus.sbatch` (a 24-task array, one task per probe/backbone) and
+`scripts/merge_corpus.sh` (idempotent rebuild from parts, plus validation).
+This is the first set of VisBench numbers that exists as records anyone can
+re-rank rather than as a hand-copied markdown table.
+
+**The corpus is tracked, deliberately.** `results/*.jsonl` stays ignored for
+ad-hoc runs; `results/corpus/` is negated in `.gitignore` because a benchmark
+whose records nobody else can see is not a benchmark.
+
+**It reproduces every published number to four decimals** — VOC segmentation
+0.7328/0.7533, classification 0.9939, similarity 0.8701/0.8580, edge
+0.4558/0.4481, keypoints2d 0.2356/0.2248, occlusion edge 0.2924/0.3167,
+correspondence recall@1p 0.7834 against ceiling 0.9509 — **with one exception**,
+below.
+
+- **`retrieval` and `correspondence` ranked nothing, and did so silently.**
+  Every metric they emit is parametrised — `recall@1`, `recall@10`, `auc@0.5p` —
+  and none was in `METRIC_DIRECTIONS`. `shared_metrics` skips a name it cannot
+  direct, so two of twelve probes produced an **empty leaderboard section rather
+  than an error**. Fixed with `PARAMETRISED_METRIC_DIRECTIONS`, keyed on the
+  stem before `@`. Still a listed table, not the name heuristic this module
+  refuses elsewhere: those names are *generated* by `f"recall@{k}"` and
+  `f"auc@{format_threshold(...)}"`, so the stem **is** the metric identity and
+  the suffix is only which setting of it. An unlisted stem still raises. **Only
+  a real corpus could have found this** — every fixture used unparametrised
+  names.
+- **`detections_per_image` and `num_matches` are diagnostics now.** Both say how
+  much a probe *emitted*, not how good it was: a head that fires everywhere
+  scores higher on them and worse on mAP.
+- **Detection does not reproduce, and it is recorded as unverifiable rather than
+  contradicted.** 0.2302/0.2882 map_50 against 6c-3's 0.2127/0.2616. Every
+  recorded field matches what this file documents for that run — `hidden_dim` 0,
+  ten epochs, 224px, 600 images, `classes_scored` 20 both sides — so the
+  difference is **not in any field a record carries**, and the original command
+  was never committed so it cannot be diffed. The ordering (B > S) is unchanged
+  and the corpus number is the reproducible one. Do not "correct" the corpus
+  toward the published pair.
+- **`edge` disagrees with itself three ways, not two.** 6e-1 knew about
+  `(edge_correlation, mae)`; the corpus added `(mae, rmse)` — MAE ranks
+  DINOv2-B first while RMSE ranks DINOv2-S first. One probe, three metrics,
+  three orderings. This is the case `ranking_disagreements` exists for, and
+  6e-3's renderer must not pick a headline metric silently.
+- **Semantic segmentation ran twice by accident and the duplicates are kept.**
+  The smoke test and the full array appended to the same part file. Metrics are
+  identical to six decimals; durations are 137.6 s vs 123.5 s and 104.9 s vs
+  115.9 s. That is the "a wall clock is not a metric" rule demonstrated rather
+  than asserted, so it earns its two lines. `latest_per_backbone` handles them.
+
+**Depth and surface normals are NYUv2 now, not Taskonomy.** Their Taskonomy
+numbers came from uncommitted code and were unreachable from any entry point.
+`/shared/sets/datasets/vision/probing_3D/nyuv2_new` has exactly the
+`<root>/<split>/{images,targets}` layout the CLI already expects — 795/654, the
+canonical split — so both probes joined with **no code change**: depth d1
+0.7652/0.7851, normals mean 29.48°/30.11°. Two hazards, both recorded inline in
+`build_corpus.sh`:
+
+- **`--target-scale 1.0` is load-bearing.** These targets are `.npy` already in
+  metres; NYUv2's *PNG* distribution is millimetres. Passing 1000 divides a
+  3-metre reading to 3 mm, and `depth_metrics` reports RMSE in whatever unit it
+  is handed — the number would look superb and mean nothing.
+- **The normals are dense**, with not one zero-length vector across 40 sampled
+  frames, including across the ~28% of pixels where the depth map has no ground
+  truth. So `load_normal_map`'s validity rule marks nothing and the probe is
+  scored on GeoNet's *filled* geometry. That is what probe3d's own files
+  support, but it is **not comparable with a masked normals probe** such as the
+  Taskonomy one.
+
+**Cluster notes, each of which cost a failed submission.** `sbatch` copies the
+script to `/var/spool/slurmd/job<id>/slurm_script`, so `${BASH_SOURCE[0]}` does
+**not** locate the repo — use `$SLURM_SUBMIT_DIR`. And **submit to `-p dgx`, not
+`dgxh100`**: the H100 image is Ubuntu 24.04 with only `python3.12`, while
+`.venv/bin/python` symlinks to `/usr/bin/python3.10`, and the failure surfaces
+as "cannot execute: required file not found" against the *console script*, which
+points at the wrong file entirely. The sbatch guards both. The feature cache
+lives at `/shared/results/common/kargin/visbench_cache` via `VISBENCH_CACHE`,
+because `/home` is under a 60 GB quota and exhausting it mid-array surfaces as
+an unrelated exception several steps later.
+
+`generic_segmentation` reads binary masks built by
+`scripts/binarise_voc_masks.py` from VOC's `SegmentationClass`. **Do not point
+it at `SegmentationClass` directly**: `load_mask` converts a palette PNG, so
+void 255 resolves to light grey and is scored as foreground — measured 0.078
+foreground against a true 0.0399, and **0 void pixels recovered out of 5,355**.
 
 ### The candidate task backlog — and what is actually on this machine
 

@@ -76,6 +76,65 @@ def test_angular_error_is_lower_better_despite_its_name():
     assert metric_direction("median") == "lower"
 
 
+@pytest.mark.parametrize(
+    "metric",
+    ["recall@1", "recall@5", "recall@10", "recall@1p", "recall@0.5p", "auc@1p", "auc@4p"],
+)
+def test_parametrised_metric_names_have_a_direction(metric):
+    """Retrieval and correspondence emit every metric with a parameter attached.
+
+    The real corpus is what caught this: both probes ranked *nothing*, because
+    `shared_metrics` skips any name it cannot direct and none of `recall@1`,
+    `recall@1p` or `auc@4p` was in the exact table. Two of twelve probes
+    produced an empty leaderboard section rather than an error.
+    """
+    assert metric_direction(metric) == "higher"
+
+
+def test_parametrised_lookup_is_a_format_not_a_heuristic():
+    """Only listed stems resolve; an unknown one still raises."""
+    with pytest.raises(UnknownMetric, match="No recorded direction"):
+        metric_direction("mystery@5")
+
+
+def test_context_prefix_still_wins_over_parametrised_stem():
+    """`ceiling_recall@1p` is context, even though `recall@` is directable."""
+    with pytest.raises(UnknownMetric, match="context"):
+        metric_direction("ceiling_recall@1p")
+
+
+def test_count_metrics_are_diagnostics():
+    """These say how much the probe emitted, not how good any of it was."""
+    for name in ("detections_per_image", "num_matches"):
+        with pytest.raises(UnknownMetric, match="diagnostic"):
+            metric_direction(name)
+
+
+def test_retrieval_and_correspondence_rank_end_to_end():
+    """The regression in the shape the corpus actually produced."""
+    retrieval = [
+        make_record(task="retrieval", backbone="s", metrics={"recall@1": 0.90, "mAP": 0.71}),
+        make_record(task="retrieval", backbone="b", metrics={"recall@1": 0.95, "mAP": 0.80}),
+    ]
+    assert shared_metrics(retrieval) == ["mAP", "recall@1"]
+    assert [r.backbone for r, _ in rank(retrieval, "recall@1")] == ["b", "s"]
+
+    correspondence = [
+        make_record(
+            task="correspondence",
+            backbone="s",
+            metrics={"recall@1p": 0.78, "auc@1p": 0.6, "ceiling_recall@1p": 0.95},
+        ),
+        make_record(
+            task="correspondence",
+            backbone="b",
+            metrics={"recall@1p": 0.81, "auc@1p": 0.7, "ceiling_recall@1p": 0.95},
+        ),
+    ]
+    # The ceiling travels with the score and must not become a rankable column.
+    assert shared_metrics(correspondence) == ["auc@1p", "recall@1p"]
+
+
 def test_unknown_metric_raises_rather_than_defaulting():
     with pytest.raises(UnknownMetric, match="No recorded direction"):
         metric_direction("some_new_score")
