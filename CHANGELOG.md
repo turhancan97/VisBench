@@ -169,6 +169,33 @@ rather than asserted.
   and narrowing a board for width cannot drop a denominator, drop the ceiling of
   a metric it keeps, or suppress a disagreement note.
 
+- **`visbench.hub`** (step 6e-4), serialising a trained probe head together with
+  the backbone identity that makes it meaningful: `save_probe`, `load_probe`,
+  `probe_metadata`, `IncompatibleProbe`. Plus `head_spec()`, `probe_state()` and
+  `load_probe_state()` on `BaseTask`, and `examples/save_probe.py`. **No network
+  dependency** — the Hub transport is 6e-5, behind a `[hub]` extra, and saving
+  and loading a probe works in a core install.
+
+  Nothing about probe heads was serialisable before this: no `save`, `load` or
+  `state_dict` anywhere in `visbench/tasks/` or `visbench/heads/`.
+
+  **A head is only meaningful against the exact features it was fitted on, and
+  almost every way of getting that wrong is shape-compatible.** Measured on real
+  DINOv2-S weights over Imagenette: a linear head fitted on CLS tokens and then
+  fed *mean-pooled* tokens from the same backbone scores **0.9620 against
+  0.9820**. It does not crash and it does not produce garbage — it produces a
+  number nobody would question.
+
+  So `load_probe` checks four things and refuses by default: `backbone_key`
+  (a fine-tuned checkpoint differs from its parent in nothing else), resolved
+  `pooling` (the case above), `feature_mode`, and `layers`. `strict=False` warns
+  and loads, because deliberately probing how far a head transfers is a real
+  experiment — but a number produced that way is comparable with nothing.
+
+  The artifact is read back with `torch.load(weights_only=True)`, and a test
+  asserts it still can be. That is not a detail: 6e-5 fetches these from a hub,
+  where an unrestricted load is arbitrary code execution.
+
 ### Known, and unresolved
 
 **The correspondence board ranks on an average whose denominator each backbone

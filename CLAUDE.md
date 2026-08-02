@@ -54,8 +54,8 @@ step is next rather than attempting the whole roadmap in one session.
 | 6e-1 | Leaderboard: the comparability rules, as pure functions | done |
 | 6e-2 | Leaderboard: regenerate a record corpus for all twelve probes | done |
 | 6e-3 | Leaderboard: render it, and generate the README tables from records | done |
-| 6e-4 | Hub: serialise a trained head, with the backbone identity beside it | next |
-| 6e-5 | Hub: push/pull through `huggingface_hub`, behind a `[hub]` extra | |
+| 6e-4 | Hub: serialise a trained head, with the backbone identity beside it | done |
+| 6e-5 | Hub: push/pull through `huggingface_hub`, behind a `[hub]` extra | next |
 
 ---
 
@@ -1158,6 +1158,69 @@ Nothing in `render.py` may relax a rule from it — no backbone metadata table, 
 **`render_leaderboard` has a caller on purpose.** It writes `LEADERBOARD.md`,
 all twelve groups unnarrowed. A declared-but-uncalled mechanism is the QuickGELU
 failure, and this module is exactly where one would hide.
+
+### Step 6e-4 — **done**. The artifact, and why it refuses more than it accepts
+
+`visbench/hub/` (`save_probe`, `load_probe`, `probe_metadata`,
+`IncompatibleProbe`, `ARTIFACT_VERSION`), `head_spec()` / `probe_state()` /
+`load_probe_state()` on `BaseTask`, and `examples/save_probe.py`. 22 fast tests.
+**No network dependency** — 6e-5 adds `huggingface_hub` behind a `[hub]` extra;
+saving and loading works in a core install.
+
+**A head is only meaningful against the exact features it was fitted on, and
+almost every way of getting that wrong is shape-compatible.** Measured on real
+DINOv2-S weights over Imagenette: a linear head fitted on CLS tokens, then fed
+*mean-pooled* tokens from the same backbone, scores **0.9620 against 0.9820**.
+It does not crash and it does not produce garbage — it produces a number nobody
+would question. That two-point gap is the entire argument for the module.
+
+Four fields are checked on load, and each is its own silent failure:
+
+- **`backbone_key`** — a fine-tuned DINOv2-S and its parent share a name, width,
+  pooling rule, feature mode and depth. This is the *only* thing that differs.
+- **`pooling`**, resolved — the 0.9620 case above. Raises nothing on its own.
+- **`feature_mode`** — `dense_cls_broadcast` doubles the width, so this usually
+  raises anyway. "Usually" is doing a lot of work when the head is a 1x1 conv.
+- **`layers`** — right shape, wrong depth.
+
+Decisions settled while building it:
+
+- **`weights_only=True` on load is not optional.** 6e-5 fetches these from a
+  hub, and an unrestricted `torch.load` on a downloaded file is arbitrary code
+  execution. Nothing may enter the payload that needs unpickling to
+  reconstruct — a test asserts the artifact still loads under it, so the day
+  someone puts an object in the metadata it fails immediately.
+- **The head *recipe* is captured in `_build_head`, not reconstructed at save
+  time.** `in_channels` and `output_size` are measured from the first batch of
+  features, so nothing outside that call knows them. A save that re-derived
+  them would be guessing, and a guess that happens to be right for one backbone
+  is the worst outcome.
+- **`probe_state()` exists because `ClassificationTask` standardises.** Its
+  `_mean`/`_std` are fitted on the training split, live outside `self.head`, and
+  decide the answer; a head saved without them loads cleanly and scores against
+  raw features. This was found by reading `fit()`, not by a failing test — check
+  any new trained probe for fitted state outside its head.
+- **`head_spec()` has two kinds and they are not merged.** `registered` for
+  anything built through `build_head`, `linear` for the bare `nn.Linear` the
+  classification probe fits on pooled features. The registered heads all map
+  `(B, C, H, W)`; forcing the pooled one through would reload it at the wrong
+  rank.
+- **Zero-shot probes are refused by name.** Retrieval, correspondence and
+  similarity train nothing, so an artifact would hold no weights and the
+  backbone alone reproduces them.
+- **`strict=False` warns and loads.** Deliberately probing how far a head
+  transfers is a legitimate experiment; doing it silently is not, and a number
+  produced that way is comparable with nothing, because `run()` would record the
+  backbone actually used with nothing saying the head came from elsewhere.
+- **`ARTIFACT_VERSION` is separate from `SCHEMA_VERSION`.** They version
+  unrelated things and move for unrelated reasons; tying them would force a
+  migration on one side every time the other changed.
+
+**Every one of the four identity guards was mutation-tested** by deleting it and
+re-running. Three failed immediately; **dropping `backbone_key` left all 21
+tests passing**, because the cross-backbone test was being caught by the pooling
+check instead. `test_different_weights_alone_are_refused` exists because of
+that. A guard with no test that isolates it is a guard you do not have.
 
 ### The candidate task backlog — and what is actually on this machine
 

@@ -554,7 +554,11 @@ class DetectionTask(BaseTask):
         """Instantiate the configured head, sized to these features."""
         kwargs: dict = {"num_classes": self.num_classes, "hidden_dim": self.hidden_dim}
         kwargs.update(self.head_kwargs)
-        head = build_head(self.head_name, in_channels=channels, **kwargs).to(self.device)
+        kwargs["in_channels"] = channels
+        # See DenseTrainingTask._build_head: `channels` is measured from the
+        # features, so the recipe has to be captured where it is known.
+        self._head_spec: dict = {"kind": "registered", "name": self.head_name, "kwargs": kwargs}
+        head = build_head(self.head_name, **kwargs).to(self.device)
         expected = self.num_classes + 4
         emitted = getattr(head, "out_channels", None)
         if emitted != expected:
@@ -564,6 +568,9 @@ class DetectionTask(BaseTask):
                 "Register a head that does, or use the default 'detection' head."
             )
         return head
+
+    def head_spec(self) -> dict | None:
+        return getattr(self, "_head_spec", None)
 
     def _batch_loss(
         self, batch_features: torch.Tensor, batch_targets: list[dict], centres: torch.Tensor

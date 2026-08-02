@@ -161,6 +161,53 @@ class ClassificationTask(BaseTask):
 
         return self
 
+    # -- serialisation -------------------------------------------------------
+
+    def head_spec(self) -> dict | None:
+        """The bare ``nn.Linear`` this probe fits, not a registered dense head.
+
+        Declared as its own kind rather than squeezed through ``build_head``:
+        the registered heads all map ``(B, C, H, W)`` feature maps, and this one
+        maps a pooled ``(B, C)`` vector. Pretending otherwise would produce a
+        head that reloads at the wrong rank.
+        """
+        if self.head is None:
+            return None
+        return {
+            "kind": "linear",
+            "in_features": int(self.head.in_features),
+            "out_features": int(self.head.out_features),
+        }
+
+    def probe_state(self) -> dict[str, torch.Tensor]:
+        """The standardiser, which lives outside the head and decides the answer.
+
+        With ``standardize=True`` the linear layer was fitted on
+        ``(x - mean) / std`` and is meaningless applied to raw features. Both
+        tensors travel with the weights or the artifact is not reloadable.
+        """
+        if self._mean is None or self._std is None:
+            return {}
+        return {"mean": self._mean, "std": self._std}
+
+    def load_probe_state(self, state: dict[str, torch.Tensor]) -> None:
+        if not state:
+            # A probe fitted with standardize=True cannot run without them, and
+            # the flag alone is what says whether they were ever written.
+            if self.standardize:
+                raise ValueError(
+                    "This probe standardises its features, but the artifact "
+                    "carries no mean/std. The head was fitted on standardised "
+                    "inputs and would score against raw ones."
+                )
+            return
+        missing = {"mean", "std"} - set(state)
+        if missing:
+            raise ValueError(f"Standardiser is incomplete; missing {sorted(missing)}.")
+        self._mean = state["mean"].to(self.device)
+        self._std = state["std"].to(self.device)
+        self.standardize = True
+
     # -- inference -----------------------------------------------------------
 
     def _require_head(self) -> nn.Linear:

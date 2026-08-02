@@ -125,6 +125,56 @@ class BaseTask(ABC):
         """
         return None
 
+    def head_spec(self) -> dict | None:
+        """How to rebuild this probe's trained head, or ``None`` if it has none.
+
+        Serialising a ``state_dict`` alone is not enough to reload a probe: the
+        module has to exist first, at exactly the shape the weights expect. This
+        returns the recipe, as JSON-primitives only, so the whole artifact can
+        be read back under ``torch.load(weights_only=True)`` — a head fetched
+        from a hub must not be able to execute code on the way in.
+
+        Two kinds, both explicit rather than inferred:
+
+        - ``{"kind": "registered", "name": ..., "kwargs": {...}}`` for anything
+          built through :func:`visbench.heads.build_head`.
+        - ``{"kind": "linear", "in_features": ..., "out_features": ...}`` for
+          the bare ``nn.Linear`` the classification probe fits on pooled
+          features, which is not a registered dense head and would not survive
+          being pretended into one.
+
+        ``None`` is the honest answer for a zero-shot probe. Retrieval,
+        correspondence and similarity train nothing, so there is nothing to
+        share and :func:`visbench.hub.save_probe` refuses them by name rather
+        than writing an artifact holding no weights.
+        """
+        return None
+
+    def probe_state(self) -> dict[str, torch.Tensor]:
+        """Fitted tensors that are **not** in the head's ``state_dict``.
+
+        Empty for most probes, and not an abstraction added speculatively:
+        :class:`ClassificationTask` fits a feature standardiser (``_mean``,
+        ``_std``) on its training split and applies it in ``predict``. A head
+        saved without those loads cleanly, has the right shapes, and scores
+        against unstandardised features — confidently wrong, with nothing to
+        say so. Any per-probe state learned outside ``self.head`` belongs here.
+        """
+        return {}
+
+    def load_probe_state(self, state: dict[str, torch.Tensor]) -> None:
+        """Restore what :meth:`probe_state` saved.
+
+        Raises on an unexpected key rather than ignoring it: a probe told to
+        restore state it does not understand is a probe about to run without it.
+        """
+        if state:
+            raise ValueError(
+                f"{type(self).__name__} has no probe state to restore, but the "
+                f"artifact carries {sorted(state)}. Refusing rather than "
+                "dropping it: the weights were fitted alongside these tensors."
+            )
+
     def requires_labels(self) -> bool:
         """Whether :meth:`evaluate` needs ground-truth labels.
 
