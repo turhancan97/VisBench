@@ -67,7 +67,8 @@ is done.** Every task, all three backbone families, the CLI, fine-tuning,
 detection, the low-level probes, the leaderboard and probe sharing. Everything
 below exists, is tested, and is on `main`. v0.4.0 filled the low-level tier;
 v0.5.0 was the `mask_valid` release; **v0.6.0 is the leaderboard release**
-(2026-08-02).
+(2026-08-02), and **v0.6.1 corrects the correspondence board it shipped ranked
+upside down** — see step 6f.
 
 **There is no `next` step.** The remaining work is the candidate task backlog
 further down this file — and the cheapest items there need no new dataset at
@@ -129,7 +130,7 @@ The CLI exposes all twelve probes: `visbench list`, `visbench run <probe>`,
 `list_probes()` are the same set, so a probe cannot ship unreachable from a
 shell by accident.
 
-Package version is `0.6.0`. The last upload to
+Package version is `0.6.1`. The last upload to
 [PyPI](https://pypi.org/project/visbench/) this file witnessed was **v0.6.0 on
 2026-08-02** — wheel and sdist both (276 KB and 645 KB), tagged `v0.6.0` on
 merge commit `77986e9`. Verified by downloading the published wheel and reading
@@ -138,7 +139,9 @@ five modules v0.6.0 added (`results/render.py`, `results/leaderboard.py`,
 `hub/{__init__,artifact,remote}.py`) *out of it*, plus the METADATA confirming
 `huggingface-hub` appears only under the `hub` and `all` extras and never in the
 core requirements. Not by trusting the version number, which is the whole point
-of the exercise. Whether anything followed is not something this paragraph can
+of the exercise. **v0.6.1 was prepared on 2026-08-02 and this file did not
+witness it being uploaded**; the version above is what the source says, not what
+is installable. Whether anything followed is not something this paragraph can
 know.
 **Publishing needs the maintainer's credentials and is theirs to
 run** — never attempt it, and do not assume a tag means a release went out, or

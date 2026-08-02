@@ -18,7 +18,7 @@
 
 ---
 
-> **Status: v0.6.0, on PyPI.** Three backbone families (DINOv2, CLIP, timm CNNs) and
+> **Status: v0.6.1, on PyPI.** Three backbone families (DINOv2, CLIP, timm CNNs) and
 > twelve tasks run end-to-end across all three levels — high, mid and low —
 > including seven trained dense probes and an anchor-free detection probe, from
 > Python or from the `visbench` command line. **v0.6 is the leaderboard

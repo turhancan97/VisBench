@@ -9,8 +9,14 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
-Intended as **v0.6.1**. It corrects a leaderboard board that v0.6.0 published
-ranked upside down.
+Nothing yet.
+
+## [0.6.1] — 2026-08-02
+
+**A correction.** v0.6.0's correspondence board was ranked upside down, because
+its error threshold was measured in a unit that means a different physical
+distance on every backbone. Nothing else in v0.6.0 is affected; if you do not
+read the correspondence board, this release changes nothing for you.
 
 ### Fixed
 
