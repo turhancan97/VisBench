@@ -99,6 +99,19 @@ def test_the_generated_tables_match_the_corpus():
     )
 
 
+def _marked_files():
+    """The files the generator itself scans, not a second list that can drift."""
+    import importlib.util
+
+    root = Path(__file__).resolve().parent.parent
+    spec = importlib.util.spec_from_file_location(
+        "render_tables", root / "scripts" / "render_tables.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.MARKED_FILES
+
+
 def test_every_marker_is_closed_and_carries_a_task():
     """A malformed marker renders nothing and fails silently.
 
@@ -106,9 +119,37 @@ def test_every_marker_is_closed_and_carries_a_task():
     and ``--check`` passes — which is the failure mode the generator exists to
     remove, reintroduced by a typo.
     """
-    text = (Path(__file__).resolve().parent.parent / "README.md").read_text()
-    opens = re.findall(r"<!-- visbench:board ([^>]*?) -->", text)
-    assert len(opens) == text.count("<!-- /visbench:board -->"), "unbalanced markers"
-    assert opens, "no generated boards in the README"
-    for attrs in opens:
-        assert "task=" in attrs, f"marker without a task: {attrs!r}"
+    for path in _marked_files():
+        text = path.read_text()
+        opens = re.findall(r"<!-- visbench:board ([^>]*?) -->", text)
+        assert len(opens) == text.count("<!-- /visbench:board -->"), f"unbalanced in {path.name}"
+        assert opens, f"no generated boards in {path.name}"
+        for attrs in opens:
+            assert "task=" in attrs, f"marker without a task in {path.name}: {attrs!r}"
+
+
+def test_the_readme_links_to_the_docs_it_split_into():
+    """The reorganisation is only safe if the pointers exist.
+
+    Moving 500 lines into docs/ helps nobody if the README does not say where
+    they went, and a typo in one of those paths is invisible on GitHub until
+    someone clicks it.
+    """
+    root = Path(__file__).resolve().parent.parent
+    readme = (root / "README.md").read_text()
+    for name in ("docs/tasks.md", "docs/roadmap.md", "LEADERBOARD.md", "CHANGELOG.md"):
+        assert (root / name).is_file(), f"{name} does not exist"
+        assert name in readme, f"the README never points at {name}"
+
+
+def test_docs_pages_do_not_dangle():
+    """Relative links inside docs/ must resolve.
+
+    docs/ is *not* package metadata, so relative links are correct there —
+    which is the opposite of the README rule above, and the reason this is a
+    separate check rather than an extension of it.
+    """
+    root = Path(__file__).resolve().parent.parent
+    for page in sorted((root / "docs").glob("*.md")):
+        for target in re.findall(r"\]\((\.\.?/[^)#]+)", page.read_text()):
+            assert (page.parent / target).resolve().exists(), f"{page.name} -> {target}"
