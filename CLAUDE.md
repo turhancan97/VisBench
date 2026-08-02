@@ -55,7 +55,7 @@ step is next rather than attempting the whole roadmap in one session.
 | 6e-2 | Leaderboard: regenerate a record corpus for all twelve probes | done |
 | 6e-3 | Leaderboard: render it, and generate the README tables from records | done |
 | 6e-4 | Hub: serialise a trained head, with the backbone identity beside it | done |
-| 6e-5 | Hub: push/pull through `huggingface_hub`, behind a `[hub]` extra | next |
+| 6e-5 | Hub: push/pull through `huggingface_hub`, behind a `[hub]` extra | done |
 
 ---
 
@@ -1221,6 +1221,48 @@ re-running. Three failed immediately; **dropping `backbone_key` left all 21
 tests passing**, because the cross-backbone test was being caught by the pooling
 check instead. `test_different_weights_alone_are_refused` exists because of
 that. A guard with no test that isolates it is a guard you do not have.
+
+### Step 6e-5 — **done**. The transport, which deliberately adds no rules
+
+`visbench/hub/remote.py` (`push_probe`, `load_probe_from_hub`, `probe_card`),
+the `[hub]` extra, `--show-card` on `examples/save_probe.py`. 41 fast tests
+across the two hub modules, **none of which touch the network**.
+
+**`load_probe_from_hub` is `load_probe` with a download in front of it, and that
+is the design.** A separate remote loading path is how one of the two ends up
+without `weights_only=True` or without the identity checks — and a downloaded
+probe is precisely the one that needs both. `push_probe` likewise calls
+`save_probe`; a test asserts the uploaded bytes and a locally saved artifact
+carry identical `meta` and `head_spec`, so the two formats cannot drift.
+
+- **`private=True` is the default.** A push is not reversible the way a local
+  write is: once a repository is public it may already have been fetched, and
+  deleting it does not unpublish what was taken. Public is a decision, not a
+  default someone discovers afterwards.
+- **`save_probe` runs before `create_repo`.** An unfitted or zero-shot probe is
+  refused *before* anything is created, so a rejected push leaves no empty
+  public repository behind. Mutation-tested by swapping the order: two tests
+  fail.
+- **The card is generated from `probe_metadata`**, the same source the artifact
+  uses, so the page and the file cannot disagree — a test pins that. A bare
+  `.pt` on a model page does not tell a visitor the one thing they must know,
+  which is that the weights belong to exactly one backbone.
+- **`revision=` is offered because a Hub repo is mutable.** `main` today is not
+  promised to be `main` next month, so anything whose number is quoted should
+  pin a commit.
+- **Publishing is the maintainer's, like PyPI.** `examples/save_probe.py`
+  *prints* the card under `--show-card` rather than pushing; a push under
+  someone's account is not something an example does as a side effect.
+
+**`huggingface_hub` is imported inside the functions that need it**, so
+`import visbench.hub`, `save_probe` and `load_probe` all work in a core install.
+The test for this was **weak when first written**: it reloaded `visbench.hub`
+but not `visbench.hub.remote`, which was already in `sys.modules`, so moving the
+import to module scope passed. Reload the module that *holds* the import.
+
+**A dependency change means `uv lock` in the same commit** — see the release
+notes above. The diff here is seven lines and no version moved;
+`huggingface_hub` was already in the lock transitively via timm.
 
 ### The candidate task backlog — and what is actually on this machine
 

@@ -1985,6 +1985,7 @@ dependencies = [
 
 [package.optional-dependencies]
 all = [
+    { name = "huggingface-hub" },
     { name = "open-clip-torch" },
     { name = "timm" },
 ]
@@ -1997,12 +1998,16 @@ dev = [
     { name = "pytest-cov" },
     { name = "ruff" },
 ]
+hub = [
+    { name = "huggingface-hub" },
+]
 timm = [
     { name = "timm" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "huggingface-hub", marker = "extra == 'hub'", specifier = ">=0.23,<2.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.8,<2.0" },
     { name = "numpy", specifier = ">=1.24,<3.0" },
     { name = "open-clip-torch", marker = "extra == 'clip'", specifier = ">=2.24,<4.0" },
@@ -2014,9 +2019,9 @@ requires-dist = [
     { name = "timm", marker = "extra == 'timm'", specifier = ">=1.0,<2.0" },
     { name = "torch", specifier = ">=2.0,<3.0" },
     { name = "torchvision", specifier = ">=0.15,<1.0" },
-    { name = "visbench", extras = ["clip", "timm"], marker = "extra == 'all'" },
+    { name = "visbench", extras = ["clip", "timm", "hub"], marker = "extra == 'all'" },
 ]
-provides-extras = ["clip", "timm", "dev", "all"]
+provides-extras = ["clip", "timm", "hub", "dev", "all"]
 
 [[package]]
 name = "wcwidth"
