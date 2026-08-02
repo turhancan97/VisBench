@@ -3,9 +3,9 @@
 # VisBench leaderboard
 
 Every board below is generated from
-[`results/corpus/visbench.jsonl`](results/corpus/visbench.jsonl), the committed
-record corpus. Nothing here is typed in, so a number on this page and a number
-in a record cannot disagree.
+[`results/corpus/visbench.jsonl`][corpus], the committed record corpus. Nothing
+here is typed in, so a number on this page and a number in a record cannot
+disagree.
 
 **A board is one comparability group**, not one task name. Two runs appear
 together only when every choice that decides what their numbers *mean* agrees —
@@ -21,6 +21,8 @@ the same reason.
 Every number is **frozen** — a linear probe on features from a backbone in
 `eval()` with gradients off. Fine-tuned runs answer a different question and are
 never pooled with these.
+
+[corpus]: https://github.com/turhancan97/VisBench/blob/main/results/corpus/visbench.jsonl
 
 ### edge
 

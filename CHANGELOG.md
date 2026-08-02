@@ -11,6 +11,25 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Added
 
+- **A documentation site**, at <https://turhancan97.github.io/VisBench/>, built
+  with Sphinx and deployed from `main`. This first piece is the infrastructure:
+  `docs/conf.py`, a landing page, the theme, and
+  `.github/workflows/docs.yml` (build on every pull request, deploy on merge).
+  The API reference, user guide and design pages follow.
+
+  Sphinx rather than MkDocs because the docstrings were already written for it —
+  33% of the package is docstrings, in numpydoc style, with 371 `:meth:`/
+  `:func:`/`:class:` cross-references and 462 `#:` attribute comments that
+  render as-is.
+
+  The theme uses the project palette (`#3A7EAB`, `#CF4832`, `#D1D3D4`) taken
+  from the logo SVGs, which already carry a dark variant. Body links use a
+  darkened `#2F6A91`: the brand blue is 4.42:1 against white, just under the
+  WCAG AA threshold for body text.
+
+  A new `docs` extra carries Sphinx, Furo, MyST and copybutton. It is
+  deliberately not part of `all`, which is the runtime-capability set.
+
 - **`CONTRIBUTING.md`**, plus GitHub issue and pull-request templates. The
   project's conventions were real but lived in `CLAUDE.md`, which is written for
   an assistant rather than for a contributor: setup, the five commands CI runs,

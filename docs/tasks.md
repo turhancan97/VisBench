@@ -1,13 +1,13 @@
 # The probes, one by one
 
 Every measured number on this page is generated from
-[`results/corpus/visbench.jsonl`](../results/corpus/visbench.jsonl), the
-committed record corpus, by [`scripts/render_tables.py`](../scripts/render_tables.py).
+[`results/corpus/visbench.jsonl`](https://github.com/turhancan97/VisBench/blob/main/results/corpus/visbench.jsonl), the
+committed record corpus, by [`scripts/render_tables.py`](https://github.com/turhancan97/VisBench/blob/main/scripts/render_tables.py).
 A test in the fast suite fails if any of them drifts, so a number here and the
 run behind it cannot disagree.
 
 For the ranking rules — which records may sit in one table at all — see
-[LEADERBOARD.md](../LEADERBOARD.md).
+[the leaderboard](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md).
 
 ## Classification and retrieval
 
@@ -512,6 +512,6 @@ and it costs about 1.8 points of recall@1 here, which is the sort of question
 these two lines of CLI exist to answer.
 
 Every one of these examples has a `visbench run` equivalent — see
-[the README's command-line section](../README.md#the-command-line). They stay because an example is readable
+[the command-line section of the README](https://github.com/turhancan97/VisBench/blob/main/README.md#the-command-line). They stay because an example is readable
 top to bottom and a subcommand is not: when you want to know *how* a probe is
 wired up, the script is the answer.

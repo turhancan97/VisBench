@@ -142,14 +142,47 @@ def test_the_readme_links_to_the_docs_it_split_into():
         assert name in readme, f"the README never points at {name}"
 
 
-def test_docs_pages_do_not_dangle():
-    """Relative links inside docs/ must resolve.
+def _docs_links():
+    """Every markdown link target under docs/, recursively, with its page."""
+    root = Path(__file__).resolve().parent.parent / "docs"
+    found = []
+    for page in sorted(root.rglob("*.md")):
+        for target in re.findall(r"\]\(([^)\s]+)\)", page.read_text()):
+            found.append((page, target))
+    return found
 
-    docs/ is *not* package metadata, so relative links are correct there —
-    which is the opposite of the README rule above, and the reason this is a
-    separate check rather than an extension of it.
+
+def test_no_docs_page_escapes_the_sphinx_tree():
+    """`docs/` is a Sphinx source directory, so `../` cannot resolve.
+
+    MyST leaves an unresolvable relative path as a literal href and emits no
+    warning, so the `-W` build will not catch it either — it simply 404s on the
+    published site. Anything outside the tree must be an absolute URL.
     """
-    root = Path(__file__).resolve().parent.parent
-    for page in sorted((root / "docs").glob("*.md")):
-        for target in re.findall(r"\]\((\.\.?/[^)#]+)", page.read_text()):
-            assert (page.parent / target).resolve().exists(), f"{page.name} -> {target}"
+    for page, target in _docs_links():
+        assert not target.startswith("../"), (
+            f"{page.name} links to {target!r}, which escapes the docs tree and "
+            "cannot resolve on the site. Use an absolute GitHub URL instead."
+        )
+
+
+def test_relative_docs_links_resolve():
+    """Intra-site links must point at a page that exists."""
+    for page, target in _docs_links():
+        if target.startswith(("http://", "https://", "mailto:", "#")):
+            continue
+        resolved = (page.parent / target.split("#")[0]).resolve()
+        assert resolved.exists(), f"{page.name} -> {target}"
+
+
+def test_the_docs_link_pattern_finds_something():
+    """Both tests above pass trivially if the extraction sees no links.
+
+    This is not hypothetical: the previous version of this check matched only
+    `../`-prefixed targets, and became vacuous the moment those were converted
+    to absolute URLs for the Sphinx build. It passed while checking nothing.
+    """
+    links = _docs_links()
+    assert len(links) > 15, f"only {len(links)} links found under docs/; the pattern missed some"
+    assert any(t.startswith("https://") for _, t in links), "no absolute link found"
+    assert any(not t.startswith(("http", "#")) for _, t in links), "no intra-site link found"

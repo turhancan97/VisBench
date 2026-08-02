@@ -1,0 +1,41 @@
+/* Brand touches Furo has no theme variable for.
+ *
+ * Palette: #3A7EAB blue, #CF4832 accent, #D1D3D4 grey, #6FA8CC dark-mode blue.
+ * Contrast measured against white: the blue is 4.42:1 and the grey 1.50:1, so
+ * the blue is chrome rather than body text and the grey is never text at all.
+ */
+
+/* The accent red, used sparingly: it is the only warm colour in the palette,
+ * so it marks the one thing on a page that is a warning rather than prose.
+ */
+.admonition.warning > .admonition-title,
+.admonition.danger > .admonition-title,
+.admonition.caution > .admonition-title {
+    background-color: rgba(207, 72, 50, 0.12);
+}
+
+/* Tables carry most of the measured numbers on this site, so give them the
+ * brand's grey rules rather than the theme's default near-black.
+ */
+table.docutils th {
+    background-color: rgba(58, 126, 171, 0.08);
+}
+table.docutils td,
+table.docutils th {
+    border-color: #d1d3d4;
+}
+body[data-theme="dark"] table.docutils td,
+body[data-theme="dark"] table.docutils th {
+    border-color: rgba(209, 211, 212, 0.25);
+}
+@media (prefers-color-scheme: dark) {
+    body:not([data-theme="light"]) table.docutils td,
+    body:not([data-theme="light"]) table.docutils th {
+        border-color: rgba(209, 211, 212, 0.25);
+    }
+}
+
+/* The logo is wordmark-plus-icon and reads small at Furo's default width. */
+.sidebar-logo {
+    max-width: 80%;
+}

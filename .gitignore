@@ -10,6 +10,10 @@ dist/
 .venv
 venv/
 
+# Built documentation. NOT covered by `build/` above: that matches a directory
+# named exactly "build", and Sphinx's output directory is `_build`.
+docs/_build/
+
 # Tooling
 .pytest_cache/
 .mypy_cache/
