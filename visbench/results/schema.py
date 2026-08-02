@@ -39,7 +39,18 @@ __all__ = ["ResultRecord", "SCHEMA_VERSION", "utc_timestamp"]
 #:    would have sat in one JSONL under one task name with nothing to separate
 #:    them. ``None`` means frozen, which is what every record written before
 #:    this carries by absence, so no reader needs a version check to ask.
-SCHEMA_VERSION = 6
+#: 7. Added ``pooling_requested``. ``pooling`` is recorded **resolved**, because
+#:    the literal word "default" does not say what produced the number — and
+#:    that is still right for interpreting a record. But it is wrong for
+#:    *comparing* two: ``default`` resolves to ``cls`` on a ViT and ``mean`` on
+#:    a CNN, so a leaderboard keyed on the resolved value put ResNets in a
+#:    different group from ViTs and could never rank the two against each other.
+#:    Found by widening the corpus to six backbones, where four of the twelve
+#:    probes split in half. The request is the protocol; the resolution is a
+#:    property of the backbone, so both are needed and neither replaces the
+#:    other. ``None`` on every earlier record, where the resolved value is the
+#:    only thing that was ever known.
+SCHEMA_VERSION = 7
 
 
 @dataclass
@@ -62,8 +73,18 @@ class ResultRecord:
         — two folders can share one — so without these, a run before and after
         the images changed produces indistinguishable records.
     pooling / feature_mode:
-        Exactly what representation the task requested — without these two the
-        metrics are not reproducible.
+        Exactly what representation produced the number — without these two the
+        metrics are not reproducible. ``pooling`` is **resolved**: the literal
+        ``"default"`` means CLS on a ViT and mean over the grid on a CNN, so it
+        would not say what ran.
+    pooling_requested:
+        What the task actually asked for, before resolution — usually
+        ``"default"``. Kept beside the resolved value because the two answer
+        different questions, and a leaderboard needs this one: two backbones
+        asked for ``default`` ran the *same protocol* even though one resolved
+        to ``cls`` and the other to ``mean``, whereas two runs that named ``cls``
+        and ``mean`` explicitly did not. ``None`` on schema v6 and earlier,
+        where only the resolved value was ever recorded.
     metrics:
         The flat dict returned by :meth:`BaseTask.evaluate`.
     seed:
@@ -109,6 +130,10 @@ class ResultRecord:
     schema_version: int = SCHEMA_VERSION
     dataset_size: int | None = None
     dataset_fingerprint: str | None = None
+    # Optional despite belonging beside `pooling`, because a dataclass cannot
+    # put a defaulted field before undefaulted ones -- and it must default, so
+    # that reading a v6 record does not raise.
+    pooling_requested: str | None = None
     task_params: dict = field(default_factory=dict)
     dataset_params: dict = field(default_factory=dict)
     layer: int | None = None

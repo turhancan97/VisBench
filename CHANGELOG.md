@@ -118,6 +118,49 @@ rather than asserted.
 
 ### Changed
 
+- **Result schema is at v7**, adding `pooling_requested` — what the task asked
+  the backbone for, beside the `pooling` it resolved to. Additive as always:
+  `None` on every earlier record, and v6 files still read.
+
+  `pooling` has always been recorded **resolved**, because the literal word
+  `"default"` does not say what produced a number. That is right for reading a
+  record and wrong for comparing two: `default` resolves to `cls` on a ViT and
+  `mean` on a CNN, so a leaderboard keyed on the resolution **split every
+  pooled-feature probe along an architectural line**. Widening the corpus to six
+  backbones is what exposed it — classification, retrieval, correspondence and
+  similarity each became two groups, and `resnet50`, which tops two of those
+  boards, could not be ranked against DINOv2 at all.
+
+  The request is the protocol; the resolution is a property of the backbone.
+  `comparability_key` now uses the request, falling back to the resolution for
+  v6 and earlier. Two runs that both asked for `default` are comparable; two
+  that named `cls` and `mean` explicitly are still not, which is the behaviour
+  worth keeping.
+
+- **The record corpus covers six backbones**, not two: DINOv2-S/B, CLIP-B/16 and
+  B/32, ResNet-18 and ResNet-50, across all twelve probes. Twelve comparability
+  groups, each holding all six. `slurm/corpus.sbatch` takes `VISBENCH_BACKBONES`
+  so the matrix can be widened without editing it, and refuses an `--array`
+  range that does not match the matrix unless `VISBENCH_PARTIAL=1` says the gap
+  is deliberate — an incomplete corpus is invisible afterwards, because every
+  group it *does* contain still holds every backbone it ran.
+
+### Known, and unresolved
+
+**The correspondence board ranks on an average whose denominator each backbone
+picks for itself.** `recall@t` is `(errors <= t).mean()` over the matches that
+backbone's own features proposed, and `num_matches` is that denominator —
+4,911 for ResNet-18 against 27,590 for DINOv2-B. ResNet-18 tops the board while
+proposing 5.6x fewer, easier candidates from a coarse 7x7 grid, and normalising
+by the per-backbone ceiling does not change the ordering.
+
+This is the `classes_scored` situation the leaderboard already refuses, except
+that every backbone differs, so guarding on it would make correspondence
+unrankable rather than comparable. It is a protocol question, recorded here
+rather than papered over, and it is the first thing the renderer has to settle.
+
+### Changed (continued)
+
 - **Depth and surface normals are measured on NYUv2, not Taskonomy.** Their
   Taskonomy numbers came from uncommitted code and were unreachable from any
   entry point. probe3d's own NYUv2 copy has exactly the

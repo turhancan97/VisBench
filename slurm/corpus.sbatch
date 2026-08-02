@@ -7,8 +7,15 @@
 #   sbatch slurm/corpus.sbatch
 #   scripts/merge_corpus.sh          # once the array finishes
 #
-# Narrow it with the usual array syntax, e.g. --array=0-3 to smoke-test:
-#   sbatch --array=0-3 slurm/corpus.sbatch
+# Narrow it with the usual array syntax to smoke-test. VISBENCH_PARTIAL says the
+# short range is deliberate; without it a partial array is refused, because an
+# incomplete corpus is invisible after the fact:
+#   VISBENCH_PARTIAL=1 sbatch --array=0-3 slurm/corpus.sbatch
+#
+# Widen the matrix to other backbones with VISBENCH_BACKBONES, passing an
+# --array that matches 12 probes x however many backbones:
+#   VISBENCH_BACKBONES="clip_vitb16 clip_vitb32 resnet18 resnet50" \
+#     sbatch --array=0-47%4 slurm/corpus.sbatch
 #
 # dgx, NOT dgxh100.
 #
@@ -103,9 +110,47 @@ PROBES=(
   keypoints2d
   occlusion_edge
 )
-BACKBONE_LIST=(dinov2_vits14 dinov2_vitb14)
+# Which backbones the matrix covers. Overridable, because the corpus is widened
+# a few backbones at a time rather than re-run whole: the DINOv2 pair is already
+# recorded, and re-running it would only add duplicates for
+# `latest_per_backbone` to discard.
+#
+#   VISBENCH_BACKBONES="clip_vitb16 clip_vitb32 resnet18 resnet50" \
+#     sbatch --array=0-47 slurm/corpus.sbatch
+#
+# THE ARRAY RANGE IS NOT DERIVED FROM THIS LIST, and cannot be: #SBATCH
+# directives are read by sbatch before any of this script runs, so --array must
+# be passed on the command line to match. Getting it wrong is silent in the
+# direction that matters -- too small a range simply omits probes, and the
+# corpus looks complete because every group it *does* contain has every
+# backbone. The guard below is what turns that into an error.
+BACKBONE_LIST=(${VISBENCH_BACKBONES:-dinov2_vits14 dinov2_vitb14})
 
+expected=$(( ${#PROBES[@]} * ${#BACKBONE_LIST[@]} ))
 index=${SLURM_ARRAY_TASK_ID:?this script must be submitted as an array job}
+
+if (( index >= expected )); then
+  echo "Array index ${index} is outside the ${expected}-task matrix" >&2
+  echo "  ${#PROBES[@]} probes x ${#BACKBONE_LIST[@]} backbones" >&2
+  echo "  submit with --array=0-$(( expected - 1 ))" >&2
+  exit 1
+fi
+# A short --array is how a smoke test is run, so it cannot simply be refused --
+# but it is also how an incomplete corpus is produced by accident, and that is
+# invisible afterwards. VISBENCH_PARTIAL is the difference between the two, and
+# setting it is a claim that the gap is intended.
+if [[ -z ${VISBENCH_PARTIAL:-} ]] \
+  && [[ -n ${SLURM_ARRAY_TASK_MAX:-} ]] \
+  && (( SLURM_ARRAY_TASK_MAX != expected - 1 )); then
+  echo "!!! --array ends at ${SLURM_ARRAY_TASK_MAX}, but the matrix is ${expected} tasks" >&2
+  echo "!!!   ${#PROBES[@]} probes x ${#BACKBONE_LIST[@]} backbones" >&2
+  echo "!!! probes or backbones would be MISSING from the corpus, which does not" >&2
+  echo "!!! show up later: every group present would still hold every backbone." >&2
+  echo "Submit --array=0-$(( expected - 1 )), or set VISBENCH_PARTIAL=1 if the" >&2
+  echo "gap is deliberate (a smoke test, or resubmitting a few failed tasks)." >&2
+  exit 1
+fi
+
 probe=${PROBES[$(( index / ${#BACKBONE_LIST[@]} ))]}
 backbone=${BACKBONE_LIST[$(( index % ${#BACKBONE_LIST[@]} ))]}
 

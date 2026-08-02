@@ -195,7 +195,26 @@ class ComparabilityKey:
         ViT-S and ViT-B for the *same* setting, so including it would make two
         legitimately comparable runs look incomparable.
     pooling / feature_mode / layers:
-        What representation the task asked the backbone for.
+        What representation the task **asked** the backbone for.
+
+        ``pooling`` here is the *requested* value, not the resolved one the
+        record's own ``pooling`` field carries, and the difference decides
+        whether this library can compare a CNN to a ViT at all. ``"default"``
+        resolves to ``cls`` on a ViT and ``mean`` on a CNN, so keying on the
+        resolution splits every pooled-feature probe in half along an
+        architectural line: measured on the six-backbone corpus, classification,
+        retrieval, correspondence and similarity each became two groups, and
+        ``resnet50`` — which tops two of those boards — could not be ranked
+        against DINOv2 at all.
+
+        The request is the protocol; the resolution is a property of the
+        backbone. Two runs that both asked for ``default`` ran the same
+        protocol. Two that named ``cls`` and ``mean`` explicitly did not, and
+        still land in different groups, which is the behaviour worth keeping.
+
+        Schema v6 and earlier recorded only the resolved value, so those records
+        fall back to it — they are then comparable with each other exactly as
+        before, and not with v7 records whose request differed.
     task_params / dataset_params:
         Everything else that decides what the number means, as sorted tuples so
         the key stays hashable. Conservative on purpose: ``dataset_params``
@@ -301,7 +320,11 @@ def comparability_key(record: ResultRecord, *, ignore: Iterable[str] = ()) -> Co
         finetuned=record.finetune is not None,
         finetune_blocks=finetune.get("blocks"),
         finetune_backbone_lr=finetune.get("backbone_lr"),
-        pooling=record.pooling,
+        # The request, falling back to the resolution for schema v6 and earlier,
+        # which never recorded one. See ComparabilityKey.pooling: keying on the
+        # resolved value cannot rank a CNN against a ViT, because "default"
+        # means cls on one and mean on the other.
+        pooling=record.pooling_requested or record.pooling,
         feature_mode=record.feature_mode,
         layers=tuple(record.layers) if record.layers is not None else None,
         task_params=_freeze(task_params),

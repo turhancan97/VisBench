@@ -249,6 +249,61 @@ def test_dataset_fingerprint_splits_a_limited_run_from_a_full_one():
     assert comparability_key(full) != comparability_key(limited)
 
 
+def test_a_vit_and_a_cnn_that_both_asked_for_default_are_comparable():
+    """The whole reason schema v7 exists.
+
+    ``pooling="default"`` resolves to ``cls`` on a ViT and ``mean`` on a CNN, so
+    a key reading the *resolved* value split every pooled-feature probe along an
+    architectural line. Measured on the six-backbone corpus: classification,
+    retrieval, correspondence and similarity each became two groups, and
+    `resnet50` — which tops two of those boards — could not be ranked against
+    DINOv2 at all.
+    """
+    vit = make_record(backbone="dinov2_vitb14", pooling="cls", pooling_requested="default")
+    cnn = make_record(backbone="resnet50", pooling="mean", pooling_requested="default")
+    assert comparability_key(vit) == comparability_key(cnn)
+
+
+def test_explicitly_different_pooling_is_still_incomparable():
+    """The request is the protocol, so asking for two different things splits.
+
+    Without this the fix above would be indistinguishable from dropping pooling
+    from the key entirely, which would silently rank a CLS-pooled retrieval
+    number against a mean-pooled one.
+    """
+    cls = make_record(pooling="cls", pooling_requested="cls")
+    mean = make_record(pooling="mean", pooling_requested="mean")
+    assert comparability_key(cls) != comparability_key(mean)
+
+
+def test_a_v6_record_falls_back_to_its_resolved_pooling():
+    """v6 recorded only the resolution, so that is all it can be keyed on.
+
+    Two such records still group with each other exactly as they did before v7 —
+    the point of an additive schema is that old files keep their meaning.
+    """
+    old = make_record(schema_version=6, pooling="cls", pooling_requested=None)
+    also_old = make_record(
+        schema_version=6, pooling="cls", pooling_requested=None, backbone="other"
+    )
+    assert comparability_key(old) == comparability_key(also_old)
+    assert comparability_key(old).pooling == "cls"
+
+
+def test_a_v6_record_does_not_silently_join_a_v7_group_that_asked_for_something_else():
+    """A v6 `cls` record cannot say whether `cls` was asked for or resolved to.
+
+    So it groups with a v7 record that asked for `cls`, and not with one that
+    asked for `default`. That is the conservative direction: the alternative
+    would merge a run whose request is unknown into a group defined by a request.
+    """
+    unknown = make_record(schema_version=6, pooling="cls", pooling_requested=None)
+    asked_default = make_record(pooling="cls", pooling_requested="default")
+    asked_cls = make_record(pooling="cls", pooling_requested="cls")
+    assert comparability_key(unknown) != comparability_key(asked_default)
+    assert comparability_key(unknown) == comparability_key(asked_cls)
+
+
 def test_ignore_relaxes_a_named_setting():
     a = make_record(task_params={"protocol": "p", "epochs": 10, "batch_size": 8})
     b = make_record(task_params={"protocol": "p", "epochs": 10, "batch_size": 16})

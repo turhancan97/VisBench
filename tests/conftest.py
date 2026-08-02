@@ -188,7 +188,19 @@ class FakeCNN(BaseBackbone):
         return outputs
 
     def preprocess(self, images):
-        raise NotImplementedError("Not needed for these tests")
+        # Identical to FakeViT's. Needed since schema v7, which is about a CNN
+        # and a ViT being comparable -- proving that on hand-built records
+        # rather than through run() would test the assertion, not the plumbing.
+        if isinstance(images, Image.Image):
+            images = [images]
+        tensors = []
+        for img in images:
+            resized = img.convert("RGB").resize((self.image_size, self.image_size))
+            array = torch.frombuffer(bytearray(resized.tobytes()), dtype=torch.uint8)
+            tensors.append(
+                array.view(self.image_size, self.image_size, 3).permute(2, 0, 1).float() / 255
+            )
+        return torch.stack(tensors)
 
     def cache_key(self) -> str:
         return f"fake_cnn/{self.embed_dim}/{self.image_size}"
