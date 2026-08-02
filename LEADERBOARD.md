@@ -54,20 +54,20 @@ Ordered by `keypoint_correlation`, which **disagrees with `mae`** — this task 
 
 ### correspondence
 
-| backbone | `auc@0.5p` | `auc@1p` | `auc@2p` | `auc@4p` | `recall@0.5p` | `recall@1p` | `recall@2p` | `recall@4p` | `ceiling_auc@0.5p` | `ceiling_auc@1p` | `ceiling_auc@2p` | `ceiling_auc@4p` | `ceiling_recall@0.5p` | `ceiling_recall@1p` | `ceiling_recall@2p` | `ceiling_recall@4p` | `num_matches` |
+| backbone | `auc@10px` | `auc@1px` | `auc@2px` | `auc@5px` | `recall@10px` | `recall@1px` | `recall@2px` | `recall@5px` | `ceiling_auc@10px` | `ceiling_auc@1px` | `ceiling_auc@2px` | `ceiling_auc@5px` | `ceiling_recall@10px` | `ceiling_recall@1px` | `ceiling_recall@2px` | `ceiling_recall@5px` | `num_matches` |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `resnet18` | **0.2449** | **0.5128** | **0.7251** | **0.8451** | **0.5816** | **0.8927** | **0.9526** | 0.9731 | 0.2871 | 0.6055 | 0.8010 | 0.9005 | 0.7565 | 0.9762 | 1.0000 | 1.0000 | 4,911 |
-| `resnet50` | 0.2277 | 0.4832 | 0.7010 | 0.8305 | 0.5431 | 0.8601 | 0.9424 | 0.9737 | 0.2859 | 0.6051 | 0.8011 | 0.9006 | 0.7574 | 0.9785 | 1.0000 | 1.0000 | 4,373 |
-| `clip_vitb32` | 0.2216 | 0.4554 | 0.6613 | 0.7969 | 0.5104 | 0.7992 | 0.9043 | 0.9533 | 0.2861 | 0.6029 | 0.7995 | 0.8998 | 0.7516 | 0.9741 | 1.0000 | 1.0000 | 4,283 |
-| `dinov2_vits14` | 0.1941 | 0.4267 | 0.6483 | 0.8044 | 0.4721 | 0.7834 | 0.9219 | **0.9813** | 0.2684 | 0.5914 | 0.7818 | 0.8897 | 0.7522 | 0.9509 | 0.9869 | 1.0000 | 23,439 |
-| `dinov2_vitb14` | 0.1797 | 0.4064 | 0.6272 | 0.7844 | 0.4439 | 0.7594 | 0.8998 | 0.9652 | 0.2601 | 0.5841 | 0.7769 | 0.8869 | 0.7383 | 0.9471 | 0.9859 | 1.0000 | 27,590 |
-| `clip_vitb16` | 0.2076 | 0.4167 | 0.6005 | 0.7349 | 0.4728 | 0.7179 | 0.8288 | 0.8958 | 0.2887 | 0.6063 | 0.7928 | 0.8959 | 0.7650 | 0.9584 | 0.9933 | 1.0000 | 12,798 |
+| `dinov2_vits14` | **0.3068** | 0.0059 | 0.0217 | **0.1152** | **0.6526** | 0.0165 | 0.0625 | **0.3049** | 0.4513 | 0.0068 | 0.0253 | 0.1454 | 0.9329 | 0.0190 | 0.0741 | 0.4123 | 23,439 |
+| `dinov2_vitb14` | 0.2886 | 0.0052 | 0.0194 | 0.1055 | 0.6260 | 0.0145 | 0.0563 | 0.2816 | 0.4430 | 0.0063 | 0.0238 | 0.1389 | 0.9264 | 0.0180 | 0.0694 | 0.4005 | 27,590 |
+| `clip_vitb16` | 0.2711 | **0.0061** | **0.0223** | 0.1080 | 0.5725 | **0.0175** | **0.0652** | 0.2689 | 0.4023 | 0.0069 | 0.0257 | 0.1333 | 0.9159 | 0.0200 | 0.0761 | 0.3519 | 12,798 |
+| `resnet18` | 0.1181 | 0.0013 | 0.0046 | 0.0335 | 0.3256 | 0.0033 | 0.0141 | 0.0973 | 0.1287 | 0.0013 | 0.0047 | 0.0350 | 0.3653 | 0.0033 | 0.0145 | 0.1028 | 4,911 |
+| `clip_vitb32` | 0.1115 | 0.0017 | 0.0049 | 0.0321 | 0.2951 | 0.0040 | 0.0131 | 0.0897 | 0.1287 | 0.0019 | 0.0052 | 0.0352 | 0.3633 | 0.0044 | 0.0140 | 0.1002 | 4,283 |
+| `resnet50` | 0.1094 | 0.0014 | 0.0044 | 0.0299 | 0.3003 | 0.0034 | 0.0119 | 0.0887 | 0.1283 | 0.0017 | 0.0051 | 0.0350 | 0.3595 | 0.0043 | 0.0139 | 0.1038 | 4,373 |
 
-Ordered by `recall@1p`, which **disagrees with `auc@0.5p`, `auc@1p`, `auc@4p`, `recall@0.5p`, `recall@2p`, `recall@4p`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
+Ordered by `recall@5px`, which **disagrees with `auc@1px`, `auc@2px`, `auc@5px`, `recall@10px`, `recall@1px`, `recall@2px`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
 
-> **Read this first.** `recall@t` is an average over the matches **each backbone proposed for itself** — `num_matches` is that denominator, and it varies by more than 5x across this board. A coarse patch grid proposes fewer, easier, better-separated candidates, so row order here reflects grid resolution as much as feature quality. Normalising by `ceiling_` does not remove the effect. Read the columns, not the order.
+> **Read this first.** Thresholds are in **pixels**, which is the only unit two backbones can be compared in — a patch width is 14px on DINOv2/14 and 32px on a ResNet, so scoring in patch widths asks each backbone a different question. Read `ceiling_` beside every score: a 7x7 grid cannot place a match within 5px more than ~10% of the time whatever its features are, so part of this ordering is resolution rather than quality. `num_matches` is the denominator each backbone's own ratio test left, and it varies by more than 5x.
 
-<sub>correspondence on val/val, frozen [1ac52b90]</sub>
+<sub>correspondence on val/val, frozen [7db23175]</sub>
 
 ### depth
 

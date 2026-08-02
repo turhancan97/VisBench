@@ -539,13 +539,16 @@ def _correspondence_flags(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--max-warp", type=float, default=0.2, help="corner shift, 0-0.5")
     parser.add_argument("--num-corr", type=int, default=1000)
     parser.add_argument("--ratio", type=float, default=0.9, help="Lowe ratio threshold")
-    parser.add_argument("--units", default="patch", choices=("patch", "pixel"))
+    # Pixels, because a patch width is a property of the backbone -- see
+    # CorrespondenceTask. Ranking two backbones in patch units asks each a
+    # different question and inverted this board before v0.6.1.
+    parser.add_argument("--units", default="pixel", choices=("patch", "pixel"))
     parser.add_argument(
         "--thresholds",
         type=float,
         nargs="+",
         default=None,
-        help="default: 0.5 1 2 4 patch widths, or 1 2 5 10 pixels",
+        help="default: 1 2 5 10 pixels, or 0.5 1 2 4 patch widths",
     )
     parser.add_argument(
         "--image-size", type=int, default=224, help="must match the backbone's input size"

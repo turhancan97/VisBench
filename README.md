@@ -18,7 +18,7 @@
 
 ---
 
-> **Status: v0.6.0, on PyPI.** Three backbone families (DINOv2, CLIP, timm CNNs) and
+> **Status: v0.6.1, on PyPI.** Three backbone families (DINOv2, CLIP, timm CNNs) and
 > twelve tasks run end-to-end across all three levels — high, mid and low —
 > including seven trained dense probes and an anchor-free detection probe, from
 > Python or from the `visbench` command line. **v0.6 is the leaderboard
@@ -885,23 +885,23 @@ Ordered by `mAP`, which **disagrees with `recall@1`, `recall@5`** — this task 
 <sub>retrieval on val/val, frozen [eb312a7b]</sub>
 <!-- /visbench:board -->
 
-<!-- visbench:board task=correspondence metrics=recall@1p,auc@1p heading=4 -->
+<!-- visbench:board task=correspondence metrics=recall@5px,recall@10px,auc@5px heading=4 -->
 #### correspondence
 
-| backbone | `recall@1p` | `auc@1p` | `ceiling_auc@1p` | `ceiling_recall@1p` | `num_matches` |
-| --- | --- | --- | --- | --- | --- |
-| `resnet18` | **0.8927** | **0.5128** | 0.6055 | 0.9762 | 4,911 |
-| `resnet50` | 0.8601 | 0.4832 | 0.6051 | 0.9785 | 4,373 |
-| `clip_vitb32` | 0.7992 | 0.4554 | 0.6029 | 0.9741 | 4,283 |
-| `dinov2_vits14` | 0.7834 | 0.4267 | 0.5914 | 0.9509 | 23,439 |
-| `dinov2_vitb14` | 0.7594 | 0.4064 | 0.5841 | 0.9471 | 27,590 |
-| `clip_vitb16` | 0.7179 | 0.4167 | 0.6063 | 0.9584 | 12,798 |
+| backbone | `recall@5px` | `recall@10px` | `auc@5px` | `ceiling_auc@5px` | `ceiling_recall@10px` | `ceiling_recall@5px` | `num_matches` |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `dinov2_vits14` | **0.3049** | **0.6526** | **0.1152** | 0.1454 | 0.9329 | 0.4123 | 23,439 |
+| `dinov2_vitb14` | 0.2816 | 0.6260 | 0.1055 | 0.1389 | 0.9264 | 0.4005 | 27,590 |
+| `clip_vitb16` | 0.2689 | 0.5725 | 0.1080 | 0.1333 | 0.9159 | 0.3519 | 12,798 |
+| `resnet18` | 0.0973 | 0.3256 | 0.0335 | 0.0350 | 0.3653 | 0.1028 | 4,911 |
+| `clip_vitb32` | 0.0897 | 0.2951 | 0.0321 | 0.0352 | 0.3633 | 0.1002 | 4,283 |
+| `resnet50` | 0.0887 | 0.3003 | 0.0299 | 0.0350 | 0.3595 | 0.1038 | 4,373 |
 
-Ordered by `recall@1p`, which **disagrees with `auc@0.5p`, `auc@1p`, `auc@4p`, `recall@0.5p`, `recall@2p`, `recall@4p`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
+Ordered by `recall@5px`, which **disagrees with `auc@1px`, `auc@2px`, `auc@5px`, `recall@10px`, `recall@1px`, `recall@2px`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
 
-> **Read this first.** `recall@t` is an average over the matches **each backbone proposed for itself** — `num_matches` is that denominator, and it varies by more than 5x across this board. A coarse patch grid proposes fewer, easier, better-separated candidates, so row order here reflects grid resolution as much as feature quality. Normalising by `ceiling_` does not remove the effect. Read the columns, not the order.
+> **Read this first.** Thresholds are in **pixels**, which is the only unit two backbones can be compared in — a patch width is 14px on DINOv2/14 and 32px on a ResNet, so scoring in patch widths asks each backbone a different question. Read `ceiling_` beside every score: a 7x7 grid cannot place a match within 5px more than ~10% of the time whatever its features are, so part of this ordering is resolution rather than quality. `num_matches` is the denominator each backbone's own ratio test left, and it varies by more than 5x.
 
-<sub>correspondence on val/val, frozen [1ac52b90]</sub>
+<sub>correspondence on val/val, frozen [7db23175]</sub>
 <!-- /visbench:board -->
 
 The patch grid at 224px is 16x16 for DINOv2 (patch 14), 14x14 for CLIP-B/16 and
@@ -929,17 +929,28 @@ one despite a higher ceiling.
 Retrieval with `--pooling mean` instead of CLS costs DINOv2 about 1.8 points of
 recall@1 (0.9740, mAP 0.8314).
 
-**Correspondence thresholds are in patch widths (`p`), not pixels.** A match
-can only land on a patch centre, so patch spacing is a hard floor on
-achievable error — and in pixels that floor moves with every configuration. At
-224px on DINOv2 ViT-S/14, `recall@1px` has a *ceiling* of 0.015: the metric
-reports patch size, not feature quality. It also makes comparison invalid,
-since DINOv2's 14px patches and CLIP ViT-B/16's 16px are different yardsticks
-under the same name. Pass `threshold_units="pixel"` to compare against a
-published pixel number.
+**Correspondence thresholds are in pixels (`px`), and this changed in v0.6.1.**
+Patch widths were the default until then, on the reasoning that a match can
+only land on a patch centre so patch spacing is the natural yardstick. That is
+true *within* one backbone and wrong across several: a patch is 14px on
+DINOv2/14, 16px on CLIP ViT-B/16 and 32px on ViT-B/32 or a ResNet stage, so
+`recall@1p` asks a coarse-grid backbone to land within 32px and a fine-grid one
+within 14px, then prints both under one name.
 
-Degradation with viewpoint is gradual — 50 pairs, `recall@1p` as
-score/ceiling:
+It inverted the board. On 200 pairs, `resnet18` read **0.8927** against
+`dinov2_vits14`'s 0.7834 in patch widths — and **0.0973 against 0.3049** in
+pixels. First and last place swap.
+
+The quantisation floor is real, and the honest handling is the `ceiling_`
+metrics that already travel beside every score: a 7×7 grid cannot place a match
+within 5px more than ~10% of the time whatever its features are, against ~41%
+for a 16×16 grid. That *states* the disadvantage instead of normalising it
+away. Pass `--units patch` deliberately for a single-backbone study; do not
+rank two backbones with it.
+
+Degradation with viewpoint is gradual. Measured on **DINOv2 ViT-S/14 alone**,
+50 pairs, in patch widths — a within-backbone sweep, which is what that unit is
+for — as score/ceiling:
 
 | `max_warp` | 0.05 | 0.1 | 0.2 | 0.3 | 0.4 |
 |---|---|---|---|---|---|

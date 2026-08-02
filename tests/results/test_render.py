@@ -149,8 +149,8 @@ def test_diagnostics_are_shown_as_columns_though_they_cannot_be_ranked():
     5.6x fewer, easier candidates.
     """
     records = pair(
-        {"recall@1p": 0.8927, "num_matches": 4911.0, "ceiling_recall@1p": 0.9762},
-        {"recall@1p": 0.7594, "num_matches": 27590.0, "ceiling_recall@1p": 0.9471},
+        {"recall@5px": 0.8927, "num_matches": 4911.0, "ceiling_recall@5px": 0.9762},
+        {"recall@5px": 0.7594, "num_matches": 27590.0, "ceiling_recall@5px": 0.9471},
         task="correspondence",
         level="mid_level",
     )
@@ -163,26 +163,26 @@ def test_diagnostics_are_shown_as_columns_though_they_cannot_be_ranked():
 
 def test_context_metrics_are_shown_but_not_ranked():
     records = pair(
-        {"recall@1p": 0.89, "ceiling_recall@1p": 0.9762, "num_matches": 4911.0},
-        {"recall@1p": 0.76, "ceiling_recall@1p": 0.9471, "num_matches": 27590.0},
+        {"recall@5px": 0.89, "ceiling_recall@5px": 0.9762, "num_matches": 4911.0},
+        {"recall@5px": 0.76, "ceiling_recall@5px": 0.9471, "num_matches": 27590.0},
         task="correspondence",
         level="mid_level",
     )
     body = render_board(records)
-    assert "`ceiling_recall@1p`" in body
+    assert "`ceiling_recall@5px`" in body
     assert "**0.9762**" not in body
 
 
 def test_a_caveat_travels_with_the_board_it_qualifies():
     records = pair(
-        {"recall@1p": 0.89, "num_matches": 4911.0},
-        {"recall@1p": 0.76, "num_matches": 27590.0},
+        {"recall@5px": 0.89, "num_matches": 4911.0},
+        {"recall@5px": 0.76, "num_matches": 27590.0},
         task="correspondence",
         level="mid_level",
     )
     body = render_board(records)
     assert "Read this first" in body
-    assert "each backbone proposed for itself" in body
+    assert "only unit two backbones can be compared in" in body
 
 
 def test_every_caveat_names_a_real_task():
@@ -197,14 +197,14 @@ def test_every_caveat_names_a_real_task():
 
 def test_metrics_narrows_the_rankable_columns():
     records = pair(
-        {"recall@1p": 0.89, "auc@1p": 0.51, "recall@4p": 0.97, "num_matches": 4911.0},
-        {"recall@1p": 0.76, "auc@1p": 0.41, "recall@4p": 0.96, "num_matches": 27590.0},
+        {"recall@5px": 0.89, "auc@5px": 0.51, "recall@10px": 0.97, "num_matches": 4911.0},
+        {"recall@5px": 0.76, "auc@5px": 0.41, "recall@10px": 0.96, "num_matches": 27590.0},
         task="correspondence",
         level="mid_level",
     )
-    body = render_board(records, metrics=["recall@1p"])
-    assert "`recall@1p`" in body
-    assert "`auc@1p`" not in body
+    body = render_board(records, metrics=["recall@5px"])
+    assert "`recall@5px`" in body
+    assert "`auc@5px`" not in body
 
 
 def test_narrowing_cannot_drop_the_denominator():
@@ -216,14 +216,14 @@ def test_narrowing_cannot_drop_the_denominator():
     This test was written that way first and caught nothing.
     """
     records = pair(
-        {"recall@1p": 0.89, "auc@1p": 0.51, "num_matches": 4911.0},
-        {"recall@1p": 0.76, "auc@1p": 0.41, "num_matches": 27590.0},
+        {"recall@5px": 0.89, "auc@5px": 0.51, "num_matches": 4911.0},
+        {"recall@5px": 0.76, "auc@5px": 0.41, "num_matches": 27590.0},
         task="correspondence",
         level="mid_level",
     )
-    header = render_board(records, metrics=["recall@1p"]).splitlines()[2]
+    header = render_board(records, metrics=["recall@5px"]).splitlines()[2]
     assert "`num_matches`" in header
-    assert "`auc@1p`" not in header
+    assert "`auc@5px`" not in header
 
 
 def test_narrowing_cannot_hide_a_disagreement():
@@ -259,14 +259,14 @@ def test_narrowing_to_an_unavailable_metric_is_refused():
 
 def test_board_columns_splits_rankable_from_qualifying():
     records = pair(
-        {"recall@1p": 0.89, "ceiling_recall@1p": 0.97, "num_matches": 4911.0},
-        {"recall@1p": 0.76, "ceiling_recall@1p": 0.94, "num_matches": 27590.0},
+        {"recall@5px": 0.89, "ceiling_recall@5px": 0.97, "num_matches": 4911.0},
+        {"recall@5px": 0.76, "ceiling_recall@5px": 0.94, "num_matches": 27590.0},
         task="correspondence",
         level="mid_level",
     )
     ranked, extra = board_columns(records)
-    assert ranked == ["recall@1p"]
-    assert extra == ["ceiling_recall@1p", "num_matches"]
+    assert ranked == ["recall@5px"]
+    assert extra == ["ceiling_recall@5px", "num_matches"]
 
 
 def test_a_column_with_a_hole_is_not_shown():
@@ -282,8 +282,8 @@ def test_a_column_with_a_hole_is_not_shown():
 def test_a_count_keeps_its_integer_form_and_a_rate_does_not():
     """A saturated ceiling of exactly 1.0 must not render as a count."""
     records = pair(
-        {"recall@1p": 0.89, "ceiling_recall@1p": 1.0, "num_matches": 4911.0},
-        {"recall@1p": 0.76, "ceiling_recall@1p": 1.0, "num_matches": 27590.0},
+        {"recall@5px": 0.89, "ceiling_recall@5px": 1.0, "num_matches": 4911.0},
+        {"recall@5px": 0.76, "ceiling_recall@5px": 1.0, "num_matches": 27590.0},
         task="correspondence",
         level="mid_level",
     )

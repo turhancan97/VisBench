@@ -23,8 +23,14 @@ from visbench.tasks.mid_level.correspondence import patch_centers
 
 @pytest.fixture
 def probe():
-    """Default probe: thresholds in patch widths."""
+    """Default probe: thresholds in pixels since v0.6.1."""
     return visbench.get_probe("correspondence")
+
+
+@pytest.fixture
+def patch_probe():
+    """Explicit patch units, for the within-backbone cases that reason in them."""
+    return visbench.get_probe("correspondence", threshold_units="patch")
 
 
 @pytest.fixture
@@ -178,8 +184,8 @@ def test_identical_views_match_exactly(probe):
     identity = {"homography": torch.eye(3, dtype=torch.float64), "size": (64, 64)}
     metrics = probe.evaluate([pair], [identity])
 
-    assert metrics["recall@0.5p"] == 1.0
-    assert metrics["auc@0.5p"] == pytest.approx(1.0)
+    assert metrics["recall@1px"] == 1.0
+    assert metrics["auc@1px"] == pytest.approx(1.0)
     assert metrics["num_matches"] == 16
 
 
@@ -198,7 +204,7 @@ def test_shuffled_features_score_badly(probe):
 
     identity = {"homography": torch.eye(3, dtype=torch.float64), "size": (96, 96)}
     metrics = probe.evaluate([(_feature_dict(dense), _feature_dict(permuted))], [identity])
-    assert metrics["recall@0.5p"] < 0.2
+    assert metrics["recall@1px"] < 0.2
 
 
 def test_num_corr_caps_the_matches(probe_factory=None):
@@ -390,12 +396,14 @@ class TestCeiling:
 
 
 class TestThresholdUnits:
-    """Why patch widths are the default.
+    """Why pixels are the default, and why patch widths inverted a board.
 
-    In pixels the quantisation floor moves with input resolution and with the
-    backbone's patch size, so the same metric name means different things and
-    cross-configuration comparison is invalid. That is the opposite of what a
-    benchmark is for.
+    A patch width is a property of the *backbone*: 14px on DINOv2/14, 16px on
+    CLIP ViT-B/16, 32px on ViT-B/32 or a ResNet stage. Scoring in patch widths
+    asks each backbone to hit a different physical target and reports the
+    answers under one metric name. On the real corpus that put `resnet18` first
+    at 0.8927 and `dinov2_vits14` fourth at 0.7834; in pixels the same runs read
+    0.0973 and 0.3049, and the order reverses.
     """
 
     def _pair_and_geometry(self, grid: int, size: int, shift: float):
@@ -408,76 +416,107 @@ class TestThresholdUnits:
             [{"homography": warp, "size": (size, size)}],
         )
 
-    def test_default_unit_is_patches(self, probe):
-        assert probe.threshold_units == "patch"
-        assert probe.thresholds == (0.5, 1, 2, 4)
+    def test_default_unit_is_pixels(self, probe):
+        """Changed in v0.6.1: the default is the unit that can rank backbones."""
+        assert probe.threshold_units == "pixel"
+        assert probe.thresholds == (1, 2, 5, 10)
 
-    def test_metric_names_carry_the_unit(self, probe, pixel_probe):
+    def test_metric_names_carry_the_unit(self, probe, patch_probe):
         pairs, geometry = self._pair_and_geometry(4, 64, 0.0)
-        assert "recall@1p" in probe.evaluate(pairs, geometry)
-        assert "recall@1px" in pixel_probe.evaluate(pairs, geometry)
+        assert "recall@1px" in probe.evaluate(pairs, geometry)
+        assert "recall@1p" in patch_probe.evaluate(pairs, geometry)
 
-    def test_patch_units_are_resolution_invariant(self, probe, pixel_probe):
-        """Same content, twice the resolution: patch units agree, pixels do not.
+    def test_patch_units_hide_a_real_difference_in_precision(self, probe, patch_probe):
+        """The bug, in one assertion.
 
-        A 16x16 grid over 112px and a 16x16 grid over 224px have the same
-        *relative* sampling, so a fixed fraction-of-a-patch error is the same
-        result. In pixels it silently halves.
+        A coarse grid off by half a patch and a fine grid off by half a patch
+        score *identically* in patch widths, while the coarse one is wrong by
+        more than twice as many pixels. That is the inversion: a ResNet's 32px
+        patch against DINOv2's 14px, scored as though the misses were equal.
         """
-        small_pairs, small_geom = self._pair_and_geometry(16, 112, 3.5)
-        large_pairs, large_geom = self._pair_and_geometry(16, 224, 7.0)
+        coarse, coarse_geom = self._pair_and_geometry(7, 224, 16.0)
+        fine, fine_geom = self._pair_and_geometry(16, 224, 7.0)
 
         in_patches = (
-            probe.evaluate(small_pairs, small_geom)["recall@1p"],
-            probe.evaluate(large_pairs, large_geom)["recall@1p"],
+            patch_probe.evaluate(coarse, coarse_geom)["recall@1p"],
+            patch_probe.evaluate(fine, fine_geom)["recall@1p"],
         )
-        assert in_patches[0] == in_patches[1]
+        assert in_patches[0] == in_patches[1], "patch widths call these equally good"
 
         in_pixels = (
-            pixel_probe.evaluate(small_pairs, small_geom)["recall@5px"],
-            pixel_probe.evaluate(large_pairs, large_geom)["recall@5px"],
+            probe.evaluate(coarse, coarse_geom)["recall@10px"],
+            probe.evaluate(fine, fine_geom)["recall@10px"],
         )
-        assert in_pixels[0] != in_pixels[1]
+        assert in_pixels[1] > in_pixels[0], "in pixels the finer grid is plainly better"
 
-    def test_patch_units_compare_across_patch_sizes(self, probe):
-        """DINOv2's 14px patches against CLIP ViT-B/16's 16px.
+    def test_patch_units_remain_resolution_invariant(self, probe, patch_probe):
+        """Not a bug, and why `patch` is kept rather than removed.
 
-        Both sample the image at 1/16 of its width, so an error of half a patch
-        is the same quality. Pixels would call them different.
+        The same grid over twice the resolution is the same *relative* sampling,
+        and patch widths say so while pixels do not. A real question — just not
+        the one a leaderboard row answers, so it is opt-in.
         """
-        dinov2_like, dinov2_geom = self._pair_and_geometry(16, 224, 7.0)  # 14px patches
-        clip_like, clip_geom = self._pair_and_geometry(14, 224, 8.0)  # 16px patches
+        small, small_geom = self._pair_and_geometry(16, 112, 3.5)
+        large, large_geom = self._pair_and_geometry(16, 224, 7.0)
 
         assert (
-            probe.evaluate(dinov2_like, dinov2_geom)["recall@1p"]
-            == probe.evaluate(clip_like, clip_geom)["recall@1p"]
+            patch_probe.evaluate(small, small_geom)["recall@1p"]
+            == patch_probe.evaluate(large, large_geom)["recall@1p"]
+        )
+        assert (
+            probe.evaluate(small, small_geom)["recall@5px"]
+            != probe.evaluate(large, large_geom)["recall@5px"]
         )
 
-    def test_pixel_thresholds_are_near_unreachable_at_this_grid(self, pixel_probe):
-        """The concrete reason for the change: a ceiling of ~1%.
+    def test_the_ceiling_states_the_floor_rather_than_dividing_it_out(self, probe):
+        """The honest handling of the quantisation limit.
 
-        A metric whose maximum achievable value is 0.015 reports patch size,
-        not feature quality.
+        A coarse grid genuinely cannot be precise in pixels, and `ceiling_` says
+        so — instead of normalising it away, which is what patch units did.
         """
-        pairs, geometry = self._pair_and_geometry(16, 224, 7.0)
-        assert pixel_probe.evaluate_ceiling(pairs, geometry)["recall@1px"] < 0.05
+        # 28px is exactly two 14px cells (the fine grid can place it) and half
+        # a 56px cell (the worst case for the coarse one). A zero shift would
+        # be perfectly representable on both and prove nothing.
+        coarse, coarse_geom = self._pair_and_geometry(4, 224, 28.0)
+        fine, fine_geom = self._pair_and_geometry(16, 224, 28.0)
 
-    def test_patch_thresholds_land_in_a_usable_range(self, probe):
-        pairs, geometry = self._pair_and_geometry(16, 224, 7.0)
-        ceiling = probe.evaluate_ceiling(pairs, geometry)
-        assert ceiling["recall@1p"] > 0.5
+        assert (
+            probe.evaluate_ceiling(fine, fine_geom)["recall@5px"]
+            > probe.evaluate_ceiling(coarse, coarse_geom)["recall@5px"]
+        )
 
-    def test_unit_is_recorded(self, probe, pixel_probe):
-        assert probe.describe()["task_params"]["threshold_units"] == "patch"
-        assert pixel_probe.describe()["task_params"]["threshold_units"] == "pixel"
+    def test_unit_is_recorded(self, probe, patch_probe):
+        assert probe.describe()["task_params"]["threshold_units"] == "pixel"
+        assert patch_probe.describe()["task_params"]["threshold_units"] == "patch"
 
-    def test_unknown_unit_raises(self):
-        with pytest.raises(ValueError, match="threshold_units"):
-            visbench.get_probe("correspondence", threshold_units="metres")
+    def test_the_two_units_are_never_ranked_together(self, probe, patch_probe):
+        """A unit change is a protocol change, and the records already say so.
 
-    def test_explicit_thresholds_override_the_default(self):
-        probe = visbench.get_probe("correspondence", thresholds=(0.25, 3))
-        assert probe.thresholds == (0.25, 3)
+        `threshold_units` lives in `task_params`, which `comparability_key`
+        includes wholesale — so no v0.6.0 patch-unit number can be silently
+        ranked against a v0.6.1 pixel one. No special case was needed.
+        """
+        from visbench.results.leaderboard import comparability_key
+        from visbench.results.schema import ResultRecord, utc_timestamp
+
+        def record(task):
+            return ResultRecord(
+                backbone="b",
+                backbone_key="k",
+                task="correspondence",
+                level="mid_level",
+                dataset="d",
+                split="val",
+                pooling="mean",
+                pooling_requested="mean",
+                feature_mode="dense_only",
+                metrics={},
+                timestamp=utc_timestamp(),
+                visbench_version="0",
+                task_params=task.describe()["task_params"],
+            )
+
+        assert comparability_key(record(probe)) != comparability_key(record(patch_probe))
 
 
 def test_patch_spacing_hand_computed():
@@ -507,7 +546,7 @@ def test_end_to_end_with_a_real_warp(tmp_path, fake_vit, probe):
         )
 
     metrics = probe.evaluate(pairs, dataset.labels())
-    assert set(metrics) >= {"recall@0.5p", "recall@4p", "auc@4p", "num_matches"}
+    assert set(metrics) >= {"recall@1px", "recall@10px", "auc@10px", "num_matches"}
     assert all(isinstance(value, float) for value in metrics.values())
 
 
@@ -553,5 +592,5 @@ class TestMismatchedGeometry:
     def test_equal_lengths_still_score(self, probe, pair_and_geometry):
         """The guard must not cost the ordinary path."""
         pair, identity = pair_and_geometry
-        assert probe.evaluate([pair, pair], [identity, identity])["recall@1p"] == 1.0
-        assert probe.evaluate_ceiling([pair, pair], [identity, identity])["recall@1p"] == 1.0
+        assert probe.evaluate([pair, pair], [identity, identity])["recall@1px"] == 1.0
+        assert probe.evaluate_ceiling([pair, pair], [identity, identity])["recall@1px"] == 1.0

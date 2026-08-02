@@ -270,8 +270,8 @@ class TestPairwiseRuns:
     def test_the_ceiling_is_recorded_beside_the_score(self, fake_vit, pair_split, cache):
         """CLAUDE.md's rule, now true for run() and not only for the example."""
         metrics = visbench.run(fake_vit, "correspondence", pair_split, cache=cache).metrics
-        assert "recall@1p" in metrics and "ceiling_recall@1p" in metrics
-        assert metrics["recall@1p"] <= metrics["ceiling_recall@1p"] + 1e-9
+        assert "recall@5px" in metrics and "ceiling_recall@5px" in metrics
+        assert metrics["recall@5px"] <= metrics["ceiling_recall@5px"] + 1e-9
 
     def test_max_warp_reaches_the_record(self, fake_vit, pair_split, cache):
         """Two runs at different warps are not comparable, and now say so."""

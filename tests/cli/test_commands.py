@@ -174,7 +174,7 @@ class TestRun:
         )
         assert result.code == 0
         metrics = read_records(results)[0].metrics
-        assert "recall@1p" in metrics and "ceiling_recall@1p" in metrics
+        assert "recall@5px" in metrics and "ceiling_recall@5px" in metrics
         assert "ceiling" in result.out
 
     def test_correspondence_records_its_warp(self, run_cli, flat_folder, cache_dir, tmp_path):
