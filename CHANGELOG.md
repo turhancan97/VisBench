@@ -9,7 +9,57 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
-Nothing yet.
+Intended as **v0.6.1**. It corrects a leaderboard board that v0.6.0 published
+ranked upside down.
+
+### Fixed
+
+- **Correspondence thresholds are measured in pixels, not patch widths.**
+  `CorrespondenceTask(threshold_units=...)` and the CLI's `--units` both default
+  to `"pixel"`, the headline metric is `recall@5px`, and the six correspondence
+  records in the corpus were re-run.
+
+  A patch width is a property of the *backbone*, not of the protocol: at 224px
+  it is 14px on DINOv2/14, 16px on CLIP ViT-B/16 and 32px on ViT-B/32 or a
+  ResNet's last stage. Scoring in patch widths therefore asked a coarse-grid
+  backbone to land within 32px and a fine-grid one within 14px, and printed both
+  under one metric name.
+
+  On the same 200 Imagenette pairs, with only the unit changed:
+
+  | backbone | `recall@1p` (v0.6.0) | `recall@5px` (now) |
+  | --- | --- | --- |
+  | resnet18 | **0.8927** | 0.0973 |
+  | dinov2_vits14 | 0.7834 | **0.3049** |
+
+  First and last place swap, and the pixel ordering is the one every other dense
+  probe produces — DINOv2 > CLIP > ResNet.
+
+  The quantisation floor that motivated patch widths is real and is now stated
+  rather than divided out: `ceiling_recall@5px` is ~0.10 on a 7x7 grid against
+  ~0.41 on a 16x16 one, and it already travelled beside every score.
+  `threshold_units="patch"` is kept for single-backbone studies, where it
+  answers a real question — the README's `max_warp` sweep is one.
+
+  **No v0.6.0 number can be silently compared against a v0.6.1 one.**
+  `threshold_units` lives in `task_params`, which `comparability_key` includes
+  wholesale, so the two units already formed different groups. Nothing needed a
+  special case.
+
+### The finding worth carrying forward
+
+**When a board looks wrong, check what the threshold *means* on each row before
+reaching for the denominator.** v0.6.0 shipped this board with a caveat blaming
+`num_matches`, the per-backbone match count. That difference is real — 4,911 for
+ResNet-18 against 27,590 for DINOv2-B — and it is a *consequence* of grid
+resolution, not the cause of the inversion. Normalising by the ceiling was tried
+and did not fix it either, which should have been the clue that the score was
+not the problem.
+
+The old docstring argued the opposite case and argued it well, citing the true
+fact that `recall@1px` has a ceiling of 0.015 on DINOv2-S. That fact is an
+argument for choosing a sensible *pixel* threshold, not for a backbone-dependent
+unit.
 
 ## [0.6.0] — 2026-08-02
 

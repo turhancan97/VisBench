@@ -78,32 +78,51 @@ class CorrespondenceTask(BaseTask):
         num_corr: int = 1000,
         ratio_threshold: float = 0.9,
         thresholds: tuple | None = None,
-        threshold_units: str = "patch",
+        threshold_units: str = "pixel",
     ) -> None:
         """Configure how many correspondences to keep and the error thresholds scored.
 
         Parameters
         ----------
         threshold_units:
-            ``"patch"`` (default) measures error in patch widths; ``"pixel"``
-            in raw pixels of the input frame.
+            ``"pixel"`` (default) measures error in raw pixels of the input
+            frame; ``"patch"`` in multiples of this backbone's patch spacing.
 
-            Patch widths are the default because a match can only land on a
-            patch centre, so patch spacing sets a hard floor on achievable
-            error. In pixels that floor moves with every configuration: at 224px
-            a ``recall@1px`` on DINOv2 ViT-S/14 has a *ceiling* of 0.015, so the
-            metric reports patch size rather than feature quality. It also makes
-            comparisons invalid — DINOv2's 14px patches against CLIP ViT-B/16's
-            16px are different yardsticks wearing the same name, and doubling
-            input resolution changes the meaning again.
+            **Pixels are the default because they are the only unit two
+            backbones can be compared in, and this was wrong until v0.6.1.**
+            A patch width is a *property of the backbone*: at 224px it is 14px
+            on DINOv2/14, 16px on CLIP ViT-B/16 and 32px on ViT-B/32 or a
+            ResNet's final stage. So ``recall@1p`` asks a coarse-grid backbone
+            to land within 32px and a fine-grid one within 14px, then prints
+            both under one name.
 
-            In patch widths every threshold lands in a usable range and the
-            numbers are comparable across resolutions and architectures, which
-            is the point of a benchmark. Use ``"pixel"`` to compare against a
-            published number that used them.
+            Measured on 200 Imagenette pairs, that inverts the board outright:
+
+            ==============  ==============  ================
+            backbone        ``recall@1p``   ``recall@5px``
+            ==============  ==============  ================
+            resnet18        **0.8927**      0.0973
+            dinov2_vits14   0.7834          **0.3049**
+            ==============  ==============  ================
+
+            First place and last place swap. Nothing about the patch-unit
+            number is a lie *within* one backbone — it is a real answer to
+            "how close, relative to what this grid can resolve" — but it is not
+            the question a leaderboard row is read as answering.
+
+            The quantisation floor that motivated patch units is real and is
+            handled the honest way instead: :meth:`evaluate_ceiling` reports
+            what perfect matching on this grid would score, and
+            :meth:`BaseTask.context_metrics` carries it beside every result. A
+            7x7 grid has a ``ceiling_recall@5px`` of ~0.10 against ~0.41 for a
+            16x16 one, which *states* the disadvantage rather than normalising
+            it away.
+
+            Use ``"patch"`` deliberately, for one backbone against itself or to
+            reproduce a pre-v0.6.1 number. Do not rank two backbones with it.
         thresholds:
-            Defaults to ``(0.5, 1, 2, 4)`` patch widths, or ``(1, 2, 5, 10)``
-            pixels, matching the chosen unit.
+            Defaults to ``(1, 2, 5, 10)`` pixels, or ``(0.5, 1, 2, 4)`` patch
+            widths, matching the chosen unit.
         """
         if num_corr < 1:
             raise ValueError(f"num_corr must be >= 1, got {num_corr}")

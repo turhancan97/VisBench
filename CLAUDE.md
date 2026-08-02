@@ -56,6 +56,7 @@ step is next rather than attempting the whole roadmap in one session.
 | 6e-3 | Leaderboard: render it, and generate the README tables from records | done |
 | 6e-4 | Hub: serialise a trained head, with the backbone identity beside it | done |
 | 6e-5 | Hub: push/pull through `huggingface_hub`, behind a `[hub]` extra | done |
+| 6f | Correspondence: score in pixels — the unit that inverted the board | done |
 
 ---
 
@@ -385,11 +386,21 @@ designed up front; extend it the same way, from a case that already runs.
   used it. **A declared-but-uncalled mechanism is the same failure as the
   QuickGELU guard**: it passes its own tests forever while doing nothing.
 - **Correspondence's ceiling travels with its score, through
-  `BaseTask.context_metrics`.** `recall@1px` has a ceiling of 0.015 on DINOv2
-  ViT-S/14 at 224px, so the score alone says the wrong thing. The hook returns
-  `{}` for every other task; correspondence prefixes `ceiling_`. `run()` refuses
-  a context key that collides with a score, since they share one flat dict.
-  Measured on 200 Imagenette pairs: 0.783 against a ceiling of 0.951.
+  `BaseTask.context_metrics`.** A match can only land on a patch centre, so a
+  coarse grid has a hard floor on achievable precision: `ceiling_recall@5px` is
+  ~0.10 on a 7x7 grid against ~0.41 on a 16x16 one. The score alone therefore
+  says the wrong thing. The hook returns `{}` for every other task;
+  correspondence prefixes `ceiling_`. `run()` refuses a context key that
+  collides with a score, since they share one flat dict. Measured on 200
+  Imagenette pairs, DINOv2-S: `recall@5px` 0.3049 against a ceiling of 0.4123.
+- **Correspondence thresholds are in *pixels*, and normalising them by patch
+  spacing is the bug v0.6.1 fixed — do not reinstate it.** Patch widths look
+  like the natural unit (they are the quantisation floor) and are fine within
+  one backbone. Across backbones a patch is 14px on DINOv2/14 and 32px on a
+  ResNet, so `recall@1p` asks each a different question. It inverted the
+  published board: `resnet18` 0.8927 against DINOv2-S 0.7834 in patch widths,
+  and 0.0973 against 0.3049 in pixels — first and last place swapped. The floor
+  is stated by `ceiling_`, not divided out.
 - **The dataset half of a run gets `dataset_params`, like the task half gets
   `task_params`** (schema v5). Filled from whatever `describe()` returns beyond
   the record's own fields, so `max_warp`, `image_size` and `num_triplets` land
@@ -1100,33 +1111,11 @@ it *first* on both boards ahead of DINOv2-B, and the split hid it.
   an ImageNet subset. The README already records this; the row belongs on the
   board with the caveat attached, not suppressed.
 
-**Unresolved, and 6e-3 must not render the correspondence board until it is:
-`recall@t` is an average over a denominator each backbone chooses for itself.**
-It is `(errors <= t).mean()` over the matches `nn_match` + the ratio test
-proposed, and `num_matches` is that denominator. Across the six:
-
-| backbone | recall@1p | ceiling | num_matches |
-| --- | --- | --- | --- |
-| resnet18 | **0.8927** | 0.9762 | **4,911** |
-| resnet50 | 0.8601 | 0.9785 | 4,373 |
-| clip_vitb32 | 0.7992 | 0.9741 | 4,283 |
-| dinov2_vits14 | 0.7834 | 0.9509 | 23,439 |
-| dinov2_vitb14 | 0.7594 | 0.9471 | **27,590** |
-| clip_vitb16 | 0.7179 | 0.9584 | 12,798 |
-
-**ResNet-18 tops the board while proposing 5.6x fewer matches than DINOv2-B**,
-and a coarse 7x7 grid proposes few, easy, well-separated candidates. This is
-exactly the `classes_scored` case 6e-1 already refuses — two averages over
-different denominators are averages of different quantities — except that here
-*every* backbone differs, so making `num_matches` a guard metric would render
-correspondence permanently unrankable rather than fixing it. Normalising by the
-ceiling does not resolve it either (RN18 still leads, 0.9145 against 0.8238).
-
-Do not ship this row as "ResNet-18 is the best correspondence backbone". The
-options are a fixed candidate set across backbones, a match-count-matched
-protocol, or rendering the board with `num_matches` beside every score and
-saying plainly what it does to the comparison. That is a protocol decision, and
-it is the first thing 6e-3 has to settle.
+**The correspondence board looked wrong here, and the diagnosis in this section
+was itself wrong — see 6f below.** 6e-2b recorded the problem as `num_matches`
+being a per-backbone denominator (4,911 for ResNet-18 against 27,590 for
+DINOv2-B). That is true and remains true, but it is not what inverted the board.
+The threshold unit was.
 
 **`slurm/corpus.sbatch` takes `VISBENCH_BACKBONES`** so the matrix widens
 without editing it. The `--array` range **cannot** be derived from that list —
@@ -1317,6 +1306,60 @@ sys.meta_path.insert(0, _Block())
 Run this whenever a test touches `clip`, `timm` or `hub` — the five verification
 commands cannot catch it, because they run in the environment that has
 everything.
+
+### Step 6f — **done**. The unit that inverted a published board
+
+`threshold_units` defaults to `"pixel"`, the CLI's `--units` with it, the
+headline metric is `recall@5px`, and the six correspondence records in the
+corpus were re-run. **This corrects a board that shipped in v0.6.0 ranked
+upside down.**
+
+**A patch width is a property of the backbone, not of the protocol.** At 224px
+it is 14px on DINOv2/14, 16px on CLIP ViT-B/16 and 32px on ViT-B/32 or a
+ResNet's last stage. `_scale` divides pixel error by `patch_spacing`, so
+`recall@1p` asks a coarse-grid backbone to land within 32px and a fine-grid one
+within 14px — a 2.3x more permissive target — and prints both under one name.
+
+Measured on the same 200 Imagenette pairs, only the unit changed:
+
+| backbone | `recall@1p` (v0.6.0) | `recall@5px` (now) |
+| --- | --- | --- |
+| resnet18 | **0.8927** | 0.0973 |
+| resnet50 | 0.8601 | 0.0887 |
+| clip_vitb32 | 0.7992 | 0.0897 |
+| dinov2_vits14 | 0.7834 | **0.3049** |
+| dinov2_vitb14 | 0.7594 | 0.2816 |
+| clip_vitb16 | 0.7179 | 0.2689 |
+
+**First and last place swap**, and the pixel ordering is the one the taxonomy
+predicts — DINOv2 > CLIP-16 > the 7x7 grids, matching all eight dense probes.
+
+- **6e-2b's diagnosis was wrong and is corrected in place.** It blamed
+  `num_matches`, the per-backbone denominator. That difference is real (4,911
+  against 27,590) and still noted in `CAVEATS`, but it is a consequence of grid
+  resolution, not the cause of the inversion. Normalising by the ceiling does
+  not fix the unit problem either — it was tried, and RN18 still led. **When a
+  board looks wrong, check what the threshold *means* on each row before
+  reaching for the denominator.**
+- **The old docstring argued the exact opposite and was persuasive.** It said
+  patch widths made numbers "comparable across resolutions and architectures,
+  which is the point of a benchmark", citing the real fact that `recall@1px` has
+  a ceiling of 0.015 on DINOv2-S. The fact is true; the conclusion inverted a
+  board. The 1px ceiling is an argument for choosing a sensible *pixel*
+  threshold, not for a backbone-dependent unit.
+- **The quantisation floor is stated, not divided out.** `ceiling_recall@5px` is
+  ~0.10 on a 7x7 grid and ~0.41 on a 16x16 one. That is the honest way to carry
+  a floor, and the mechanism already existed — `context_metrics` has done this
+  since v0.1.
+- **`patch` is kept, not removed.** Within one backbone it answers a real
+  question, and the README's `max_warp` sweep is exactly that use. Removing it
+  would delete a legitimate measurement to prevent a misuse the default now
+  prevents.
+- **A unit change is a protocol change, and the records say so.**
+  `threshold_units` and `thresholds` live in `task_params`, so a pixel-unit
+  record and a patch-unit one land in different comparability groups
+  automatically. No v0.6.0 correspondence number can be silently ranked against
+  a v0.6.1 one — the group digest moved from `1ac52b90` to `7db23175`.
 
 ### The candidate task backlog — and what is actually on this machine
 

@@ -53,7 +53,9 @@ __all__ = [
 HEADLINE_METRICS: dict[str, str] = {
     "classification": "top1",
     "retrieval": "mAP",
-    "correspondence": "recall@1p",
+    # Pixels, not patch widths: a patch is a different physical distance on
+    # every backbone, so `recall@1p` ranked this board upside down until v0.6.1.
+    "correspondence": "recall@5px",
     "similarity": "accuracy",
     "semantic_segmentation": "miou",
     "generic_segmentation": "iou",
@@ -71,12 +73,14 @@ HEADLINE_METRICS: dict[str, str] = {
 #: about a protocol, and inferring one would mean inventing the claim.
 CAVEATS: dict[str, str] = {
     "correspondence": (
-        "`recall@t` is an average over the matches **each backbone proposed for "
-        "itself** — `num_matches` is that denominator, and it varies by more "
-        "than 5x across this board. A coarse patch grid proposes fewer, easier, "
-        "better-separated candidates, so row order here reflects grid "
-        "resolution as much as feature quality. Normalising by `ceiling_` does "
-        "not remove the effect. Read the columns, not the order."
+        "Thresholds are in **pixels**, which is the only unit two backbones can "
+        "be compared in — a patch width is 14px on DINOv2/14 and 32px on a "
+        "ResNet, so scoring in patch widths asks each backbone a different "
+        "question. Read `ceiling_` beside every score: a 7x7 grid cannot place "
+        "a match within 5px more than ~10% of the time whatever its features "
+        "are, so part of this ordering is resolution rather than quality. "
+        "`num_matches` is the denominator each backbone's own ratio test left, "
+        "and it varies by more than 5x."
     ),
     "detection": (
         "Absolute mAP is low by design: the head is anchor-free and "

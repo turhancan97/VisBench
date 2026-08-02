@@ -86,7 +86,13 @@ probe_retrieval() {
 }
 
 probe_correspondence() {
-  run correspondence --data "$IMAGENETTE" --split val --limit 200
+  # --units pixel is the default since v0.6.1, and stated here anyway because
+  # it is the whole comparability of this board. A patch width is a property of
+  # the backbone -- 14px on DINOv2/14, 32px on a ResNet -- so scoring in patch
+  # widths asks each backbone to hit a different target and prints the answers
+  # under one name. It inverted this board: resnet18 read 0.8927 against
+  # dinov2_vits14's 0.7834 on recall@1p, and 0.0973 against 0.3049 on recall@5px.
+  run correspondence --data "$IMAGENETTE" --split val --limit 200 --units pixel
 }
 
 probe_similarity() {
