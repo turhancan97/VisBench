@@ -68,3 +68,21 @@ def test_the_issue_templates_are_valid_yaml():
     assert templates, "no issue templates found"
     for path in templates:
         yaml.safe_load(path.read_text())
+
+
+def test_the_docs_workflow_is_documented():
+    """A third workflow can red-X a PR, so the guide must say it exists.
+
+    `test_every_ci_job_is_accounted_for` deliberately covers `ci.yml` only —
+    its value is being an exact-set guard over the gating jobs. This is the
+    separate claim: that the docs build is not a surprise.
+    """
+    workflow = ROOT / ".github" / "workflows" / "docs.yml"
+    assert workflow.is_file(), "the docs workflow no longer exists"
+
+    guide = GUIDE.read_text()
+    assert "docs.yml" in guide, "CONTRIBUTING.md never mentions the docs workflow"
+
+    command = "sphinx-build -b html -W --keep-going docs docs/_build/html"
+    assert command in workflow.read_text(), f"the docs workflow no longer runs: {command}"
+    assert command in guide, f"CONTRIBUTING.md does not document: {command}"

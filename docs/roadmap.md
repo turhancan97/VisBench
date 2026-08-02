@@ -2,7 +2,7 @@
 
 This is the project's own record of how it was built and where it might go. It
 is here rather than in the README because it answers "what is the plan", not
-"how do I use this" — see the [README](../README.md) for the latter.
+"how do I use this" — see the [documentation home](index.md) for the latter.
 
 ## Build order
 

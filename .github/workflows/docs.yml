@@ -1,0 +1,68 @@
+# The documentation site.
+#
+# A separate workflow rather than a job in ci.yml, for two reasons. The docs
+# build has a different trigger shape -- it deploys only from main -- which is
+# the same split slow.yml already established. And ci.yml's job set is asserted
+# exactly by tests/test_contributing.py, so the guide and the gating jobs cannot
+# drift apart; docs are not a gating concern for a code change.
+name: Docs
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      # --index-url, matching the `test` job -- not `lint`'s --extra-index-url.
+      # The latter leaves pip free to resolve a CUDA build, which is several GB
+      # of wheels on a job nobody is watching.
+      - name: Install
+        run: |
+          pip install --upgrade pip
+          pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+          pip install -e ".[all,docs]"
+
+      # -W makes every warning fatal: a broken toctree, a missing image or a
+      # malformed directive fails here rather than publishing a page with a hole
+      # in it. --keep-going reports all of them in one run instead of one per
+      # push. `nitpicky` is off in conf.py -- see the comment there.
+      - name: Build
+        run: sphinx-build -b html -W --keep-going docs docs/_build/html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/_build/html
+
+  deploy:
+    # main only, and never from a pull request. A fork PR cannot be granted
+    # `pages: write` anyway, but stating it means a misconfiguration fails
+    # closed rather than publishing someone else's branch.
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

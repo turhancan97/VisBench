@@ -49,6 +49,20 @@ nothing useful. Two more jobs gate CI that these do not cover:
   Install `build` and `twine` into a throwaway venv, not the project one, so
   `.venv/` keeps matching what CI has.
 
+### Documentation
+
+The site at <https://turhancan97.github.io/VisBench/> is built by Sphinx from
+`docs/` and deploys on merge to `main`. A **third workflow**,
+`.github/workflows/docs.yml`, builds it on every pull request — so a broken docs
+build fails review rather than `main`.
+
+```bash
+sphinx-build -b html -W --keep-going docs docs/_build/html
+```
+
+`-W` makes warnings fatal. If you add a page, add it to a `toctree`, or the
+build fails with an unreferenced-document warning.
+
 ### Fast tests and slow tests
 
 `pytest` deselects `slow` by default, and CI's gating workflow runs the fast

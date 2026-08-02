@@ -13,6 +13,7 @@
   <a href="https://pypi.org/project/visbench/"><img src="https://img.shields.io/pypi/v/visbench.svg" alt="PyPI"></a>
   <a href="https://github.com/turhancan97/VisBench/actions/workflows/ci.yml"><img src="https://github.com/turhancan97/VisBench/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/turhancan97/VisBench/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
+  <a href="https://turhancan97.github.io/VisBench/"><img src="https://img.shields.io/badge/docs-visbench-3a7eab.svg" alt="Documentation"></a>
   <img src="https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue.svg" alt="Python 3.10+">
 </p>
 
@@ -378,6 +379,7 @@ them at the point of use in the code:
 
 | | |
 | --- | --- |
+| **The documentation site** | <https://turhancan97.github.io/VisBench/> |
 | Every probe, its data layout and its measured numbers | [docs/tasks.md](https://github.com/turhancan97/VisBench/blob/main/docs/tasks.md) |
 | Twelve probes against six backbones, ranked | [LEADERBOARD.md](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md) |
 | How it was built, and what might come next | [docs/roadmap.md](https://github.com/turhancan97/VisBench/blob/main/docs/roadmap.md) |
