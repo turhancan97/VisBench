@@ -17,6 +17,7 @@ import visbench
 from visbench.cache import FeatureCache
 from visbench.data import ImageFolderDataset
 from visbench.hub import IncompatibleProbe, load_probe, save_probe
+from visbench.utils import set_seed
 
 
 def main() -> None:
@@ -27,7 +28,17 @@ def main() -> None:
     parser.add_argument("--out", default="checkpoints/classification.pt")
     parser.add_argument("--cache", default=".visbench_cache")
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    parser.add_argument(
+        "--show-card",
+        action="store_true",
+        help="print the Hub model card this probe would be published with",
+    )
     args = parser.parse_args()
+
+    # Seeded explicitly: this script calls `fit` directly rather than going
+    # through `run()`, which would have done it. Without this the two numbers
+    # printed below move between runs, and the whole point is comparing them.
+    set_seed(0)
 
     backbone = visbench.get_backbone(args.backbone, device=args.device)
     cache = FeatureCache(root=args.cache)
@@ -72,6 +83,15 @@ def main() -> None:
     wrong = forced.evaluate(mean_features, val.labels())
     print(f"\n  forced through anyway: top1={wrong['top1']:.4f}, against {before['top1']:.4f}")
     print("  It ran. It produced a number. Nothing but the check said it was wrong.")
+
+    # The card that would go on the Hub beside these weights. Printed rather
+    # than pushed: publishing is the maintainer's call, and a push under
+    # someone's account is not something an example should do as a side effect.
+    if args.show_card:
+        from visbench.hub import probe_card
+
+        print("\n" + "=" * 70)
+        print(probe_card(probe, backbone, "your-name/your-probe", metrics=before))
 
 
 if __name__ == "__main__":

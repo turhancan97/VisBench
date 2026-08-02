@@ -41,13 +41,17 @@ dependencies = [
 # probing only DINOv2 need not install OpenCLIP.
 clip = ["open_clip_torch>=2.24,<4.0"]
 timm = ["timm>=1.0,<2.0"]
+# Only push/pull need this. Saving and loading a probe to a local path works in
+# a core install, so a user who never touches the Hub never installs a network
+# client -- and `import visbench.hub` must keep working without it.
+hub = ["huggingface_hub>=0.23,<2.0"]
 dev = [
     "pytest>=7.4,<9.0",
     "pytest-cov>=4.1,<6.0",
     "ruff>=0.4,<1.0",
     "mypy>=1.8,<2.0",
 ]
-all = ["visbench[clip,timm]"]
+all = ["visbench[clip,timm,hub]"]
 
 [project.urls]
 Homepage = "https://github.com/turhancan97/VisBench"

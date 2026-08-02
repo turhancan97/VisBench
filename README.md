@@ -290,6 +290,43 @@ Worth naming so they are not re-scoped from scratch:
 - **Texture / reflectance** overlaps with intrinsic decomposition above.
   Taskonomy ships no reflectance domain, so `mask_valid/` did not unblock it.
 
+## Sharing a trained probe
+
+A probe head is small — 17 KB for a linear classifier — so the cheapest way to
+let someone check your number is to hand them the probe rather than the recipe.
+
+```python
+from visbench.hub import save_probe, load_probe
+
+save_probe(probe, "checkpoints/voc.pt", backbone=backbone)
+probe = load_probe("checkpoints/voc.pt", backbone=backbone)
+```
+
+With `pip install 'visbench[hub]'`, the same thing over the network. Pushing
+creates a **private** repository unless you ask otherwise, and writes a model
+card alongside the weights:
+
+```python
+from visbench.hub import push_probe, load_probe_from_hub
+
+push_probe(probe, "you/dinov2-vits14-voc", backbone=backbone, metrics=scores)
+probe = load_probe_from_hub("you/dinov2-vits14-voc", backbone=backbone)
+```
+
+**A head only works with the backbone it was fitted on, and getting that wrong
+is silent.** Loading a head trained on DINOv2-S CLS tokens against *mean-pooled*
+tokens from the same backbone gives the right shapes and a plausible number —
+measured on Imagenette, **0.9540 against 0.9830**. Nothing about the tensors
+says anything is wrong, so `load_probe` checks the backbone weights, the
+pooling, the feature mode and the layers, and refuses a mismatch. Pass
+`strict=False` if you are deliberately testing transfer; it warns rather than
+raising, and the number is then comparable with nothing.
+
+Downloaded probes are read with `torch.load(weights_only=True)`, so fetching one
+from a stranger's repository cannot execute code. See
+[`examples/save_probe.py`](https://github.com/turhancan97/VisBench/blob/main/examples/save_probe.py),
+which demonstrates the mismatch on purpose.
+
 ## Reproducibility
 
 **Twelve probes against six backbones, as records:
@@ -349,13 +386,17 @@ them at the point of use in the code:
 ## Install
 
 ```bash
-pip install visbench                 # core: DINOv2, every task, the CLI
-pip install 'visbench[clip,timm]'    # + CLIP and timm CNN backbones
+pip install visbench                    # core: DINOv2, every task, the CLI
+pip install 'visbench[clip,timm]'       # + CLIP and timm CNN backbones
+pip install 'visbench[hub]'             # + push/pull probes to Hugging Face
 ```
 
 `clip` and `timm` are optional extras. A backbone whose extra is missing stays
 listed — `visbench list backbones` marks it — and constructing one tells you
 which extra to install rather than pretending the name does not exist.
+
+`hub` is needed only to *transfer* a probe. Saving one to a local file and
+loading it back works in a core install.
 
 Development:
 

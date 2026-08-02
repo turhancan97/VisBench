@@ -196,6 +196,24 @@ rather than asserted.
   asserts it still can be. That is not a detail: 6e-5 fetches these from a hub,
   where an unrestricted load is arbitrary code execution.
 
+- **`visbench.hub.remote`** (step 6e-5), pushing and pulling probes through the
+  Hugging Face Hub: `push_probe`, `load_probe_from_hub`, `probe_card`. Behind a
+  new **`[hub]` extra** — `pip install 'visbench[hub]'`. Saving a probe to a
+  local file and loading it back still needs nothing but a core install, because
+  `huggingface_hub` is imported inside the functions that use it.
+
+  `load_probe_from_hub` is `load_probe` with a download in front of it, and
+  `push_probe` calls `save_probe`. Neither adds a rule: a downloaded probe gets
+  the same backbone identity checks and the same `weights_only=True` load as a
+  local one, and a test asserts the uploaded bytes match what the local saver
+  writes, so the two cannot drift into different formats.
+
+  Pushing creates a **private** repository unless asked otherwise — a push is
+  not reversible the way a local write is — and writes a generated model card
+  beside the weights, from the same metadata the artifact carries. The refusal
+  for an unfitted or zero-shot probe happens *before* the repository is created,
+  so a rejected push leaves nothing behind.
+
 ### Known, and unresolved
 
 **The correspondence board ranks on an average whose denominator each backbone
