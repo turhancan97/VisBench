@@ -129,13 +129,16 @@ The CLI exposes all twelve probes: `visbench list`, `visbench run <probe>`,
 shell by accident.
 
 Package version is `0.6.0`. The last upload to
-[PyPI](https://pypi.org/project/visbench/) this file witnessed was **v0.5.0 on
-2026-08-01** — wheel and sdist both, verified by downloading the published wheel
-and reading `__version__` and the three new modules out of it, rather than by
-trusting the version number. **v0.6.0 was prepared on 2026-08-02 and this file
-did not witness it being uploaded**; the version here is what the source says,
-not what is installable. Whether anything followed is not something this
-paragraph can know.
+[PyPI](https://pypi.org/project/visbench/) this file witnessed was **v0.6.0 on
+2026-08-02** — wheel and sdist both (276 KB and 645 KB), tagged `v0.6.0` on
+merge commit `77986e9`. Verified by downloading the published wheel and reading
+`__version__ = "0.6.0"`, `SCHEMA_VERSION = 7`, `ARTIFACT_VERSION = 1` and the
+five modules v0.6.0 added (`results/render.py`, `results/leaderboard.py`,
+`hub/{__init__,artifact,remote}.py`) *out of it*, plus the METADATA confirming
+`huggingface-hub` appears only under the `hub` and `all` extras and never in the
+core requirements. Not by trusting the version number, which is the whole point
+of the exercise. Whether anything followed is not something this paragraph can
+know.
 **Publishing needs the maintainer's credentials and is theirs to
 run** — never attempt it, and do not assume a tag means a release went out, or
 that `main` matches what is installable; check
