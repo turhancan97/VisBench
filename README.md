@@ -383,6 +383,7 @@ them at the point of use in the code:
 | How it was built, and what might come next | [docs/roadmap.md](https://github.com/turhancan97/VisBench/blob/main/docs/roadmap.md) |
 | What changed in each release | [CHANGELOG.md](https://github.com/turhancan97/VisBench/blob/main/CHANGELOG.md) |
 | Borrowed evaluation protocols and their licences | [NOTICE](https://github.com/turhancan97/VisBench/blob/main/NOTICE) |
+| Setting up, the checks, and how to add a probe | [CONTRIBUTING.md](https://github.com/turhancan97/VisBench/blob/main/CONTRIBUTING.md) |
 
 Questions and bug reports: [open an issue](https://github.com/turhancan97/VisBench/issues).
 
