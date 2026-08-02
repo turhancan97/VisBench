@@ -1,0 +1,40 @@
+name: Feature or probe request
+description: A new task, backbone, or capability
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The candidate task backlog lives in
+        [docs/roadmap.md](https://github.com/turhancan97/VisBench/blob/main/docs/roadmap.md) —
+        worth a look first, since it records which ideas are cheap and which
+        need a dataset that does not exist yet.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What should VisBench be able to measure, or do
+    validations:
+      required: true
+
+  - type: textarea
+    id: protocol
+    attributes:
+      label: If this is a probe, what would the number mean
+      description: >
+        The metric, and what a high score would and would not tell you. If a
+        published paper defines the protocol, name it — VisBench only claims a
+        protocol it actually implements.
+
+  - type: textarea
+    id: data
+    attributes:
+      label: What data would it need
+      description: Whether it is publicly downloadable matters a lot to the cost.
+
+  - type: checkboxes
+    id: ranks
+    attributes:
+      label: The question this project asks of any new probe
+      options:
+        - label: I believe this would separate two backbones, not just produce a number

@@ -46,6 +46,10 @@ timm = ["timm>=1.0,<2.0"]
 # client -- and `import visbench.hub` must keep working without it.
 hub = ["huggingface_hub>=0.23,<2.0"]
 dev = [
+    # The issue-template test parses .github/ISSUE_TEMPLATE/*.yml. PyYAML is
+    # present transitively via timm, but CI installs `.[dev]` only -- so
+    # relying on that would have failed there while passing locally.
+    "pyyaml>=6.0,<7.0",
     "pytest>=7.4,<9.0",
     "pytest-cov>=4.1,<6.0",
     "ruff>=0.4,<1.0",

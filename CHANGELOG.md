@@ -11,6 +11,25 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Added
 
+- **`CONTRIBUTING.md`**, plus GitHub issue and pull-request templates. The
+  project's conventions were real but lived in `CLAUDE.md`, which is written for
+  an assistant rather than for a contributor: setup, the five commands CI runs,
+  the two jobs they do not cover, how to add a probe, and the rules that exist
+  because this library reports numbers — protocols are not claimed unless
+  implemented, metric directions are listed rather than inferred, a probe has to
+  *rank* rather than merely score.
+
+  Three tests keep the guide honest rather than merely written: the lint
+  commands it documents must be the ones `ci.yml` runs, every gating CI job must
+  be mentioned, and the extras it tells you to install must exist. A setup
+  document that has drifted is worse than none — it sends someone to run the
+  wrong commands, watch them pass, then fail review for a reason it told them
+  not to expect.
+
+  `pyyaml` joins the `dev` extra, because the issue-template test parses those
+  files. It was available locally via timm and **not** in CI's `.[dev]` install,
+  which is the same trap the `[hub]` tests hit in v0.6.0.
+
 - **`visbench demo`** — a real probe run that needs no dataset, no
   configuration and no large download. Thirty seconds from `pip install` to an
   interpretable number:

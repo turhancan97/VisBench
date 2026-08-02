@@ -1,0 +1,58 @@
+name: Bug report
+description: Something behaves differently from what it says it does
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A number that looks wrong counts as a bug here, even if nothing crashed.
+        That is the failure mode this project cares most about.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: Include the command or code you ran, and the output.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+    validations:
+      required: true
+
+  - type: textarea
+    id: record
+    attributes:
+      label: The result record, if a run produced one
+      description: >
+        Every run appends a JSON record (default `results/visbench.jsonl`), or
+        pass `--json`. It pins the backbone, pooling, layers and task settings,
+        which is usually enough to reproduce a number without the data.
+      render: json
+
+  - type: input
+    id: version
+    attributes:
+      label: VisBench version
+      description: "`visbench --version`, or the commit if installed from source"
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Python, OS, and whether you are on CPU or GPU
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: "`visbench demo` runs (this rules out an install problem)"
+        - label: I have said which extras are installed, if the issue involves CLIP, timm or the Hub
