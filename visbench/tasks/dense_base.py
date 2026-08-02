@@ -558,13 +558,21 @@ class DenseTrainingTask(BaseTask):
         else:
             kwargs = {}
         kwargs.update(self.head_kwargs)
-        return build_head(
-            self.head_name,
+        kwargs.update(
             in_channels=channels,
             out_channels=self.out_channels,
             output_size=output_size,
-            **kwargs,
-        ).to(self.device)
+        )
+        # Recorded at build time, not reconstructed at save time. `channels` and
+        # `output_size` are measured from the first batch of features, so
+        # nothing outside this call knows them -- and a saved head rebuilt at a
+        # guessed width fails on a shape mismatch at best, and at worst loads
+        # because the guess happened to be right for one backbone.
+        self._head_spec: dict = {"kind": "registered", "name": self.head_name, "kwargs": kwargs}
+        return build_head(self.head_name, **kwargs).to(self.device)
+
+    def head_spec(self) -> dict | None:
+        return getattr(self, "_head_spec", None)
 
     # -- targets -------------------------------------------------------------
 
