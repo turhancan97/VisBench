@@ -139,10 +139,24 @@ five modules v0.6.0 added (`results/render.py`, `results/leaderboard.py`,
 `hub/{__init__,artifact,remote}.py`) *out of it*, plus the METADATA confirming
 `huggingface-hub` appears only under the `hub` and `all` extras and never in the
 core requirements. Not by trusting the version number, which is the whole point
-of the exercise. **v0.6.1 was prepared on 2026-08-02 and this file did not
-witness it being uploaded**; the version above is what the source says, not what
-is installable. Whether anything followed is not something this paragraph can
-know.
+of the exercise.
+
+**v0.6.1 followed the same day** — wheel and sdist both, tagged `v0.6.1` on
+merge commit `dc5bc40`, verified the same way *and one step further*. A version
+number cannot show what that release changed, because its entire content is a
+changed default: so the published wheel was put on `sys.path` and imported, and
+`get_probe("correspondence")` was constructed from it. It reports
+`threshold_units="pixel"`, `thresholds=(1, 2, 5, 10)` and a headline of
+`recall@5px`, with `"patch"` still accepted. **When a release's content is a
+default value, read it back through an import, not out of the source text** —
+source inspection cannot rule out a runtime override.
+
+One wrinkle worth knowing: `pip download` reported "No matching distribution
+found" for a freshly uploaded version while the JSON API already listed it. That
+is pip's cached index page, not a failed upload — `--no-cache-dir` resolved it.
+Check the JSON API before concluding an upload did not happen.
+
+Whether anything followed is not something this paragraph can know.
 **Publishing needs the maintainer's credentials and is theirs to
 run** — never attempt it, and do not assume a tag means a release went out, or
 that `main` matches what is installable; check
