@@ -48,6 +48,91 @@ denominators are averages of different quantities), and a `ceiling_` context
 metric (correspondence's ceiling describes the split, so ranking on it ranks
 the data).
 
+- **`results/corpus/visbench.jsonl`** (step 6e-2), the record corpus — 26
+  records, schema v6, twelve probes against both DINOv2 backbones, every one of
+  them frozen. Twelve comparability groups, and all twelve hold both backbones,
+  which is the check that matters: identical commands with only `--backbone`
+  varying, so nothing split into two groups of one. Every published VisBench
+  number to date was produced ad hoc and hand-copied; this is the first set that
+  exists as records anyone can re-rank.
+
+  The corpus is **tracked**. `results/*.jsonl` stays ignored for ad-hoc runs,
+  but `results/corpus/` is negated in `.gitignore`, because a benchmark whose
+  records nobody else can see is not a benchmark.
+
+- **`scripts/build_corpus.sh`**, one function per probe with every flag in one
+  place. `comparability_key` requires `task_params` and `dataset_params` to
+  match exactly, so a stray `--limit` does not produce a wrong number — it
+  produces two groups of one, and the run is wasted rather than misleading.
+  Keeping the flags in a single file makes that structural instead of a matter
+  of care.
+- **`slurm/corpus.sbatch`**, a 24-task array (one per probe/backbone), and
+  **`scripts/merge_corpus.sh`**, an idempotent rebuild from the per-task parts
+  with validation. One JSONL per task rather than one shared file: this
+  repository lives on NFSv4, and **NFS has no atomic `O_APPEND`**, so two tasks
+  finishing together can interleave lines. A corrupted corpus is worse than no
+  corpus, because which runs were lost is not recoverable from what remains.
+- **`scripts/binarise_voc_masks.py`**, turning VOC's 21-class label maps into
+  0/1/255 binary masks so `generic_segmentation` has a real dataset.
+- **`PARAMETRISED_METRIC_DIRECTIONS`** in `leaderboard.py`, and
+  `detections_per_image` / `num_matches` added to `DIAGNOSTIC_METRICS`.
+
+### What running it actually found
+
+**Two of the twelve probes ranked nothing, silently.** `retrieval` and
+`correspondence` emit only *parametrised* metrics — `recall@1`, `recall@10`,
+`auc@0.5p` — and not one of those names was in `METRIC_DIRECTIONS`.
+`shared_metrics` skips a name it cannot direct, so both probes produced an empty
+leaderboard section **rather than an error**. Every test fixture had used
+unparametrised names, so only a real corpus could surface this.
+
+The fix keys on the stem before `@`, and is still a listed table rather than the
+name heuristic this module refuses everywhere else: those names are *generated*,
+by `f"recall@{k}"` and `f"auc@{format_threshold(...)}"`, so the stem **is** the
+metric's identity and the suffix is only which setting of it. An unlisted stem
+still raises.
+
+**The corpus reproduces every published number to four decimals** — VOC
+segmentation 0.7328/0.7533, classification 0.9939, similarity 0.8701/0.8580,
+edge 0.4558/0.4481, keypoints2d 0.2356/0.2248, occlusion edge 0.2924/0.3167,
+correspondence `recall@1p` 0.7834 against a ceiling of 0.9509 — from a compute
+node, against numbers measured months ago on a different machine.
+
+**Detection is the one exception, and is recorded as unverifiable rather than
+contradicted.** 0.2302/0.2882 `map_50` against step 6c-3's 0.2127/0.2616. Every
+recorded field matches what was documented for that run, so the difference is
+not in any field a record carries, and the original command was never committed
+so it cannot be diffed. The ordering is unchanged and the corpus number is the
+reproducible one.
+
+**`edge` disagrees with itself three ways.** `edge_correlation` ranks DINOv2-S
+first, `mae` ranks DINOv2-B first, and `rmse` ranks DINOv2-S first again. One
+probe, three metrics, three orderings — which is why a renderer must never pick
+a headline metric silently.
+
+**Semantic segmentation ran twice by accident, and the duplicates are kept.**
+The smoke test and the full array appended to the same part file. The metrics
+are identical to six decimals; the durations are 137.6 s against 123.5 s, and
+104.9 s against 115.9 s. That is "a wall clock is not a metric" demonstrated
+rather than asserted.
+
+### Changed
+
+- **Depth and surface normals are measured on NYUv2, not Taskonomy.** Their
+  Taskonomy numbers came from uncommitted code and were unreachable from any
+  entry point. probe3d's own NYUv2 copy has exactly the
+  `<root>/<split>/{images,targets}` layout the CLI already expects — 795/654,
+  the canonical split — so both probes joined the corpus with **no code
+  change**: depth d1 0.7652/0.7851, normals mean 29.48°/30.11°.
+
+  Two hazards, recorded inline in `build_corpus.sh`. `--target-scale 1.0` is
+  load-bearing, because these targets are already in metres while NYUv2's PNG
+  distribution is millimetres — passing 1000 would make RMSE look superb and
+  mean nothing. And these normals are **dense**: not one zero-length vector
+  across 40 sampled frames, including across the ~28% of pixels where the depth
+  map has no ground truth, so the probe is scored on filled geometry and is not
+  comparable with a masked normals probe.
+
 ## [0.5.0] — 2026-08-01
 
 **Two probes, and a mask that was missing.** v0.4.0 refused six of Taskonomy's
