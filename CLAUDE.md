@@ -96,8 +96,12 @@ site deployed to GitHub Pages by a **third workflow**, `docs.yml`. **The
 generated tables moved with the reference material** — they are in
 `docs/tasks.md` now, not the README, and `scripts/render_tables.py` takes a
 list of marked files. 7e added `CITATION.cff` and `.zenodo.json`, so a release
-is archived with a DOI. **Whether v0.7.0 reached PyPI is not something this
-paragraph can know** — the release commit is not the upload; check PyPI.
+is archived with a DOI — and **the DOI now exists**: v0.7.0 was released on
+GitHub, Zenodo archived it, and the concept DOI is
+[10.5281/zenodo.21822684](https://doi.org/10.5281/zenodo.21822684). **v0.7.0
+did not reach PyPI** — checked 2026-08-06 against the JSON API, which lists
+0.2.0 through 0.6.1 and nothing since. The release commit is not the upload,
+the GitHub release is not the upload either, and neither is the DOI.
 
 **What v0.6.0 changed, in one paragraph.** `results/corpus/visbench.jsonl` is a
 committed corpus of 72 records — twelve probes against six backbones, twelve
@@ -155,9 +159,11 @@ The CLI exposes all twelve probes: `visbench list`, `visbench run <probe>`,
 CLI's table and `list_probes()` are the same set, so a probe cannot ship
 unreachable from a shell by accident.
 
-Package version is `0.7.0`, released in the tree and **not yet witnessed on
-PyPI by this file** — v0.7.0's upload, if it happened, has not been verified
-the way the two below were. The last upload to
+Package version is `0.7.0`, released in the tree, tagged, released on GitHub
+and archived on Zenodo — and **absent from PyPI**, confirmed 2026-08-06 by
+reading the JSON API rather than by assuming. That gap is the useful thing to
+notice: four of the five things a release does happened without the fifth, and
+none of them is evidence of it. The last upload to
 [PyPI](https://pypi.org/project/visbench/) this file witnessed was **v0.6.0 on
 2026-08-02** — wheel and sdist both (276 KB and 645 KB), tagged `v0.6.0` on
 merge commit `77986e9`. Verified by downloading the published wheel and reading
@@ -590,7 +596,16 @@ designed up front; extend it the same way, from a case that already runs.
   citing "VisBench" wants the latter. The former is what a *paper reporting
   measured numbers* should pin, because a VisBench number is reproducible only
   against the release that produced it — which is the same reason every record
-  carries its schema, pooling and protocol.
+  carries its schema, pooling and protocol. **The minted concept DOI is
+  `10.5281/zenodo.21822684`**, and it is quoted in three files: `CITATION.cff`,
+  the README (badge and BibTeX) and `docs/index.md`. `tests/test_citation.py`
+  pins that literal and *additionally rejects any other* `10.5281/zenodo.\d+`
+  in those files, because the realistic mistake is pasting a version DOI over
+  it from a Zenodo archive page — which resolves, renders, and looks entirely
+  correct while freezing every citation at one release. **`.zenodo.json` is
+  deliberately excluded from that check and carries no `doi` key**: it is the
+  deposit's *input*, so a `doi` there claims a pre-reserved identifier rather
+  than recording the minted one.
 - **The optional-extra trap has now been hit twice, by the same person, two
   steps apart.** v0.6.0's hub tests needed `huggingface_hub` at monkeypatch time
   and CI installs `.[dev]` only; 7c's issue-template test needed PyYAML, present
@@ -604,7 +619,7 @@ designed up front; extend it the same way, from a case that already runs.
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker is empty as of 2026-08-06.** The
-four local commands were re-run on 2026-08-06 and are green: **1367 fast
+four local commands were re-run on 2026-08-06 and are green: **1378 fast
 tests** and the three lint steps, plus `uv lock --check`. The 79 slow tests are
 green too, on that morning's nightly rather than locally. If anything is red for
 you, that is new — do not go looking for a known cause here.
@@ -2132,7 +2147,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 1367 fast tests
+pytest                                              # 1378 fast tests
 pytest -m slow                                      # 79, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/
 ruff format --check visbench/ tests/ conftest.py examples/
