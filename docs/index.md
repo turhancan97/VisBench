@@ -65,7 +65,9 @@ against is not a crash, it is a plausible wrong answer.
 
 If VisBench contributed to work you are publishing, please cite it — GitHub's
 **Cite this repository** button generates APA and BibTeX from
-[CITATION.cff](https://github.com/turhancan97/VisBench/blob/main/CITATION.cff).
+[CITATION.cff](https://github.com/turhancan97/VisBench/blob/main/CITATION.cff),
+which carries the concept DOI
+[10.5281/zenodo.21822684](https://doi.org/10.5281/zenodo.21822684).
 
 If you are reporting numbers, cite the *version you ran*. A VisBench record
 carries the schema, the resolved pooling, the layers and the protocol behind

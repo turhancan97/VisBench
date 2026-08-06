@@ -7,6 +7,25 @@ All notable changes to VisBench are recorded here. The format follows
 Each released section is written to be pasted straight into a GitHub release,
 so it stands on its own rather than assuming you have read the ones above it.
 
+## [Unreleased]
+
+### Added
+
+- **A DOI.** v0.7.0 is archived on Zenodo, and the concept DOI
+  [10.5281/zenodo.21822684](https://doi.org/10.5281/zenodo.21822684) now
+  appears in `CITATION.cff`, the README badge row and BibTeX block, and the
+  documentation landing page.
+
+  It is the *concept* DOI deliberately: Zenodo mints one of those per project
+  and a version DOI per release, and the concept one always resolves to the
+  newest archive, which is what someone citing "VisBench" wants. A paper
+  reporting measured numbers should pin the version DOI instead, for the same
+  reason every result record carries its schema, pooling and protocol.
+
+  `tests/test_citation.py` pins the literal across all three files and fails on
+  any other `10.5281/zenodo.*`, since a version DOI substituted for the concept
+  one resolves fine and looks correct.
+
 ## [0.7.0] — 2026-08-06
 
 **The contributor-facing release.** No new probe, backbone or metric — every

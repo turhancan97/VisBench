@@ -14,6 +14,7 @@
   <a href="https://github.com/turhancan97/VisBench/actions/workflows/ci.yml"><img src="https://github.com/turhancan97/VisBench/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/turhancan97/VisBench/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
   <a href="https://turhancan97.github.io/VisBench/"><img src="https://img.shields.io/badge/docs-visbench-3a7eab.svg" alt="Documentation"></a>
+  <a href="https://doi.org/10.5281/zenodo.21822684"><img src="https://zenodo.org/badge/1310854079.svg" alt="DOI"></a>
   <img src="https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue.svg" alt="Python 3.10+">
 </p>
 
@@ -403,7 +404,8 @@ or use:
 @software{kargin_visbench,
   author  = {Kargın, Turhan Can},
   title   = {VisBench: probing vision backbones across high-, mid- and low-level tasks},
-  url     = {https://github.com/turhancan97/VisBench},
+  doi     = {10.5281/zenodo.21822684},
+  url     = {https://doi.org/10.5281/zenodo.21822684},
   license = {MIT},
   version = {0.7.0}
 }
@@ -413,6 +415,12 @@ or use:
 result record carries the schema, the resolved pooling, the layers and the
 protocol that produced it, so a number is reproducible — but only against the
 release that produced it. `visbench.__version__` is in every record.
+
+The DOI above is the **concept DOI**: it always resolves to the newest release,
+which is what you want when citing the software itself. Zenodo also mints a
+**version DOI** per release, listed on the archive page under *Versions* — pin
+that one in a paper reporting measured numbers, for the same reason every
+record carries its schema and protocol.
 
 ## License
 

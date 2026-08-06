@@ -6,10 +6,11 @@
 #
 #   - `version` must equal visbench.__version__, so a release cannot ship a
 #     citation for the version before it.
-#   - once Zenodo has minted a DOI, the `doi` below must be the CONCEPT DOI —
-#     the one that always resolves to the newest release. A version DOI belongs
-#     in a paper reporting numbers from one specific version, not here, because
-#     this file is read by someone citing "VisBench" rather than one archive.
+#   - the `doi` below is the CONCEPT DOI — the one that always resolves to the
+#     newest release, and which therefore never changes here. A version DOI
+#     belongs in a paper reporting numbers from one specific version, not in
+#     this file, which is read by someone citing "VisBench" rather than one
+#     archive. Zenodo mints both per release; do not swap this for the latter.
 #
 # The prior work whose protocols VisBench reuses is credited in NOTICE and at
 # the point of use in the code; it is deliberately not duplicated here, where a
@@ -34,6 +35,7 @@ authors:
     orcid: "https://orcid.org/0000-0002-6751-4773"
 repository-code: "https://github.com/turhancan97/VisBench"
 url: "https://turhancan97.github.io/VisBench/"
+doi: "10.5281/zenodo.21822684"
 license: MIT
 version: 0.7.0
 date-released: "2026-08-06"

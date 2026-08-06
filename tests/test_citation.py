@@ -22,6 +22,11 @@ ROOT = Path(__file__).resolve().parents[1]
 CITATION = ROOT / "CITATION.cff"
 ZENODO = ROOT / ".zenodo.json"
 ORCID = "0000-0002-6751-4773"
+# The CONCEPT DOI: Zenodo mints one of these per project and one *version* DOI
+# per release. This is the former, and it is the one that must appear anywhere
+# VisBench-the-software is cited, because it always resolves to the newest
+# archive. Swapping in a version DOI would freeze every citation at one release.
+CONCEPT_DOI = "10.5281/zenodo.21822684"
 
 
 @pytest.fixture(scope="module")
@@ -88,6 +93,24 @@ def test_the_readme_tells_people_how_to_cite(citation):
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "## Citing VisBench" in readme, "the README has no citation section"
     assert citation["title"] in readme, "the README's BibTeX title drifted from CITATION.cff"
+
+
+def test_one_doi_is_quoted_everywhere_and_it_is_the_concept_doi(citation):
+    """Four files quote a DOI; a copy-paste that picks up a *version* DOI in one
+    of them is invisible, because both forms resolve and both look right.
+
+    The concept DOI never changes, so pinning the literal here costs nothing and
+    catches the substitution. `.zenodo.json` is deliberately absent from this
+    list: it is the deposit's *input*, and a `doi` key there claims a reserved
+    identifier rather than recording the minted one.
+    """
+    assert citation["doi"] == CONCEPT_DOI
+
+    for name in ("README.md", "docs/index.md"):
+        text = (ROOT / name).read_text(encoding="utf-8")
+        assert CONCEPT_DOI in text, f"{name} does not quote the concept DOI"
+        stale = set(re.findall(r"10\.5281/zenodo\.\d+", text)) - {CONCEPT_DOI}
+        assert not stale, f"{name} quotes a DOI that is not the concept DOI: {sorted(stale)}"
 
 
 def test_zenodo_metadata_is_complete_enough_to_deposit(zenodo):
