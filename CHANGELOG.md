@@ -11,6 +11,27 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Added
 
+- **Citation metadata, so VisBench can be cited and archived.** `CITATION.cff`
+  drives GitHub's "Cite this repository" button and is read by Zenodo when it
+  archives a release; `.zenodo.json` supplies the deposit metadata Zenodo
+  prefers, including an ORCID. The README and the documentation landing page
+  both gained a **Citing VisBench** section with BibTeX.
+
+  Enabling the Zenodo GitHub integration mints a DOI for every subsequent
+  release, plus a concept DOI that always resolves to the newest one. The
+  concept DOI is the one to cite for the software; a version DOI is what a
+  paper reporting measured numbers should pin, since a VisBench number is
+  reproducible only against the release that produced it.
+
+  Three rules are tested rather than trusted (`tests/test_citation.py`): the
+  cited version must equal `visbench.__version__`, the two metadata files must
+  agree on title and licence, and the author must carry an ORCID in both — in
+  CFF's resolvable-URL form and Zenodo's bare-identifier form, which are not
+  interchangeable.
+
+  `pyproject.toml` gained the `authors` field it never had, so the PyPI page
+  attributes the package rather than leaving it anonymous.
+
 - **A documentation site**, at <https://turhancan97.github.io/VisBench/>, built
   with Sphinx and deployed from `main`. This first piece is the infrastructure:
   `docs/conf.py`, a landing page, the theme, and

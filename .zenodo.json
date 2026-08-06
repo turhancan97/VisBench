@@ -1,0 +1,46 @@
+{
+  "title": "VisBench: probing vision backbones across high-, mid- and low-level tasks",
+  "description": "<p>VisBench is a unified library for probing vision backbones &mdash; DINOv2, CLIP, timm CNNs or a custom <code>nn.Module</code> &mdash; across high-level, mid-level and low-level computer vision tasks through one <code>get_backbone()</code> / <code>get_probe()</code> API.</p><p>Twelve probes span classification, retrieval, semantic and generic segmentation, detection, depth, surface normals, geometric correspondence, mid-level similarity, edges, 2D keypoints and occlusion edges. Evaluation protocols are borrowed from prior work rather than re-derived, and cited at the point of use.</p><p>Every run writes a structured record under an additive-only schema, and explicit comparability rules decide which records may be ranked together &mdash; because the failure this library guards against is not a crash, it is a plausible wrong answer.</p>",
+  "upload_type": "software",
+  "access_right": "open",
+  "license": "MIT",
+  "creators": [
+    {
+      "name": "Kargın, Turhan Can",
+      "orcid": "0000-0002-6751-4773"
+    }
+  ],
+  "keywords": [
+    "computer vision",
+    "representation learning",
+    "probing",
+    "benchmark",
+    "foundation models",
+    "self-supervised learning",
+    "vision transformers",
+    "DINOv2",
+    "CLIP"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/turhancan97/VisBench",
+      "relation": "isSupplementTo",
+      "scheme": "url"
+    },
+    {
+      "identifier": "https://pypi.org/project/visbench/",
+      "relation": "isIdenticalTo",
+      "scheme": "url"
+    },
+    {
+      "identifier": "arXiv:2404.08476",
+      "relation": "isDerivedFrom",
+      "scheme": "arxiv"
+    },
+    {
+      "identifier": "arXiv:2411.17474",
+      "relation": "isDerivedFrom",
+      "scheme": "arxiv"
+    }
+  ]
+}

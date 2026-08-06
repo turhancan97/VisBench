@@ -9,6 +9,7 @@ description = "Probing vision backbones across high-, mid- and low-level compute
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
+authors = [{ name = "Turhan Can Kargın", email = "turhancan.kargin@gmail.com" }]
 keywords = [
     "computer-vision",
     "benchmark",

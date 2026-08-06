@@ -389,6 +389,28 @@ them at the point of use in the code:
 
 Questions and bug reports: [open an issue](https://github.com/turhancan97/VisBench/issues).
 
+## Citing VisBench
+
+If VisBench contributed to work you are publishing, please cite it. GitHub's
+**Cite this repository** button generates APA and BibTeX from
+[CITATION.cff](https://github.com/turhancan97/VisBench/blob/main/CITATION.cff),
+or use:
+
+```bibtex
+@software{kargin_visbench,
+  author  = {Kargın, Turhan Can},
+  title   = {VisBench: probing vision backbones across high-, mid- and low-level tasks},
+  url     = {https://github.com/turhancan97/VisBench},
+  license = {MIT},
+  version = {0.6.1}
+}
+```
+
+**If you are reporting numbers, cite the version you ran.** Every VisBench
+result record carries the schema, the resolved pooling, the layers and the
+protocol that produced it, so a number is reproducible — but only against the
+release that produced it. `visbench.__version__` is in every record.
+
 ## License
 
 MIT — see [LICENSE](https://github.com/turhancan97/VisBench/blob/main/LICENSE).

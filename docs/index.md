@@ -61,6 +61,16 @@ record under one additive-only schema, and the comparability rules decide which
 records may be ranked together at all — because the failure this library guards
 against is not a crash, it is a plausible wrong answer.
 
+## Citing VisBench
+
+If VisBench contributed to work you are publishing, please cite it — GitHub's
+**Cite this repository** button generates APA and BibTeX from
+[CITATION.cff](https://github.com/turhancan97/VisBench/blob/main/CITATION.cff).
+
+If you are reporting numbers, cite the *version you ran*. A VisBench record
+carries the schema, the resolved pooling, the layers and the protocol behind
+every number, which is what makes it reproducible — against that release.
+
 ```{toctree}
 :hidden:
 :caption: The probes

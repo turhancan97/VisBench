@@ -1,0 +1,47 @@
+# Citation File Format 1.2.0 — https://citation-file-format.github.io
+#
+# GitHub renders this as the "Cite this repository" button, and Zenodo reads it
+# when archiving a release. Two rules keep it honest, both tested in
+# tests/test_citation.py:
+#
+#   - `version` must equal visbench.__version__, so a release cannot ship a
+#     citation for the version before it.
+#   - once Zenodo has minted a DOI, the `doi` below must be the CONCEPT DOI —
+#     the one that always resolves to the newest release. A version DOI belongs
+#     in a paper reporting numbers from one specific version, not here, because
+#     this file is read by someone citing "VisBench" rather than one archive.
+#
+# The prior work whose protocols VisBench reuses is credited in NOTICE and at
+# the point of use in the code; it is deliberately not duplicated here, where a
+# stale author list would be worse than a pointer.
+cff-version: 1.2.0
+message: If you use VisBench in your research, please cite it as below.
+title: "VisBench: probing vision backbones across high-, mid- and low-level tasks"
+abstract: >-
+  VisBench is a unified library for probing vision backbones — DINOv2, CLIP,
+  timm CNNs or a custom nn.Module — across high-level, mid-level and low-level
+  computer vision tasks through one get_backbone() / get_probe() API. Twelve
+  probes span classification, retrieval, semantic and generic segmentation,
+  detection, depth, surface normals, geometric correspondence, mid-level
+  similarity, edges, 2D keypoints and occlusion edges. Every run writes a
+  structured record under an additive-only schema, and explicit comparability
+  rules decide which records may be ranked together, so a number always travels
+  with the conditions that produced it.
+type: software
+authors:
+  - given-names: Turhan Can
+    family-names: Kargın
+    orcid: "https://orcid.org/0000-0002-6751-4773"
+repository-code: "https://github.com/turhancan97/VisBench"
+url: "https://turhancan97.github.io/VisBench/"
+license: MIT
+version: 0.6.1
+date-released: "2026-08-02"
+keywords:
+  - computer vision
+  - representation learning
+  - probing
+  - benchmark
+  - foundation models
+  - self-supervised learning
+  - vision transformers

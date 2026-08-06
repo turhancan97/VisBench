@@ -61,12 +61,13 @@ step is next rather than attempting the whole roadmap in one session.
 | 7b | Reorganise the README around a reader; split `docs/` out of it | done |
 | 7c | `CONTRIBUTING.md`, issue and PR templates, tests that keep them true | done |
 | 7d | The documentation site: Sphinx, the theme, and the `Docs` workflow | done |
+| 7e | Citation metadata: `CITATION.cff`, `.zenodo.json`, and a DOI | done |
 
-Steps 7a-7d ship no new probe, backbone or metric. They are the **contributor-
+Steps 7a-7e ship no new probe, backbone or metric. They are the **contributor-
 facing surface**: the shortest path from `pip install` to a number, where the
-reference material lives, and how someone outside this file learns the rules.
-All four are merged to `main` and **unreleased** — the package version is still
-`0.6.1` and so is the newest thing on PyPI.
+reference material lives, how someone outside this file learns the rules, and
+how the work is cited. All five are merged to `main` and **unreleased** — the
+package version is still `0.6.1` and so is the newest thing on PyPI.
 
 ---
 
@@ -255,6 +256,8 @@ docs/            conf.py, index.md, tasks.md (the per-probe reference AND the
                  nine generated tables), roadmap.md, _static/custom.css
                  — a Sphinx source tree; `_build/` is gitignored
 .github/         workflows/{ci,slow,docs}.yml, ISSUE_TEMPLATE/, PR template
+CITATION.cff     GitHub's cite button + what Zenodo archives (7e)
+.zenodo.json     the deposit metadata Zenodo prefers over the .cff
 ```
 
 ### The CLI — add a probe by adding a row
@@ -563,6 +566,26 @@ designed up front; extend it the same way, from a case that already runs.
   silently. Verified three ways, and the third is the one that matters: a broken
   toctree still fails, so the filter did not disable the guard.
 
+- **A DOI is permanent and an archived release cannot be edited, which is what
+  makes citation metadata a correctness problem** (7e). `CITATION.cff` naming
+  the previous version is silently wrong in the expensive direction: GitHub
+  renders the button, Zenodo mints the DOI, and someone citing v0.6.1 gets an
+  archive of v0.7.0's code. So the cited version is tested against
+  `visbench.__version__`, exactly as `uv lock --check` tests the lockfile
+  against a bump — **a release commit now moves three things, not two**:
+  `__init__.py`, `uv.lock` and `CITATION.cff`. Two further traps are pinned by
+  the same file: **Zenodo reads `.zenodo.json` in preference to `CITATION.cff`**,
+  so a divergence between them surfaces only once the archive is published
+  under a title nobody chose; and the ORCID is written **two incompatible ways**
+  — CFF wants the resolvable `https://orcid.org/...` URL, Zenodo wants the bare
+  identifier, and neither accepts the other's form.
+- **The concept DOI is what the README and `CITATION.cff` carry, never a
+  version DOI** (7e). Zenodo mints both per release: the version DOI names one
+  archive forever, the concept DOI always resolves to the newest. Someone
+  citing "VisBench" wants the latter. The former is what a *paper reporting
+  measured numbers* should pin, because a VisBench number is reproducible only
+  against the release that produced it — which is the same reason every record
+  carries its schema, pooling and protocol.
 - **The optional-extra trap has now been hit twice, by the same person, two
   steps apart.** v0.6.0's hub tests needed `huggingface_hub` at monkeypatch time
   and CI installs `.[dev]` only; 7c's issue-template test needed PyYAML, present
@@ -2138,12 +2161,14 @@ sphinx-build -b html -W --keep-going docs docs/_build/html
 pins that exact command against the one the workflow runs, so the guide and CI
 cannot drift.
 
-- **A version bump requires `uv lock`.** `uv.lock` pins visbench *itself*, so
-  editing `version` in `pyproject.toml` desynchronises it and `lock` fails while
-  all five local commands pass — which is exactly what happened on the v0.3.0
-  PR. Re-lock in the same commit as the bump and confirm the diff is the one
-  line: anything more means dependencies moved too, which is a separate
-  decision and not part of a release.
+- **A version bump requires `uv lock` — and, since 7e, `CITATION.cff`.**
+  `uv.lock` pins visbench *itself*, so editing `version` in `pyproject.toml`
+  desynchronises it and `lock` fails while all five local commands pass — which
+  is exactly what happened on the v0.3.0 PR. Re-lock in the same commit as the
+  bump and confirm the diff is the one line: anything more means dependencies
+  moved too, which is a separate decision and not part of a release.
+  `CITATION.cff`'s `version` and `date-released` move with it, enforced by
+  `tests/test_citation.py` in the fast suite.
 - **`twine check` is the only local proxy for how PyPI will render the README.**
   Neither `build` nor `twine` is in `.venv/`; install them into a throwaway venv
   rather than the project one, so `.venv/` keeps matching what CI has.
