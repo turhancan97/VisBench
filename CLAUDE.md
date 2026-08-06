@@ -66,8 +66,8 @@ step is next rather than attempting the whole roadmap in one session.
 Steps 7a-7e ship no new probe, backbone or metric. They are the **contributor-
 facing surface**: the shortest path from `pip install` to a number, where the
 reference material lives, how someone outside this file learns the rules, and
-how the work is cited. All five are merged to `main` and **unreleased** — the
-package version is still `0.6.1` and so is the newest thing on PyPI.
+how the work is cited. All five are **v0.7.0**, the release that changes no
+number — every measurement v0.6.1 reported, v0.7.0 reports identically.
 
 ---
 
@@ -86,7 +86,8 @@ further down this file — and the cheapest items there need no new dataset at
 all. Re-confirm what is wanted before starting anything; do not assume the
 backlog's order is a plan.
 
-**Since v0.6.1 the work has been contributor-facing, not measurement** (7a-7d).
+**Since v0.6.1 the work has been contributor-facing, not measurement** (7a-7e),
+and it is **v0.7.0**.
 `visbench demo` runs a real probe on generated images with no dataset and no
 extras; the README is 397 lines instead of 1,020, with the per-probe reference
 in `docs/tasks.md` and the roadmap in `docs/roadmap.md`; `CONTRIBUTING.md` is
@@ -94,7 +95,9 @@ the public version of the rules this file keeps; and `docs/` is now a Sphinx
 site deployed to GitHub Pages by a **third workflow**, `docs.yml`. **The
 generated tables moved with the reference material** — they are in
 `docs/tasks.md` now, not the README, and `scripts/render_tables.py` takes a
-list of marked files. None of this is on PyPI yet.
+list of marked files. 7e added `CITATION.cff` and `.zenodo.json`, so a release
+is archived with a DOI. **Whether v0.7.0 reached PyPI is not something this
+paragraph can know** — the release commit is not the upload; check PyPI.
 
 **What v0.6.0 changed, in one paragraph.** `results/corpus/visbench.jsonl` is a
 committed corpus of 72 records — twelve probes against six backbones, twelve
@@ -152,7 +155,9 @@ The CLI exposes all twelve probes: `visbench list`, `visbench run <probe>`,
 CLI's table and `list_probes()` are the same set, so a probe cannot ship
 unreachable from a shell by accident.
 
-Package version is `0.6.1`. The last upload to
+Package version is `0.7.0`, released in the tree and **not yet witnessed on
+PyPI by this file** — v0.7.0's upload, if it happened, has not been verified
+the way the two below were. The last upload to
 [PyPI](https://pypi.org/project/visbench/) this file witnessed was **v0.6.0 on
 2026-08-02** — wheel and sdist both (276 KB and 645 KB), tagged `v0.6.0` on
 merge commit `77986e9`. Verified by downloading the published wheel and reading

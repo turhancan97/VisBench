@@ -7,7 +7,19 @@ All notable changes to VisBench are recorded here. The format follows
 Each released section is written to be pasted straight into a GitHub release,
 so it stands on its own rather than assuming you have read the ones above it.
 
-## [Unreleased]
+## [0.7.0] — 2026-08-06
+
+**The contributor-facing release.** No new probe, backbone or metric — every
+number v0.6.1 reported, v0.7.0 reports identically. What changed is everything
+around them: the shortest path from `pip install` to a number is now
+`visbench demo`, thirty seconds and no dataset; the reference material lives on
+a documentation site instead of 500 lines down a README; the project's
+conventions are written down for contributors rather than kept for an
+assistant; and the work can be cited and archived.
+
+If you are upgrading to get a measurement, there is nothing here for you. If
+you are arriving for the first time, this is the release that makes that
+possible.
 
 ### Added
 
@@ -1832,7 +1844,10 @@ API philosophy.
 [#2]: https://github.com/turhancan97/VisBench/issues/2
 [#4]: https://github.com/turhancan97/VisBench/issues/4
 [#3]: https://github.com/turhancan97/VisBench/issues/3
-[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/turhancan97/VisBench/compare/v0.6.1...v0.7.0
+[0.6.1]: https://github.com/turhancan97/VisBench/compare/v0.6.0...v0.6.1
+[0.6.0]: https://github.com/turhancan97/VisBench/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/turhancan97/VisBench/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/turhancan97/VisBench/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/turhancan97/VisBench/compare/v0.2.0...v0.3.0

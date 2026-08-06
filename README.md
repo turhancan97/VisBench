@@ -19,10 +19,13 @@
 
 ---
 
-> **Status: v0.6.1, on PyPI.** Three backbone families (DINOv2, CLIP, timm CNNs) and
+> **Status: v0.7.0, on PyPI.** Three backbone families (DINOv2, CLIP, timm CNNs) and
 > twelve tasks run end-to-end across all three levels — high, mid and low —
 > including seven trained dense probes and an anchor-free detection probe, from
-> Python or from the `visbench` command line. **v0.6 is the leaderboard
+> Python or from the `visbench` command line. **v0.7 adds no probe and changes
+> no number**: it is the release that makes the project approachable — the
+> zero-setup `visbench demo`, a documentation site, a contributor guide, and
+> citation metadata. **v0.6 is the leaderboard
 > release**: a committed corpus of twelve probes against six backbones, the
 > comparability rules that decide what may be ranked together, README tables
 > generated from those records, and probe heads you can save, publish and
@@ -402,7 +405,7 @@ or use:
   title   = {VisBench: probing vision backbones across high-, mid- and low-level tasks},
   url     = {https://github.com/turhancan97/VisBench},
   license = {MIT},
-  version = {0.6.1}
+  version = {0.7.0}
 }
 ```
 
