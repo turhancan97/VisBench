@@ -57,6 +57,16 @@ step is next rather than attempting the whole roadmap in one session.
 | 6e-4 | Hub: serialise a trained head, with the backbone identity beside it | done |
 | 6e-5 | Hub: push/pull through `huggingface_hub`, behind a `[hub]` extra | done |
 | 6f | Correspondence: score in pixels — the unit that inverted the board | done |
+| 7a | `visbench demo` — a real probe run that needs no dataset | done |
+| 7b | Reorganise the README around a reader; split `docs/` out of it | done |
+| 7c | `CONTRIBUTING.md`, issue and PR templates, tests that keep them true | done |
+| 7d | The documentation site: Sphinx, the theme, and the `Docs` workflow | done |
+
+Steps 7a-7d ship no new probe, backbone or metric. They are the **contributor-
+facing surface**: the shortest path from `pip install` to a number, where the
+reference material lives, and how someone outside this file learns the rules.
+All four are merged to `main` and **unreleased** — the package version is still
+`0.6.1` and so is the newest thing on PyPI.
 
 ---
 
@@ -75,15 +85,26 @@ further down this file — and the cheapest items there need no new dataset at
 all. Re-confirm what is wanted before starting anything; do not assume the
 backlog's order is a plan.
 
+**Since v0.6.1 the work has been contributor-facing, not measurement** (7a-7d).
+`visbench demo` runs a real probe on generated images with no dataset and no
+extras; the README is 397 lines instead of 1,020, with the per-probe reference
+in `docs/tasks.md` and the roadmap in `docs/roadmap.md`; `CONTRIBUTING.md` is
+the public version of the rules this file keeps; and `docs/` is now a Sphinx
+site deployed to GitHub Pages by a **third workflow**, `docs.yml`. **The
+generated tables moved with the reference material** — they are in
+`docs/tasks.md` now, not the README, and `scripts/render_tables.py` takes a
+list of marked files. None of this is on PyPI yet.
+
 **What v0.6.0 changed, in one paragraph.** `results/corpus/visbench.jsonl` is a
 committed corpus of 72 records — twelve probes against six backbones, twelve
 comparability groups each holding all six. `visbench/results/leaderboard.py`
 holds the rules for which records may be ranked together and
-`visbench/results/render.py` turns an answer into markdown; nine README tables
-and `LEADERBOARD.md` are generated from the corpus, and a **fast** test fails if
-either drifts. `visbench/hub/` serialises a trained head with the backbone
-identity beside it and moves it to and from the Hugging Face Hub behind a
-`[hub]` extra. Schema is **v7** — `pooling_requested`, because keying
+`visbench/results/render.py` turns an answer into markdown; nine marker-
+delimited tables and `LEADERBOARD.md` are generated from the corpus, and a
+**fast** test fails if either drifts. (Those nine were in the README when
+v0.6.0 shipped; 7b moved them to `docs/tasks.md`.) `visbench/hub/` serialises a
+trained head with the backbone identity beside it and moves it to and from the
+Hugging Face Hub behind a `[hub]` extra. Schema is **v7** — `pooling_requested`, because keying
 comparability on resolved pooling could never rank a CNN against a ViT.
 
 **v0.3's numbered steps are all done: 6a (fine-tuning), 6b
@@ -126,9 +147,9 @@ heads      linear, dpt, detection
 ```
 
 The CLI exposes all twelve probes: `visbench list`, `visbench run <probe>`,
-`visbench cache stats|clear`. A test asserts the CLI's table and
-`list_probes()` are the same set, so a probe cannot ship unreachable from a
-shell by accident.
+`visbench cache stats|clear`, plus `visbench demo` (7a). A test asserts the
+CLI's table and `list_probes()` are the same set, so a probe cannot ship
+unreachable from a shell by accident.
 
 Package version is `0.6.1`. The last upload to
 [PyPI](https://pypi.org/project/visbench/) this file witnessed was **v0.6.0 on
@@ -172,6 +193,10 @@ merely point nowhere once the page is served from `pypi.org` rather than
 GitHub. `tests/test_readme.py` is the guard for those, in the fast suite —
 every link and image must be absolute. Do not "tidy" one back to relative;
 point it at `.../blob/main/...`, or `raw.githubusercontent.com` for an image.
+**`docs/` carries the opposite rule and the same file tests both** (7b/7d): it
+is a Sphinx source tree, not package metadata, so its links must be *relative*
+and must resolve, and none may escape the tree with `../` — which Sphinx cannot
+follow and MyST does not warn about, so `-W` would not catch one.
 Result schema is at **v7** (`pooling_requested` added in 6e-2b; `finetune` was
 6a; `dataset_params` was 5j) and is **additive only**: never remove or repurpose
 a field, or old records stop being readable.
@@ -221,10 +246,15 @@ visbench/
                               generic_segmentation, similarity, occlusion_edge
                  low_level/   edge (6d-1), keypoints (Keypoint2DTask, 6d-2)
   results/       schema.py (ResultRecord, SCHEMA_VERSION), writer.py
+  demo.py        generated shapes + CustomBackbone(resnet18) — `visbench demo`
   runner.py      visbench.run() — the one call the CLI wraps
 examples/        classify, retrieve, correspond, depth, normals, segment,
                  segment_semantic, similarity, detect, edges, keypoints,
-                 occlusion_edges
+                 occlusion_edges, save_probe
+docs/            conf.py, index.md, tasks.md (the per-probe reference AND the
+                 nine generated tables), roadmap.md, _static/custom.css
+                 — a Sphinx source tree; `_build/` is gitignored
+.github/         workflows/{ci,slow,docs}.yml, ISSUE_TEMPLATE/, PR template
 ```
 
 ### The CLI — add a probe by adding a row
@@ -491,13 +521,65 @@ designed up front; extend it the same way, from a case that already runs.
   the caches: verified identical keys before and after. Do not lower it back
   without checking DINOv2 still imports.
 
+- **The demo's score is deliberately not 1.0, and colour deliberately carries no
+  information** (7a). A first pass with fixed colours and centred shapes scored a
+  flat 1.0 — the saturation this project rejects everywhere else, and the reason
+  Imagenette classification was refused as fine-tuning's proof. Foreground and
+  background now share a base and the contrast offset's *sign* is random, so a
+  colour shortcut cannot be reported as shape recognition; a fast test asserts
+  colour does not separate the classes. `--noise` walks top-1 from 0.975 to
+  0.312 across 28→90, and a slow test pins that slide rather than only the
+  headline number: a probe whose score does not move when the signal is
+  destroyed is not measuring the signal. Nothing in the demo is special-cased —
+  same `run()`, same cache, same record — so "fixing" it with a bespoke path
+  would make it stop demonstrating the library.
+
+- **The docs build runs `-W` with `nitpicky = False`, and both halves are
+  load-bearing** (7d). Many of the 371 cross-references are bare (`` :meth:`fit`
+  ``) and resolve only from the owning class's context; with nitpicky off those
+  render as literal text and emit nothing, so `-W` can stay fatal and still
+  catch what matters — a broken toctree, a missing image, a malformed directive.
+  Turning nitpicky on without rewriting those references would make every build
+  red. `autosummary_generate` is `False` for a related reason: recursive
+  generation walks `visbench.backbones.__all__`, which names CLIP and
+  `TimmBackbone`, served by a module `__getattr__` that imports the optional
+  extra on attribute access.
+
+- **A `-W` docs build must tolerate an unreachable intersphinx inventory, and
+  the filter has two details that each cost an attempt** (7d). intersphinx
+  fetches five `objects.inv` over the network on every cold build; a
+  `ConnectionResetError` reaching `docs.python.org` is logged as a warning,
+  which `-W` turns into a failed deploy — it did, on the first push to `main`,
+  minutes after the same commit passed on its PR. Losing intersphinx degrades
+  gracefully by itself (nitpicky is off, so those references become plain text),
+  so the *warning* is the only real problem, and it carries no `type=`, which is
+  why `suppress_warnings` cannot target it. The filter in `docs/conf.py`
+  therefore matches that one message, and: it goes on the **handlers, not the
+  logger** (Sphinx emits from per-module child loggers, and a parent's filters
+  never see a propagated record — only its handlers do), and it is inserted at
+  **position 0, not appended** (Sphinx implements `-W` as a filter on the same
+  handler, so anything added after it never runs — appending looks correct and
+  does nothing). It prints a note to stderr rather than dropping the failure
+  silently. Verified three ways, and the third is the one that matters: a broken
+  toctree still fails, so the filter did not disable the guard.
+
+- **The optional-extra trap has now been hit twice, by the same person, two
+  steps apart.** v0.6.0's hub tests needed `huggingface_hub` at monkeypatch time
+  and CI installs `.[dev]` only; 7c's issue-template test needed PyYAML, present
+  locally via timm and absent from `.[dev]`. The second was caught *before
+  pushing* by blocking the import the way `CONTRIBUTING.md` now documents — the
+  `find_spec` recipe in 6e-5's section. Run it whenever a test touches `clip`,
+  `timm`, `hub` or `yaml`; the five verification commands cannot catch this,
+  because they run in the environment that has everything. PyYAML is now a
+  declared `dev` dependency.
+
 ### Open issues — read before assuming a red suite is your fault
 
-**Every issue below is closed; the tracker is empty as of 2026-07-31.** All
-five verification commands were re-run on 2026-08-01 and are green: 1216 fast
-tests, 76 slow, and the three lint steps — plus CI's two extra jobs, `lock` and
-`build`. If anything is red for you, that is new — do not go looking for a
-known cause here.
+**Every issue below is closed; the tracker is empty as of 2026-08-06.** The
+four local commands were re-run on 2026-08-06 and are green: **1367 fast
+tests** and the three lint steps, plus `uv lock --check`. The 79 slow tests are
+green too, on that morning's nightly rather than locally. If anything is red for
+you, that is new — do not go looking for a known cause here.
 
 The entries are kept because each one records a *class* of failure this
 codebase has actually shipped, and the next one will rhyme with them.
@@ -522,9 +604,13 @@ codebase has actually shipped, and the next one will rhyme with them.
 - **[#3] CLIP QuickGELU guard** — fixed; see the bullet above.
 
 `CHANGELOG.md` under `[Unreleased]` is the full record of what each step
-added and why; `README.md` has the user-facing view and the measured Imagenette
-numbers. Both are kept current per step — update them in the same commit as the
-code, not afterwards.
+added and why. Since 7b the user-facing view is **split three ways**:
+`README.md` is the arrival path (demo, install, what it is, the CLI), while the
+per-probe reference and the measured numbers are in `docs/tasks.md` and the
+roadmap and backlog in `docs/roadmap.md`. `CONTRIBUTING.md` is the public
+version of the conventions this file keeps. All are kept current per step —
+update them in the same commit as the code, not afterwards, and put a new
+probe's measured numbers in `docs/tasks.md` rather than the README.
 
 **Update this file at the end of every step, in that same commit.** The build
 table, the registered names, the layout block, the v0.2 checklist and the
@@ -1380,7 +1466,8 @@ predicts — DINOv2 > CLIP-16 > the 7x7 grids, matching all eight dense probes.
 
 ### The candidate task backlog — and what is actually on this machine
 
-`README.md` has the public version of this list, grouped by cost. What follows
+`docs/roadmap.md` has the public version of this list, grouped by cost — it was
+in the README until 7b moved it. What follows
 is the part a contributor cannot see: **which of these have data on this
 machine**, checked on 2026-08-01 rather than assumed. A candidate whose dataset
 is absent is not cheap, however simple its protocol.
@@ -2017,8 +2104,8 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 1216 fast tests
-pytest -m slow                                      # 76, real DINOv2/CLIP weights
+pytest                                              # 1367 fast tests
+pytest -m slow                                      # 79, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/
 ruff format --check visbench/ tests/ conftest.py examples/
 mypy visbench/ examples/ --ignore-missing-imports   # reads [tool.mypy], py 3.12
@@ -2034,6 +2121,22 @@ override it.
 **CI gates two more jobs the five commands do not cover, and a release touches
 both.** `lock` runs `uv lock --check`, and `build` runs `python -m build` +
 `twine check dist/*`.
+
+**And a third workflow can red-X a pull request** (7d): `docs.yml` builds the
+Sphinx site on every PR and deploys from `main`. It is not part of `ci.yml` —
+`tests/test_contributing.py` asserts `ci.yml`'s job set *exactly*, and docs are
+not a gating concern for a code change — so the docs build is a sixth command,
+run when `docs/` or a docstring changes:
+
+```bash
+pip install -e ".[all,docs]"    # the docs extra: sphinx, furo, myst, copybutton
+sphinx-build -b html -W --keep-going docs docs/_build/html
+```
+
+`-W` makes every warning fatal, so a page with a hole in it never publishes;
+`--keep-going` reports all of them in one run. `tests/test_contributing.py`
+pins that exact command against the one the workflow runs, so the guide and CI
+cannot drift.
 
 - **A version bump requires `uv lock`.** `uv.lock` pins visbench *itself*, so
   editing `version` in `pyproject.toml` desynchronises it and `lock` fails while
