@@ -8,11 +8,17 @@ them two probes rather than one is that an edge response fires along contours
 and a keypoint response at corners, and a backbone can be good at one and weak
 at the other.
 
+Corner detection joined them as the third, and is the first probe in the library
+whose target is **computed from the image** rather than read from a rendered
+dataset — so it runs on any image folder, with no download. See
+:mod:`visbench.data.derived`.
+
 See ``README.md`` in this folder for the remaining intended scope (optical flow,
 texture/reflectance, image quality assessment) and what each would cost.
 """
 
+from visbench.tasks.low_level.corner import CornerTask
 from visbench.tasks.low_level.edge import EdgeTask
 from visbench.tasks.low_level.keypoints import Keypoint2DTask
 
-__all__ = ["EdgeTask", "Keypoint2DTask"]
+__all__ = ["CornerTask", "EdgeTask", "Keypoint2DTask"]

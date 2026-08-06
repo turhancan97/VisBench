@@ -12,7 +12,7 @@ metric must mask on exactly the same predicate — a probe optimised over pixels
 it is not scored on is a probe whose training loss and score describe different
 splits.
 
-**Three probes, one implementation.** That is the honest description, and it is
+**Four probes, one implementation.** That is the honest description, and it is
 also the hazard: the only thing keeping an occlusion-edge number from being
 pooled with a texture-edge number is that they carry different metric keys and
 different protocol strings. Those are asserted here rather than assumed.
@@ -23,12 +23,12 @@ import torch
 
 import visbench
 from visbench.metrics.dense import edge_metrics, magnitude_metrics
-from visbench.tasks.low_level import EdgeTask, Keypoint2DTask
+from visbench.tasks.low_level import CornerTask, EdgeTask, Keypoint2DTask
 from visbench.tasks.magnitude_base import DenseMagnitudeTask
 from visbench.tasks.mid_level import OcclusionEdgeTask
 from visbench.utils import set_seed
 
-MAGNITUDE_PROBES = (EdgeTask, Keypoint2DTask, OcclusionEdgeTask)
+MAGNITUDE_PROBES = (EdgeTask, Keypoint2DTask, OcclusionEdgeTask, CornerTask)
 
 
 # -- masking in the metric ----------------------------------------------------
@@ -125,12 +125,17 @@ def test_every_magnitude_probe_shares_the_base(task_class):
     assert task_class().out_channels == 1
 
 
-def test_the_three_probes_cannot_have_their_numbers_pooled():
-    """The only thing separating three identical implementations.
+def test_the_probes_cannot_have_their_numbers_pooled():
+    """The only thing separating four identical implementations.
 
-    Same activation, same loss, same metric, three targets that are not
+    Same activation, same loss, same metric, four targets that are not
     comparable. Distinct metric keys and distinct protocol strings are what
     stop a leaderboard averaging them.
+
+    The corner probe makes this sharper rather than looser: its target
+    correlates 0.52 with the edge target, against the 0.147 between the two
+    Taskonomy probes. Correlated targets are exactly the case where a shared
+    metric key would be easiest to overlook and worst to have.
     """
     keys = {task_class.correlation_key for task_class in MAGNITUDE_PROBES}
     protocols = {task_class.protocol for task_class in MAGNITUDE_PROBES}
@@ -141,7 +146,12 @@ def test_the_three_probes_cannot_have_their_numbers_pooled():
 
 @pytest.mark.parametrize(
     ("name", "level"),
-    [("edge", "low_level"), ("keypoints2d", "low_level"), ("occlusion_edge", "mid_level")],
+    [
+        ("edge", "low_level"),
+        ("keypoints2d", "low_level"),
+        ("corner", "low_level"),
+        ("occlusion_edge", "mid_level"),
+    ],
 )
 def test_each_probe_is_registered_at_its_level(name, level):
     """The occlusion-edge probe is mid-level because recovering it needs geometry.

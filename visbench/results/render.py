@@ -64,6 +64,7 @@ HEADLINE_METRICS: dict[str, str] = {
     "surface_normal": "mean",
     "edge": "edge_correlation",
     "keypoints2d": "keypoint_correlation",
+    "corner": "corner_correlation",
     "occlusion_edge": "occlusion_edge_correlation",
 }
 

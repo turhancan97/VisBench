@@ -30,6 +30,7 @@ from visbench.data import (
     TaskonomyDataset,
 )
 from visbench.data.dense import load_label_map, load_mask, load_normal_map
+from visbench.data.derived import DerivedTargetDataset, ShiTomasiResponse
 from visbench.data.detection import VOC_CLASSES
 from visbench.data.pair_dataset import HomographyPairDataset
 from visbench.data.triplet import TwoAFCDataset
@@ -534,6 +535,63 @@ def _taskonomy_splits(args: argparse.Namespace) -> Splits:
     )
 
 
+def _corner_flags(parser: argparse.ArgumentParser) -> None:
+    """One image folder, and the operator that turns it into a target.
+
+    No ``--target-dir``: there is no target folder, which is the point of this
+    probe. What replaces it is the operator's parameterisation, and every one of
+    these flags changes the number, so all of them land in ``dataset_params``
+    and split the comparability groups on their own.
+    """
+    _split_flags(parser, evaluate="val", train="train")
+    parser.add_argument("--image-dir", default="images", help="image folder inside a split")
+    _head_schedule_flags(parser)
+    parser.add_argument(
+        "--corner-sigma",
+        type=float,
+        default=2.0,
+        help="Gaussian window of the structure tensor, in pixels — the scale the "
+        "operator sees, not a smoothing nicety (default: 2.0)",
+    )
+    parser.add_argument(
+        "--corner-transform",
+        default="log1p",
+        choices=("log1p", "none"),
+        help="compression applied to the raw response. The raw target has 27%% of its "
+        "mass in its strongest 1%% of pixels, which is the regime where this "
+        "protocol stops ranking backbones (default: log1p)",
+    )
+    parser.add_argument(
+        "--corner-scale",
+        type=float,
+        default=1e4,
+        help="multiplier applied before the compression; sets both the tail and the "
+        "target's magnitude, and an L1 loss needs the latter of order 1 (default: 1e4)",
+    )
+
+
+def _corner_splits(args: argparse.Namespace) -> Splits:
+    generator = ShiTomasiResponse(
+        sigma=args.corner_sigma,
+        transform=args.corner_transform,
+        scale=args.corner_scale,
+    )
+    common = {
+        "image_dir": args.image_dir,
+        "image_size": args.image_size,
+        "generator": generator,
+        # A prefix is safe here in a way it is not on a labelled folder: nothing
+        # about the ordering correlates with the target, because the target is
+        # computed per image rather than read from a per-class layout.
+        "max_images": args.limit,
+    }
+
+    def load(split: str) -> DerivedTargetDataset:
+        return DerivedTargetDataset(root=args.data / split, split=split, **common)
+
+    return Splits(evaluate=load(args.split), train=load(args.train_split))
+
+
 def _correspondence_flags(parser: argparse.ArgumentParser) -> None:
     _split_flags(parser, evaluate="", train=None)
     parser.add_argument("--max-warp", type=float, default=0.2, help="corner shift, 0-0.5")
@@ -674,6 +732,15 @@ SPECS: dict[str, ProbeSpec] = {
         layout="<data>/rgb/<building>/*.png, <data>/edge_texture/..., <data>/splits/*.csv",
         add_arguments=functools.partial(_taskonomy_flags, domain="edge_texture"),
         build=_taskonomy_splits,
+        probe_kwargs=_dense_probe_kwargs,
+    ),
+    "corner": ProbeSpec(
+        # The only probe here that needs no target folder: the target is
+        # computed from the images, so any image folder will do.
+        summary="dense corner-response regression on a derived target; quote corner_correlation",
+        layout="<data>/<split>/images/*.jpg   (no targets: they are computed)",
+        add_arguments=_corner_flags,
+        build=_corner_splits,
         probe_kwargs=_dense_probe_kwargs,
     ),
     "keypoints2d": ProbeSpec(

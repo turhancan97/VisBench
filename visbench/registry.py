@@ -137,6 +137,7 @@ _REGISTRATION_MODULES: dict[str, str | None] = {
     "visbench.tasks.mid_level.occlusion_edge": None,
     "visbench.tasks.low_level.edge": None,
     "visbench.tasks.low_level.keypoints": None,
+    "visbench.tasks.low_level.corner": None,
 }
 
 _IMPORTED = False

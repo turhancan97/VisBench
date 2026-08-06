@@ -92,6 +92,7 @@ METRIC_DIRECTIONS: dict[str, Direction] = {
     "correlation": "higher",
     "edge_correlation": "higher",
     "keypoint_correlation": "higher",
+    "corner_correlation": "higher",
     "occlusion_edge_correlation": "higher",
     # retrieval
     "mAP": "higher",

@@ -62,6 +62,7 @@ step is next rather than attempting the whole roadmap in one session.
 | 7c | `CONTRIBUTING.md`, issue and PR templates, tests that keep them true | done |
 | 7d | The documentation site: Sphinx, the theme, and the `Docs` workflow | done |
 | 7e | Citation metadata: `CITATION.cff`, `.zenodo.json`, and a DOI | done |
+| 8a | Corner detection — the first target computed rather than downloaded | done |
 
 Steps 7a-7e ship no new probe, backbone or metric. They are the **contributor-
 facing surface**: the shortest path from `pip install` to a number, where the
@@ -86,8 +87,13 @@ further down this file — and the cheapest items there need no new dataset at
 all. Re-confirm what is wanted before starting anything; do not assume the
 backlog's order is a plan.
 
-**Since v0.6.1 the work has been contributor-facing, not measurement** (7a-7e),
-and it is **v0.7.0**.
+**Step 8a added the thirteenth probe**, `corner` — the first whose target is
+computed from the image rather than downloaded, so `visbench/data/derived.py`
+is a new kind of dataset here and the low-level tier now has three entries.
+It is unreleased; v0.7.0 is what is on PyPI.
+
+**Between v0.6.1 and v0.7.0 the work was contributor-facing, not measurement**
+(7a-7e).
 `visbench demo` runs a real probe on generated images with no dataset and no
 extras; the README is 397 lines instead of 1,020, with the per-probe reference
 in `docs/tasks.md` and the roadmap in `docs/roadmap.md`; `CONTRIBUTING.md` is
@@ -148,11 +154,11 @@ backbones  dinov2_vits14, dinov2_vitb14, clip_vitb16, clip_vitb32,
            resnet18, resnet50            (+ CustomBackbone, unregistered)
 probes     classification, retrieval, correspondence, depth, surface_normal,
            generic_segmentation, semantic_segmentation, similarity, detection,
-           edge, keypoints2d, occlusion_edge
+           edge, keypoints2d, occlusion_edge, corner
 heads      linear, dpt, detection
 ```
 
-The CLI exposes all twelve probes: `visbench list`, `visbench run <probe>`,
+The CLI exposes all thirteen probes: `visbench list`, `visbench run <probe>`,
 `visbench cache stats|clear`, plus `visbench demo` (7a). A test asserts the
 CLI's table and `list_probes()` are the same set, so a probe cannot ship
 unreachable from a shell by accident.
@@ -254,6 +260,8 @@ visbench/
                    splits/*.csv; subclasses DenseFolderDataset for geometry only.
                    _DOMAIN_SPECS: per-domain loader, scale, invalid convention,
                    log_transform. load_valid_mask — mask_valid/, 6d-2)
+                 derived.py (ShiTomasiResponse + DerivedTargetDataset — the
+                   target computed from the image, after the crop; 8a)
                  base.py (BaseDataset, list_files — scandir, never a stat/entry)
   heads/         base.py (register_head/build_head), linear.py, dpt.py,
                  detection.py (DetectionHead — cls + box branches, focal prior)
@@ -272,13 +280,14 @@ visbench/
                               detection (anchor-free, single-scale, 6c-3)
                  mid_level/   correspondence, depth, surface_normal,
                               generic_segmentation, similarity, occlusion_edge
-                 low_level/   edge (6d-1), keypoints (Keypoint2DTask, 6d-2)
+                 low_level/   edge (6d-1), keypoints (Keypoint2DTask, 6d-2),
+                              corner (CornerTask, 8a — derived target)
   results/       schema.py (ResultRecord, SCHEMA_VERSION), writer.py
   demo.py        generated shapes + CustomBackbone(resnet18) — `visbench demo`
   runner.py      visbench.run() — the one call the CLI wraps
 examples/        classify, retrieve, correspond, depth, normals, segment,
                  segment_semantic, similarity, detect, edges, keypoints,
-                 occlusion_edges, save_probe
+                 occlusion_edges, corners, save_probe
 docs/            conf.py, index.md, tasks.md (the per-probe reference AND the
                  nine generated tables), roadmap.md, _static/custom.css
                  — a Sphinx source tree; `_build/` is gitignored
@@ -563,6 +572,52 @@ designed up front; extend it the same way, from a case that already runs.
   destroyed is not measuring the signal. Nothing in the demo is special-cased —
   same `run()`, same cache, same record — so "fixing" it with a bespoke path
   would make it stop demonstrating the library.
+
+- **A derived target is the cheapest kind to add and the easiest to fool
+  yourself with** (8a). Corner detection computes its target from the RGB frame,
+  so it needs no dataset — and three things had to be measured before it was
+  worth shipping, none of which a probe run would have revealed on its own.
+
+  **Check the tail, and check it before writing the task.** Every raw corner
+  response was more concentrated than `edge_occlusion`'s 0.46, the case that
+  scored 0.088 and ranked nothing: Harris `R` clipped at 0 is 0.52, `|R|` is
+  0.33, Shi-Tomasi's λ_min is 0.27. `log1p(1e4·λ_min)` brings it to 0.089 with a
+  frame mean of 0.593, which satisfies 6d-2's tail rule and 6d-1's order-1 rule
+  at one setting. **Shi-Tomasi rather than Harris** because λ_min is
+  non-negative by construction and has no `k`.
+
+  **Check the overlap with what already ships, which nothing in the codebase
+  previously asked for.** The corner target correlates **0.52** with
+  `edge_texture` and 0.27 with `keypoints2d`, where those two correlate **0.147**
+  with each other — so the new target is more redundant with an existing one
+  than the two existing ones are with each other. The overlap is *intrinsic*: it
+  holds at 0.46–0.54 across eight transforms including near-linear ones, because
+  a corner is a pixel whose gradient is large in two directions and an edge map
+  is gradient magnitude. A first pass blamed the `log1p` for it and was wrong.
+
+  **A correlated target can still rank differently, and that is the criterion.**
+  Spread over six backbones is 0.1603 against edge's 0.1136, and CLIP-B/16 is
+  first on edges and third on corners. Had the ordering matched, the probe
+  should not have shipped.
+
+  **Do not read one pair as a failure to rank.** DINOv2-S and B differ by 0.0014
+  here, which looks like the occlusion-edge failure and is not: that probe was
+  flat across *all six*, and the edge probe's own top two differ by 0.0007. Ask
+  about the spread over the full set.
+
+  **Computing the target after the crop deletes the alignment hazard rather
+  than testing for it.** There is no second geometry and no resampling of the
+  response — the single strongest property of this class of target, and the
+  reason `DerivedTargetDataset` does not subclass `DenseFolderDataset`.
+
+- **A probe that runs on any folder cannot have a leaderboard without a chosen
+  folder** (8a). This is the cost of a derived target and it is not obvious from
+  the API: `corner`'s numbers are in `docs/tasks.md` as a **hand-written** table,
+  not a generated board, because the committed corpus holds records anyone can
+  re-rank and that requires identifiable data. Two people's corner numbers are
+  comparable only if they ran the same images. Choosing a canonical image set is
+  a decision in its own right and **has not been made** — do not add corner
+  records to `results/corpus/` without making it.
 
 - **The docs build runs `-W` with `nitpicky = False`, and both halves are
   load-bearing** (7d). Many of the 371 cross-references are bare (`` :meth:`fit`

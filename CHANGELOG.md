@@ -11,6 +11,54 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Added
 
+- **Corner detection (`corner`), the thirteenth probe and the first whose target
+  needs no dataset.** Shi-Tomasi cornerness — the smaller eigenvalue of the
+  Gaussian-windowed structure tensor — computed from the RGB frame at read time
+  by the new `visbench/data/derived.py`. Any folder of photographs runs it:
+
+  ```bash
+  visbench run corner --data /path/to/any/images --limit 600
+  ```
+
+  It reuses `DenseMagnitudeTask` unchanged, so the identity activation, the L1
+  loss and the per-image Pearson correlation are the ones `edge` and
+  `keypoints2d` already use. What is new is `DerivedTargetDataset`, which pairs
+  an image folder with a target generator.
+
+  **Computing the target after the crop removes the alignment hazard
+  structurally.** Every other dense dataset here pays separately to keep image
+  and target under one geometry — nearest-neighbour resampling for depth, an
+  achieved-ratio rescale for boxes — and the correspondence probe paid for
+  getting it wrong once, at `recall@1px` = 0.003. A derived target is generated
+  from the exact cropped array the backbone sees, so there is no second geometry
+  and no resampling of the response at all.
+
+  **The operator is Shi-Tomasi rather than Harris, and the tail decided it.**
+  Share of target mass in the strongest 1% of pixels, against ~0.10 for the two
+  probes that work and the 0.46 that stopped `edge_occlusion` ranking: Harris
+  `R` clipped at 0 gives 0.52, `|R|` gives 0.33, λ_min gives 0.27. All three are
+  too concentrated raw; `log1p(1e4·λ_min)` lands the tail at 0.089 and the frame
+  mean at 0.593, meeting 6d-2's tail criterion and 6d-1's "an L1 target must be
+  of order 1" at one setting. λ_min is also non-negative by construction and
+  carries no `k`, one fewer free parameter making "Harris corners" a family
+  rather than a definition.
+
+  **The target overlaps with the edge target and the docs say so.** Per-image
+  correlation is 0.52 against `edge_texture` and 0.27 against `keypoints2d`,
+  where the two Taskonomy probes correlate at 0.147 with each other. The overlap
+  is intrinsic rather than an artifact of the compression — it holds at
+  0.46–0.54 across eight transforms including near-linear ones. A corner score
+  and an edge score are therefore not independent evidence about a backbone.
+
+  **They rank differently, which is what earns it a place.** Over six backbones
+  on the same frames the spread is 0.1603 against the edge probe's 0.1136, and
+  the ordering is not the same: CLIP-B/16 is first on edges and third on
+  corners, and the two ResNets swap.
+
+  Every setting of the generator lands in `dataset_params`, so two sigmas split
+  into two comparability groups without anyone noticing. No schema bump —
+  that field is what it was added for.
+
 - **A DOI.** v0.7.0 is archived on Zenodo, and the concept DOI
   [10.5281/zenodo.21822684](https://doi.org/10.5281/zenodo.21822684) now
   appears in `CITATION.cff`, the README badge row and BibTeX block, and the

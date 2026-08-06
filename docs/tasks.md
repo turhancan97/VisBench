@@ -300,6 +300,65 @@ Two things worth knowing before adding a fourth probe of this shape:
   occlusion probe's DINOv2-S-versus-B gap was 0.0035 — noise. A low score can be
   by design; failing to separate two backbones never is.
 
+## Corner detection — the probe that brings its own target
+
+[`examples/corners.py`](https://github.com/turhancan97/VisBench/blob/main/examples/corners.py)
+is the only dense probe here that needs **no dataset**. Its target is computed
+from the images at read time — Shi-Tomasi cornerness, the smaller eigenvalue of
+the Gaussian-windowed structure tensor, compressed with `log1p`:
+
+```bash
+visbench run corner --data /path/to/any/images --limit 600
+```
+
+```text
+<data>/train/images/*.jpg
+<data>/val/images/*.jpg
+```
+
+That is the whole layout. Any folder of photographs runs it.
+
+**The generator is part of the protocol.** A stored target is identified by the
+dataset it came from; a derived one only by the code that computed it. So
+`--corner-sigma`, `--corner-transform` and `--corner-scale` all land in
+`dataset_params`, which puts two settings of the same operator into two
+comparability groups automatically. Two records both saying "corners" are not
+thereby comparable — check the fields.
+
+600 train / 600 val Taskonomy frames at 224px, linear head, ten epochs — the
+*same frames* the edge probe uses, so only the target differs:
+
+| backbone | `corner_correlation` | `mae` | `rmse` |
+| --- | --- | --- | --- |
+| `dinov2_vitb14` | **0.6526** | **0.4402** | **0.6899** |
+| `dinov2_vits14` | 0.6512 | 0.4510 | 0.6919 |
+| `clip_vitb16` | 0.6227 | 0.4508 | 0.7229 |
+| `clip_vitb32` | 0.5367 | 0.4829 | 0.7825 |
+| `resnet18` | 0.5014 | 0.4706 | 0.8085 |
+| `resnet50` | 0.4923 | 0.4661 | 0.8033 |
+
+**This table is hand-written, unlike the generated boards above, and that is a
+statement about the probe rather than an oversight.** The committed corpus holds
+records anyone can re-rank, which requires the data behind them to be
+identifiable. A probe whose target is computed will happily run on *any* folder
+— which is its selling point and, for a leaderboard, its problem: two people's
+corner numbers are comparable only if they ran the same images. Choosing a
+canonical image set for it is a decision in its own right and has not been made.
+
+**A corner score and an edge score are not independent evidence.** The two
+targets correlate at **0.52** per image, against **0.147** between the two
+Taskonomy probes above. The overlap is intrinsic, not an artifact of the
+compression — it holds across eight transforms including near-linear ones,
+because a corner is a pixel whose gradient is large in two directions and an
+edge map is gradient magnitude.
+
+They do rank differently, which is what earns the probe its place: the spread is
+**0.1603** against the edge probe's 0.1136, and **CLIP-B/16 comes first on edges
+and third on corners** while the two ResNets swap. See
+[the low-level README](https://github.com/turhancan97/VisBench/blob/main/visbench/tasks/low_level/README.md)
+for why the operator is Shi-Tomasi rather than Harris, and for the tail
+measurements that chose the compression.
+
 ## Dense tasks
 
 [`examples/depth.py`](https://github.com/turhancan97/VisBench/blob/main/examples/depth.py),
