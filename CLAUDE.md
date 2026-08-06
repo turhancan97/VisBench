@@ -99,9 +99,7 @@ list of marked files. 7e added `CITATION.cff` and `.zenodo.json`, so a release
 is archived with a DOI — and **the DOI now exists**: v0.7.0 was released on
 GitHub, Zenodo archived it, and the concept DOI is
 [10.5281/zenodo.21822684](https://doi.org/10.5281/zenodo.21822684). **v0.7.0
-did not reach PyPI** — checked 2026-08-06 against the JSON API, which lists
-0.2.0 through 0.6.1 and nothing since. The release commit is not the upload,
-the GitHub release is not the upload either, and neither is the DOI.
+reached PyPI on 2026-08-06**, verified out of the wheel; see below.
 
 **What v0.6.0 changed, in one paragraph.** `results/corpus/visbench.jsonl` is a
 committed corpus of 72 records — twelve probes against six backbones, twelve
@@ -159,14 +157,32 @@ The CLI exposes all twelve probes: `visbench list`, `visbench run <probe>`,
 CLI's table and `list_probes()` are the same set, so a probe cannot ship
 unreachable from a shell by accident.
 
-Package version is `0.7.0`, released in the tree, tagged, released on GitHub
-and archived on Zenodo — and **absent from PyPI**, confirmed 2026-08-06 by
-reading the JSON API rather than by assuming. That gap is the useful thing to
-notice: four of the five things a release does happened without the fifth, and
-none of them is evidence of it. The last upload to
-[PyPI](https://pypi.org/project/visbench/) this file witnessed was **v0.6.0 on
-2026-08-02** — wheel and sdist both (276 KB and 645 KB), tagged `v0.6.0` on
-merge commit `77986e9`. Verified by downloading the published wheel and reading
+Package version is `0.7.0`, and it is **on PyPI: uploaded 2026-08-06 at
+15:57 UTC**, wheel and sdist both (266 KB and 665 KB). Verified the way v0.6.1
+was — the wheel downloaded, put on `sys.path` and *imported* — because v0.7.0's
+content is a command and a docs extra, neither of which a version number shows:
+`__version__ = "0.7.0"`, `SCHEMA_VERSION = 7`, `ARTIFACT_VERSION = 1`, twelve
+probes, six backbones, `demo` among the CLI's four commands, `visbench.demo`
+exporting `SHAPES`/`synthesise`/`demo_backbone`, and `get_probe("correspondence")`
+still reporting `threshold_units="pixel"` so v0.6.1's fix survived the release.
+METADATA confirms the new `docs` extra (sphinx, furo, myst-parser,
+sphinx-copybutton), `huggingface-hub` still only under `hub` and `all`, and a
+README whose links are all absolute and which carries the DOI badge.
+
+**One finding worth more than the verification itself: the uploaded artifact is
+one commit ahead of the `v0.7.0` tag.** The tag is `39e0495`; the wheel was
+built from `main` after `7ee0d07`, so `git show v0.7.0:README.md` has no DOI and
+the published README does. Harmless here — that commit touched only README,
+`CITATION.cff`, `docs/`, a test and the changelog, no code and no dependency, so
+the wheel is strictly the better artifact. But it is the standing "a tag is not
+what is installable" rule arriving from the *benign* direction, which is the
+direction that trains you to stop checking. **Do not fix it by moving the tag**:
+a PyPI version can never be re-uploaded and the Zenodo archive is already
+permanent, so a moved tag would disagree with both. The next release closes it.
+
+The upload before it was **v0.6.0 on 2026-08-02**
+([PyPI](https://pypi.org/project/visbench/)) — wheel and sdist both (276 KB and
+645 KB), tagged `v0.6.0` on merge commit `77986e9`. Verified by downloading the published wheel and reading
 `__version__ = "0.6.0"`, `SCHEMA_VERSION = 7`, `ARTIFACT_VERSION = 1` and the
 five modules v0.6.0 added (`results/render.py`, `results/leaderboard.py`,
 `hub/{__init__,artifact,remote}.py`) *out of it*, plus the METADATA confirming
