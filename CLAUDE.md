@@ -85,10 +85,21 @@ upside down** — see step 6f — v0.7.0 is the contributor-facing release that
 changes no number, and **v0.8.0 (2026-08-07) is the corner probe**, steps 8a and
 8b together.
 
+**Since v0.8.0 shipped, the work has been distribution rather than
+measurement** (PR #42, merged 2026-08-07): the Hub integration gained a runnable
+example and a reference page, `visbench run --push-to` publishes the head it
+just trained, and twenty trained heads are now public in a collection — see the
+`--push-to` paragraph below for all three, and for the seeding bug that
+publishing them uncovered. **v0.8.0 is verified out of the published wheel by
+import**, which it was not when v0.8.0's own section was written. No number
+moved and no version was bumped, so PyPI is still 0.8.0.
+
 **There is no `next` step.** The remaining work is the candidate task backlog
 further down this file — and the cheapest items there need no new dataset at
 all. Re-confirm what is wanted before starting anything; do not assume the
-backlog's order is a plan.
+backlog's order is a plan. One known-open thread, small: `detection` is the only
+probe that does not reproduce to four decimals, twice now, and nobody has found
+out why.
 
 **Step 8a added the thirteenth probe**, `corner` — the first whose target is
 computed from the image rather than downloaded, so `visbench/data/derived.py`
@@ -183,16 +194,51 @@ zero-shot probe *before* the run; `save_probe` would raise the same thing after
 it, having spent the whole run to do so. `scripts/publish_collection.py` groups
 the pushed repositories into one collection, dry-run unless `--create`.
 
+**Twenty trained heads are published and public**, as of 2026-08-07: the ten
+trained probes against DINOv2-S/14 and DINOv2-B/14, one repository per pair at
+`turhancan97/visbench-<probe>-<backbone>`, gathered in a collection whose URL is
+quoted in `README.md` and `docs/hub.md`. **Read it from one of those two files
+rather than reconstructing it** — a Hub collection slug carries a generated hash
+suffix and cannot be derived from its title. The three zero-shot probes are
+deliberately absent. Two operational notes that each cost an attempt: the Hub
+caps a collection description at **150 characters** and rejects a longer one
+with a 400 naming neither the limit nor the value (asserted at import in the
+script, so it fails before the network call), and creating a collection needs
+**`collection.write`** on the token — `repo.write` alone pushes models happily
+and then 403s.
+
+Republishing the board is `PUSH_TO=... PUSH_PUBLIC=1 scripts/build_corpus.sh`.
+**Point `RESULTS=` at a scratch file, never `results/corpus/visbench.jsonl`**,
+so the run can be diffed against the corpus instead of replacing the reference
+it would be checked against. That diff is what caught the seeding bug below, and
+it is the only reason the bug was found at all. Do not pipe a long publishing
+run through `tail`: it buffers, so a run that is killed part-way leaves no log,
+and the Hub then has to be queried to find out what actually shipped — which
+happened, and is recoverable only because each record names its own pair.
+
 Package version is `0.8.0`, and it is **on PyPI: uploaded 2026-08-07 at
 09:42 UTC**, wheel and sdist both (284 KB and 703 KB), tagged `v0.8.0` on
-`574e792`. **Checked so far through the JSON API only** — version, upload
-times, artifact sizes, and a published README carrying the concept DOI
-`10.5281/zenodo.21822684` and no other. **The wheel has not been downloaded and
-imported**, which is the standing bar every release since v0.6.0 has met; do
-that before treating v0.8.0 as verified. What it should show: `__version__ =
-"0.8.0"`, `SCHEMA_VERSION = 7`, `ARTIFACT_VERSION = 1`, **thirteen** probes with
-`corner` among them, six backbones, and `visbench.data.derived` exporting
-`ShiTomasiResponse`/`DerivedTargetDataset`.
+`574e792`. **Verified the standing way on 2026-08-07** — the published wheel
+downloaded, its SHA256 checked against PyPI's digest, extracted, put *first* on
+`sys.path` and **imported**, with an assert on `visbench.__file__` so the
+editable checkout cannot answer in its place. That last step is the one worth
+copying: without it the check passes on a machine where the package is already
+installed, whatever the wheel contains. It reports `__version__ = "0.8.0"`,
+`SCHEMA_VERSION = 7`, `ARTIFACT_VERSION = 1`, **thirteen** probes with `corner`
+among them, six backbones, and `visbench.data.derived` exporting
+`ShiTomasiResponse`/`DerivedTargetDataset`. Two further reads *through the
+import*, since neither is visible in a version number: `get_probe(
+"correspondence")` still reports `threshold_units="pixel"` and thresholds
+`(1, 2, 5, 10)`, so v0.6.1's fix survived two releases; and METADATA puts
+`huggingface-hub` only under `hub` and `all`, never in the core requirements.
+The published README carries the concept DOI `10.5281/zenodo.21822684` and no
+other.
+
+**`.venv/` has no `pip`** — it is uv-managed, so `pip download` and
+`python -m pip` both fail there. Fetch the artifact from PyPI's JSON API with
+`urllib` and unpack it with `zipfile` (there is no `unzip` on this machine
+either). That keeps `.venv/` matching what CI has, which is the reason not to
+install `pip` into it to make the check easier.
 
 **The tag-versus-artifact gap recurred, in the other direction this time.**
 `main` is one commit ahead of `v0.8.0` — `48571bd`, the DOI badge fix — and that
@@ -595,6 +641,17 @@ designed up front; extend it the same way, from a case that already runs.
   colour-separable classes, so both sides read 1.0 however badly the RNG is
   threaded. Pin the backbone's *weights* against a freshly seeded
   construction — that is what the seed decides and what actually moved.
+
+  **The whole board was re-run and republished after the fix, and 24 of the 26
+  DINOv2 records reproduce the corpus exactly** — including all three rankings
+  the bug had inverted (`edge` S, `keypoints2d` S, `corner` B). The two
+  exceptions are both `detection`, and only in the fourth decimal: `map_50`
+  0.2291 against the corpus's 0.2285 on ViT-S, 0.2897 against 0.2895 on ViT-B,
+  with the S-versus-B ordering unmoved. **That is now twice detection alone has
+  failed to reproduce** — see 6e-2, where it missed 6c-3's published pair by far
+  more. Every other probe is exact to four decimals both times, so this is a
+  property of that probe rather than of the machine, and it is unexplained. Do
+  not quote a detection number to four decimals until it is.
 - **Verify with the exact commands CI runs** (below). A local env with extra
   packages installed will pass checks that CI fails.
 - **A guard whose only test is `slow` is a guard CI never runs.** `addopts`
@@ -764,7 +821,7 @@ designed up front; extend it the same way, from a case that already runs.
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite is **1408 tests** and green on 2026-08-07, after v0.8.0; the three
+fast suite is **1418 tests** and green on 2026-08-07, after the Hub work; the three
 lint steps and `uv lock --check` were green on 2026-08-06, as were the 79 slow
 tests, on that morning's nightly rather than locally. If anything is red for
 you, that is new — do not go looking for a known cause here.
@@ -2292,7 +2349,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 1408 fast tests
+pytest                                              # 1418 fast tests
 pytest -m slow                                      # 79, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/
