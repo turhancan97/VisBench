@@ -90,6 +90,15 @@ the same one: **CLIP-B/16 is first on edges and third on corners**, and the two
 ResNets swap. That is the "a backbone can be good at one and weak at the other"
 claim demonstrated between two probes whose targets correlate at 0.52.
 
+Those six numbers are in the committed corpus as of **8b**, and the frames they
+ran on are pinned there: `scripts/stage_corner_frames.py` symlinks the first 600
+rows of each Taskonomy `tiny` split list into the flat `<split>/images/` layout
+a derived-target dataset reads. **That is the same 600 the edge rows above use,
+verified set-equal rather than assumed** — which is the only thing that makes
+the side-by-side ranking in this table a comparison rather than a coincidence.
+A derived target has no data of its own, so a board for one has to name a set;
+running the probe still needs no download.
+
 **Do not read the DINOv2-S/B gap of 0.0014 as a failure to rank.** It nearly was
 read that way here. The occlusion-edge case that "scored 0.088 and could not
 separate two backbones" was flat *across all six*, which is what made it

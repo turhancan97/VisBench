@@ -24,6 +24,21 @@ never pooled with these.
 
 [corpus]: https://github.com/turhancan97/VisBench/blob/main/results/corpus/visbench.jsonl
 
+### corner
+
+| backbone | `corner_correlation` | `mae` | `rmse` |
+| --- | --- | --- | --- |
+| `dinov2_vitb14` | **0.6526** | **0.4402** | **0.6899** |
+| `dinov2_vits14` | 0.6512 | 0.4510 | 0.6919 |
+| `clip_vitb16` | 0.6227 | 0.4508 | 0.7229 |
+| `clip_vitb32` | 0.5367 | 0.4829 | 0.7825 |
+| `resnet18` | 0.5014 | 0.4706 | 0.8085 |
+| `resnet50` | 0.4923 | 0.4661 | 0.8033 |
+
+Ordered by `corner_correlation`, which **disagrees with `mae`, `rmse`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
+
+<sub>corner on val/val, protocol=visbench_shi_tomasi_regression, frozen [94342f24]</sub>
+
 ### edge
 
 | backbone | `edge_correlation` | `mae` | `rmse` |

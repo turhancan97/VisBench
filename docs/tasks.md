@@ -328,6 +328,9 @@ thereby comparable — check the fields.
 600 train / 600 val Taskonomy frames at 224px, linear head, ten epochs — the
 *same frames* the edge probe uses, so only the target differs:
 
+<!-- visbench:board task=corner metrics=corner_correlation,mae,rmse heading=3 -->
+### corner
+
 | backbone | `corner_correlation` | `mae` | `rmse` |
 | --- | --- | --- | --- |
 | `dinov2_vitb14` | **0.6526** | **0.4402** | **0.6899** |
@@ -337,13 +340,25 @@ thereby comparable — check the fields.
 | `resnet18` | 0.5014 | 0.4706 | 0.8085 |
 | `resnet50` | 0.4923 | 0.4661 | 0.8033 |
 
-**This table is hand-written, unlike the generated boards above, and that is a
-statement about the probe rather than an oversight.** The committed corpus holds
-records anyone can re-rank, which requires the data behind them to be
-identifiable. A probe whose target is computed will happily run on *any* folder
-— which is its selling point and, for a leaderboard, its problem: two people's
-corner numbers are comparable only if they ran the same images. Choosing a
-canonical image set for it is a decision in its own right and has not been made.
+Ordered by `corner_correlation`, which **disagrees with `mae`, `rmse`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
+
+<sub>corner on val/val, protocol=visbench_shi_tomasi_regression, frozen [94342f24]</sub>
+<!-- /visbench:board -->
+
+**The frames behind this board are pinned, and they have to be.** A probe whose
+target is computed runs on *any* folder — which is its selling point and, for a
+leaderboard, its problem: two people's corner numbers are comparable only if
+they ran the same images. Nothing in the probe pins which. So the corpus names a
+set, and
+[`scripts/stage_corner_frames.py`](https://github.com/turhancan97/VisBench/blob/main/scripts/stage_corner_frames.py)
+is what reconstructs it: the first 600 rows of Taskonomy's `tiny` split lists,
+symlinked into the flat layout above. That is the *same* frame set the edge and
+keypoint boards use, verified set-equal rather than assumed — which is what
+makes the cross-probe comparison below exact rather than suggestive.
+
+Read that as a property of this probe, not a requirement of it. Running `corner`
+needs no download; ranking two backbones *against this board* needs these
+frames.
 
 **A corner score and an edge score are not independent evidence.** The two
 targets correlate at **0.52** per image, against **0.147** between the two

@@ -29,6 +29,7 @@ set -euo pipefail
 
 VOC=/shared/sets/datasets/pascal_voc_2021/VOCdevkit/VOC2012
 VOC_BINARY="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/data/voc_binary"
+CORNER_FRAMES="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/data/corner_frames"
 IMAGENETTE=/shared/sets/datasets/Imagenette/imagenette2
 NIGHTS=/shared/sets/datasets/vision/nights
 TASKONOMY=/shared/sets/datasets/taskonomy-dataset/taskonomy
@@ -150,6 +151,28 @@ probe_occlusion_edge() {
   run occlusion_edge --data "$TASKONOMY" --partition tiny --limit "$TASKONOMY_LIMIT"
 }
 
+probe_corner() {
+  # The one probe here whose target is COMPUTED rather than read, so it has no
+  # dataset of its own -- and therefore no board without a chosen one. Two
+  # people's corner numbers are comparable only if they ran the same images.
+  #
+  # The set chosen is Taskonomy tiny, the same 600/600 frames probe_edge reads,
+  # staged as a flat image folder by scripts/stage_corner_frames.py. That is not
+  # a convenience: the corner target correlates 0.52 with edge_texture, and the
+  # claim that earns this probe its place is that the two nonetheless rank
+  # backbones differently. That claim is exact only on shared pixels.
+  #
+  # Every generator setting is left at its default and travels in
+  # dataset_params, so a run at a different --corner-sigma lands in a different
+  # comparability group rather than being ranked against these.
+  if [[ ! -d "$CORNER_FRAMES/val/images" ]]; then
+    echo "!!! SKIPPED corner: no frames at $CORNER_FRAMES/val/images" >&2
+    echo "    run scripts/stage_corner_frames.py first" >&2
+    return
+  fi
+  run corner --data "$CORNER_FRAMES" --split val --train-split train
+}
+
 probe_depth() {
   # NYUv2, not Taskonomy. probe3d's own copy, whose layout happens to be exactly
   # the <root>/<split>/{images,targets} one the CLI already expects, so these
@@ -191,6 +214,7 @@ ALL_PROBES=(
   edge
   keypoints2d
   occlusion_edge
+  corner
 )
 
 main() {
