@@ -8,6 +8,7 @@
 import json
 
 import pytest
+import torch
 from PIL import Image
 
 import visbench
@@ -15,6 +16,7 @@ from tests.cli.conftest import FAKE_BACKBONE
 from visbench.cli.datasets import spec_for
 from visbench.cli.main import build_parser
 from visbench.results import read_records
+from visbench.utils.seed import set_seed
 
 
 class TestList:
@@ -462,8 +464,8 @@ class TestPushTo:
 
         The artifact's whole claim is that these weights belong to *these*
         features, so the identity must come from the object that extracted
-        them -- which is what letting run() resolve the name separately would
-        have quietly broken.
+        them. That object comes back on the RunResult; the CLI must not build
+        its own, and ``test_pushing_does_not_move_the_number`` says why.
         """
         results = tmp_path / "out.jsonl"
         _run(
@@ -478,6 +480,47 @@ class TestPushTo:
             "someone/a-probe",
         )
         assert pushed[0]["backbone"].cache_key() == read_records(results)[0].backbone_key
+
+    def test_pushing_does_not_move_the_number(
+        self, run_cli, pushed, image_folder, cache_dir, tmp_path
+    ):
+        """Publishing a probe must not change the probe.
+
+        This shipped broken once. The CLI constructed the backbone itself when
+        --push-to was given, so it was built *before* run()'s set_seed() rather
+        than after -- and a backbone's random init draws from the global RNG, so
+        the head was seeded from a different state. Every trained probe scored
+        differently while every recorded field, seed included, stayed identical.
+        Twenty published records differed from the corpus and two rankings
+        flipped; only the zero-shot probes, which train no head, reproduced.
+
+        Pinned on the backbone's *weights* rather than on the score. Comparing
+        a pushed run's metrics against an unpushed one is vacuous here: these
+        fixtures are three colour-separable classes, so both sides read 1.0
+        however badly the RNG is threaded. The weights are what the seed
+        decides, and they are what moved.
+        """
+        results = tmp_path / "out.jsonl"
+        _run(
+            run_cli,
+            "classification",
+            image_folder,
+            cache_dir,
+            results,
+            "--epochs",
+            "5",
+            "--push-to",
+            "someone/a-probe",
+            "--seed",
+            "0",
+        )
+
+        # What run() would have built: seed first, construct second. The pushed
+        # backbone has to *be* that one, which it is only if nothing constructed
+        # a backbone before run() got its hands on the seed.
+        set_seed(0)
+        expected = visbench.get_backbone(FAKE_BACKBONE, device="cpu")
+        assert torch.equal(pushed[0]["backbone"].proj.weight, expected.proj.weight)
 
     def test_private_by_default_and_public_only_when_asked(
         self, run_cli, pushed, image_folder, cache_dir, tmp_path

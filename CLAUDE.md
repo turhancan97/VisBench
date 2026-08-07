@@ -572,6 +572,29 @@ designed up front; extend it the same way, from a case that already runs.
   digit, opposite conclusion. The machine is shared. Run a timing at least
   twice, and prefer the *repeat* to the first, since the first also pays for
   whatever the page cache had evicted.
+- **Constructing a backbone draws from the global RNG, and `run()` seeds
+  *before* it constructs.** So `run("dinov2_vits14", ...)` and
+  `run(get_backbone("dinov2_vits14"), ...)` fit the head from different RNG
+  states and produce different trained numbers, with every recorded field —
+  seed included — identical. **Pass the name; take the object back off
+  `RunResult.backbone`.** Building one outside `run()` puts its random init
+  (DINOv2 and timm both initialise randomly before loading the state dict)
+  outside the seeded window.
+
+  This shipped in `--push-to`, which built the backbone early so it could hand
+  the same object to `push_probe`. Found by publishing a full board and diffing
+  it against the corpus: 20 of 26 records differed and **the 6 that reproduced
+  were exactly the zero-shot probes**, which train no head. That signature —
+  trained probes all move, zero-shot ones all reproduce, no recorded field
+  explains it — means seeding, not a version regression, and it was misread as
+  the latter first because the corpus was written under an older version.
+
+  **The obvious regression test for this is vacuous, and mutation testing is
+  the only thing that says so.** Comparing a pushed run's metrics against an
+  unpushed one looks decisive and is not: the CLI fixtures are three
+  colour-separable classes, so both sides read 1.0 however badly the RNG is
+  threaded. Pin the backbone's *weights* against a freshly seeded
+  construction — that is what the seed decides and what actually moved.
 - **Verify with the exact commands CI runs** (below). A local env with extra
   packages installed will pass checks that CI fails.
 - **A guard whose only test is `slow` is a guard CI never runs.** `addopts`

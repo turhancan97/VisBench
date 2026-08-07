@@ -230,15 +230,6 @@ def _command_run(args: argparse.Namespace, out: Any) -> int:
             "command, not a file."
         )
 
-    # The backbone is constructed here, not left to run(), so the *same* object
-    # can be handed to push_probe. Building a second one would work -- cache_key
-    # is a function of the weights -- but it would load them twice, and the
-    # identity that travels with the artifact should come from the object that
-    # actually produced the features.
-    backbone: Any = (
-        visbench.get_backbone(args.backbone, device=args.device) if args.push_to else args.backbone
-    )
-
     if not args.quiet:
         print(f"{args.probe} on {args.backbone}", file=out)
         print(f"  scoring: {len(splits.evaluate)} items from {args.data}", file=out)
@@ -252,8 +243,15 @@ def _command_run(args: argparse.Namespace, out: Any) -> int:
     # names meaning different things — a dense probe's `batch_size` is its
     # training batch. Forwarding them as task kwargs is a TypeError, and the
     # examples reached for the same resolution before the CLI existed.
+    # The backbone goes in **by name**, whether or not this run pushes, and
+    # push_probe takes the object back out of the result. Constructing it here
+    # instead would build it before run()'s set_seed() rather than after, and a
+    # backbone's random init draws from the global RNG -- so the head would be
+    # seeded from a different state and every trained probe would score
+    # differently, with the record showing the same seed. --push-to must not be
+    # able to move a number.
     result = visbench.run(
-        backbone,
+        args.backbone,
         probe,
         splits.evaluate,
         train_dataset=splits.train,
@@ -279,7 +277,7 @@ def _command_run(args: argparse.Namespace, out: Any) -> int:
         url = push_probe(
             result.probe,
             args.push_to,
-            backbone=backbone,
+            backbone=result.backbone,
             metrics=result.metrics,
             private=not args.public,
         )
