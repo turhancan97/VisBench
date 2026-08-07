@@ -9,6 +9,17 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-08-07
+
+**The thirteenth probe, and the first whose target VisBench computes rather than
+downloads.** `corner` is Shi-Tomasi cornerness derived from the RGB frame at
+read time, so it runs on any folder of photographs with no dataset and no
+extras — and it ships with its six numbers in the committed record corpus,
+behind a frame set a script pins and reconstructs.
+
+Every measurement v0.7.0 reported, v0.8.0 reports identically. The corpus grows
+from 72 records to 78 and gains no revisions.
+
 ### Added
 
 - **The corner probe is in the record corpus, on a pinned frame set.** Six new
@@ -1936,7 +1947,8 @@ API philosophy.
 [#2]: https://github.com/turhancan97/VisBench/issues/2
 [#4]: https://github.com/turhancan97/VisBench/issues/4
 [#3]: https://github.com/turhancan97/VisBench/issues/3
-[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/turhancan97/VisBench/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/turhancan97/VisBench/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/turhancan97/VisBench/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/turhancan97/VisBench/compare/v0.5.0...v0.6.0
