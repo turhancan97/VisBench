@@ -4,7 +4,7 @@
 tasks.**
 
 VisBench answers one question with as little ceremony as possible: *what does
-this vision backbone actually encode?* Twelve probes, three backbone families,
+this vision backbone actually encode?* Thirteen probes, three backbone families,
 one `run()` call, and a result record that says exactly how every number was
 produced.
 
@@ -40,8 +40,9 @@ not measuring the signal.
 | | |
 | --- | --- |
 | Every probe, the data it expects, and what it has measured | [The probes](tasks.md) |
+| Sharing a trained probe, and what travels with it | [The Hub](hub.md) |
 | How it was built, and what might come next | [Roadmap](roadmap.md) |
-| Twelve probes against six backbones, ranked | [LEADERBOARD.md](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md) |
+| Thirteen probes against six backbones, ranked | [LEADERBOARD.md](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md) |
 | Setting up, the checks, and how to add a probe | [CONTRIBUTING.md](https://github.com/turhancan97/VisBench/blob/main/CONTRIBUTING.md) |
 
 ## What makes it different
@@ -78,6 +79,13 @@ every number, which is what makes it reproducible — against that release.
 :caption: The probes
 
 tasks
+```
+
+```{toctree}
+:hidden:
+:caption: Sharing
+
+hub
 ```
 
 ```{toctree}

@@ -305,9 +305,11 @@ visbench/
   runner.py      visbench.run() — the one call the CLI wraps
 examples/        classify, retrieve, correspond, depth, normals, segment,
                  segment_semantic, similarity, detect, edges, keypoints,
-                 occlusion_edges, corners, save_probe
+                 occlusion_edges, corners, save_probe (the local artifact),
+                 push_probe (the Hub round trip; never uploads without --push)
 docs/            conf.py, index.md, tasks.md (the per-probe reference AND the
-                 nine generated tables), roadmap.md, _static/custom.css
+                 ten generated tables), hub.md (sharing a trained probe),
+                 roadmap.md, _static/custom.css
                  — a Sphinx source tree; `_build/` is gitignored
 .github/         workflows/{ci,slow,docs}.yml, ISSUE_TEMPLATE/, PR template
 CITATION.cff     GitHub's cite button + what Zenodo archives (7e)
@@ -2257,8 +2259,8 @@ source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
 pytest                                              # 1408 fast tests
 pytest -m slow                                      # 79, real DINOv2/CLIP weights
-ruff check visbench/ tests/ conftest.py examples/
-ruff format --check visbench/ tests/ conftest.py examples/
+ruff check visbench/ tests/ conftest.py examples/ scripts/
+ruff format --check visbench/ tests/ conftest.py examples/ scripts/
 mypy visbench/ examples/ --ignore-missing-imports   # reads [tool.mypy], py 3.12
 ```
 
