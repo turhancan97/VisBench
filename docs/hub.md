@@ -18,7 +18,8 @@ identity they are valid against*, and refuses a load that does not match.
 
 Trained heads for the DINOv2 backbones are published as a collection:
 
-**[huggingface.co/turhancan97 → collections](https://huggingface.co/turhancan97/collections)**
+**[VisBench probes on the Hugging Face Hub](https://huggingface.co/collections/turhancan97/visbench-probes-6a7618f2f7f4c23e9d4e5fe8)**
+— twenty heads, ten probes against DINOv2-S/14 and DINOv2-B/14.
 
 ```python
 import visbench

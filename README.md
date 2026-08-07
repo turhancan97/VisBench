@@ -305,7 +305,10 @@ probe = load_probe_from_hub("turhancan97/visbench-depth-dinov2_vits14", backbone
 scores = probe.evaluate(features, targets)
 ```
 
-**[Browse the collection →](https://huggingface.co/turhancan97/collections)**
+**[Browse the collection →](https://huggingface.co/collections/turhancan97/visbench-probes-6a7618f2f7f4c23e9d4e5fe8)**
+— twenty heads, ten probes against DINOv2-S/14 and DINOv2-B/14, trained by the
+same commands that produced [the record
+corpus](https://github.com/turhancan97/VisBench/blob/main/results/corpus/visbench.jsonl).
 
 One repository per (probe, backbone) pair, because a head fitted on one backbone
 is refused against any other — see below for why that refusal matters. The three
