@@ -45,13 +45,14 @@ TRAINED_PROBES = (
     "corner",
 )
 
+#: The Hub caps this at 150 characters, so it carries only the thing a visitor
+#: has to know before the weights mean anything: a head belongs to exactly one
+#: backbone. The rest of the argument is on each model card.
 DESCRIPTION = (
-    "Trained VisBench probes: small heads fitted on frozen backbone features, "
-    "one per (task, backbone) pair. Load one with visbench and evaluate without "
-    "training anything. Each head is only valid against the backbone named in "
-    "its repository — visbench refuses a mismatch, because a head fed the wrong "
-    "features scores plausibly and wrongly rather than failing."
+    "Heads fitted on frozen features, one per (task, backbone). Evaluate "
+    "without training. Each head is valid only against its named backbone."
 )
+assert len(DESCRIPTION) < 150, f"the Hub rejects this: {len(DESCRIPTION)} chars"
 
 
 def _repo_ids(owner: str, probes: list[str], backbones: list[str]) -> list[tuple[str, str]]:
