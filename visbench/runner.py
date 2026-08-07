@@ -38,13 +38,25 @@ _RECORD_FIELDS = frozenset({"dataset", "split", "dataset_size", "dataset_fingerp
 class RunResult:
     """Metrics plus the record that describes how they were produced."""
 
-    def __init__(self, metrics: dict, record: ResultRecord, probe: Any):
+    def __init__(self, metrics: dict, record: ResultRecord, probe: Any, backbone: Any):
         self.metrics = metrics
         self.record = record
         #: The fitted probe, for callers that want its internals — a trained
         #: classifier's ``train_top1``, say, which diagnoses underfitting and
         #: is therefore not a result.
         self.probe = probe
+        #: The backbone the number came from, constructed here when a name was
+        #: passed. Returned rather than left to the caller to rebuild, because
+        #: **constructing a backbone draws from the global RNG** — DINOv2 and
+        #: timm both initialise randomly before loading the state dict — and
+        #: :func:`set_seed` runs *before* construction. A caller that builds its
+        #: own object and passes it in therefore seeds the head from a different
+        #: RNG state and gets a different trained probe, with every recorded
+        #: field identical. Measured: Taskonomy edge on DINOv2-S scored 0.4558
+        #: through the name and 0.4407 through an object, and two published
+        #: rankings flipped. Zero-shot probes are unaffected, which is what made
+        #: it look like a version regression rather than a seeding one.
+        self.backbone = backbone
 
     def __repr__(self) -> str:
         scores = ", ".join(f"{k}={v:.4f}" for k, v in self.metrics.items())
@@ -257,4 +269,4 @@ def run(
         with ResultWriter(Path(results)) as writer:
             writer.write(record)
 
-    return RunResult(metrics, record, task)
+    return RunResult(metrics, record, task, backbone)

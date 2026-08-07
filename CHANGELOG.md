@@ -25,6 +25,43 @@ so it stands on its own rather than assuming you have read the ones above it.
   default, and what is refused (zero-shot probes, unfitted probes, artifacts
   from a newer `ARTIFACT_VERSION`) before anything is created.
 
+- **`visbench run --push-to REPO_ID` publishes the head it just trained**, with
+  `--public` to override the private default. One command produces the record
+  and the artifact, which is the point: a head is only meaningful against the
+  features it was fitted on, and those are decided by the run's own flags. A
+  separate publishing step is free to drift from them, and a head trained under
+  drifted flags uploads, loads and scores without complaint.
+
+  A zero-shot probe is refused **before** the run rather than by `save_probe`
+  afterwards — the same error either way, but one of them costs the whole run.
+
+- **`scripts/build_corpus.sh` takes `PUSH_TO`**, so a whole board can be
+  published from the file that already holds every probe's flags rather than a
+  second copy of them, and `scripts/publish_collection.py` groups the results
+  into one Hugging Face collection. Neither uploads without an explicit flag.
+
+### Fixed
+
+- **`--push-to` silently changed the number it published.** The CLI built the
+  backbone itself when that flag was given, so it could hand the same object to
+  `push_probe` — which put construction *before* `run()`'s `set_seed()` instead
+  of after. A backbone's random init draws from the global RNG (DINOv2 and timm
+  both initialise randomly before loading the state dict), so the head was
+  seeded from a different state and every trained probe scored differently,
+  while every recorded field — seed included — stayed identical.
+
+  Caught by publishing a full board and diffing it against the corpus: 20 of 26
+  records differed, and **the 6 that reproduced were exactly the zero-shot
+  probes**, which train no head. Taskonomy edge on DINOv2-S read 0.4407 against
+  the corpus's 0.4558, and two published rankings flipped.
+
+  `run()` now returns the backbone it used on `RunResult.backbone`, and the CLI
+  passes the name in every case. The regression test pins the backbone's
+  *weights* rather than the metrics: the CLI fixtures are colour-separable and
+  score 1.0 whichever way the RNG is threaded, so a metric comparison there
+  passes with the bug in place — it was written that way first, and mutation
+  testing is what showed it proved nothing.
+
 ### Changed
 
 - `docs/index.md` said twelve probes in two places. There are thirteen.

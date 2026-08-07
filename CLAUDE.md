@@ -171,6 +171,18 @@ The CLI exposes all thirteen probes: `visbench list`, `visbench run <probe>`,
 CLI's table and `list_probes()` are the same set, so a probe cannot ship
 unreachable from a shell by accident.
 
+**`visbench run --push-to REPO_ID` publishes the head it just trained**
+(`--public` overrides the private default), and `scripts/build_corpus.sh` takes
+`PUSH_TO` / `PUSH_PUBLIC` so a whole board is published from the file that
+already holds every probe's flags. **Publishing from the run, not from a second
+script, is the design**: a head is only meaningful against the features it was
+fitted on, and the run's flags are what fitted them — a separate publish step is
+a second copy of every dataset flag, free to drift, and a head trained under
+drifted flags uploads, loads and scores without complaint. The CLI refuses a
+zero-shot probe *before* the run; `save_probe` would raise the same thing after
+it, having spent the whole run to do so. `scripts/publish_collection.py` groups
+the pushed repositories into one collection, dry-run unless `--create`.
+
 Package version is `0.8.0`, and it is **on PyPI: uploaded 2026-08-07 at
 09:42 UTC**, wheel and sdist both (284 KB and 703 KB), tagged `v0.8.0` on
 `574e792`. **Checked so far through the JSON API only** — version, upload
@@ -560,6 +572,29 @@ designed up front; extend it the same way, from a case that already runs.
   digit, opposite conclusion. The machine is shared. Run a timing at least
   twice, and prefer the *repeat* to the first, since the first also pays for
   whatever the page cache had evicted.
+- **Constructing a backbone draws from the global RNG, and `run()` seeds
+  *before* it constructs.** So `run("dinov2_vits14", ...)` and
+  `run(get_backbone("dinov2_vits14"), ...)` fit the head from different RNG
+  states and produce different trained numbers, with every recorded field —
+  seed included — identical. **Pass the name; take the object back off
+  `RunResult.backbone`.** Building one outside `run()` puts its random init
+  (DINOv2 and timm both initialise randomly before loading the state dict)
+  outside the seeded window.
+
+  This shipped in `--push-to`, which built the backbone early so it could hand
+  the same object to `push_probe`. Found by publishing a full board and diffing
+  it against the corpus: 20 of 26 records differed and **the 6 that reproduced
+  were exactly the zero-shot probes**, which train no head. That signature —
+  trained probes all move, zero-shot ones all reproduce, no recorded field
+  explains it — means seeding, not a version regression, and it was misread as
+  the latter first because the corpus was written under an older version.
+
+  **The obvious regression test for this is vacuous, and mutation testing is
+  the only thing that says so.** Comparing a pushed run's metrics against an
+  unpushed one looks decisive and is not: the CLI fixtures are three
+  colour-separable classes, so both sides read 1.0 however badly the RNG is
+  threaded. Pin the backbone's *weights* against a freshly seeded
+  construction — that is what the seed decides and what actually moved.
 - **Verify with the exact commands CI runs** (below). A local env with extra
   packages installed will pass checks that CI fails.
 - **A guard whose only test is `slow` is a guard CI never runs.** `addopts`

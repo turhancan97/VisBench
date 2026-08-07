@@ -8,6 +8,7 @@
 import json
 
 import pytest
+import torch
 from PIL import Image
 
 import visbench
@@ -15,6 +16,7 @@ from tests.cli.conftest import FAKE_BACKBONE
 from visbench.cli.datasets import spec_for
 from visbench.cli.main import build_parser
 from visbench.results import read_records
+from visbench.utils.seed import set_seed
 
 
 class TestList:
@@ -407,6 +409,177 @@ class TestErrors:
         )
         assert result.code == 2
         assert "Available" in result.err
+
+
+class TestPushTo:
+    """`--push-to` uploads what the run just trained.
+
+    The upload itself is stubbed: these cover what the CLI hands to
+    ``push_probe`` and what it refuses to hand over at all. Whether the bytes
+    round-trip is ``tests/hub/``'s question, and it is answered there.
+    """
+
+    @pytest.fixture
+    def pushed(self, monkeypatch):
+        """Record the arguments the CLI would upload with."""
+        calls: list[dict] = []
+
+        def fake_push(task, repo_id, **kwargs):
+            calls.append({"task": task, "repo_id": repo_id, **kwargs})
+            return f"https://huggingface.co/{repo_id}"
+
+        monkeypatch.setattr("visbench.hub.push_probe", fake_push)
+        return calls
+
+    def test_it_pushes_the_fitted_probe_and_prints_the_url(
+        self, run_cli, pushed, image_folder, cache_dir, tmp_path
+    ):
+        results = tmp_path / "out.jsonl"
+        result = _run(
+            run_cli,
+            "classification",
+            image_folder,
+            cache_dir,
+            results,
+            "--epochs",
+            "5",
+            "--push-to",
+            "someone/a-probe",
+        )
+
+        assert result.code == 0
+        assert len(pushed) == 1
+        assert pushed[0]["repo_id"] == "someone/a-probe"
+        assert "https://huggingface.co/someone/a-probe" in result.out
+        # The fitted probe, not a fresh one: it must carry the head that was
+        # just trained, or the artifact holds untrained weights.
+        assert pushed[0]["task"].head is not None
+        # The metrics the run measured travel to the card.
+        assert pushed[0]["metrics"] == read_records(results)[0].metrics
+
+    def test_the_pushed_backbone_is_the_one_that_produced_the_features(
+        self, run_cli, pushed, image_folder, cache_dir, tmp_path
+    ):
+        """Not merely a backbone of the same name.
+
+        The artifact's whole claim is that these weights belong to *these*
+        features, so the identity must come from the object that extracted
+        them. That object comes back on the RunResult; the CLI must not build
+        its own, and ``test_pushing_does_not_move_the_number`` says why.
+        """
+        results = tmp_path / "out.jsonl"
+        _run(
+            run_cli,
+            "classification",
+            image_folder,
+            cache_dir,
+            results,
+            "--epochs",
+            "5",
+            "--push-to",
+            "someone/a-probe",
+        )
+        assert pushed[0]["backbone"].cache_key() == read_records(results)[0].backbone_key
+
+    def test_pushing_does_not_move_the_number(
+        self, run_cli, pushed, image_folder, cache_dir, tmp_path
+    ):
+        """Publishing a probe must not change the probe.
+
+        This shipped broken once. The CLI constructed the backbone itself when
+        --push-to was given, so it was built *before* run()'s set_seed() rather
+        than after -- and a backbone's random init draws from the global RNG, so
+        the head was seeded from a different state. Every trained probe scored
+        differently while every recorded field, seed included, stayed identical.
+        Twenty published records differed from the corpus and two rankings
+        flipped; only the zero-shot probes, which train no head, reproduced.
+
+        Pinned on the backbone's *weights* rather than on the score. Comparing
+        a pushed run's metrics against an unpushed one is vacuous here: these
+        fixtures are three colour-separable classes, so both sides read 1.0
+        however badly the RNG is threaded. The weights are what the seed
+        decides, and they are what moved.
+        """
+        results = tmp_path / "out.jsonl"
+        _run(
+            run_cli,
+            "classification",
+            image_folder,
+            cache_dir,
+            results,
+            "--epochs",
+            "5",
+            "--push-to",
+            "someone/a-probe",
+            "--seed",
+            "0",
+        )
+
+        # What run() would have built: seed first, construct second. The pushed
+        # backbone has to *be* that one, which it is only if nothing constructed
+        # a backbone before run() got its hands on the seed.
+        set_seed(0)
+        expected = visbench.get_backbone(FAKE_BACKBONE, device="cpu")
+        assert torch.equal(pushed[0]["backbone"].proj.weight, expected.proj.weight)
+
+    def test_private_by_default_and_public_only_when_asked(
+        self, run_cli, pushed, image_folder, cache_dir, tmp_path
+    ):
+        """A push is not reversible: public has to be a sentence someone typed."""
+        common = ("--epochs", "5", "--push-to", "someone/a-probe")
+        _run(run_cli, "classification", image_folder, cache_dir, tmp_path / "a.jsonl", *common)
+        assert pushed[0]["private"] is True
+
+        _run(
+            run_cli,
+            "classification",
+            image_folder,
+            cache_dir,
+            tmp_path / "b.jsonl",
+            *common,
+            "--public",
+        )
+        assert pushed[1]["private"] is False
+
+    def test_nothing_is_pushed_without_the_flag(
+        self, run_cli, pushed, image_folder, cache_dir, tmp_path
+    ):
+        _run(
+            run_cli,
+            "classification",
+            image_folder,
+            cache_dir,
+            tmp_path / "o.jsonl",
+            "--epochs",
+            "5",
+        )
+        assert pushed == []
+
+    def test_a_zero_shot_probe_is_refused_before_it_runs(
+        self, run_cli, pushed, image_folder, cache_dir, tmp_path
+    ):
+        """`save_probe` would raise this too -- at the end, after the whole run.
+
+        Nothing is written, which is what proves the guard fired first: a run
+        that reached its evaluation would have appended a record.
+        """
+        results = tmp_path / "out.jsonl"
+        result = _run(
+            run_cli,
+            "retrieval",
+            image_folder,
+            cache_dir,
+            results,
+            "--split",
+            "val",
+            "--push-to",
+            "someone/a-probe",
+        )
+
+        assert result.code != 0
+        assert "zero-shot" in result.err
+        assert pushed == []
+        assert not results.exists()
 
 
 class TestProbeKwargs:
