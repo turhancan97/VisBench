@@ -9,6 +9,26 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+### Added
+
+- **The Hub integration has an example and a documentation page.** `push_probe`
+  and `load_probe_from_hub` shipped in v0.6.0 with tests but no runnable
+  demonstration, so the half of the feature that touches the network was
+  reachable only by reading source. New `examples/push_probe.py` covers the
+  round trip on real DINOv2 weights and **does not upload unless `--push` is
+  passed** — the default prints the identity block and the generated model card
+  so you can see what would go out, and `--pull` does the other direction with
+  `--revision` for pinning a commit.
+
+  New `docs/hub.md` is the reference: what the four identity fields prevent,
+  why a download is read with `weights_only=True`, why a push is private by
+  default, and what is refused (zero-shot probes, unfitted probes, artifacts
+  from a newer `ARTIFACT_VERSION`) before anything is created.
+
+### Changed
+
+- `docs/index.md` said twelve probes in two places. There are thirteen.
+
 ## [0.8.0] — 2026-08-07
 
 **The thirteenth probe, and the first whose target VisBench computes rather than
