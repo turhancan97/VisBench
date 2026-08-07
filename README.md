@@ -291,6 +291,27 @@ signature and return shape despite completely different internals.
 `(image_hash, backbone_name, layer, pooling)`. Every task reads through it, so
 the backbone forward pass runs at most once per image per backbone.
 
+## Pretrained probes — use one without training
+
+Trained heads for the DINOv2 backbones are published on the Hugging Face Hub, so
+you can score your own images without fitting anything:
+
+```python
+import visbench
+from visbench.hub import load_probe_from_hub
+
+backbone = visbench.get_backbone("dinov2_vits14")
+probe = load_probe_from_hub("turhancan97/visbench-depth-dinov2_vits14", backbone=backbone)
+scores = probe.evaluate(features, targets)
+```
+
+**[Browse the collection →](https://huggingface.co/turhancan97/collections)**
+
+One repository per (probe, backbone) pair, because a head fitted on one backbone
+is refused against any other — see below for why that refusal matters. The three
+zero-shot probes (retrieval, correspondence, similarity) are not published:
+they train nothing, so the backbone alone reproduces them.
+
 ## Sharing a trained probe
 
 A probe head is small — 17 KB for a linear classifier — so the cheapest way to
@@ -324,9 +345,20 @@ pooling, the feature mode and the layers, and refuses a mismatch. Pass
 raising, and the number is then comparable with nothing.
 
 Downloaded probes are read with `torch.load(weights_only=True)`, so fetching one
-from a stranger's repository cannot execute code. See
-[`examples/save_probe.py`](https://github.com/turhancan97/VisBench/blob/main/examples/save_probe.py),
-which demonstrates the mismatch on purpose.
+from a stranger's repository cannot execute code.
+
+The command line publishes what it just trained, so a run and its artifact
+cannot come from different settings:
+
+```bash
+visbench run depth --data ... --push-to you/visbench-depth-dinov2_vits14 --public
+```
+
+See [`examples/save_probe.py`](https://github.com/turhancan97/VisBench/blob/main/examples/save_probe.py),
+which demonstrates the mismatch on purpose,
+[`examples/push_probe.py`](https://github.com/turhancan97/VisBench/blob/main/examples/push_probe.py)
+for the Hub round trip, and [the Hub guide](https://turhancan97.github.io/VisBench/hub.html)
+for the full reference.
 
 ## Reproducibility
 

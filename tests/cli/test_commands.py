@@ -409,6 +409,136 @@ class TestErrors:
         assert "Available" in result.err
 
 
+class TestPushTo:
+    """`--push-to` uploads what the run just trained.
+
+    The upload itself is stubbed: these cover what the CLI hands to
+    ``push_probe`` and what it refuses to hand over at all. Whether the bytes
+    round-trip is ``tests/hub/``'s question, and it is answered there.
+    """
+
+    @pytest.fixture
+    def pushed(self, monkeypatch):
+        """Record the arguments the CLI would upload with."""
+        calls: list[dict] = []
+
+        def fake_push(task, repo_id, **kwargs):
+            calls.append({"task": task, "repo_id": repo_id, **kwargs})
+            return f"https://huggingface.co/{repo_id}"
+
+        monkeypatch.setattr("visbench.hub.push_probe", fake_push)
+        return calls
+
+    def test_it_pushes_the_fitted_probe_and_prints_the_url(
+        self, run_cli, pushed, image_folder, cache_dir, tmp_path
+    ):
+        results = tmp_path / "out.jsonl"
+        result = _run(
+            run_cli,
+            "classification",
+            image_folder,
+            cache_dir,
+            results,
+            "--epochs",
+            "5",
+            "--push-to",
+            "someone/a-probe",
+        )
+
+        assert result.code == 0
+        assert len(pushed) == 1
+        assert pushed[0]["repo_id"] == "someone/a-probe"
+        assert "https://huggingface.co/someone/a-probe" in result.out
+        # The fitted probe, not a fresh one: it must carry the head that was
+        # just trained, or the artifact holds untrained weights.
+        assert pushed[0]["task"].head is not None
+        # The metrics the run measured travel to the card.
+        assert pushed[0]["metrics"] == read_records(results)[0].metrics
+
+    def test_the_pushed_backbone_is_the_one_that_produced_the_features(
+        self, run_cli, pushed, image_folder, cache_dir, tmp_path
+    ):
+        """Not merely a backbone of the same name.
+
+        The artifact's whole claim is that these weights belong to *these*
+        features, so the identity must come from the object that extracted
+        them -- which is what letting run() resolve the name separately would
+        have quietly broken.
+        """
+        results = tmp_path / "out.jsonl"
+        _run(
+            run_cli,
+            "classification",
+            image_folder,
+            cache_dir,
+            results,
+            "--epochs",
+            "5",
+            "--push-to",
+            "someone/a-probe",
+        )
+        assert pushed[0]["backbone"].cache_key() == read_records(results)[0].backbone_key
+
+    def test_private_by_default_and_public_only_when_asked(
+        self, run_cli, pushed, image_folder, cache_dir, tmp_path
+    ):
+        """A push is not reversible: public has to be a sentence someone typed."""
+        common = ("--epochs", "5", "--push-to", "someone/a-probe")
+        _run(run_cli, "classification", image_folder, cache_dir, tmp_path / "a.jsonl", *common)
+        assert pushed[0]["private"] is True
+
+        _run(
+            run_cli,
+            "classification",
+            image_folder,
+            cache_dir,
+            tmp_path / "b.jsonl",
+            *common,
+            "--public",
+        )
+        assert pushed[1]["private"] is False
+
+    def test_nothing_is_pushed_without_the_flag(
+        self, run_cli, pushed, image_folder, cache_dir, tmp_path
+    ):
+        _run(
+            run_cli,
+            "classification",
+            image_folder,
+            cache_dir,
+            tmp_path / "o.jsonl",
+            "--epochs",
+            "5",
+        )
+        assert pushed == []
+
+    def test_a_zero_shot_probe_is_refused_before_it_runs(
+        self, run_cli, pushed, image_folder, cache_dir, tmp_path
+    ):
+        """`save_probe` would raise this too -- at the end, after the whole run.
+
+        Nothing is written, which is what proves the guard fired first: a run
+        that reached its evaluation would have appended a record.
+        """
+        results = tmp_path / "out.jsonl"
+        result = _run(
+            run_cli,
+            "retrieval",
+            image_folder,
+            cache_dir,
+            results,
+            "--split",
+            "val",
+            "--push-to",
+            "someone/a-probe",
+        )
+
+        assert result.code != 0
+        assert "zero-shot" in result.err
+        assert pushed == []
+        assert not results.exists()
+
+
 class TestProbeKwargs:
     """The flags have to reach the probe, or they are decoration."""
 

@@ -52,6 +52,17 @@ def _add_run_common(parser: argparse.ArgumentParser) -> None:
         help="JSONL to append the result record to; 'none' to skip writing",
     )
     parser.add_argument("--notes", default=None, help="free text stored in the record")
+    parser.add_argument(
+        "--push-to",
+        metavar="REPO_ID",
+        default=None,
+        help="upload the trained probe to this Hub repository; needs visbench[hub]",
+    )
+    parser.add_argument(
+        "--public",
+        action="store_true",
+        help="make the pushed repository readable by anyone (default: private)",
+    )
     parser.add_argument("--json", action="store_true", help="print the full record as JSON")
     parser.add_argument("--quiet", action="store_true", help="print metrics only")
     parser.add_argument(
@@ -206,6 +217,27 @@ def _command_cache(args: argparse.Namespace, out: Any) -> int:
 def _command_run(args: argparse.Namespace, out: Any) -> int:
     spec = spec_for(args.probe)
     splits = spec.build(args)
+    probe = visbench.get_probe(args.probe, **spec.probe_kwargs(args))
+
+    # Refused here rather than by save_probe, which would raise the same
+    # ValueError -- after training. A zero-shot probe fits nothing, so there
+    # are no weights to share and the backbone alone reproduces it; finding
+    # that out at the end of a run costs the whole run.
+    if args.push_to and getattr(probe, "zero_shot", False):
+        raise ValueError(
+            f"{args.probe!r} is zero-shot: it trains nothing, so there is no head to "
+            "push. Anyone with the backbone reproduces this number -- share the "
+            "command, not a file."
+        )
+
+    # The backbone is constructed here, not left to run(), so the *same* object
+    # can be handed to push_probe. Building a second one would work -- cache_key
+    # is a function of the weights -- but it would load them twice, and the
+    # identity that travels with the artifact should come from the object that
+    # actually produced the features.
+    backbone: Any = (
+        visbench.get_backbone(args.backbone, device=args.device) if args.push_to else args.backbone
+    )
 
     if not args.quiet:
         print(f"{args.probe} on {args.backbone}", file=out)
@@ -221,8 +253,8 @@ def _command_run(args: argparse.Namespace, out: Any) -> int:
     # training batch. Forwarding them as task kwargs is a TypeError, and the
     # examples reached for the same resolution before the CLI existed.
     result = visbench.run(
-        args.backbone,
-        visbench.get_probe(args.probe, **spec.probe_kwargs(args)),
+        backbone,
+        probe,
         splits.evaluate,
         train_dataset=splits.train,
         cache=FeatureCache(root=args.cache, enabled=not args.no_cache),
@@ -237,6 +269,22 @@ def _command_run(args: argparse.Namespace, out: Any) -> int:
     width = max(len(name) for name in result.metrics)
     for name, value in sorted(result.metrics.items()):
         print(f"  {name:<{width}}  {value:.4f}", file=out)
+
+    if args.push_to:
+        # Imported here, not at module scope: huggingface_hub is an optional
+        # extra, and `visbench run` without --push-to must work in a core
+        # install. The same reason visbench.hub.remote defers its own import.
+        from visbench.hub import push_probe
+
+        url = push_probe(
+            result.probe,
+            args.push_to,
+            backbone=backbone,
+            metrics=result.metrics,
+            private=not args.public,
+        )
+        visibility = "public" if args.public else "private"
+        print(f"\npushed to {url} ({visibility})", file=out)
 
     if args.json:
         print(json.dumps(result.record.to_dict(), indent=2, sort_keys=True), file=out)

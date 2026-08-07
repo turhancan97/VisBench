@@ -6,13 +6,33 @@ what makes it dangerous to share carelessly: **a probe head is only meaningful
 against the exact features it was fitted on**, and almost every way of getting
 that wrong is shape-compatible.
 
-Measured on real DINOv2-S weights over Imagenette: a linear head fitted on CLS
-tokens, then fed *mean-pooled* tokens from the same backbone, scores **0.9620
-against 0.9820**. It does not crash. It does not produce garbage. It produces a
-number nobody would question.
+Measured on real DINOv2-S weights over Imagenette (200 images per class): a
+linear head fitted on CLS tokens, then fed *mean-pooled* tokens from the same
+backbone, scores **0.9620 against 0.9895**. It does not crash. It does not
+produce garbage. It produces a number nobody would question.
 
 So VisBench does not distribute weights. It distributes weights *plus the
 identity they are valid against*, and refuses a load that does not match.
+
+## Use one without training
+
+Trained heads for the DINOv2 backbones are published as a collection:
+
+**[huggingface.co/turhancan97 → collections](https://huggingface.co/turhancan97/collections)**
+
+```python
+import visbench
+from visbench.hub import load_probe_from_hub
+
+backbone = visbench.get_backbone("dinov2_vits14")
+probe = load_probe_from_hub("turhancan97/visbench-depth-dinov2_vits14", backbone=backbone)
+```
+
+One repository per (probe, backbone) pair — a head fitted on one backbone is
+refused against any other, so pairing them in one repository would publish a
+file that is wrong for half its contents. The three zero-shot probes are not
+published: retrieval, correspondence and mid-level similarity train nothing,
+and the backbone alone reproduces their numbers.
 
 ## Install
 
@@ -65,6 +85,38 @@ runs all of this on real weights, and **does not upload unless you pass
 what would go out. Its `--pull` mode does the other half.
 [`examples/save_probe.py`](https://github.com/turhancan97/VisBench/blob/main/examples/save_probe.py)
 covers the local file and demonstrates the mismatch above.
+
+## Publishing a set of them
+
+The command line pushes what it just trained:
+
+```bash
+visbench run depth --data ... --push-to you/visbench-depth-dinov2_vits14 --public
+```
+
+That flag exists so the artifact and the record come from **one** command. A
+head is only meaningful against the features it was fitted on, and those are
+decided by the run's flags — a separate publishing step is free to drift from
+them, and a head trained under drifted flags uploads, loads and scores without
+complaint.
+
+For a whole board,
+[`scripts/build_corpus.sh`](https://github.com/turhancan97/VisBench/blob/main/scripts/build_corpus.sh)
+already holds every probe's flags in one place, so it takes an owner:
+
+```bash
+PUSH_TO=you PUSH_PUBLIC=1 scripts/build_corpus.sh          # every probe
+PUSH_TO=you DRY_RUN=1 scripts/build_corpus.sh              # print, run nothing
+```
+
+and
+[`scripts/publish_collection.py`](https://github.com/turhancan97/VisBench/blob/main/scripts/publish_collection.py)
+groups the results into one collection (`--create` to do it; dry run otherwise).
+
+**Push public for anything you intend to share.** The default is private, which
+is right for a push you are still checking and wrong for a collection: private
+repositories render the collection page empty to everyone but you, which reads
+as broken rather than as a permissions choice.
 
 ## What is checked on load
 

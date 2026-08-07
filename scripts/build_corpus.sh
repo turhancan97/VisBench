@@ -24,6 +24,26 @@
 #   DRY_RUN=1 scripts/build_corpus.sh       # print the commands, run nothing
 #
 # Set BACKBONES to widen or narrow the matrix.
+#
+# PUBLISHING THE TRAINED HEADS
+#
+#   PUSH_TO=your-hf-name scripts/build_corpus.sh depth edge
+#
+# appends `--push-to your-hf-name/visbench-<probe>-<backbone>` to every command,
+# so the same run that produces a record also uploads the head it trained. The
+# repositories are **private** unless PUSH_PUBLIC=1.
+#
+# Publishing from this script rather than a second one is deliberate: a probe
+# head is only meaningful against the exact features it was fitted on, and the
+# flags here are what fitted them. A separate publish script would be a second
+# copy of every dataset flag, free to drift from the one that produced the
+# numbers in the corpus -- and a head trained under drifted flags uploads,
+# loads and scores without complaint.
+#
+# Zero-shot probes are skipped when pushing: retrieval, correspondence and
+# similarity train nothing, so there is no head to share.
+#
+#   PUSH_TO=you DRY_RUN=1 scripts/build_corpus.sh   # see exactly what would go out
 
 set -euo pipefail
 
@@ -38,6 +58,12 @@ NYU=/shared/sets/datasets/vision/probing_3D/nyuv2_new
 RESULTS=${RESULTS:-results/corpus/visbench.jsonl}
 BACKBONES=${BACKBONES:-"dinov2_vits14 dinov2_vitb14"}
 DRY_RUN=${DRY_RUN:-}
+
+# Hub owner to publish the trained heads under; empty means publish nothing.
+# Uploading is opt-in for the same reason `visbench run` needs --push-to: a
+# push is not reversible the way a local write is.
+PUSH_TO=${PUSH_TO:-}
+PUSH_PUBLIC=${PUSH_PUBLIC:-}
 
 # Where the feature cache lives. Left unset, `visbench run` defaults to
 # ./.visbench_cache, which on this machine is under a 60 GB NFS home quota that
@@ -59,21 +85,41 @@ DETECTION_LIMIT=600
 
 mkdir -p "$(dirname "$RESULTS")"
 
+# Probes that fit nothing. `visbench run --push-to` refuses these before it
+# runs, which is the right behaviour for a typed command and the wrong one for
+# a loop: a hard failure here would abandon the probes after it.
+ZERO_SHOT="retrieval correspondence similarity"
+
 run() {
   local probe=$1; shift
   local cache_args=()
   [[ -n "$VISBENCH_CACHE" ]] && cache_args=(--cache "$VISBENCH_CACHE")
 
+  local push_args=()
+  if [[ -n "$PUSH_TO" ]]; then
+    if [[ " $ZERO_SHOT " == *" $probe "* ]]; then
+      echo "--- $probe: zero-shot, nothing to push (still recording it)" >&2
+    else
+      push_args=(--push-to "PLACEHOLDER")
+      [[ -n "$PUSH_PUBLIC" ]] && push_args+=(--public)
+    fi
+  fi
+
   for backbone in $BACKBONES; do
     echo "=== $probe / $backbone"
+    # The repo id carries both halves of the identity, because that is what a
+    # visitor needs before the weights mean anything -- and one repo per pair,
+    # since a head fitted on one backbone is refused against any other.
+    [[ ${#push_args[@]} -gt 0 ]] && push_args[1]="$PUSH_TO/visbench-$probe-$backbone"
+
     if [[ -n "$DRY_RUN" ]]; then
-      echo "visbench run $probe --backbone $backbone $* ${cache_args[*]} --results $RESULTS"
+      echo "visbench run $probe --backbone $backbone $* ${cache_args[*]} ${push_args[*]} --results $RESULTS"
       continue
     fi
     # Deliberately not `set -e`-fatal: one probe failing should not discard the
     # runs already appended. The summary at the end reports what is missing.
     visbench run "$probe" --backbone "$backbone" "$@" \
-      "${cache_args[@]}" --results "$RESULTS" || \
+      "${cache_args[@]}" "${push_args[@]}" --results "$RESULTS" || \
       echo "!!! FAILED: $probe / $backbone" >&2
   done
 }

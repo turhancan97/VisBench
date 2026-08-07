@@ -25,6 +25,21 @@ so it stands on its own rather than assuming you have read the ones above it.
   default, and what is refused (zero-shot probes, unfitted probes, artifacts
   from a newer `ARTIFACT_VERSION`) before anything is created.
 
+- **`visbench run --push-to REPO_ID` publishes the head it just trained**, with
+  `--public` to override the private default. One command produces the record
+  and the artifact, which is the point: a head is only meaningful against the
+  features it was fitted on, and those are decided by the run's own flags. A
+  separate publishing step is free to drift from them, and a head trained under
+  drifted flags uploads, loads and scores without complaint.
+
+  A zero-shot probe is refused **before** the run rather than by `save_probe`
+  afterwards — the same error either way, but one of them costs the whole run.
+
+- **`scripts/build_corpus.sh` takes `PUSH_TO`**, so a whole board can be
+  published from the file that already holds every probe's flags rather than a
+  second copy of them, and `scripts/publish_collection.py` groups the results
+  into one Hugging Face collection. Neither uploads without an explicit flag.
+
 ### Changed
 
 - `docs/index.md` said twelve probes in two places. There are thirteen.

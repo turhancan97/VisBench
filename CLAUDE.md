@@ -171,6 +171,18 @@ The CLI exposes all thirteen probes: `visbench list`, `visbench run <probe>`,
 CLI's table and `list_probes()` are the same set, so a probe cannot ship
 unreachable from a shell by accident.
 
+**`visbench run --push-to REPO_ID` publishes the head it just trained**
+(`--public` overrides the private default), and `scripts/build_corpus.sh` takes
+`PUSH_TO` / `PUSH_PUBLIC` so a whole board is published from the file that
+already holds every probe's flags. **Publishing from the run, not from a second
+script, is the design**: a head is only meaningful against the features it was
+fitted on, and the run's flags are what fitted them — a separate publish step is
+a second copy of every dataset flag, free to drift, and a head trained under
+drifted flags uploads, loads and scores without complaint. The CLI refuses a
+zero-shot probe *before* the run; `save_probe` would raise the same thing after
+it, having spent the whole run to do so. `scripts/publish_collection.py` groups
+the pushed repositories into one collection, dry-run unless `--create`.
+
 Package version is `0.8.0`, and it is **on PyPI: uploaded 2026-08-07 at
 09:42 UTC**, wheel and sdist both (284 KB and 703 KB), tagged `v0.8.0` on
 `574e792`. **Checked so far through the JSON API only** — version, upload
