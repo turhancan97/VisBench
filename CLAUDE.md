@@ -75,13 +75,15 @@ number — every measurement v0.6.1 reported, v0.7.0 reports identically.
 
 ## Current state
 
-**v0.1 through v0.6 are all complete, and every numbered step in the build table
+**v0.1 through v0.8 are all complete, and every numbered step in the build table
 is done.** Every task, all three backbone families, the CLI, fine-tuning,
 detection, the low-level probes, the leaderboard and probe sharing. Everything
 below exists, is tested, and is on `main`. v0.4.0 filled the low-level tier;
 v0.5.0 was the `mask_valid` release; **v0.6.0 is the leaderboard release**
-(2026-08-02), and **v0.6.1 corrects the correspondence board it shipped ranked
-upside down** — see step 6f.
+(2026-08-02), **v0.6.1 corrects the correspondence board it shipped ranked
+upside down** — see step 6f — v0.7.0 is the contributor-facing release that
+changes no number, and **v0.8.0 (2026-08-07) is the corner probe**, steps 8a and
+8b together.
 
 **There is no `next` step.** The remaining work is the candidate task backlog
 further down this file — and the cheapest items there need no new dataset at
@@ -93,7 +95,8 @@ computed from the image rather than downloaded, so `visbench/data/derived.py`
 is a new kind of dataset here and the low-level tier now has three entries.
 **8b put it in the corpus**: six records on a pinned frame set, a generated
 board replacing 8a's hand-written table, and `scripts/stage_corner_frames.py`
-to reconstruct the frames. Both are unreleased; v0.7.0 is what is on PyPI.
+to reconstruct the frames. **Both shipped together as v0.8.0**, which is what is
+on PyPI.
 
 **Between v0.6.1 and v0.7.0 the work was contributor-facing, not measurement**
 (7a-7e).
@@ -168,28 +171,38 @@ The CLI exposes all thirteen probes: `visbench list`, `visbench run <probe>`,
 CLI's table and `list_probes()` are the same set, so a probe cannot ship
 unreachable from a shell by accident.
 
-Package version is `0.7.0`, and it is **on PyPI: uploaded 2026-08-06 at
-15:57 UTC**, wheel and sdist both (266 KB and 665 KB). Verified the way v0.6.1
-was — the wheel downloaded, put on `sys.path` and *imported* — because v0.7.0's
-content is a command and a docs extra, neither of which a version number shows:
-`__version__ = "0.7.0"`, `SCHEMA_VERSION = 7`, `ARTIFACT_VERSION = 1`, twelve
-probes, six backbones, `demo` among the CLI's four commands, `visbench.demo`
-exporting `SHAPES`/`synthesise`/`demo_backbone`, and `get_probe("correspondence")`
-still reporting `threshold_units="pixel"` so v0.6.1's fix survived the release.
-METADATA confirms the new `docs` extra (sphinx, furo, myst-parser,
-sphinx-copybutton), `huggingface-hub` still only under `hub` and `all`, and a
-README whose links are all absolute and which carries the DOI badge.
+Package version is `0.8.0`, and it is **on PyPI: uploaded 2026-08-07 at
+09:42 UTC**, wheel and sdist both (284 KB and 703 KB), tagged `v0.8.0` on
+`574e792`. **Checked so far through the JSON API only** — version, upload
+times, artifact sizes, and a published README carrying the concept DOI
+`10.5281/zenodo.21822684` and no other. **The wheel has not been downloaded and
+imported**, which is the standing bar every release since v0.6.0 has met; do
+that before treating v0.8.0 as verified. What it should show: `__version__ =
+"0.8.0"`, `SCHEMA_VERSION = 7`, `ARTIFACT_VERSION = 1`, **thirteen** probes with
+`corner` among them, six backbones, and `visbench.data.derived` exporting
+`ShiTomasiResponse`/`DerivedTargetDataset`.
 
-**One finding worth more than the verification itself: the uploaded artifact is
-one commit ahead of the `v0.7.0` tag.** The tag is `39e0495`; the wheel was
-built from `main` after `7ee0d07`, so `git show v0.7.0:README.md` has no DOI and
-the published README does. Harmless here — that commit touched only README,
-`CITATION.cff`, `docs/`, a test and the changelog, no code and no dependency, so
-the wheel is strictly the better artifact. But it is the standing "a tag is not
-what is installable" rule arriving from the *benign* direction, which is the
-direction that trains you to stop checking. **Do not fix it by moving the tag**:
-a PyPI version can never be re-uploaded and the Zenodo archive is already
-permanent, so a moved tag would disagree with both. The next release closes it.
+**The tag-versus-artifact gap recurred, in the other direction this time.**
+`main` is one commit ahead of `v0.8.0` — `48571bd`, the DOI badge fix — and that
+commit landed at 09:50 UTC, **eight minutes after the 09:42 upload**, so unlike
+v0.7.0 the extra commit is *not* in the wheel. It is one line of README, no
+code, and it reaches PyPI with the next release; its own commit message says so.
+Two consecutive releases have now had `main`, the tag and the wheel disagree
+benignly, which is precisely the direction that trains you to stop checking.
+**Do not fix either by moving a tag**: a PyPI version can never be re-uploaded
+and the Zenodo archive is permanent, so a moved tag would disagree with both.
+
+The upload before it was **v0.7.0 on 2026-08-06 at 15:57 UTC**, wheel and sdist
+(266 KB and 665 KB). Verified the way v0.6.1 was — the wheel downloaded, put on
+`sys.path` and *imported* — because v0.7.0's content is a command and a docs
+extra, neither of which a version number shows: `__version__ = "0.7.0"`, twelve
+probes, `demo` among the CLI's four commands, and `get_probe("correspondence")`
+still reporting `threshold_units="pixel"` so v0.6.1's fix survived the release.
+METADATA confirmed the `docs` extra (sphinx, furo, myst-parser,
+sphinx-copybutton) and `huggingface-hub` still only under `hub` and `all`. Its
+uploaded artifact was one commit *ahead* of the `v0.7.0` tag (`39e0495`), built
+from `main` after `7ee0d07`, so `git show v0.7.0:README.md` has no DOI and the
+published README does — harmless, and the first half of the pattern above.
 
 The upload before it was **v0.6.0 on 2026-08-02**
 ([PyPI](https://pypi.org/project/visbench/)) — wheel and sdist both (276 KB and
@@ -713,10 +726,10 @@ designed up front; extend it the same way, from a case that already runs.
 
 ### Open issues — read before assuming a red suite is your fault
 
-**Every issue below is closed; the tracker is empty as of 2026-08-06.** The
-four local commands were re-run on 2026-08-06 and are green: **1378 fast
-tests** and the three lint steps, plus `uv lock --check`. The 79 slow tests are
-green too, on that morning's nightly rather than locally. If anything is red for
+**Every issue below is closed; the tracker was empty as of 2026-08-06.** The
+fast suite is **1408 tests** and green on 2026-08-07, after v0.8.0; the three
+lint steps and `uv lock --check` were green on 2026-08-06, as were the 79 slow
+tests, on that morning's nightly rather than locally. If anything is red for
 you, that is new — do not go looking for a known cause here.
 
 The entries are kept because each one records a *class* of failure this
@@ -2242,7 +2255,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 1378 fast tests
+pytest                                              # 1408 fast tests
 pytest -m slow                                      # 79, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/
 ruff format --check visbench/ tests/ conftest.py examples/

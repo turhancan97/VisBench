@@ -48,6 +48,21 @@ This is a multi-month roadmap, built one reviewed step at a time.
 - [x] **6d-2.** `mask_valid/`, so the reconstruction-derived Taskonomy domains
       can be read at all; 2D keypoints and occlusion edges on the lifted
       `DenseMagnitudeTask`
+- [x] **6e.** the leaderboard and probe sharing, in five parts: the
+      comparability rules as pure functions, a committed record corpus covering
+      every probe against every backbone, the renderer that generates the
+      published tables from it, a serialised probe artifact carrying the
+      backbone identity beside the weights, and the Hub transport behind a
+      `[hub]` extra
+- [x] **6f.** correspondence scored in pixels rather than patch widths — a unit
+      change that inverted the published board
+- [x] **7a–7e.** the contributor-facing surface, shipping no new number:
+      `visbench demo`, the README reorganised around a reader with `docs/` split
+      out of it, `CONTRIBUTING.md` and the issue/PR templates, the Sphinx site
+      and its workflow, and citation metadata with a DOI
+- [x] **8a–8b.** corner detection — the first probe whose target is *computed*
+      from the image rather than downloaded, then put into the record corpus on
+      a frame set a script pins and reconstructs
 
 ## Roadmap
 
@@ -61,7 +76,19 @@ This is a multi-month roadmap, built one reviewed step at a time.
 
 **v0.5** — Taskonomy's `mask_valid/` and the four domains it unblocks *(done)*, 2D keypoint detection *(done)*, occlusion-edge detection *(done)*.
 
-**Next** — HF Hub probe sharing and a public leaderboard.
+**v0.6** — the leaderboard: comparability rules, a committed record corpus, and
+generated tables *(done)*; HF Hub probe sharing *(done)*. **v0.6.1** corrects
+the correspondence board it shipped, which was ranked upside down by a
+backbone-dependent threshold unit.
+
+**v0.7** — the contributor-facing surface: `visbench demo`, the reorganised
+README, `CONTRIBUTING.md`, the documentation site, and a citable DOI *(done)*.
+Every measurement v0.6.1 reported, v0.7.0 reports identically.
+
+**v0.8** — corner detection, the first probe whose target is computed from the
+image rather than downloaded *(done)*.
+
+**Next** — there is no committed next step. What follows is a candidate pool.
 
 ## Future directions
 
@@ -78,13 +105,32 @@ magnitude map.
 
 No new dataset. Taskonomy's `edge_texture` is already a target *computed from
 the RGB frame*, and the same is true of these, so a target generator plus a
-`DenseMagnitudeTask` subclass is most of the work.
+`DenseMagnitudeTask` subclass is most of the work. The `corner` probe (v0.8)
+is the worked example — read `visbench/data/derived.py` and
+`visbench/tasks/low_level/corner.py` before starting one of these.
 
 | Task | Level | Note |
 |---|---|---|
-| Corner / blob detection (Harris, DoG) | low | Classical-target counterpart to the learned `keypoints2d` response maps |
-| Local orientation / gradient fields (structure tensor, HOG-style) | low | Vector-valued rather than magnitude; closer to surface normals in shape |
+| Local orientation / gradient fields (structure tensor, HOG-style) | low | Vector-valued rather than magnitude, so it needs more than a `DenseMagnitudeTask` subclass; closer to surface normals in shape |
 | Superpixel / texture segmentation | low | Grouping by local photometric similarity alone, no figure-ground reasoning |
+| Blob detection (DoG, LoG) | low | The scale-space counterpart to `corner`'s single-scale cornerness |
+
+Three things a derived target has to establish before it is worth shipping,
+none of which a probe run reveals on its own — all three cost real time on the
+corner probe:
+
+1. **Check the response's tail** before assuming the magnitude protocol
+   transfers. A target with too much mass in its strongest 1% of pixels scores
+   badly and ranks nothing.
+2. **Check the overlap with what already ships.** Cornerness correlates 0.52
+   with `edge_texture`, which is higher than any two shipped targets correlate
+   with each other.
+3. **A correlated target still earns its place if it *ranks* differently**, and
+   that — not the absolute score — is the criterion.
+
+Compute the target *after* the crop. There is then no second geometry and no
+resampling of the response, which deletes the alignment hazard every other
+dense probe has to test for.
 
 ### Reachable with data already common
 
@@ -127,5 +173,9 @@ Worth naming so they are not re-scoped from scratch:
   step of its own — not a dataset swap.
 - **Occlusion-edge detection** (v0.5) already covers the depth-discontinuity
   half of contour detection, at mid level.
+- **Corner detection** is implemented (v0.8) as Shi-Tomasi cornerness computed
+  from the RGB frame — λ_min rather than Harris's `R`, because it is
+  non-negative by construction and has no `k` to record. Blob detection is
+  still open, and is the scale-space rather than single-scale question.
 - **Texture / reflectance** overlaps with intrinsic decomposition above.
   Taskonomy ships no reflectance domain, so `mask_valid/` did not unblock it.
