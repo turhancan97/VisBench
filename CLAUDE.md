@@ -63,6 +63,7 @@ step is next rather than attempting the whole roadmap in one session.
 | 7d | The documentation site: Sphinx, the theme, and the `Docs` workflow | done |
 | 7e | Citation metadata: `CITATION.cff`, `.zenodo.json`, and a DOI | done |
 | 8a | Corner detection — the first target computed rather than downloaded | done |
+| 8b | Corner in the corpus: a pinned frame set, and a generated board | done |
 
 Steps 7a-7e ship no new probe, backbone or metric. They are the **contributor-
 facing surface**: the shortest path from `pip install` to a number, where the
@@ -90,7 +91,9 @@ backlog's order is a plan.
 **Step 8a added the thirteenth probe**, `corner` — the first whose target is
 computed from the image rather than downloaded, so `visbench/data/derived.py`
 is a new kind of dataset here and the low-level tier now has three entries.
-It is unreleased; v0.7.0 is what is on PyPI.
+**8b put it in the corpus**: six records on a pinned frame set, a generated
+board replacing 8a's hand-written table, and `scripts/stage_corner_frames.py`
+to reconstruct the frames. Both are unreleased; v0.7.0 is what is on PyPI.
 
 **Between v0.6.1 and v0.7.0 the work was contributor-facing, not measurement**
 (7a-7e).
@@ -108,13 +111,15 @@ GitHub, Zenodo archived it, and the concept DOI is
 reached PyPI on 2026-08-06**, verified out of the wheel; see below.
 
 **What v0.6.0 changed, in one paragraph.** `results/corpus/visbench.jsonl` is a
-committed corpus of 72 records — twelve probes against six backbones, twelve
-comparability groups each holding all six. `visbench/results/leaderboard.py`
+committed corpus — 72 records when it shipped, **78 since 8b added `corner`** —
+of every probe against six backbones, one comparability group each and every
+group holding all six. `visbench/results/leaderboard.py`
 holds the rules for which records may be ranked together and
-`visbench/results/render.py` turns an answer into markdown; nine marker-
+`visbench/results/render.py` turns an answer into markdown; **ten** marker-
 delimited tables and `LEADERBOARD.md` are generated from the corpus, and a
-**fast** test fails if either drifts. (Those nine were in the README when
-v0.6.0 shipped; 7b moved them to `docs/tasks.md`.) `visbench/hub/` serialises a
+**fast** test fails if either drifts. (Nine of those were in the README when
+v0.6.0 shipped; 7b moved them to `docs/tasks.md`, and corner's joined them in
+8b.) `visbench/hub/` serialises a
 trained head with the backbone identity beside it and moves it to and from the
 Hugging Face Hub behind a `[hub]` extra. Schema is **v7** — `pooling_requested`, because keying
 comparability on resolved pooling could never rank a CNN against a ViT.
@@ -612,12 +617,31 @@ designed up front; extend it the same way, from a case that already runs.
 
 - **A probe that runs on any folder cannot have a leaderboard without a chosen
   folder** (8a). This is the cost of a derived target and it is not obvious from
-  the API: `corner`'s numbers are in `docs/tasks.md` as a **hand-written** table,
-  not a generated board, because the committed corpus holds records anyone can
-  re-rank and that requires identifiable data. Two people's corner numbers are
-  comparable only if they ran the same images. Choosing a canonical image set is
-  a decision in its own right and **has not been made** — do not add corner
-  records to `results/corpus/` without making it.
+  the API: two people's corner numbers are comparable only if they ran the same
+  images, and nothing in the probe pins which. **The set chosen is Taskonomy
+  tiny, the first 600 rows of each split list — the same frames `probe_edge`
+  reads** — and `scripts/stage_corner_frames.py` is what makes them readable,
+  symlinking the building-nested RGB frames into the flat `<split>/images/`
+  layout `DerivedTargetDataset` expects. `build_corpus.sh` skips the probe with
+  an actionable message if that folder is absent, as it already did for
+  `generic_segmentation`'s binarised masks.
+
+  **Shared frames are the point, not a convenience.** The corner target
+  correlates 0.52 with `edge_texture`; the claim that earns the probe its place
+  is that the two nonetheless rank backbones differently. That is exact only on
+  identical pixels, so the staging is verified **set-equal** to the edge
+  probe's 600 rather than assumed equal.
+
+  **Symlinks, not copies**: `cache_identity` keys on path, size and mtime, and a
+  symlink reports its target's, so a staged frame and the original share one
+  feature-cache entry instead of doubling the cache.
+
+  The cost of getting this wrong was demonstrated rather than argued: 8a's
+  numbers were produced on an ad-hoc staging that was never committed, so the
+  six published figures had **no surviving records** — 6e-2's exact failure,
+  recurring on the newest probe two steps after that step ended it. The
+  regenerated corpus reproduces all six to four decimals, which is what
+  retired the hand-written table.
 
 - **The docs build runs `-W` with `nitpicky = False`, and both halves are
   load-bearing** (7d). Many of the 371 cross-references are bare (`` :meth:`fit`

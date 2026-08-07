@@ -11,6 +11,31 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Added
 
+- **The corner probe is in the record corpus, on a pinned frame set.** Six new
+  records take `results/corpus/visbench.jsonl` to 78 — thirteen probes against
+  six backbones, thirteen comparability groups each holding all six — and the
+  hand-written table in `docs/tasks.md` is replaced by a generated board that
+  the fast suite fails on if it drifts.
+
+  A probe whose target is computed runs on any folder, which is its selling
+  point and, for a leaderboard, its problem: two corner numbers are comparable
+  only if they ran the same images. New `scripts/stage_corner_frames.py` pins
+  which — the first 600 rows of each Taskonomy `tiny` split list, symlinked into
+  the flat `<split>/images/` layout, **verified set-equal to the frames the edge
+  probe reads**. That equality is what makes the published cross-probe claim
+  exact: the two targets correlate at 0.52, and the reason the corner probe
+  earns its place is that they nonetheless rank backbones differently.
+
+  Symlinks rather than copies, because `cache_identity` keys on path, size and
+  mtime and a symlink reports its target's — so staged and original frames share
+  one feature-cache entry. `scripts/build_corpus.sh` gained `probe_corner`,
+  which skips with an actionable message when the staged folder is absent,
+  following `generic_segmentation`'s precedent.
+
+  All six regenerated numbers reproduce the previously published ones to four
+  decimals, through a staging path that shares no code with the ad-hoc one that
+  produced them.
+
 - **Corner detection (`corner`), the thirteenth probe and the first whose target
   needs no dataset.** Shi-Tomasi cornerness — the smaller eigenvalue of the
   Gaussian-windowed structure tensor — computed from the RGB frame at read time
