@@ -66,6 +66,28 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 - `docs/index.md` said twelve probes in two places. There are thirteen.
 
+- **Detection's reported precision is three decimals, not four.** The probe has
+  never reproduced to four, and the reason turned out not to be a defect. Every
+  probe's training is non-deterministic on GPU — `conv2d` backward accumulates
+  atomically, giving head weights that differ by ~7.5e-09 between two runs from
+  the same seed — but detection is the only probe whose metric can see it.
+  Twelve probes report continuous averages over ~10^5 pixels, where independent
+  noise averages down and never reaches the fourth decimal. Average precision is
+  a discrete ranking over ~50,000 detections with hard thresholds at 0.05 and
+  0.5, and a ranking has no averaging to do.
+
+  Measured on one V100 with the corpus flags: two back-to-back runs scored
+  `map_50` 0.228834 and 0.229836, with `detections_per_image` moving 83.0033 to
+  83.0200 — roughly ten of 49,800 detections crossing the score threshold.
+  Under `torch.use_deterministic_algorithms(True)` two runs are identical to
+  six decimals on every metric, which is what pins the cause to the kernels.
+
+  **No number changed and the corpus is untouched.** Its 0.229080 is one draw
+  from a distribution about 1e-3 wide, and both reruns bracket it. The
+  determinism flags are deliberately *not* set: they would make one machine
+  agree with itself without making two machines agree, at the cost of a
+  one-time change to every published detection number.
+
 ## [0.8.0] — 2026-08-07
 
 **The thirteenth probe, and the first whose target VisBench computes rather than
