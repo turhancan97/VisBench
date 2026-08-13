@@ -170,6 +170,18 @@ Two things that are protocol rather than detail:
 - **`classes_scored` is mAP's real denominator.** A class with no non-difficult
   objects in the split has undefined AP and is excluded rather than scored 0.
   Check it matches before comparing two runs.
+- **Quote detection to three decimals, not four.** Every VisBench number is
+  deterministic given its seed except this one. Training on a GPU is not
+  bit-reproducible — convolution backward accumulates atomically, so two runs
+  from the same seed give head weights differing by ~7.5e-09 — and detection is
+  the only probe whose metric can resolve that. The other twelve report
+  continuous averages over ~10^5 pixels, where independent noise averages down;
+  average precision is a discrete ranking over ~50,000 detections with hard
+  thresholds, so a handful of borderline detections flip in or out instead.
+  Measured: two back-to-back runs scored `map_50` 0.228834 and 0.229836, with
+  `detections_per_image` moving by about ten detections out of 49,800. The
+  spread is roughly **1e-3**, the backbone ordering is unaffected, and the board
+  above is one draw from it.
 
 ## Edge detection
 

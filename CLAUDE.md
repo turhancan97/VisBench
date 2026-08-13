@@ -97,9 +97,11 @@ moved and no version was bumped, so PyPI is still 0.8.0.
 **There is no `next` step.** The remaining work is the candidate task backlog
 further down this file — and the cheapest items there need no new dataset at
 all. Re-confirm what is wanted before starting anything; do not assume the
-backlog's order is a plan. One known-open thread, small: `detection` is the only
-probe that does not reproduce to four decimals, twice now, and nobody has found
-out why.
+backlog's order is a plan. **The one thread that was open — why `detection`
+alone fails to reproduce — is closed as of 2026-08-13**: it is GPU
+non-determinism made visible by a discrete metric, it was never a bug, and
+detection reproduces to *three* decimals rather than four. See the bullet in
+"decisions already paid for" for the measurements.
 
 **Step 8a added the thirteenth probe**, `corner` — the first whose target is
 computed from the image rather than downloaded, so `visbench/data/derived.py`
@@ -647,11 +649,63 @@ designed up front; extend it the same way, from a case that already runs.
   the bug had inverted (`edge` S, `keypoints2d` S, `corner` B). The two
   exceptions are both `detection`, and only in the fourth decimal: `map_50`
   0.2291 against the corpus's 0.2285 on ViT-S, 0.2897 against 0.2895 on ViT-B,
-  with the S-versus-B ordering unmoved. **That is now twice detection alone has
-  failed to reproduce** — see 6e-2, where it missed 6c-3's published pair by far
-  more. Every other probe is exact to four decimals both times, so this is a
-  property of that probe rather than of the machine, and it is unexplained. Do
-  not quote a detection number to four decimals until it is.
+  with the S-versus-B ordering unmoved. That is a property of the detection
+  probe and not of the seeding fix — **diagnosed 2026-08-13, see the next
+  bullet.**
+
+- **`detection` does not reproduce to four decimals, it never did, and there is
+  nothing to fix** (2026-08-13). It was recorded as an open mystery through two
+  releases. The answer is that *every* probe's training is non-deterministic on
+  GPU and detection is the only one whose metric can see it.
+
+  Measured on one V100, in this order, each step ruling out the obvious answer
+  before reaching for the next:
+
+  | measurement | result |
+  | --- | --- |
+  | head weights, same seed, twice | differ by **7.5e-09** — CUDA `conv2d` backward accumulates atomically |
+  | the same under `use_deterministic_algorithms(True)` | **bit-identical** |
+  | real detection probe, corpus flags, run twice | `map_50` **0.228834** then **0.229836** |
+  | the same with deterministic kernels | **0.229867 both times**, every metric identical to six decimals |
+
+  **`detections_per_image` is the tell**: 83.0033 against 83.0200 against the
+  corpus's 83.0333. That is a *count* — about ten detections out of 49,800
+  appear or vanish between runs as borderline cells cross the 0.05 score
+  threshold. Nothing drifts smoothly; individual detections flip.
+
+  **Why detection alone.** mIoU, Pearson correlation and angular error are
+  continuous averages over ~10^5 pixels, so an independent 1e-8 perturbation
+  averages *down* and never reaches the fourth decimal. Average precision is a
+  **discrete ranking** over ~50,000 detections with hard thresholds at 0.05
+  (score) and 0.5 (IoU). A ranking has no averaging to do. So the same noise
+  every probe pays is attenuated by twelve metrics and amplified by one.
+
+  **The corpus number is not wrong.** 0.229080 is one draw from a distribution
+  roughly 1e-3 wide, and the two fresh runs bracket it. Do not "correct" the
+  corpus toward any single rerun.
+
+  Four things it is **not**, each excluded by measurement rather than argument:
+  *version* (the corpus record is v0.5.0 and both reruns are v0.8.0, the only
+  differing field — but the two v0.8.0 runs disagree with each other by more
+  than either disagrees with the corpus); *TF32 or GPU generation* (`.venv`
+  resolves only on `dgx1`/`dgx2`, which are V100s with no TF32 hardware, so
+  every run this venv has ever done used identical arithmetic); *the metric*
+  (both sorts are already `stable=True` and the matching follows `VOCevaldet.m`
+  with no tie-break left to chance); and *seeding* (that was the `--push-to`
+  bug, already fixed, and it moves a number far more than 1e-3).
+
+  **Do not set the determinism flags to "fix" this.** They would make one
+  machine agree with itself while still not making two machines agree, and
+  buying that costs a one-time change to every published detection number in a
+  committed corpus. Quote detection to **three** decimals instead.
+
+  A methodological note worth keeping, because it nearly ended the
+  investigation early: a synthetic proxy for this said average precision was
+  *insensitive* to perturbations below 1e-4, which read as a refutation. The
+  toy task was simply too well-behaved — real DINOv2 features give a far
+  stiffer loss landscape and a much larger divergence over 750 steps. **When a
+  synthetic experiment contradicts a real disagreement, suspect the proxy
+  before the hypothesis.**
 - **Verify with the exact commands CI runs** (below). A local env with extra
   packages installed will pass checks that CI fails.
 - **A guard whose only test is `slow` is a guard CI never runs.** `addopts`
@@ -1374,7 +1428,12 @@ below.
   difference is **not in any field a record carries**, and the original command
   was never committed so it cannot be diffed. The ordering (B > S) is unchanged
   and the corpus number is the reproducible one. Do not "correct" the corpus
-  toward the published pair.
+  toward the published pair. **Partly explained as of 2026-08-13** — detection
+  is non-deterministic on GPU at roughly 1e-3 in `map_50`, see the bullet in
+  "decisions already paid for". That accounts for a fourth-decimal wobble but
+  **not** for the 0.0175 gap against 6c-3, which is an order of magnitude
+  larger and remains unexplained; the difference there is still in something no
+  record carries.
 - **`edge` disagrees with itself three ways, not two.** 6e-1 knew about
   `(edge_correlation, mae)`; the corpus added `(mae, rmse)` — MAE ranks
   DINOv2-B first while RMSE ranks DINOv2-S first. One probe, three metrics,
@@ -1415,6 +1474,28 @@ points at the wrong file entirely. The sbatch guards both. The feature cache
 lives at `/shared/results/common/kargin/visbench_cache` via `VISBENCH_CACHE`,
 because `/home` is under a 60 GB quota and exhausting it mid-array surfaces as
 an unrelated exception several steps later.
+
+**Four more, each of which cost a submission on 2026-08-13.** They are cheap
+individually and none of them fails in a way that names its own cause.
+
+- **`dgx1`/`dgx2` are the *only* nodes where `.venv` resolves.** The rule above
+  is narrower than it reads: it is not "avoid dgxh100", it is "dgx and nothing
+  else". `rtx4090`'s `c22` fails identically (`No such file or directory`, exit
+  127), and the login shell can be on `dgxh100` too, so `.venv/bin/python`
+  fails *interactively* before any job is submitted. Those nodes are **V100s**,
+  which is also why TF32 can never explain a number this project has produced.
+- **`srun -p dgx` inside an existing allocation silently ignores the
+  partition.** Within a job, `srun` creates a *step* in that job; the flag is
+  accepted and disregarded, and it sits printing "Requested nodes are busy"
+  against whatever node you are already on. `sbatch` is the only way out of an
+  allocation.
+- **`/tmp` is node-local.** A script or an `--output` path under `/tmp` exists
+  only on the submitting host, so the job fails **with no log at all** — the
+  one failure mode that leaves nothing to read. Put both under `$HOME`.
+- **`build_corpus.sh` needs `.venv/bin` on `PATH`, not just `.venv/bin/python`.**
+  It invokes the `visbench` console script, and the miss surfaces as
+  `visbench: command not found` from inside the script's own per-probe error
+  handler — which reports it as a *failed probe*, not a missing environment.
 
 `generic_segmentation` reads binary masks built by
 `scripts/binarise_voc_masks.py` from VOC's `SegmentationClass`. **Do not point
