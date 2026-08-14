@@ -113,6 +113,24 @@ def _add_show_common(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--no-cache", action="store_true", help="extract without using the cache")
     parser.add_argument("--seed", type=int, default=0)
+    # Correspondence only. Kept on the shared block rather than on that one
+    # subcommand because its `show_arguments` is its `add_arguments` -- nothing
+    # about a match is a training setting, so there is no second half to put
+    # these in without giving `run correspondence` two flags it would ignore.
+    parser.add_argument(
+        "--matches",
+        type=int,
+        default=40,
+        help="correspondence only: how many matches to draw per pair, sampled evenly "
+        "across the kept set rather than taking the most confident (default: 40)",
+    )
+    parser.add_argument(
+        "--threshold",
+        type=float,
+        default=5.0,
+        help="correspondence only: pixels within which a match is drawn green. "
+        "Defaults to 5, the probe's headline recall@5px",
+    )
     parser.add_argument("--quiet", action="store_true", help="print the output path only")
     parser.add_argument(
         "--traceback",
@@ -413,12 +431,26 @@ def _command_show(args: argparse.Namespace, out: Any) -> int:
         )
     indices = list(range(args.start, min(len(dataset), args.start + args.frames)))
 
-    predictions = None
-    if args.predict_from is not None:
-        predictions = _predictions(args, spec, dataset, indices, out)
-
-    class_names = getattr(dataset, "classes", None)
-    page = render_probe_panels(dataset, args.probe, indices, predictions, class_names)
+    probe = visbench.get_probe(args.probe, **spec.probe_kwargs(args))
+    if getattr(probe, "uses_pairs", False):
+        # Correspondence draws two views and the relation between them, not a
+        # target beside an image, so it has its own renderer. It also *always*
+        # needs a backbone: the matches are the thing being looked at, and they
+        # do not exist until features do.
+        if args.predict_from is not None:
+            raise ValueError(
+                f"{args.probe!r} is zero-shot: it trains nothing, so there is no saved "
+                "head to draw from. Drop --predict-from; the backbone alone produces "
+                "the matches."
+            )
+        page = _match_page(args, probe, dataset, indices, out)
+        predictions = None
+    else:
+        predictions = None
+        if args.predict_from is not None:
+            predictions = _predictions(args, spec, dataset, indices, out)
+        class_names = getattr(dataset, "classes", None)
+        page = render_probe_panels(dataset, args.probe, indices, predictions, class_names)
 
     destination = args.out if args.out is not None else Path(f"visbench-show-{args.probe}.png")
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -426,10 +458,49 @@ def _command_show(args: argparse.Namespace, out: Any) -> int:
 
     if not args.quiet:
         columns = "image, target, prediction" if predictions is not None else "image, target"
+        if getattr(probe, "uses_pairs", False):
+            columns = f"view 0 | view 1, matched within {args.threshold:g}px"
         print(f"{args.probe}: {len(indices)} frames from {args.data}", file=out)
         print(f"  columns: {columns}", file=out)
     print(f"{destination}", file=out)
     return 0
+
+
+def _match_page(
+    args: argparse.Namespace, probe: Any, dataset: Any, indices: list[int], out: Any
+) -> Any:
+    """Extract both views of the chosen pairs and draw the matches between them.
+
+    Uses the same flatten-and-regroup route ``run()`` does — ``PairViewDataset``
+    presents a pair's two views as ``2N`` single images, so the cache, its
+    identity memo and the batching all stay unchanged. Reimplementing the
+    pairing here would also lose ``view_identity``, without which a cached run
+    still decodes and warps every frame.
+    """
+    from visbench.data.pair_dataset import PairViewDataset
+    from visbench.viz import render_match_panels
+
+    if not args.quiet:
+        print(f"loading {args.backbone} and matching {len(indices)} pairs...", file=out)
+
+    backbone = visbench.get_backbone(args.backbone, device=args.device)
+    pairs = dataset.subset(indices)
+    views = FeatureCache(root=args.cache, enabled=not args.no_cache).materialise(
+        backbone,
+        PairViewDataset(pairs),
+        pooling=probe.pooling,
+        layers=probe.layers,
+        feature_mode=probe.feature_mode,
+        batch_size=args.batch_size,
+    )
+    return render_match_panels(
+        pairs,
+        probe,
+        PairViewDataset.regroup(views),
+        range(len(indices)),
+        threshold=args.threshold,
+        max_matches=args.matches,
+    )
 
 
 def _predictions(

@@ -266,9 +266,16 @@ visbench run corner --data ./frames --save-probe heads/corner.pt
 visbench show corner --data ./frames --predict-from heads/corner.pt --out corner.png
 ```
 
-Nine probes have a spatial target to draw. Invalid pixels are magenta, per each
-probe's own convention — there are four of them and none is visible in a
-tensor's shape. See
+```bash
+# correspondence draws both views and the matches between them
+visbench show correspondence --data ./images --backbone dinov2_vits14 --out matches.png
+```
+
+Ten probes can be drawn. Invalid pixels are magenta, per each probe's own
+convention — there are four of them and none is visible in a tensor's shape.
+The correspondence panel reports **coherence**, which separates a broken
+geometry (every error pointing the same way, ~1.0) from a weak backbone
+(scattered, ~0.3) — a distinction no recall figure can make. See
 [the guide](https://github.com/turhancan97/VisBench/blob/main/docs/show.md).
 
 Two flags worth knowing. `--batch-size` is the *extraction* batch;

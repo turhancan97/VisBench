@@ -34,8 +34,10 @@ from visbench.viz.colour import (
     target_to_rgb,
     voc_palette,
 )
+from visbench.viz.matches import draw_matches, error_coherence, render_match_panels
 from visbench.viz.panels import draw_boxes, render_panels, render_probe_panels
 from visbench.viz.styles import (
+    COMPOSITE_KINDS,
     TARGET_STYLES,
     TargetStyle,
     UnknownTargetStyle,
@@ -44,6 +46,7 @@ from visbench.viz.styles import (
 )
 
 __all__ = [
+    "COMPOSITE_KINDS",
     "INVALID_RGB",
     "TARGET_STYLES",
     "DisplayRange",
@@ -51,6 +54,9 @@ __all__ = [
     "UnknownTargetStyle",
     "display_range",
     "draw_boxes",
+    "draw_matches",
+    "error_coherence",
+    "render_match_panels",
     "render_panels",
     "render_probe_panels",
     "show_probes",

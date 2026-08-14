@@ -206,10 +206,32 @@ class CorrespondenceTask(BaseTask):
         """
         return [self.match(pair[0], pair[1]) for pair in features]
 
-    # -- scoring -------------------------------------------------------------
+    def match_details(self, features_0: Any, features_1: Any, geometry: dict) -> dict:
+        """Every kept match as points and errors, for one pair.
 
-    def _pair_errors(self, features_0: Any, features_1: Any, geometry: dict) -> torch.Tensor:
-        """Pixel error of every kept match for one pair."""
+        The per-match view of what :meth:`evaluate` pools. Returned as pixel
+        coordinates in the working frame, so a caller can draw them straight
+        onto the images the dataset yielded:
+
+        ``source``
+            ``(M, 2)`` patch centres in view 0 that survived the ratio test.
+        ``target``
+            ``(M, 2)`` centres in view 1 they were matched to.
+        ``expected``
+            ``(M, 2)`` where the geometry says each ``source`` point *should*
+            have landed in view 1. ``target`` minus this is the error vector.
+        ``errors_px``
+            ``(M,)`` distances in pixels, whatever ``threshold_units`` is.
+        ``errors``
+            ``(M,)`` the same in the configured unit — what is scored.
+
+        Split out of :meth:`_pair_errors`, which now calls it, so a rendered
+        panel and a reported number cannot disagree about which matches were
+        kept or how far off they were. Recomputing this alongside the scorer
+        would put a second copy of the geometry one edit away from drifting,
+        and a *drawing* that disagrees with the score is worse than none: it
+        would vouch for the number.
+        """
         if "homography" not in geometry:
             raise KeyError(
                 "v0.1 scores correspondence against a homography; geometry dict has "
@@ -217,8 +239,16 @@ class CorrespondenceTask(BaseTask):
             )
 
         source_idx, target_idx = self.match(features_0, features_1)
+        empty = torch.zeros(0, dtype=torch.float64)
         if len(source_idx) == 0:
-            return torch.zeros(0, dtype=torch.float64)
+            points = torch.zeros(0, 2, dtype=torch.float64)
+            return {
+                "source": points,
+                "target": points.clone(),
+                "expected": points.clone(),
+                "errors_px": empty,
+                "errors": empty.clone(),
+            }
 
         size = geometry["size"]
         grid_0 = self._grid_hw(features_0)
@@ -229,7 +259,20 @@ class CorrespondenceTask(BaseTask):
 
         # Where view 0's patch centres *should* land in view 1.
         expected = apply_homography(geometry["homography"], centres_0)
-        return self._scale((centres_1 - expected).norm(dim=1), grid_1, size)
+        errors_px = (centres_1 - expected).norm(dim=1)
+        return {
+            "source": centres_0,
+            "target": centres_1,
+            "expected": expected,
+            "errors_px": errors_px,
+            "errors": self._scale(errors_px, grid_1, size),
+        }
+
+    # -- scoring -------------------------------------------------------------
+
+    def _pair_errors(self, features_0: Any, features_1: Any, geometry: dict) -> torch.Tensor:
+        """Error of every kept match for one pair, in the configured unit."""
+        return self.match_details(features_0, features_1, geometry)["errors"]
 
     def _scale(self, errors: torch.Tensor, grid_hw: tuple, size: tuple) -> torch.Tensor:
         """Convert pixel errors to the configured unit.
