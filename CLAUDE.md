@@ -96,8 +96,11 @@ moved and no version was bumped, so PyPI is still 0.8.0.
 
 **There is no `next` step.** The remaining work is the candidate task backlog
 further down this file — and the cheapest items there need no new dataset at
-all. Re-confirm what is wanted before starting anything; do not assume the
-backlog's order is a plan. **The one thread that was open — why `detection`
+all. **There is now a second backlog beside it**, the library-surface one
+(visualisation, dataset bridges, a custom-backbone example), which ships no new
+number the way v0.7 did; it is in the same part of this file and in
+`docs/roadmap.md`. Re-confirm what is wanted before starting anything; do not
+assume either backlog's order is a plan. **The one thread that was open — why `detection`
 alone fails to reproduce — is closed as of 2026-08-13**: it is GPU
 non-determinism made visible by a discrete metric, it was never a bug, and
 detection reproduces to *three* decimals rather than four. **Narrowed
@@ -1892,6 +1895,68 @@ Two hazards to carry into any of them, both already paid for once:
   which generator.** "Harris corners" is a family, not a definition — the
   k parameter, the window, the smoothing and the non-maximum suppression all
   move the target. A record claiming a bare `"harris"` says less than it looks.
+
+### The library-surface backlog — three gaps that ship no new number
+
+Added 2026-08-14, after a read of what a new user would reach for and not find.
+`docs/roadmap.md` has the public version under "Library surface"; what follows
+is what a session picking one of them needs to know. **None of these is a
+defect** — each is reachable today by writing Python, and what is missing is the
+shortest path. v0.7 is the precedent for shipping a release that changes no
+number.
+
+- **There is no visualisation anywhere in the package**, and this is the one of
+  the three that guards a *silently wrong number*. `results/render.py` renders
+  markdown tables; the only image-drawing code is `demo.py`, which generates
+  synthetic inputs rather than displaying anything. Every probe already has
+  `predict()`, and `SemanticSegmentationTask.predict_labels()` even documents
+  its return as "for saving or visualising" — so the material exists and the
+  viewer does not.
+
+  **The argument is this codebase's own bug history.** Correspondence's
+  `recall@1px = 0.003` misalignment and VOC's palette PNGs read through
+  `convert("L")` (classes `[0, 1, 15, 255]` becoming `[0, 38, 147, 220]`) were
+  both found by reading code, and both are obvious in one rendered frame. A
+  dense target drifting from its image is the most common silent failure here.
+
+  Sketch: `visbench show`, reusing the `ProbeSpec` dataset flags, writing
+  image/target/prediction panels to a file. Two open decisions — whether it
+  loads a saved artifact from `visbench/hub/` or trains one, and whether PIL
+  alone suffices rather than adding `matplotlib` to the core install (it
+  probably does, and that matters more than layout quality). **The hazard is a
+  second geometry**: a viewer that applies its own resize or colour-map is
+  exactly what `DenseFolderDataset` exists to prevent. Display what the dataset
+  yielded.
+
+- **Custom datasets work in two tiers already, so the real gap is narrower than
+  it sounds.** Folder layouts need no code at all (NYUv2 joined the corpus with
+  none), and anything else is a `BaseDataset` subclass with two abstract
+  methods. What is absent is a `datasets`/`torchvision.datasets` bridge —
+  neither is imported anywhere in the package — and any way to name a dataset
+  class from the CLI, where `--data` takes a path and a layout.
+
+  **If a bridge is built, `cache_identity` is the thing it must not skip.** The
+  four optional `BaseDataset` methods all fail silently when omitted, and that
+  one fails *invisibly*: return `None` and every run re-decodes every image,
+  forever, while appearing to work. That is the `view_identity` failure exactly
+  — tested and correct for a year while a caller passed bare PIL images and paid
+  a full decode on every "cached" run.
+
+- **`CustomBackbone` is the best-supported of the three and mostly needs
+  showing, not building.** Its docstring already names the case, `hash_weights`
+  keys the cache on the parameters so a fine-tuned checkpoint cannot collide
+  with its parent, and `register_backbone` is a top-level export. But it appears
+  in the README and in `tests/backbones/test_custom.py` and **nowhere in
+  `examples/`**, while all thirteen probes have one — against a standing rule
+  that the fake backbones cannot show a training-dynamics problem, so a
+  capability wants a real run behind it. It is also unreachable from the CLI
+  (`--backbone` is a registry name and a string cannot carry an `nn.Module`),
+  and fine-tuning does not apply to it (DINOv2 only, by design).
+
+**Order, by cost against what each prevents**: `examples/custom_backbone.py`
+first (hours, closes a documented-but-undemonstrated gap), then `visbench show`
+(the only one guarding a silently wrong number), then the dataset bridges
+(largest, and the folder path already covers most of what they would buy).
 
 ### Step 6c — detection groundwork. Scope decided 2026-07-29, before any code
 
