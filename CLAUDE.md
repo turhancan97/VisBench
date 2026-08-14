@@ -89,7 +89,9 @@ upside down** — see step 6f — v0.7.0 is the contributor-facing release that
 changes no number, and **v0.8.0 (2026-08-07) is the corner probe**, steps 8a and
 8b together.
 
-**Since v0.8.0 shipped, the work has been distribution rather than
+**v0.9.0 is prepared in the tree** (2026-08-14): four steps of `visbench show`
+(9a-9d) plus the Hub work below, no new probe and no moved number. Before it,
+**since v0.8.0 shipped the work had been distribution rather than
 measurement** (PR #42, merged 2026-08-07): the Hub integration gained a runnable
 example and a reference page, `visbench run --push-to` publishes the head it
 just trained, and twenty trained heads are now public in a collection — see the
@@ -111,14 +113,14 @@ gallery**: one generated figure per probe in the README and on the docs site. Se
 bullets in "decisions already paid for". The two remaining library-surface items
 are the **dataset bridges** and an **`examples/custom_backbone.py`**. Re-confirm what is wanted before starting anything; do
 not assume either backlog's order is a plan. **The one thread that was open — why `detection`
-alone fails to reproduce — is closed as of 2026-08-13**: it is GPU
-non-determinism made visible by a discrete metric, it was never a bug, and
-detection reproduces to *three* decimals rather than four. **Narrowed
-2026-08-14**: it is the DINOv2 rows that drift; both CLIP backbones are
-bit-identical across three runs, so this is a property of the backbone as much
-as of the probe. See the bullet in "decisions already paid for" for the
-measurements, and note the open lead there — the grid-size hypothesis is
-untested on the two ResNets.
+alone fails to reproduce — is closed**: it is GPU non-determinism made visible
+by a discrete metric, it was never a bug, and detection reproduces to *three*
+decimals rather than four. **Settled 2026-08-14 on all six backbones**: only
+the two 16x16-grid rows (DINOv2) drift; CLIP-B/16, CLIP-B/32 and both ResNets
+are bit-identical and match their corpus records to every digit, so it tracks
+the feature grid rather than the width, the architecture or the probe. See the
+bullet in "decisions already paid for" for the table. **There is no open lead
+here any more.**
 
 **Step 8a added the thirteenth probe**, `corner` — the first whose target is
 computed from the image rather than downloaded, so `visbench/data/derived.py`
@@ -237,7 +239,20 @@ run through `tail`: it buffers, so a run that is killed part-way leaves no log,
 and the Hub then has to be queried to find out what actually shipped — which
 happened, and is recoverable only because each record names its own pair.
 
-Package version is `0.8.0`, and it is **on PyPI: uploaded 2026-08-07 at
+**Package version is `0.9.0` in the source tree and `0.8.0` on PyPI**, and that
+gap is deliberate rather than drift: the release commit (2026-08-14) bumps
+`__init__.py`, `uv.lock` and `CITATION.cff` together and restructures
+`CHANGELOG.md`, but **uploading needs the maintainer's credentials and is
+theirs to run** — never attempt it. Until they do, `pip install visbench` gets
+0.8.0 and none of `visbench show`, `--save-probe`, `--push-to` or the rendered
+gallery. Check [PyPI](https://pypi.org/project/visbench/) rather than this
+paragraph, and verify a new upload the standing way described below: download
+the wheel, put it *first* on `sys.path`, import it, and assert on
+`visbench.__file__` so the editable checkout cannot answer in its place.
+
+The paragraph below describes 0.8.0, which is what is installable today.
+
+Package version was `0.8.0`, and it is **on PyPI: uploaded 2026-08-07 at
 09:42 UTC**, wheel and sdist both (284 KB and 703 KB), tagged `v0.8.0` on
 `574e792`. **Verified the standing way on 2026-08-07** — the published wheel
 downloaded, its SHA256 checked against PyPI's digest, extracted, put *first* on
@@ -734,17 +749,27 @@ designed up front; extend it the same way, from a case that already runs.
   | --- | --- | --- | --- |
   | `dinov2_vits14` | 384 | 16x16 | **no** — 0.228834 / 0.229836 / corpus 0.229080 |
   | `dinov2_vitb14` | 768 | 16x16 | **no** — 0.2897 against the corpus's 0.2895 |
-  | `clip_vitb16` | 768 | 14x14 | yes, 0.18940807014166364 three times |
-  | `clip_vitb32` | 768 | 7x7 | yes, 0.188608609616858 three times |
+  | `clip_vitb16` | 768 | 14x14 | yes, 0.18940807014166364 twice + the corpus |
+  | `clip_vitb32` | 768 | 7x7 | yes, 0.188608609616858 twice + the corpus |
+  | `resnet18` | 512 | 7x7 | yes, 0.091190732340 **three times** + the corpus |
+  | `resnet50` | 2048 | 7x7 | yes, 0.137981235614 **three times** + the corpus |
 
-  **The correlate is the grid, not the width** — DINOv2-B shares CLIP's 768
-  channels and still drifts, and the 16x16 grid is the only thing the two
-  drifting rows share and the two stable ones lack. The mechanism that fits is
-  cuDNN choosing an atomics-based backward algorithm at one spatial size and a
-  deterministic one at another. **That is a lead on n=4, not a finding**: the
-  two ResNets (7x7) are unmeasured, and only two repeats were taken per CLIP
-  backbone before the job was stopped. Do not write it up as established
-  without measuring the remaining four rows.
+  **The correlate is the grid, and all six rows now agree** (the ResNets
+  measured 2026-08-14, three repeats each, bit-identical on `map_50`,
+  `map_50_95` *and* `detections_per_image`, and equal to their committed corpus
+  records to every digit). Only the two 16x16 rows drift.
+
+  Width is excluded twice over: DINOv2-B shares CLIP's 768 channels and drifts,
+  while `resnet50`'s 2048 and `resnet18`'s 512 are both stable. Architecture
+  family is excluded too — the CNNs behave like the 7x7 ViT, not like the other
+  CNN-shaped thing. The mechanism that fits is cuDNN choosing an atomics-based
+  backward algorithm at one spatial size and a deterministic one at another.
+
+  This was recorded as "a lead on n=4, not a finding" until the two ResNet rows
+  were measured. They were the cheap half of the experiment and they sat
+  undone through two releases, which is the useful lesson: **the run that
+  closes an open question is usually smaller than the write-up explaining why
+  it is still open.**
 
   **What this buys concretely**: the corpus detection board's smallest adjacent
   gap is `clip_vitb16` 0.1894 against `clip_vitb32` 0.1886, i.e. **0.0008** —
@@ -1127,7 +1152,7 @@ designed up front; extend it the same way, from a case that already runs.
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite is **1571 tests** and green on 2026-08-14, after `visbench show` grew to cover every probe, as
+fast suite is **1613 tests** and green on 2026-08-14, after the v0.9.0 release commit, as
 are all three lint steps and the `-W` docs build — all five run on `dgx1` via
 `sbatch`, since `.venv/bin/python` does not resolve on a `dgxh100` login shell.
 `uv lock --check` was green on 2026-08-06 and no dependency has moved since; the
@@ -2747,7 +2772,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 1571 fast tests
+pytest                                              # 1613 fast tests
 pytest -m slow                                      # 79, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/
