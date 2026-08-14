@@ -24,21 +24,29 @@ class TestTheTable:
         """
         assert show_probes() == showable_probes()
 
-    def test_an_unlisted_probe_raises_rather_than_defaulting(self):
+    def test_a_typo_raises_rather_than_defaulting(self):
         """The whole posture of this module, in one assertion.
 
         Falling back to "scalar map, mask the zeros" would be correct for depth
         and silently wrong for the four probes where 0 is a real reading.
         """
-        with pytest.raises(UnknownTargetStyle, match="retrieval"):
-            style_for("retrieval")
-
-    def test_a_registered_probe_is_distinguished_from_a_typo(self):
-        registered = style_for  # for the message, not the call
-        with pytest.raises(UnknownTargetStyle, match="registered probe"):
-            registered("similarity")
         with pytest.raises(UnknownTargetStyle, match="Unknown probe"):
-            registered("depht")
+            style_for("depht")
+
+    def test_a_registered_probe_without_a_style_is_distinguished_from_a_typo(self, monkeypatch):
+        """Reached by removing a row, because every probe now has one.
+
+        Since 9c the table covers the whole registry, so this branch cannot fire
+        against today's probes — and an untested branch that cannot fire is the
+        QuickGELU failure waiting to happen. It is kept rather than deleted
+        because it is the message a contributor sees when they add a probe and
+        forget its style, which ``CONTRIBUTING.md`` tells them to expect.
+        """
+        without_depth = {k: v for k, v in TARGET_STYLES.items() if k != "depth"}
+        monkeypatch.setattr("visbench.viz.styles.TARGET_STYLES", without_depth)
+
+        with pytest.raises(UnknownTargetStyle, match="registered probe"):
+            style_for("depth")
 
 
 class TestTheFourConventions:

@@ -38,6 +38,7 @@ from visbench.data.triplet import TwoAFCDataset
 __all__ = [
     "ProbeSpec",
     "Splits",
+    "CLASSIFICATION_SCHEDULE_DEFAULTS",
     "SCHEDULE_DEFAULTS",
     "SPECS",
     "showable_probes",
@@ -97,7 +98,10 @@ def _split_flags(parser: argparse.ArgumentParser, evaluate: str, train: str | No
         )
 
 
-def _viewing(view_flags: Callable[[argparse.ArgumentParser], None]) -> Callable:
+def _viewing(
+    view_flags: Callable[[argparse.ArgumentParser], None],
+    defaults: dict[str, Any] | None = None,
+) -> Callable:
     """Turn a probe's non-schedule flags into its ``show_arguments``.
 
     Every probe's ``add_arguments`` is exactly ``<view flags> + _schedule_flags``,
@@ -109,7 +113,7 @@ def _viewing(view_flags: Callable[[argparse.ArgumentParser], None]) -> Callable:
 
     def add(parser: argparse.ArgumentParser) -> None:
         view_flags(parser)
-        parser.set_defaults(**SCHEDULE_DEFAULTS)
+        parser.set_defaults(**(SCHEDULE_DEFAULTS if defaults is None else defaults))
 
     return add
 
@@ -254,6 +258,17 @@ SCHEDULE_DEFAULTS: dict[str, Any] = {
 }
 
 
+#: ``_classification_flags``' own schedule defaults, which are not the dense
+#: ones -- a linear probe on pooled features trains for 200 epochs at 1e-2, not
+#: 10 at 5e-4. A single shared table would silently give ``show`` a probe built
+#: with the wrong ones.
+CLASSIFICATION_SCHEDULE_DEFAULTS: dict[str, Any] = {
+    "epochs": 200,
+    "lr": 1e-2,
+    "train_batch_size": 256,
+}
+
+
 def _dense_probe_kwargs(args: argparse.Namespace) -> dict:
     return {
         "head": args.head,
@@ -331,13 +346,20 @@ def _folder_split(args: argparse.Namespace, split: str) -> ImageFolderDataset:
 # -- high level --------------------------------------------------------------
 
 
-def _classification_flags(parser: argparse.ArgumentParser) -> None:
+def _classification_view_flags(parser: argparse.ArgumentParser) -> None:
     _split_flags(parser, evaluate="val", train="train")
     parser.add_argument("--pooling", default=None, help="cls | mean; default is the backbone's")
+    # A head-shape flag, not a schedule one: the standardiser is fitted state
+    # that travels in the artifact, so a head saved with it does not load onto a
+    # probe built without.
+    parser.add_argument("--standardize", action="store_true", help="normalise features first")
+
+
+def _classification_flags(parser: argparse.ArgumentParser) -> None:
+    _classification_view_flags(parser)
     parser.add_argument("--epochs", type=int, default=200)
     parser.add_argument("--lr", type=float, default=1e-2)
     parser.add_argument("--train-batch-size", type=int, default=256)
-    parser.add_argument("--standardize", action="store_true", help="normalise features first")
 
 
 def _classification_splits(args: argparse.Namespace) -> Splits:
@@ -806,6 +828,9 @@ SPECS: dict[str, ProbeSpec] = {
         add_arguments=_classification_flags,
         build=_classification_splits,
         probe_kwargs=_classification_kwargs,
+        show_arguments=_viewing(
+            _classification_view_flags, defaults=CLASSIFICATION_SCHEDULE_DEFAULTS
+        ),
     ),
     "retrieval": ProbeSpec(
         summary="zero-shot leave-one-out ranking over pooled features",
@@ -813,6 +838,8 @@ SPECS: dict[str, ProbeSpec] = {
         add_arguments=_retrieval_flags,
         build=lambda args: Splits(evaluate=_folder_split(args, args.split)),
         probe_kwargs=_retrieval_kwargs,
+        # Zero-shot: every flag shapes the ranking, so none is dropped.
+        show_arguments=_retrieval_flags,
     ),
     "semantic_segmentation": ProbeSpec(
         summary="multi-class per-pixel probe; reports mIoU both reductions",
@@ -920,6 +947,8 @@ SPECS: dict[str, ProbeSpec] = {
         add_arguments=_similarity_flags,
         build=_similarity_splits,
         probe_kwargs=lambda args: {"min_votes": args.min_votes},
+        # Zero-shot, as correspondence is: nothing here is a training setting.
+        show_arguments=_similarity_flags,
     ),
 }
 

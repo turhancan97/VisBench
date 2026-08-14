@@ -103,8 +103,33 @@ def _add_show_common(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--backbone",
-        default="dinov2_vits14",
-        help="only used with --predict-from; see `visbench list backbones`",
+        default=None,
+        help="see `visbench list backbones`. Required for correspondence and retrieval, "
+        "whose content *is* the features, and with --predict-from. Optional for "
+        "similarity, which draws the human vote without one, and unused elsewhere",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="how much of the split to load, as distinct from --frames, how many rows to "
+        "draw. Defaults to what the drawing needs — the whole split for retrieval, "
+        "whose gallery is the measurement",
+    )
+    # Not --topk: `visbench run retrieval --topk 1 5 10` already means the list
+    # of k to report recall at, and two flags spelled the same meaning different
+    # things is the kind of collision that is only found by being confused.
+    parser.add_argument(
+        "--neighbours",
+        type=int,
+        default=5,
+        help="retrieval only: how many nearest neighbours to draw per query (default: 5)",
+    )
+    parser.add_argument(
+        "--columns",
+        type=int,
+        default=6,
+        help="classification only: thumbnails per row on the contact sheet (default: 6)",
     )
     parser.add_argument("--batch-size", type=int, default=32, help="feature extraction batch size")
     parser.add_argument("--device", default=None, help="cuda | cpu; default is best available")
@@ -408,62 +433,186 @@ def _command_show(args: argparse.Namespace, out: Any) -> int:
     pipeline look fine and a correct one look broken, which would make it worse
     than no viewer at all.
     """
-    from visbench.viz import render_probe_panels
+    from visbench.viz import style_for
 
     spec = spec_for(args.probe)
     if args.frames < 1:
         raise ValueError(f"--frames must be at least 1, got {args.frames}")
+
+    kind = style_for(args.probe).kind
+    if args.predict_from is not None and kind in _ZERO_SHOT_KINDS:
+        raise ValueError(
+            f"{args.probe!r} is zero-shot: it trains nothing, so there is no saved head "
+            "to draw from. Drop --predict-from; the backbone alone produces this."
+        )
+    # Checked before the split is built, which for a real dataset is the slow
+    # part: a missing --backbone is a typo, and finding it out after a minute of
+    # indexing is a minute wasted.
+    if args.backbone is None and (kind in _NEEDS_BACKBONE or args.predict_from is not None):
+        why = (
+            "a saved head is only meaningful against the backbone it was fitted on"
+            if args.predict_from is not None
+            else f"{args.probe!r} draws features, which do not exist until a backbone runs"
+        )
+        raise ValueError(f"--backbone is required here: {why}.")
 
     # Both halves are built by every `build`, and one of them is never drawn.
     # Mirroring --stems means a viewer can be pointed at an official split list
     # without also naming a training list it will not read.
     if getattr(args, "stems", None) is not None and getattr(args, "train_stems", None) is None:
         args.train_stems = args.stems
-    # Shortening happens where each probe already shortens: `--limit` reaches
-    # Taskonomy and corner as the constructor's `max_images` and the folder
-    # probes as `subset()`, so asking for it by that name keeps one code path.
-    args.limit = args.start + args.frames
+    args.limit = _split_size(args, kind)
 
     dataset = spec.build(args).evaluate
     if len(dataset) <= args.start:
         raise ValueError(
             f"--start {args.start} is past the end of the split, which holds {len(dataset)} items."
         )
-    indices = list(range(args.start, min(len(dataset), args.start + args.frames)))
+    indices = _frame_indices(len(dataset), args.start, args.frames, kind)
 
     probe = visbench.get_probe(args.probe, **spec.probe_kwargs(args))
-    if getattr(probe, "uses_pairs", False):
-        # Correspondence draws two views and the relation between them, not a
-        # target beside an image, so it has its own renderer. It also *always*
-        # needs a backbone: the matches are the thing being looked at, and they
-        # do not exist until features do.
-        if args.predict_from is not None:
-            raise ValueError(
-                f"{args.probe!r} is zero-shot: it trains nothing, so there is no saved "
-                "head to draw from. Drop --predict-from; the backbone alone produces "
-                "the matches."
-            )
-        page = _match_page(args, probe, dataset, indices, out)
-        predictions = None
-    else:
-        predictions = None
-        if args.predict_from is not None:
-            predictions = _predictions(args, spec, dataset, indices, out)
-        class_names = getattr(dataset, "classes", None)
-        page = render_probe_panels(dataset, args.probe, indices, predictions, class_names)
+    page, columns = _draw(args, spec, probe, dataset, indices, kind, out)
 
     destination = args.out if args.out is not None else Path(f"visbench-show-{args.probe}.png")
     destination.parent.mkdir(parents=True, exist_ok=True)
     page.save(destination)
 
     if not args.quiet:
-        columns = "image, target, prediction" if predictions is not None else "image, target"
-        if getattr(probe, "uses_pairs", False):
-            columns = f"view 0 | view 1, matched within {args.threshold:g}px"
         print(f"{args.probe}: {len(indices)} frames from {args.data}", file=out)
         print(f"  columns: {columns}", file=out)
     print(f"{destination}", file=out)
     return 0
+
+
+#: Kinds whose probe fits nothing, so a saved head cannot exist for them.
+_ZERO_SHOT_KINDS = frozenset({"matches", "ranking", "triplet"})
+
+#: Kinds whose content is computed from features, so a backbone is not optional.
+_NEEDS_BACKBONE = frozenset({"matches", "ranking"})
+
+#: Kinds drawn from a *class-grouped* split. A labelled image folder is ordered
+#: by class, so a prefix of it is one class -- which is the artefact the sheet
+#: exists to reveal, and a viewer reproducing it would look like its own bug.
+_CLASS_GROUPED_KINDS = frozenset({"sheet", "ranking"})
+
+
+def _split_size(args: argparse.Namespace, kind: str) -> int | None:
+    """How much of the split to load, which is not always how much to draw.
+
+    ``--limit`` when given. Otherwise ``start + frames`` for everything drawn
+    frame by frame, and **the whole split** for ``ranking``: leave-one-out
+    retrieval over four images ranks each against three alternatives, so
+    shortening the split there does not shorten the drawing, it destroys the
+    measurement being drawn.
+    """
+    if args.limit is not None:
+        return args.limit
+    if kind == "ranking":
+        return None
+    if kind == "sheet":
+        # balanced_subset takes this *per class*, so `frames` alone would load
+        # frames-per-class and still draw only the first class's worth.
+        return max(1, -(-args.frames // 2))
+    return args.start + args.frames
+
+
+def _frame_indices(available: int, start: int, frames: int, kind: str) -> list[int]:
+    """Which items to draw.
+
+    A prefix for everything whose split order carries no structure, and **evenly
+    spread** for the class-grouped ones. ``balanced_subset`` groups by class, so
+    the first four items of an Imagenette split are four images of class 0 --
+    the very artefact the footer figure exists to report. Drawing them would
+    make a correct viewer look broken.
+    """
+    if kind not in _CLASS_GROUPED_KINDS or start + frames >= available:
+        return list(range(start, min(available, start + frames)))
+    span = available - start
+    step = span / frames
+    return [start + min(span - 1, int(position * step)) for position in range(frames)]
+
+
+def _draw(
+    args: argparse.Namespace,
+    spec: Any,
+    probe: Any,
+    dataset: Any,
+    indices: list[int],
+    kind: str,
+    out: Any,
+) -> tuple[Any, str]:
+    """Dispatch to the renderer for this probe's kind, and name its columns.
+
+    A table rather than an ``if`` chain, for the reason ``ProbeSpec`` is one:
+    what these five branches have in common is a signature, not behaviour.
+    """
+    from visbench.viz import (
+        render_probe_panels,
+        render_retrieval_panels,
+        render_sheet,
+        render_triplet_panels,
+    )
+
+    if kind == "matches":
+        return _match_page(args, probe, dataset, indices, out), (
+            f"view 0 | view 1, matched within {args.threshold:g}px"
+        )
+
+    if kind == "ranking":
+        features = _pooled_features(args, probe, dataset, out)
+        ranking = probe.predict(features)
+        return (
+            render_retrieval_panels(dataset, ranking, indices, topk=args.neighbours),
+            f"query and its {args.neighbours} nearest neighbours",
+        )
+
+    if kind == "triplet":
+        # The whole split's features: the triplets index into the image list, so
+        # the images cannot be subset without repointing every one of them --
+        # which is why TwoAFCDataset refuses subset() outright.
+        predictions = None
+        if args.backbone is not None:
+            features = _pooled_features(args, probe, dataset, out)
+            predictions = probe.predict(features, dataset.labels())[indices]
+        return (
+            render_triplet_panels(dataset, indices, predictions),
+            "reference, left, right"
+            + (", with the model's choice" if predictions is not None else ""),
+        )
+
+    predictions = None
+    if args.predict_from is not None:
+        predictions = _predictions(args, spec, dataset, indices, out)
+
+    if kind == "sheet":
+        return (
+            render_sheet(dataset, indices, predictions, columns=args.columns),
+            "a contact sheet of frames and their labels",
+        )
+
+    class_names = getattr(dataset, "classes", None)
+    columns = "image, target, prediction" if predictions is not None else "image, target"
+    return render_probe_panels(dataset, args.probe, indices, predictions, class_names), columns
+
+
+def _pooled_features(args: argparse.Namespace, probe: Any, dataset: Any, out: Any) -> Any:
+    """Pooled features for the whole split, which both zero-shot renderers need.
+
+    Not subset to the drawn frames: retrieval ranks against the gallery and a
+    triplet indexes into the image list, so in both cases the items *not* drawn
+    are still part of what is drawn.
+    """
+    if not args.quiet:
+        print(f"loading {args.backbone} and extracting {len(dataset)} images...", file=out)
+    backbone = visbench.get_backbone(args.backbone, device=args.device)
+    return FeatureCache(root=args.cache, enabled=not args.no_cache).extract_dataset(
+        backbone,
+        dataset,
+        pooling=probe.pooling,
+        keep="pooled",
+        feature_mode=probe.feature_mode,
+        batch_size=args.batch_size,
+    )
 
 
 def _match_page(

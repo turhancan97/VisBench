@@ -29,7 +29,10 @@ from visbench.viz.colour import display_range, target_to_rgb
 from visbench.viz.styles import TargetStyle, style_for
 
 __all__ = [
+    "CAPTION_INK",
+    "PAGE_INK",
     "draw_boxes",
+    "font_for_captions",
     "render_panels",
     "render_probe_panels",
 ]
@@ -44,11 +47,17 @@ _BOX_PREDICTION = (255, 140, 0)
 _GAP = 8
 _GUTTER = 200
 _HEADER = 18
-_PAGE = (24, 24, 24)
-_INK = (235, 235, 235)
+
+#: Page background and text colour. Public because ``gallery.py`` builds its own
+#: tiles and a caption bar in a different shade would read as a different kind of
+#: thing rather than as the same page.
+PAGE_INK = (24, 24, 24)
+CAPTION_INK = (235, 235, 235)
+_PAGE = PAGE_INK
+_INK = CAPTION_INK
 
 
-def _font() -> Any:
+def font_for_captions() -> Any:
     """PIL's built-in bitmap font.
 
     Deliberately not a TrueType lookup: a font path that exists on the machine
@@ -79,7 +88,7 @@ def draw_boxes(
     """
     canvas = image.convert("RGB").copy()
     draw = ImageDraw.Draw(canvas)
-    font = _font()
+    font = font_for_captions()
 
     for index in range(len(boxes)):
         x1, y1, x2, y2 = (float(v) for v in boxes[index])
@@ -122,7 +131,7 @@ def render_panels(
 
     page = Image.new("RGB", (page_width, page_height), _PAGE)
     draw = ImageDraw.Draw(page)
-    font = _font()
+    font = font_for_captions()
 
     offset = _GUTTER
     for title, width in zip(columns, widths, strict=True):

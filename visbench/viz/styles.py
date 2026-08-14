@@ -46,7 +46,18 @@ __all__ = [
 #: apart because a depth range is in metres and a magnitude range is in
 #: whatever arbitrary unit ``target_scale`` produced, and a caption that
 #: confused the two would invite reading one as the other.
-Kind = Literal["magnitude", "depth", "normals", "binary", "labels", "boxes", "matches"]
+Kind = Literal[
+    "magnitude",
+    "depth",
+    "normals",
+    "binary",
+    "labels",
+    "boxes",
+    "matches",
+    "sheet",
+    "ranking",
+    "triplet",
+]
 
 
 def _invalid_zero(target: torch.Tensor) -> torch.Tensor:
@@ -155,12 +166,27 @@ TARGET_STYLES: dict[str, TargetStyle] = {
         invalid=None,
         note="two views and the matches between them; needs a backbone, trains nothing",
     ),
+    "classification": TargetStyle(
+        kind="sheet",
+        invalid=None,
+        note="a contact sheet of frames and their labels; the footer states the balance",
+    ),
+    "retrieval": TargetStyle(
+        kind="ranking",
+        invalid=None,
+        note="each query and its nearest neighbours; needs a backbone and a real gallery",
+    ),
+    "similarity": TargetStyle(
+        kind="triplet",
+        invalid=None,
+        note="reference and two candidates, with the human vote marked",
+    ),
 }
 
 #: Kinds that are not a panel beside their image, and are drawn by their own
 #: renderer instead. Listed so a caller can ask before reaching for
 #: :func:`~visbench.viz.colour.target_to_rgb`, which refuses both by name.
-COMPOSITE_KINDS: frozenset[str] = frozenset({"boxes", "matches"})
+COMPOSITE_KINDS: frozenset[str] = frozenset({"boxes", "matches", "sheet", "ranking", "triplet"})
 
 
 class UnknownTargetStyle(KeyError):

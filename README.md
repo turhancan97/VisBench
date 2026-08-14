@@ -271,11 +271,20 @@ visbench show corner --data ./frames --predict-from heads/corner.pt --out corner
 visbench show correspondence --data ./images --backbone dinov2_vits14 --out matches.png
 ```
 
-Ten probes can be drawn. Invalid pixels are magenta, per each probe's own
-convention — there are four of them and none is visible in a tensor's shape.
-The correspondence panel reports **coherence**, which separates a broken
-geometry (every error pointing the same way, ~1.0) from a weak backbone
-(scattered, ~0.3) — a distinction no recall figure can make. See
+**Every probe can be drawn** — all thirteen, across four renderers, and a test
+asserts `show_probes() == list_probes()` so a new one cannot ship undrawable.
+Dense targets get an `image | target | prediction` grid, detection gets boxes,
+correspondence gets match lines, and the three probes with no spatial target
+(`classification`, `retrieval`, `similarity`) get a view of the *decision* they
+made — a contact sheet, a query and its neighbours, a triplet with the human
+vote marked.
+
+Each renderer states its own diagnostic as a figure rather than leaving it to
+the eye: invalid pixels in magenta per each probe's own convention (there are
+four, none visible in a tensor's shape); **coherence**, which separates a broken
+geometry from a weak backbone; **class balance**, which catches a split
+collapsed to one class scoring 1.0; and the **vote balance** that reveals a
+mis-read CSV column. See
 [the guide](https://github.com/turhancan97/VisBench/blob/main/docs/show.md).
 
 Two flags worth knowing. `--batch-size` is the *extraction* batch;

@@ -129,15 +129,27 @@ show a training-dynamics problem, and one has already been found that way.
 4. Add an entry to `HEADLINE_METRICS` in `visbench/results/render.py`, and a
    direction for each new metric in `visbench/results/leaderboard.py`. Both
    raise on a missing entry rather than guessing.
-5. If the probe has a **spatial target**, add a `TargetStyle` row to
-   `TARGET_STYLES` in `visbench/viz/styles.py` and a `show_arguments` callable
-   to its `ProbeSpec`, so `visbench show` can draw it. Both raise on a missing
-   entry, for the same reason the two tables above do — and this one has to
-   state your target's **validity convention** explicitly. There are already
-   four across nine probes (`0`, the zero vector, negative, `NaN`, and *nothing
-   at all* where 0 is a real reading), none of them visible in a tensor's
-   shape. Picking the wrong one renders: the panel comes out looking like a
-   target full of holes.
+5. Add a `TargetStyle` row to `TARGET_STYLES` in `visbench/viz/styles.py` and a
+   `show_arguments` callable to its `ProbeSpec`, so `visbench show` can draw it.
+   **This is not optional**: a test asserts `show_probes() == list_probes()`, so
+   a probe without a style fails the suite rather than shipping undrawable.
+
+   If your target is a **spatial map**, the row has to state its *validity
+   convention* explicitly. There are already four (`0`, the zero vector,
+   negative, `NaN`) plus *nothing at all* where 0 is a real reading, and none is
+   visible in a tensor's shape. Picking the wrong one renders: the panel comes
+   out looking like a target full of holes.
+
+   If it is not a map — a class, a ranking, a preference — give it a kind in
+   `COMPOSITE_KINDS` and a renderer, as `visbench/viz/gallery.py` does for the
+   three probes that choose. Prefer stating the failure your probe can hide as a
+   **footer figure** over trusting the reader's eye: `class_balance`,
+   `vote_balance` and `error_coherence` are the three that exist, each of them a
+   silent failure from this project's history turned into a number. None is a
+   score and none is recorded.
+
+   Captions are drawn with PIL's built-in bitmap font, which has no glyph for an
+   em dash or an ellipsis — **keep them ASCII**, which a test enforces.
 6. Add an `examples/` script and a row in
    [`docs/tasks.md`](docs/tasks.md).
 

@@ -61,17 +61,19 @@ magnitude would render *identically* to a correct one.
 
 ## What it can draw
 
-Ten probes. Eight are the `image | target | prediction` grid above:
-`depth`, `surface_normal`, `generic_segmentation`, `semantic_segmentation`,
-`edge`, `keypoints2d`, `occlusion_edge` and `corner`.
+**Every probe.** All thirteen, across four renderers — a test asserts
+`show_probes() == list_probes()`, so a new probe cannot ship undrawable.
 
-Two have their own renderer. **`detection`** draws boxes straight onto the crop,
-in the post-transform pixel coordinates the dataset returns.
-**`correspondence`** draws two views side by side with the matches between them
-— see below.
+| renderer | probes | a row is |
+| --- | --- | --- |
+| panel grid | `depth`, `surface_normal`, `generic_segmentation`, `semantic_segmentation`, `edge`, `keypoints2d`, `occlusion_edge`, `corner` | image, target, prediction |
+| boxes | `detection` | the crop with its boxes drawn on |
+| matches | `correspondence` | two views and the matches between them |
+| gallery | `classification`, `retrieval`, `similarity` | the decision the probe made |
 
-`classification`, `retrieval` and `similarity` have no spatial target to draw
-and are absent from the subcommand list rather than drawn blank.
+The last three have no spatial target — nothing to lay beside the image at the
+same resolution. What they have is a *decision*: which class, which neighbours,
+which of two candidates. See [below](#the-three-probes-that-choose).
 
 The flags are the same ones `visbench run` takes for that probe's data, minus
 everything about the training schedule:
@@ -125,6 +127,78 @@ thing being looked at and they do not exist until features do — and
 saved head. And matches are sampled **evenly** across the kept set rather than
 taking the most confident few, which would draw a systematically better picture
 than the score describes.
+
+## The three probes that choose
+
+### `classification` — a contact sheet
+
+```bash
+visbench show classification --data ./imagenette --split val --frames 12 --out cls.png
+```
+
+Thumbnails several to a row, each captioned with its class and bordered green or
+red once a head is given. Packed rather than one per row because the failures
+worth catching here are *class-level patterns*, invisible in four frames.
+
+**The failure it catches**: `subset(n)` on a labelled folder takes a prefix, and
+the file list is grouped by class, so an Imagenette prefix is entirely class 0 —
+and the run then **scores 1.0 while measuring nothing**. `balanced_subset` exists
+because of this. The footer states the split's balance, so a collapsed split
+reads `1 class` whichever frames were drawn:
+
+```
+4 classes, 24 items, 6-6 per class
+1 class, 8 items, 8-8 per class - every item is 'tench', so any score here is an artefact
+```
+
+Frames are picked **spread across the split** rather than as a prefix, for the
+same reason: drawing the first four rows of a class-grouped folder would
+reproduce the very artefact the sheet exists to reveal.
+
+Without `--predict-from` this is a *dataset* check and needs no backbone. With
+one it becomes an error analysis: the caption reads `predicted != actual`.
+
+### `retrieval` — a query and its neighbours
+
+```bash
+visbench show retrieval --data ./imagenette --split val \
+    --backbone dinov2_vits14 --frames 4 --neighbours 5 --out ret.png
+```
+
+One row per query: the query frame, then its nearest neighbours in rank order,
+each bordered green if it shares the query's class.
+
+Two things follow from what retrieval *is*. It **always needs a backbone** — the
+neighbours are the content and do not exist until features do. And it loads the
+**whole split** regardless of `--frames`, because leave-one-out retrieval over
+four images ranks each against three alternatives; shortening the split would
+not shorten the drawing, it would destroy what is being drawn. `--limit` caps it
+if the split is large.
+
+### `similarity` — the triplet, and who chose what
+
+```bash
+visbench show similarity --data ./nights --frames 4 --out sim.png
+```
+
+Reference, left candidate, right candidate, with the human vote marked. Given a
+backbone, the model's choice is marked too, so agreement and disagreement are
+directly visible instead of pooled into an accuracy.
+
+**The failure it catches**: the NIGHTS CSV is read by column *name* because the
+reference implementation reads the vote positionally from column 2 and the paths
+from 4/5/6. Reading the wrong field scores against the wrong column, and the
+result *looks like a mediocre number rather than an error*. Drawn, it is
+obvious — the "preferred" candidate is visibly the more distorted one. The
+footer states it as a figure too:
+
+```
+240 triplets, humans chose right in 51% (far from 50% means the vote column is wrong)
+```
+
+The candidates are presented in arbitrary order, so a balanced vote is expected;
+a figure far from 50% means the column is wrong. Backbone optional here: the
+human vote alone is the check, and it needs no features.
 
 ## Adding the prediction column
 
