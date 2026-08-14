@@ -44,6 +44,11 @@ _BOX_TRUTH = (0, 255, 0)
 _BOX_DIFFICULT = (140, 140, 0)
 _BOX_PREDICTION = (255, 140, 0)
 
+#: Kinds drawn against a stated numeric range. The others -- normals, labels,
+#: binary masks -- carry their meaning in the colour itself, so a range would be
+#: meaningless for them and, for the channelled ones, ill-shaped.
+_SCALAR_KINDS = frozenset({"magnitude", "depth"})
+
 _GAP = 8
 _GUTTER = 200
 _HEADER = 18
@@ -122,16 +127,30 @@ def render_panels(
         raise ValueError("Nothing to draw: no frames were selected.")
 
     images = [[_as_image(panel) for panel in panels] for _, panels in rows]
-    widths = [max(row[i].width for row in images) for i in range(len(columns))]
-    heights = [max(panel.height for panel in row) for row in images]
+    # Rows may be ragged: a contact sheet's last row holds whatever is left over,
+    # and padding it with blanks would put empty frames on the page as though
+    # they were data. So a column's width is the widest panel among the rows that
+    # *have* one, and a short row simply stops.
+    widths = [
+        max((row[index].width for row in images if index < len(row)), default=0)
+        for index in range(len(columns))
+    ]
+    heights = [max((panel.height for panel in row), default=0) for row in images]
 
     page_width = _GUTTER + sum(widths) + _GAP * len(widths)
-    footer_height = _HEADER * (2 if footer else 1)
-    page_height = _HEADER + sum(heights) + _GAP * len(heights) + footer_height
+    font = font_for_captions()
+    # Wrapped rather than left to run off the edge. The footer is the *legend* --
+    # which convention marks an invalid pixel, what the colours mean -- so
+    # truncating it loses the one line that says how to read the page. Wrapped
+    # rather than widening the page, because the width belongs to the panels:
+    # one long sentence should not stretch a figure past its content.
+    lines = _wrap(footer, font, page_width - 12) if footer else []
+    page_height = (
+        _HEADER + sum(heights) + _GAP * len(heights) + _HEADER + 11 * max(0, len(lines) - 1)
+    )
 
     page = Image.new("RGB", (page_width, page_height), _PAGE)
     draw = ImageDraw.Draw(page)
-    font = font_for_captions()
 
     offset = _GUTTER
     for title, width in zip(columns, widths, strict=True):
@@ -143,14 +162,36 @@ def render_panels(
         for line_number, line in enumerate(label.split("\n")):
             draw.text((6, top + 2 + line_number * 11), line, fill=_INK, font=font)
         offset = _GUTTER
-        for panel, width in zip(row, widths, strict=True):
+        # strict=False, deliberately: `row` is allowed to be shorter than
+        # `widths`, which is what a ragged final row means. Everywhere else in
+        # this codebase a zip over two index-paired sequences is strict; here
+        # the raggedness is the point, as it is for `resolved`/`resolved[1:]`
+        # in backbones/base.py.
+        for panel, width in zip(row, widths, strict=False):
             page.paste(panel, (offset, top))
             offset += width + _GAP
         top += height + _GAP
 
-    if footer:
-        draw.text((6, top + 2), footer, fill=_INK, font=font)
+    for number, line in enumerate(lines):
+        draw.text((6, top + 2 + number * 11), line, fill=_INK, font=font)
     return page
+
+
+def _wrap(text: str, font: Any, width: int) -> list[str]:
+    """``text`` split on spaces into lines that fit ``width`` pixels."""
+    measure = ImageDraw.Draw(Image.new("RGB", (1, 1)))
+    lines: list[str] = []
+    current = ""
+    for word in text.split():
+        candidate = f"{current} {word}".strip()
+        if current and measure.textlength(candidate, font=font) > width:
+            lines.append(current)
+            current = word
+        else:
+            current = candidate
+    if current:
+        lines.append(current)
+    return lines
 
 
 def _as_image(panel: np.ndarray | Image.Image) -> Image.Image:
@@ -223,8 +264,16 @@ def _row(
     if style.kind == "boxes":
         return _box_row(stem, image, target, prediction, class_names)
 
-    valid = None if style.invalid is None else ~style.invalid(target)
-    span = display_range(target, valid)
+    # Only the scalar kinds have a range, and only they are asked for one. A
+    # normal map's validity mask is (H, W) while the target is (3, H, W), so
+    # computing a span for it is not merely wasted -- it is a shape error, which
+    # is how this was found: the first three-channel figure ever rendered
+    # through a full page raised instead of drawing.
+    span = None
+    if style.kind in _SCALAR_KINDS:
+        valid = None if style.invalid is None else ~style.invalid(target)
+        span = display_range(target, valid)
+
     panels: list[np.ndarray | Image.Image] = [
         image,
         target_to_rgb(target, style, span),
@@ -235,9 +284,7 @@ def _row(
         # panel is scaled to its own extremes.
         panels.append(target_to_rgb(_as_target_form(prediction, style), style, span))
 
-    label = stem
-    if style.kind in ("magnitude", "depth"):
-        label = f"{stem}\n{span.caption(style.unit)}"
+    label = stem if span is None else f"{stem}\n{span.caption(style.unit)}"
     return label, panels
 
 

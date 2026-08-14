@@ -67,6 +67,7 @@ step is next rather than attempting the whole roadmap in one session.
 | 9a | `visbench show` — the panel viewer, and `run --save-probe` | done |
 | 9b | `visbench show correspondence` — the pair renderer, and coherence | done |
 | 9c | `show` for the last three probes; every probe drawable | done |
+| 9d | The rendered gallery: one figure per probe, generated not photographed | done |
 
 Steps 7a-7e ship no new probe, backbone or metric. They are the **contributor-
 facing surface**: the shortest path from `pip install` to a number, where the
@@ -105,7 +106,8 @@ ships no new number the way v0.7 did; it is in the same part of this file and in
 `visbench show`, the panel viewer, plus `visbench run --save-probe` to feed its
 prediction column, **9b added the correspondence pair renderer**, and **9c
 covered the last three** — so `visbench show` is valid on *every* probe and
-`show_probes() == list_probes()` is asserted. See the build table and the five
+`show_probes() == list_probes()` is asserted — and **9d added the rendered
+gallery**: one generated figure per probe in the README and on the docs site. See the build table and the five
 bullets in "decisions already paid for". The two remaining library-surface items
 are the **dataset bridges** and an **`examples/custom_backbone.py`**. Re-confirm what is wanted before starting anything; do
 not assume either backlog's order is a plan. **The one thread that was open — why `detection`
@@ -398,7 +400,10 @@ examples/        classify, retrieve, correspond, depth, normals, segment,
                  show_panels (the viewer; no backbone without --predict-from)
 docs/            conf.py, index.md, tasks.md (the per-probe reference AND the
                  ten generated tables), hub.md (sharing a trained probe),
-                 show.md (the panel viewer), roadmap.md, _static/custom.css
+                 show.md (the panel viewer + all 13 figures), roadmap.md,
+                 _static/custom.css, _static/gallery/*.png (the figures —
+                   inside docs/ because Sphinx cannot follow ../, and excluded
+                   from the sdist)
                  — a Sphinx source tree; `_build/` is gitignored
 .github/         workflows/{ci,slow,docs}.yml, ISSUE_TEMPLATE/, PR template
 CITATION.cff     GitHub's cite button + what Zenodo archives (7e)
@@ -959,6 +964,44 @@ designed up front; extend it the same way, from a case that already runs.
   and it is also zero-shot, so `--predict-from` is refused by name rather than
   ignored. Its `show_arguments` is its `add_arguments`: nothing about a match is
   a training setting, so there was no schedule half to drop.
+
+- **The docs gallery is generated, not photographed, and the licence is the
+  first reason** (9d). `scripts/render_gallery.py` renders synthetic scenes with
+  exact ground truth and runs the real `visbench show` over them, writing one
+  figure per probe to `docs/_static/gallery/`. VisBench ships to PyPI under MIT;
+  VOC, ImageNet, NYUv2, Taskonomy and NIGHTS each restrict redistribution to
+  some degree and none clearly grants it, so committing panels containing their
+  photographs would put third-party imagery in an MIT package — the same line
+  `NOTICE` already takes on probe3d's CC BY-NC code. **Do not "improve" the
+  gallery by swapping in real frames.**
+
+  Three properties follow from generating, and they are why this is not merely
+  the safe option: the gallery **rebuilds from one command with no downloads**,
+  so a figure cannot drift from the code; the **ground truth is exact** (sphere
+  normals analytic, depth from the z-order, boxes by construction), so a panel
+  shows its convention rather than an approximation; and **invalid pixels are
+  placed on purpose**, so the magenta marker appears in every figure that has
+  one rather than only where a real frame happened to have a hole.
+
+  **The figures live under `docs/_static/`, not `assets/`.** Sphinx cannot
+  follow a relative path that escapes its source tree and MyST does not warn
+  about it, so `-W` would not catch `../assets/...` — the site would simply have
+  holes. The README points at the same files through
+  `raw.githubusercontent.com`, which is the absolute-URL rule
+  `tests/test_readme.py` already enforces. They are excluded from the sdist in
+  `pyproject.toml`, which they would otherwise nearly triple.
+
+  **Rendering the gallery found three real bugs that the whole test suite had
+  missed**, which is the argument for this package landing on itself a third
+  time. `_row` computed a display range for *every* kind, and a normal map's
+  validity mask is `(H, W)` against a `(3, H, W)` target — so the first
+  three-channel page ever rendered raised, having shipped in 9a. `render_panels`
+  could not lay out a **ragged** final row, which a contact sheet produces
+  whenever the tile count is not a multiple of `--columns`. And a long footer
+  ran off the page edge, silently truncating the *legend* — the one line that
+  says how to read the panel. All three now have tests; the first is
+  `TestEveryPanelKindRenders`, which renders a full page per panel kind and is
+  the coverage whose absence let it through.
 
 - **`show` and `run` compose their flags from one callable, and that is a
   correctness property rather than tidiness** (9a). `ProbeSpec.show_arguments`

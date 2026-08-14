@@ -7,7 +7,7 @@ from PIL import Image
 
 from visbench.data.dense import DenseFolderDataset
 from visbench.data.detection import DetectionFolderDataset
-from visbench.viz import draw_boxes, render_panels, render_probe_panels
+from visbench.viz import draw_boxes, render_panels, render_probe_panels, style_for
 
 
 @pytest.fixture
@@ -98,6 +98,65 @@ class TestNoSecondGeometry:
         assert max(abs(a - b) for a, b in zip(bright, shifted, strict=True)) >= 10
 
 
+class TestEveryPanelKindRenders:
+    """A full page per drawable panel kind, which nothing covered before.
+
+    The colouriser tests exercise `target_to_rgb` directly and the page tests
+    used a scalar target, so no test ever rendered a *channelled* target through
+    `render_probe_panels`. The first three-channel figure ever drawn — a surface
+    normal map in the docs gallery — raised instead: `_row` asked for a display
+    range for every kind, and a normal map's validity mask is `(H, W)` while its
+    target is `(3, H, W)`. Shipped in 9a, found by rendering a page.
+    """
+
+    TARGETS = {
+        "depth": lambda: torch.rand(8, 8) + 1.0,
+        "edge": lambda: torch.rand(8, 8),
+        "corner": lambda: torch.rand(8, 8),
+        "keypoints2d": lambda: torch.rand(8, 8),
+        "occlusion_edge": lambda: torch.rand(8, 8),
+        "surface_normal": lambda: torch.nn.functional.normalize(torch.rand(3, 8, 8), dim=0),
+        "generic_segmentation": lambda: (torch.rand(8, 8) > 0.5).float(),
+        "semantic_segmentation": lambda: torch.randint(0, 4, (8, 8)).float(),
+    }
+
+    class _One:
+        def __init__(self, target):
+            self.target = target
+
+        def __len__(self):
+            return 1
+
+        def __getitem__(self, index):
+            return Image.new("RGB", (8, 8), (9, 9, 9)), self.target
+
+    @pytest.mark.parametrize("probe", sorted(TARGETS))
+    def test_a_page_is_drawn(self, probe):
+        dataset = self._One(self.TARGETS[probe]())
+        page = render_probe_panels(dataset, probe, [0])
+        assert page.size[0] > 0 and page.mode == "RGB"
+
+    @pytest.mark.parametrize("probe", sorted(TARGETS))
+    def test_a_prediction_column_is_drawn(self, probe):
+        """Each kind's `predict()` shape reduced by `_as_target_form`."""
+        channels = {"surface_normal": 3, "semantic_segmentation": 4}.get(probe, 1)
+        dataset = self._One(self.TARGETS[probe]())
+        page = render_probe_panels(dataset, probe, [0], torch.rand(1, channels, 8, 8))
+        assert page.width > render_probe_panels(dataset, probe, [0]).width
+
+    def test_only_the_scalar_kinds_state_a_range(self):
+        """A normal map has no range to state; a depth map does, in metres."""
+        assert "m" in _row_label("depth", self.TARGETS["depth"]())
+        assert "\n" not in _row_label("surface_normal", self.TARGETS["surface_normal"]())
+
+
+def _row_label(probe, target):
+    from visbench.viz.panels import _row
+
+    label, _ = _row(style_for(probe), None, 0, Image.new("RGB", (8, 8)), target, None, None)
+    return label
+
+
 class TestBoxes:
     def test_boxes_land_where_the_dataset_put_them(self, box_split):
         """Drawn in the frame's own coordinates, so a missed rescale shows.
@@ -141,6 +200,22 @@ class TestPage:
     def test_the_legend_names_the_invalid_colour_only_when_one_exists(self, depth_split):
         page = render_probe_panels(depth_split, "depth", [0])
         assert page.mode == "RGB"
+
+    def test_a_long_footer_wraps_rather_than_running_off_the_edge(self):
+        """The footer is the legend, so truncating it loses how to read the page.
+
+        Found by rendering the correspondence figure for the docs gallery: its
+        legend is the longest of the thirteen and was cut off mid-sentence.
+
+        It **wraps** rather than widening the page: the width belongs to the
+        panels, and one long sentence should not stretch a figure past its own
+        content.
+        """
+        tile = [np.zeros((10, 10, 3), np.uint8)]
+        short = render_panels([("a", tile)], [""], footer="brief")
+        long = render_panels([("a", tile)], [""], footer=" ".join(["word"] * 120))
+        assert long.width == short.width
+        assert long.height > short.height
 
     def test_a_prediction_column_appears_only_when_given(self, depth_split):
         image, _ = depth_split[0]
