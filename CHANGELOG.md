@@ -41,8 +41,60 @@ so it stands on its own rather than assuming you have read the ones above it.
   stores and what every pooling task reduces. A test pins which backbones match
   their own head and that ConvNeXt does not.
 
-  No measured number changes: the corpus still covers the original six, and the
-  three new rows are a separate step.
+- **The corpus at 13 probes x 9 backbones — 117 records, and the first time the
+  three tiers visibly separate.** The three backbones above are measured now,
+  not merely registered: 39 new records, every one of the thirteen groups
+  holding all nine. **Purely additive** — 39 lines added, none removed, so every
+  number published before this is byte-identical and no ranking already quoted
+  moved.
+
+  **`mae_vitb16` is first on six of the thirteen boards and ninth on four**,
+  which no backbone in the corpus has done before. It leads all three low-level
+  probes (edge, 2D keypoints, corner) plus correspondence, occlusion edges and
+  surface normals, and comes **last** on classification, retrieval, semantic
+  segmentation and mid-level similarity. Six of the thirteen boards are now
+  headed by a model that is last on the other four, so "which backbone is best"
+  is not a well-formed question against this corpus — which is what the task
+  taxonomy claims and what the previous six-backbone corpus could only hint at,
+  because its rows mostly reproduced one capacity ordering.
+
+  **Retrieval's 0.1883 for MAE is barely above the 0.1 chance floor and is not
+  a broken run.** The check is internal to the corpus: the same features score
+  0.9582 top-1 under a *trained* linear probe. A learned projection recovers
+  category structure that cosine similarity on the raw CLS token cannot, which
+  is MAE's documented behaviour without fine-tuning — and an extraction bug
+  would have taken the linear probe down with it.
+
+  MAE's correspondence win is **not** its grid, which is the first question that
+  board invites: it scores 0.3577 against a `ceiling_recall@5px` of 0.3932,
+  where `dinov2_vits14` scores 0.3049 against a *higher* ceiling of 0.4123. Read
+  against the ceiling the gap widens rather than closing.
+
+  `convnext_base` tops classification (0.9997) and retrieval (0.9890) and then
+  places seventh or lower on every dense geometric board. It carries the same
+  caveat `resnet50` already did and `docs/tasks.md` now names both: it is
+  ImageNet-1k **supervised**, and Imagenette's ten classes are ImageNet-1k
+  wnids, so those two scores are close to in-distribution recall rather than a
+  transfer result.
+
+### Fixed
+
+- **`slurm/corpus.sbatch` could never schedule the `corner` probe.** Its
+  `PROBES` array had twelve entries where `build_corpus.sh`'s `ALL_PROBES` has
+  thirteen; `corner` shipped in 8a/8b and was added to one file and not the
+  other, so it sat unschedulable through v0.9.0. The sbatch's own guard could
+  not catch it — that guard multiplies its *own* probe list by the backbone
+  list, so a twelve-probe matrix is self-consistently the wrong size, and the
+  corpus it produces looks complete because every group present still holds
+  every backbone. `tests/scripts/test_corpus_scripts.py` now pins the two lists
+  equal to each other and to `list_probes()`.
+
+- **The same guard accepted any array range ending at the right index.** It
+  checked only `SLURM_ARRAY_TASK_MAX`, so `--array=3-38` on a 39-task matrix
+  passed while silently omitting the first probe, and a strided or
+  comma-separated range passed however much it skipped. It checks
+  `SLURM_ARRAY_TASK_COUNT` as well now, which is the number of tasks actually
+  submitted and the only one of the two that can see a hole in the middle.
 
 ## [0.9.0] — 2026-08-14
 

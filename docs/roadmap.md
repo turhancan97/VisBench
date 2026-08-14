@@ -63,6 +63,15 @@ This is a multi-month roadmap, built one reviewed step at a time.
 - [x] **8a–8b.** corner detection — the first probe whose target is *computed*
       from the image rather than downloaded, then put into the record corpus on
       a frame set a script pins and reconstructs
+- [x] **9a–9d.** `visbench show` — the panel viewer, then the correspondence
+      pair renderer, then the three probes whose answer is a choice among images
+      rather than a map, then the generated docs gallery. Every probe is
+      drawable, and `show_probes() == list_probes()` is asserted
+- [x] **10a.** three more backbones — `TimmBackbone` learns to read a ViT, which
+      added ConvNeXt-B, MAE ViT-B/16 and SigLIP-GAP ViT-B/16 in one change
+- [x] **10b.** the corpus at 13 probes x 9 backbones — 117 records, and the
+      first time the three tiers visibly separate: MAE is first on six boards
+      and last on four
 
 ## Roadmap
 
