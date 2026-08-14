@@ -9,6 +9,41 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+### Added
+
+- **Three more backbones: ConvNeXt-B, MAE ViT-B/16 and SigLIP-GAP ViT-B/16.**
+  Nine registered now, across four families. `TimmBackbone` had refused
+  transformers outright, and rightly for what it then was: `has_cls_token` and
+  `patch_size` were *class* attributes declaring "CNN" for every model, and a
+  false `has_cls_token` discards the CLS token while the record claims there was
+  none to keep. It reads both per instance now, so any timm ViT is usable — the
+  three registered here are examples rather than special cases.
+
+  **`pooling="default"` is read from timm's `global_pool`** rather than inferred
+  from whether a CLS token exists. The base class's "CLS if there is one, mean
+  otherwise" is a good default and only a proxy: a ViT can carry a CLS token and
+  still be trained to average. MAE reports `token` and SigLIP-GAP reports `avg`,
+  so two models of identical shape resolve `default` differently — each to what
+  it hands its own classifier, the rule the ResNets already followed.
+
+  **SigLIP is the `_gap_` variant deliberately.** Canonical SigLIP pools with an
+  `AttentionPoolLatent` (`global_pool='map'`) — a trained module, not a
+  reduction over tokens, so it cannot be a pooling *mode* over the features the
+  cache stores. That is refused by name, with a message saying which sibling to
+  use. The dense features are the same SigLIP features either way.
+
+  **ConvNeXt is a documented exception to a rule this module has stated since
+  v0.2.** Its head is `avg -> LayerNorm2d`, so what the model hands its
+  classifier is `norm(mean(x))` while VisBench returns `mean(x)` — they differ
+  by 27.5 at most on one frame. Both invariants cannot hold, since LayerNorm
+  across channels does not commute with a spatial mean. The one kept is that
+  **`pooled` is always a reduction of `dense`**, because that is what the cache
+  stores and what every pooling task reduces. A test pins which backbones match
+  their own head and that ConvNeXt does not.
+
+  No measured number changes: the corpus still covers the original six, and the
+  three new rows are a separate step.
+
 ## [0.9.0] — 2026-08-14
 
 **Every probe can now be looked at, not only scored.** `visbench show` writes a

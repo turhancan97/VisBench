@@ -161,19 +161,24 @@ def test_unknown_variant_points_at_model_name():
         TimmBackbone(variant="resnet101")
 
 
-def test_timm_vit_is_rejected_at_construction():
-    """A timm ViT returns tokens, not a conv map; say so rather than crashing.
+def test_an_unregistered_timm_vit_works_by_name():
+    """timm ViTs were refused outright until v0.9; now they are read.
 
-    Rejected when the backbone is built, not at the first extraction. Once
-    ``forward_intermediates`` is asked for NCHW it reshapes a ViT's tokens into
-    a grid, so from that point the output is indistinguishable from a conv map
-    and nothing would notice the CLS token had been dropped while
-    ``has_cls_token`` stayed False.
+    The refusal was right for what the class then was: ``has_cls_token`` and
+    ``patch_size`` were *class* attributes declaring "CNN" for everything, and
+    once ``forward_intermediates`` is asked for NCHW a ViT's tokens are reshaped
+    into a grid — from that point indistinguishable from a conv map, with the
+    CLS token dropped and the record claiming there was none.
+
+    What replaced it is reading both per instance, so any timm ViT is usable and
+    describes itself honestly, not only the three registered here.
     """
     from visbench.backbones.timm_backbone import TimmBackbone
 
-    with pytest.raises(NotImplementedError, match="dinov2_.* or clip_"):
-        TimmBackbone(model_name="vit_tiny_patch16_224", device="cpu")
+    backbone = TimmBackbone(model_name="vit_tiny_patch16_224", device="cpu")
+    assert backbone.is_transformer is True
+    assert backbone.has_cls_token is True
+    assert backbone.patch_size == 16
 
 
 def test_uses_the_models_own_preprocessing(resnet, solid_images):
@@ -248,3 +253,98 @@ class TestResNetStages:
             output_size=224,
         )
         assert head(features["dense_layers"]).shape == (2, 1, 224, 224)
+
+
+# -- transformers, and the head-equality question -----------------------------
+#
+# This class refused timm ViTs outright until v0.9, on the grounds that
+# `has_cls_token = False` would be a lie for one. These pin the claims that
+# replaced the refusal.
+
+
+@pytest.fixture(scope="module")
+def mae():
+    return visbench.get_backbone("mae_vitb16", device="cpu")
+
+
+@pytest.fixture(scope="module")
+def siglip():
+    return visbench.get_backbone("siglip_vitb16", device="cpu")
+
+
+class TestTransformers:
+    def test_mae_reports_its_cls_token_and_patch_grid(self, mae):
+        assert mae.has_cls_token is True
+        assert mae.patch_size == 16
+        assert mae.embed_dim == 768
+
+    def test_siglip_gap_has_no_cls_token_but_still_has_a_patch_grid(self, siglip):
+        """The case the old class attributes could not express.
+
+        `has_cls_token = False` was right for this model and `patch_size = None`
+        was wrong, and both were the same hard-coded pair.
+        """
+        assert siglip.has_cls_token is False
+        assert siglip.patch_size == 16
+
+    def test_the_model_decides_the_default_pooling(self, mae, siglip):
+        """MAE pools by its CLS token, SigLIP-GAP by average — timm says so.
+
+        Not inferred from `has_cls_token`, which is only a proxy: it happens to
+        agree for both of these, and reading `global_pool` is what makes it a
+        statement about the checkpoint rather than a coincidence.
+        """
+        assert mae.default_pooling() == Pooling.CLS
+        assert siglip.default_pooling() == Pooling.MEAN
+
+    def test_dense_features_are_the_patch_grid(self, mae, siglip, solid_images):
+        for backbone in (mae, siglip):
+            features = backbone.extract_features(backbone.preprocess(solid_images))
+            assert features["grid_hw"] == (14, 14)
+            assert features["dense"].shape[1] == 768
+
+    def test_the_cls_token_is_kept_not_discarded(self, mae, solid_images):
+        """The failure the old refusal existed to prevent."""
+        features = mae.extract_features(mae.preprocess(solid_images), feature_mode="dense_plus_cls")
+        assert features["cls"] is not None
+        assert features["cls"].shape[-1] == 768
+
+    def test_multi_layer_costs_one_forward_pass(self, mae, solid_images):
+        features = mae.extract_features(mae.preprocess(solid_images), layers=[2, 5, 8, 11])
+        assert len(features["dense_layers"]) == 4
+        assert features["layer_indices"] == [2, 5, 8, 11]
+
+
+class TestPooledMatchesTheModelsOwnHead:
+    """Which backbones' pooled vector is what the model hands its classifier.
+
+    The claim this module has made since v0.2, now that it covers five models
+    and one of them breaks it. Pinned in both directions so the exception
+    cannot quietly become the rule, or be quietly fixed into one.
+    """
+
+    @pytest.mark.parametrize("name", ["resnet18", "resnet50", "mae_vitb16", "siglip_vitb16"])
+    def test_it_matches(self, name, solid_images):
+        backbone = visbench.get_backbone(name, device="cpu")
+        pixels = backbone.preprocess(solid_images)
+        with torch.no_grad():
+            theirs = backbone.model(pixels)
+        assert torch.allclose(backbone.extract_features(pixels)["pooled"], theirs, atol=1e-4)
+
+    def test_convnext_is_the_documented_exception(self, solid_images):
+        """Its head is `avg -> LayerNorm2d`, so the model pools *then* norms.
+
+        There is no way to satisfy both invariants: LayerNorm across channels
+        does not commute with a spatial mean. The one kept is that `pooled` is
+        always a reduction of `dense`, because that is what the cache stores and
+        what every pooling task reduces.
+        """
+        backbone = visbench.get_backbone("convnext_base", device="cpu")
+        pixels = backbone.preprocess(solid_images)
+        features = backbone.extract_features(pixels)
+        with torch.no_grad():
+            theirs = backbone.model(pixels)
+
+        assert not torch.allclose(features["pooled"], theirs, atol=1e-2)
+        # The invariant that *is* kept: pooled is the mean of dense.
+        assert torch.allclose(features["pooled"], features["dense"].flatten(2).mean(-1), atol=1e-5)

@@ -68,6 +68,8 @@ step is next rather than attempting the whole roadmap in one session.
 | 9b | `visbench show correspondence` — the pair renderer, and coherence | done |
 | 9c | `show` for the last three probes; every probe drawable | done |
 | 9d | The rendered gallery: one figure per probe, generated not photographed | done |
+| 10a | Three more backbones: `TimmBackbone` learns to read a ViT | done |
+| 10b | The corpus at 13 probes x 9 backbones | next |
 
 Steps 7a-7e ship no new probe, backbone or metric. They are the **contributor-
 facing surface**: the shortest path from `pip install` to a number, where the
@@ -193,7 +195,8 @@ Registered names — `visbench.list_backbones()`, `list_probes()`,
 
 ```text
 backbones  dinov2_vits14, dinov2_vitb14, clip_vitb16, clip_vitb32,
-           resnet18, resnet50            (+ CustomBackbone, unregistered)
+           resnet18, resnet50, convnext_base, mae_vitb16, siglip_vitb16
+                                         (+ CustomBackbone, unregistered)
 probes     classification, retrieval, correspondence, depth, surface_normal,
            generic_segmentation, semantic_segmentation, similarity, detection,
            edge, keypoints2d, occlusion_edge, corner
@@ -1010,6 +1013,45 @@ designed up front; extend it the same way, from a case that already runs.
   and it is also zero-shot, so `--predict-from` is refused by name rather than
   ignored. Its `show_arguments` is its `add_arguments`: nothing about a match is
   a training setting, so there was no schedule half to drop.
+
+- **`TimmBackbone` reads a model's own structure; it used to assume a CNN's**
+  (10a). `has_cls_token` and `patch_size` were *class* attributes declaring
+  "CNN" for everything, which is why timm ViTs were refused outright — a false
+  `has_cls_token` discards the CLS token while the record claims there was none
+  to keep. Read per instance from `num_prefix_tokens` and `patch_embed`, any
+  timm ViT becomes usable *and honest*, which is what added ConvNeXt-B, MAE
+  ViT-B/16 and SigLIP-GAP ViT-B/16 in one change rather than three.
+
+  **`default` pooling is read from timm's `global_pool`, not inferred from
+  whether a CLS token exists.** The base class's "CLS if there is one, mean
+  otherwise" is a good default and only a proxy: a ViT can carry a CLS token and
+  still be trained to average. MAE reports `token` and SigLIP-GAP reports `avg`,
+  so `default` means different things for two models of identical shape — each
+  matching what the model hands its own classifier, which is the rule the
+  ResNets already followed.
+
+  **SigLIP is the `_gap_` variant deliberately.** Canonical SigLIP pools with an
+  `AttentionPoolLatent` (`global_pool='map'`) — a *trained module*, not a
+  reduction over tokens, so it cannot be a pooling mode over features the cache
+  stores. `describe_transformer` refuses `map` by name and says which sibling to
+  use. Do not "add a map mode" without deciding first that a pooling mode may
+  carry weights.
+
+  **ConvNeXt breaks the "pooled is what the model hands its classifier" rule,
+  and the exception is documented rather than smoothed over.** Its head is
+  `avg -> LayerNorm2d`, so the model's own vector is `norm(mean(x))` while this
+  class returns `mean(x)` — max absolute difference 27.5 on one frame. Both
+  invariants cannot hold: LayerNorm across channels does not commute with a
+  spatial mean. The one kept is the structural one — **`pooled` is always a
+  reduction of `dense`** — because the cache stores dense features and every
+  pooling task reduces them. A test pins which four backbones match their own
+  head and that ConvNeXt does not, in both directions.
+
+  **The guards have fast tests, which is the point of `describe_transformer`
+  being a module-level function.** Every timm backbone test needs real weights
+  and is marked `slow`, which CI does not run; the three decisions here each
+  produce a silently wrong number rather than an error, so the logic takes a
+  stub and is tested without a download.
 
 - **The docs gallery is generated, not photographed, and the licence is the
   first reason** (9d). `scripts/render_gallery.py` renders synthetic scenes with
