@@ -11,6 +11,64 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Added
 
+- **`visbench show` — the first visualisation anywhere in the package.** It
+  writes a grid of image / target / prediction panels to a file, measures
+  nothing and records nothing. Nine probes have a spatial target to draw: the
+  eight dense ones plus `detection`, whose boxes are drawn straight onto the
+  crop in the post-transform pixel coordinates the dataset returns.
+
+  It exists because a dense target that has drifted from the image it belongs
+  to fails **silently** — nothing raises, the probe trains, and the number
+  merely comes out mediocre, which reads as a hard task or a weak
+  representation. Those are the two explanations this library exists to
+  separate. Both the correspondence misalignment that scored `recall@1px =
+  0.003` and VOC's palette PNGs read through `convert("L")` (classes
+  `[0, 1, 15, 255]` becoming `[0, 38, 147, 220]`) were found by reading code,
+  and both are obvious in one frame.
+
+  Three rules, each with its own guard in `tests/viz/`. **The viewer applies no
+  geometry of its own** — no resize, no re-read, no second crop; a viewer that
+  did could make a misaligned pipeline look fine and a correct one look broken,
+  which is worse than no viewer at all. **An invalid pixel is drawn magenta per
+  that probe's own convention** — there are four conventions across the nine
+  probes (`0`, the zero vector, negative, `NaN`) and none is visible in a
+  tensor's shape, so `TARGET_STYLES` is a listed table that raises on an
+  unlisted probe, the posture `METRIC_DIRECTIONS` already takes. **A prediction
+  is scaled by the target's range**, since scaling each panel to its own
+  extremes makes a prediction at half the target's magnitude render identically
+  to a correct one.
+
+  Pillow and numpy only — no matplotlib, and no dependency change. New
+  `visbench/viz/` (`styles`, `colour`, `panels`) and `docs/show.md`.
+
+- **`visbench run --save-probe PATH`** writes the trained head, with the
+  backbone identity beside it, to a local file. It wraps the existing
+  `save_probe` and needs no Hub account — before it, the only way to get an
+  artifact from a shell was `--push-to`, so `show`'s prediction column had no
+  CLI-producible input. A zero-shot probe is refused before the run, as
+  `--push-to` already was.
+
+### Fixed
+
+- **A saved `detection` probe was unusable when loaded back.** `grid_hw` is
+  fitted state living outside `self.head`, and `probe_state()` did not carry
+  it, so `load_probe` returned a probe whose `predict` raised "this probe has
+  not been fitted". This is the case `probe_state` was added for — the same one
+  `ClassificationTask`'s standardiser was — and detection was missed when it
+  arrived. Latent since v0.6.0, and reachable only through the Hub artifact
+  path, which is why no measurement moves.
+
+### Changed
+
+- **The CLI's flag helpers were re-cut so `show` and `run` share one source.**
+  Every probe's flags are now `<view flags> + _schedule_flags`, and `show`
+  composes its surface from the first half rather than a parallel copy — a
+  second copy could build a *different dataset* than `run` would from the same
+  command line. `--image-size` moved from the head group to the data group,
+  where it belongs: it decides the dataset's resize and centre crop.
+  `run`'s surface is unchanged, flag for flag and default for default, pinned
+  by `test_run_flags_are_unchanged_by_the_split`.
+
 - **The Hub integration has an example and a documentation page.** `push_probe`
   and `load_probe_from_hub` shipped in v0.6.0 with tests but no runnable
   demonstration, so the half of the feature that touches the network was

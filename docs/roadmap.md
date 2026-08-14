@@ -190,21 +190,15 @@ precedent — a release that changed no number and was worth shipping anyway.
 None of these is a defect. Every one is reachable today by writing Python; what
 is missing is the shortest path to it.
 
-### Looking at what a probe saw and what it predicted
+### Looking at what a probe saw and what it predicted — **done**
 
-There is no visualisation anywhere in the package. `visbench/results/render.py`
-renders markdown tables from records, and that is the whole story — the only
-image-drawing code is `visbench/demo.py`, which *generates* synthetic inputs
-rather than displaying anything.
+Shipped as `visbench show`, the first visualisation anywhere in the package. It
+writes a grid of image / target / prediction panels to a file for the nine
+probes with a spatial target — the eight dense ones plus `detection` — and
+measures nothing.
 
-The material is already there. Every probe has `predict()`, and
-`SemanticSegmentationTask.predict_labels()` returns `(N, H, W)` class indices
-with a docstring that says "for saving or visualising". What is missing is a way
-to *look* — at an evaluation set's images beside their targets, or at a
-prediction beside its ground truth.
-
-**The argument for this is the project's own bug history, not convenience.**
-Two of the most expensive failures here were geometry misalignments that stayed
+**The argument for it was the project's own bug history, not convenience.** Two
+of the most expensive failures here were geometry misalignments that stayed
 invisible because nothing ever rendered a target next to its image:
 
 - the correspondence misalignment that scored `recall@1px = 0.003`
@@ -212,21 +206,22 @@ invisible because nothing ever rendered a target next to its image:
   `[0, 1, 15, 255]` into `[0, 38, 147, 220]` — which loads, trains and scores
   against labels that mean nothing
 
-Both were found by reading code. Both are obvious in one frame of output. A
-dense target that has drifted from its image is the single most common silent
-failure this codebase has, and it is the one a picture catches instantly.
+Both were found by reading code. Both are obvious in one frame of output.
 
-Sketch: a `visbench show` command taking the same `ProbeSpec` dataset flags the
-`run` subcommands already take, writing a grid of image / target / prediction
-panels to a file. Two decisions to make first — whether it takes a saved probe
-artifact (`visbench/hub/`) or trains one, and whether `matplotlib` becomes a
-dependency or PIL alone suffices. PIL alone is likely enough and keeps the core
-install untouched, which matters more here than layout quality.
+The two open decisions were settled as: **PIL and numpy only**, no matplotlib
+and no dependency change; and **a saved artifact rather than training on the
+spot**, which is what `visbench run --save-probe` was added to produce. The
+stated hazard — that a viewer applying its own resize or colour-map is a second
+geometry — is guarded by a test pinning the image panel byte-for-byte against
+`np.asarray(dataset[i][0])`.
 
-Hazard worth stating up front: a viewer that applies its *own* resize or
-colour-map is a second geometry, and a second geometry is exactly what
-`DenseFolderDataset` exists to prevent. It must display what the dataset
-yielded, not re-derive it.
+See [looking at a probe](show.md) for the three rules it keeps and why invalid
+pixels are magenta.
+
+**Still open: a pair renderer for `correspondence`.** Two frames side by side
+with match lines is a different layout from a panel grid, and it is the probe
+whose historical bug is quoted above — so the case for it is the strongest of
+any remaining viewer work.
 
 ### Bringing a dataset VisBench has never heard of
 

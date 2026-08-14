@@ -17,7 +17,7 @@ from typing import Any
 import visbench
 from visbench import registry
 from visbench.cache import DEFAULT_CACHE_DIR, FeatureCache
-from visbench.cli.datasets import spec_for, supported_probes
+from visbench.cli.datasets import showable_probes, spec_for, supported_probes
 
 __all__ = ["main", "build_parser"]
 
@@ -63,12 +63,61 @@ def _add_run_common(parser: argparse.ArgumentParser) -> None:
         action="store_true",
         help="make the pushed repository readable by anyone (default: private)",
     )
+    parser.add_argument(
+        "--save-probe",
+        type=Path,
+        metavar="PATH",
+        default=None,
+        help="write the trained head here, with the backbone identity beside it, so "
+        "`visbench show --predict-from` can draw what it predicts. Needs no Hub account",
+    )
     parser.add_argument("--json", action="store_true", help="print the full record as JSON")
     parser.add_argument("--quiet", action="store_true", help="print metrics only")
     parser.add_argument(
         "--traceback",
         action="store_true",
         help="re-raise on error instead of printing a one-line message",
+    )
+
+
+def _add_show_common(parser: argparse.ArgumentParser) -> None:
+    """Flags every ``show`` subcommand shares, whatever the probe."""
+    parser.add_argument("--data", type=Path, required=True, help="dataset root")
+    parser.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help="PNG to write; default is visbench-show-<probe>.png in the working directory",
+    )
+    parser.add_argument("--frames", type=int, default=4, help="how many rows to draw (default: 4)")
+    parser.add_argument(
+        "--start", type=int, default=0, help="index of the first frame to draw (default: 0)"
+    )
+    parser.add_argument(
+        "--predict-from",
+        type=Path,
+        metavar="PATH",
+        default=None,
+        help="a probe saved by `visbench run --save-probe`; adds a prediction column. "
+        "The backbone must be the one it was fitted on, which is checked, not assumed",
+    )
+    parser.add_argument(
+        "--backbone",
+        default="dinov2_vits14",
+        help="only used with --predict-from; see `visbench list backbones`",
+    )
+    parser.add_argument("--batch-size", type=int, default=32, help="feature extraction batch size")
+    parser.add_argument("--device", default=None, help="cuda | cpu; default is best available")
+    parser.add_argument(
+        "--cache", type=Path, default=DEFAULT_CACHE_DIR, help="feature cache directory"
+    )
+    parser.add_argument("--no-cache", action="store_true", help="extract without using the cache")
+    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--quiet", action="store_true", help="print the output path only")
+    parser.add_argument(
+        "--traceback",
+        action="store_true",
+        help="re-raise instead of printing a one-line error",
     )
 
 
@@ -103,6 +152,36 @@ def build_parser() -> argparse.ArgumentParser:
         )
         _add_run_common(subparser)
         spec.add_arguments(subparser)
+
+    show = commands.add_parser(
+        "show",
+        help="draw a probe's images beside their targets — and its predictions",
+        description=(
+            "Writes a grid of image / target / prediction panels to a file.\n\n"
+            "Measures nothing and records nothing. It exists because a dense "
+            "target drifting from the image it belongs to fails silently -- the "
+            "probe trains, and the number merely comes out mediocre, which reads "
+            "as a hard task rather than as a bug. Two of this project's most "
+            "expensive failures were exactly that, and both are obvious in one "
+            "frame.\n\n"
+            "Without --predict-from it needs no backbone, no cache and no GPU, "
+            "which is when you actually want to look: before spending a "
+            "training budget on the data."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    show_probes_parser = show.add_subparsers(dest="probe", metavar="<probe>", required=True)
+    for name in showable_probes():
+        spec = spec_for(name)
+        assert spec.show_arguments is not None  # showable_probes() filtered on it
+        subparser = show_probes_parser.add_parser(
+            name,
+            help=spec.summary,
+            description=f"{spec.summary}\n\nExpected layout:\n  {spec.layout}",
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+        )
+        _add_show_common(subparser)
+        spec.show_arguments(subparser)
 
     cache = commands.add_parser("cache", help="inspect or drop extracted features")
     cache_commands = cache.add_subparsers(dest="cache_command", metavar="<action>", required=True)
@@ -223,11 +302,12 @@ def _command_run(args: argparse.Namespace, out: Any) -> int:
     # ValueError -- after training. A zero-shot probe fits nothing, so there
     # are no weights to share and the backbone alone reproduces it; finding
     # that out at the end of a run costs the whole run.
-    if args.push_to and getattr(probe, "zero_shot", False):
+    if (args.push_to or args.save_probe) and getattr(probe, "zero_shot", False):
+        destination = "push" if args.push_to else "save"
         raise ValueError(
             f"{args.probe!r} is zero-shot: it trains nothing, so there is no head to "
-            "push. Anyone with the backbone reproduces this number -- share the "
-            "command, not a file."
+            f"{destination}. Anyone with the backbone reproduces this number -- share "
+            "the command, not a file."
         )
 
     if not args.quiet:
@@ -268,6 +348,16 @@ def _command_run(args: argparse.Namespace, out: Any) -> int:
     for name, value in sorted(result.metrics.items()):
         print(f"  {name:<{width}}  {value:.4f}", file=out)
 
+    if args.save_probe:
+        # No optional extra: save_probe is pure torch, so a core install can
+        # write a head and draw its predictions without a Hub account. Runs
+        # after the probe is fitted, unlike the zero-shot refusal above, because
+        # this one cannot leave anything behind on failure.
+        from visbench.hub import save_probe
+
+        written = save_probe(result.probe, args.save_probe, backbone=result.backbone)
+        print(f"\nsaved the trained head to {written}", file=out)
+
     if args.push_to:
         # Imported here, not at module scope: huggingface_hub is an optional
         # extra, and `visbench run` without --push-to must work in a core
@@ -289,6 +379,95 @@ def _command_run(args: argparse.Namespace, out: Any) -> int:
     elif not args.quiet and results is not None:
         print(f"\nappended to {results}", file=out)
     return 0
+
+
+def _command_show(args: argparse.Namespace, out: Any) -> int:
+    """Draw what the probe saw, and optionally what a saved head predicts.
+
+    Nothing here re-reads an image or resizes a panel: the dataset already
+    yields a PIL image at the working resolution, and that image is pasted
+    unchanged. A viewer that applied its own geometry could make a misaligned
+    pipeline look fine and a correct one look broken, which would make it worse
+    than no viewer at all.
+    """
+    from visbench.viz import render_probe_panels
+
+    spec = spec_for(args.probe)
+    if args.frames < 1:
+        raise ValueError(f"--frames must be at least 1, got {args.frames}")
+
+    # Both halves are built by every `build`, and one of them is never drawn.
+    # Mirroring --stems means a viewer can be pointed at an official split list
+    # without also naming a training list it will not read.
+    if getattr(args, "stems", None) is not None and getattr(args, "train_stems", None) is None:
+        args.train_stems = args.stems
+    # Shortening happens where each probe already shortens: `--limit` reaches
+    # Taskonomy and corner as the constructor's `max_images` and the folder
+    # probes as `subset()`, so asking for it by that name keeps one code path.
+    args.limit = args.start + args.frames
+
+    dataset = spec.build(args).evaluate
+    if len(dataset) <= args.start:
+        raise ValueError(
+            f"--start {args.start} is past the end of the split, which holds {len(dataset)} items."
+        )
+    indices = list(range(args.start, min(len(dataset), args.start + args.frames)))
+
+    predictions = None
+    if args.predict_from is not None:
+        predictions = _predictions(args, spec, dataset, indices, out)
+
+    class_names = getattr(dataset, "classes", None)
+    page = render_probe_panels(dataset, args.probe, indices, predictions, class_names)
+
+    destination = args.out if args.out is not None else Path(f"visbench-show-{args.probe}.png")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    page.save(destination)
+
+    if not args.quiet:
+        columns = "image, target, prediction" if predictions is not None else "image, target"
+        print(f"{args.probe}: {len(indices)} frames from {args.data}", file=out)
+        print(f"  columns: {columns}", file=out)
+    print(f"{destination}", file=out)
+    return 0
+
+
+def _predictions(
+    args: argparse.Namespace, spec: Any, dataset: Any, indices: list[int], out: Any
+) -> Any:
+    """Run a saved head over exactly ``indices``, in that order.
+
+    The probe is constructed from the same ``probe_kwargs`` ``run`` uses, then
+    :func:`visbench.hub.load_probe` refuses a backbone the head was not fitted
+    on — a head fed the wrong pooling scores 0.9620 against 0.9820 without
+    raising, so the check is the reason this path goes through the artifact
+    module rather than ``torch.load``.
+    """
+    from visbench.hub import load_probe
+
+    if not args.quiet:
+        print(f"loading {args.backbone} and the head from {args.predict_from}...", file=out)
+
+    backbone = visbench.get_backbone(args.backbone, device=args.device)
+    probe = visbench.get_probe(args.probe, **spec.probe_kwargs(args))
+    probe = load_probe(args.predict_from, backbone=backbone, task=probe)
+
+    # subset() reindexes every parallel list together, so the features stay
+    # paired with the frames they came from. Slicing an attribute by hand is
+    # what pairs a target with the wrong image, silently.
+    frames = dataset.subset(indices)
+    features = FeatureCache(root=args.cache, enabled=not args.no_cache).extract_dataset(
+        backbone,
+        frames,
+        pooling=probe.pooling,
+        layers=probe.layers,
+        feature_mode=probe.feature_mode,
+        batch_size=args.batch_size,
+    )
+    # Labels go in even though a dense probe's predict() ignores them: detection
+    # pairs each image's annotation with its features and refuses None, and one
+    # call that works for both beats a branch on the probe's kind.
+    return probe.predict(features, frames.labels())
 
 
 def _command_demo(args: argparse.Namespace, out: Any) -> int:
@@ -346,6 +525,7 @@ def _command_demo(args: argparse.Namespace, out: Any) -> int:
 _COMMANDS = {
     "list": _command_list,
     "run": _command_run,
+    "show": _command_show,
     "cache": _command_cache,
     "demo": _command_demo,
 }
