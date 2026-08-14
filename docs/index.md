@@ -43,7 +43,7 @@ not measuring the signal.
 | Drawing a probe's images beside their targets | [Looking](show.md) |
 | Sharing a trained probe, and what travels with it | [The Hub](hub.md) |
 | How it was built, and what might come next | [Roadmap](roadmap.md) |
-| Thirteen probes against six backbones, ranked | [LEADERBOARD.md](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md) |
+| Thirteen probes against nine backbones, ranked | [LEADERBOARD.md](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md) |
 | Setting up, the checks, and how to add a probe | [CONTRIBUTING.md](https://github.com/turhancan97/VisBench/blob/main/CONTRIBUTING.md) |
 
 ## What makes it different

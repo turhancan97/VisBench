@@ -69,7 +69,7 @@ step is next rather than attempting the whole roadmap in one session.
 | 9c | `show` for the last three probes; every probe drawable | done |
 | 9d | The rendered gallery: one figure per probe, generated not photographed | done |
 | 10a | Three more backbones: `TimmBackbone` learns to read a ViT | done |
-| 10b | The corpus at 13 probes x 9 backbones | next |
+| 10b | The corpus at 13 probes x 9 backbones | done |
 
 Steps 7a-7e ship no new probe, backbone or metric. They are the **contributor-
 facing surface**: the shortest path from `pip install` to a number, where the
@@ -103,6 +103,14 @@ just trained, and twenty trained heads are now public in a collection — see th
 publishing them uncovered. **v0.8.0 is verified out of the published wheel by
 import**, which it was not when v0.8.0's own section was written. No number
 moved and no version was bumped, so PyPI is still 0.8.0.
+
+**10a and 10b are both done (2026-08-14) and the corpus is now 13 probes x 9
+backbones, 117 records.** `convnext_base`, `mae_vitb16` and `siglip_vitb16` are
+measured, not merely registered. The merge was **purely additive** — 39 lines
+added, none removed — so no number published before 10b moved. **The headline
+result is that the three tiers finally separate**: see the `mae_vitb16` bullet
+in "decisions already paid for", which is the single most important thing to
+read before quoting any board from this corpus.
 
 **There is no `next` step.** The remaining work is the candidate task backlog
 further down this file — and the cheapest items there need no new dataset at
@@ -150,9 +158,10 @@ GitHub, Zenodo archived it, and the concept DOI is
 reached PyPI on 2026-08-06**, verified out of the wheel; see below.
 
 **What v0.6.0 changed, in one paragraph.** `results/corpus/visbench.jsonl` is a
-committed corpus — 72 records when it shipped, **78 since 8b added `corner`** —
-of every probe against six backbones, one comparability group each and every
-group holding all six. `visbench/results/leaderboard.py`
+committed corpus — 72 records when it shipped, 78 after 8b added `corner`, and
+**117 since 10b added the three timm backbones** — of every probe against every
+backbone, one comparability group each and every group holding all nine.
+`visbench/results/leaderboard.py`
 holds the rules for which records may be ranked together and
 `visbench/results/render.py` turns an answer into markdown; **ten** marker-
 delimited tables and `LEADERBOARD.md` are generated from the corpus, and a
@@ -578,6 +587,66 @@ designed up front; extend it the same way, from a case that already runs.
   won. **And a task can disagree with itself**: on Taskonomy normals DINOv2-S
   wins on mean angular error while DINOv2-B wins on the 11.25° threshold, so
   quoting one and dropping the other manufactures a result.
+
+- **`mae_vitb16` is first on six of the thirteen boards and last on four, and
+  this is the corpus finally demonstrating what the taxonomy claims** (10b,
+  2026-08-14). Read this before quoting any board. Over nine backbones MAE leads
+  all three low-level probes (edge 0.4982, keypoints2d 0.2626, corner 0.6669)
+  plus correspondence (0.3577), occlusion edges (0.3273) and surface normals
+  (27.52° mean) — and comes **ninth** on classification (0.9582), retrieval
+  (0.1883), semantic segmentation (0.3350) and mid-level similarity (0.6897).
+  No other backbone here is simultaneously best and worst.
+
+  Before 10b the boards mostly reproduced one capacity ordering (DINOv2 > CLIP >
+  ResNet on nearly everything), which made the three tiers look like a
+  taxonomy the numbers merely tolerated. One pixel-reconstruction backbone
+  separates them outright. **"Which backbone is best" is not a well-formed
+  question against this corpus**, and a summary that picks a winner is
+  discarding the result.
+
+  **MAE's retrieval 0.1883 is barely above the 0.1 chance floor and is not a
+  broken run** — the obvious reading, and wrong. The check is internal to the
+  corpus: the *same* features score 0.9582 top-1 under a **trained** linear
+  probe. A learned projection recovers category structure that cosine
+  similarity on the raw CLS token cannot, which is MAE's documented behaviour
+  without fine-tuning, and a genuine extraction bug would have taken the linear
+  probe down with it. **Two probes over one feature set is the cheapest
+  available test of whether a shocking number is a bug**, and it needed no new
+  run — both records were already in the corpus.
+
+  **Its correspondence win is not the grid**, which is the first objection that
+  board invites: 0.3577 against a `ceiling_recall@5px` of 0.3932, where
+  `dinov2_vits14` scores 0.3049 against a *higher* 0.4123. Read against the
+  ceiling the gap widens. This is what `context_metrics` was for.
+
+  **`convnext_base` is the mirror image and carries `resnet50`'s caveat.** It
+  tops classification (0.9997) and retrieval (0.9890) and places seventh or
+  lower on every dense geometric board. It is ImageNet-1k *supervised* and
+  Imagenette's classes are ImageNet-1k wnids, so those two scores are close to
+  in-distribution recall rather than transfer. `docs/tasks.md` names both
+  backbones now, not just the ResNet.
+
+- **The corpus matrix is defined in two files, and one of them was short by a
+  probe for a whole release** (10b). `slurm/corpus.sbatch`'s `PROBES` had twelve
+  entries where `scripts/build_corpus.sh`'s `ALL_PROBES` has thirteen: `corner`
+  shipped in 8a/8b, was added to one file and not the other, and was therefore
+  **unschedulable by the array job** through v0.9.0 however wide the `--array`.
+
+  **The guard that exists to prevent exactly this could not see it.** It sizes
+  the matrix as `len(PROBES) * len(BACKBONES)` and refuses a range that does not
+  match — but it reads its *own* short list, so a twelve-probe matrix is
+  self-consistent and the corpus it produces looks complete, because every group
+  present still holds every backbone. **A guard that derives its expectation
+  from the same data it is checking is not a guard.** The check has to come from
+  somewhere else, which is what `tests/scripts/test_corpus_scripts.py` is: the
+  two shell arrays against each other *and* against `list_probes()`.
+
+  The same guard also accepted any range ending at the right index —
+  `--array=3-38` on a 39-task matrix passed while omitting the first probe
+  entirely, and a strided range passed however much it skipped. It reads
+  `SLURM_ARRAY_TASK_COUNT` as well now; an endpoint cannot see a hole in the
+  middle.
+
 - **Ask whether a new probe *ranks*, not whether its number is high.** A low
   absolute score can be by design — detection's 0.21 mAP is, because a
   single-scale head has no pyramid. What is never acceptable is failing to
@@ -1215,7 +1284,7 @@ designed up front; extend it the same way, from a case that already runs.
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite is **1613 tests** and green on 2026-08-14, after the v0.9.0 release commit, as
+fast suite is **1628 tests** and green on 2026-08-14, after step 10b, as
 are all three lint steps and the `-W` docs build — all five run on `dgx1` via
 `sbatch`, since `.venv/bin/python` does not resolve on a `dgxh100` login shell.
 `uv lock --check` was green on 2026-08-06 and no dependency has moved since; the
@@ -2835,7 +2904,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 1613 fast tests
+pytest                                              # 1628 fast tests
 pytest -m slow                                      # 79, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/

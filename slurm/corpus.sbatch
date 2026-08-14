@@ -13,9 +13,15 @@
 #   VISBENCH_PARTIAL=1 sbatch --array=0-3 slurm/corpus.sbatch
 #
 # Widen the matrix to other backbones with VISBENCH_BACKBONES, passing an
-# --array that matches 12 probes x however many backbones:
-#   VISBENCH_BACKBONES="clip_vitb16 clip_vitb32 resnet18 resnet50" \
-#     sbatch --array=0-47%4 slurm/corpus.sbatch
+# --array that matches 13 probes x however many backbones:
+#   VISBENCH_BACKBONES="convnext_base mae_vitb16 siglip_vitb16" \
+#     sbatch --array=0-38%4 slurm/corpus.sbatch
+#
+# PROBES below must stay equal to build_corpus.sh's ALL_PROBES. It was short by
+# one for a whole release -- `corner` shipped in 8b and was missing here, so the
+# array could not produce a corner record however wide the range was, and the
+# guard below could not see it: the matrix was self-consistently 12 probes.
+# tests/test_corpus_scripts.py pins the two lists equal.
 #
 # dgx, NOT dgxh100.
 #
@@ -109,6 +115,7 @@ PROBES=(
   edge
   keypoints2d
   occlusion_edge
+  corner
 )
 # Which backbones the matrix covers. Overridable, because the corpus is widened
 # a few backbones at a time rather than re-run whole: the DINOv2 pair is already
@@ -139,10 +146,19 @@ fi
 # but it is also how an incomplete corpus is produced by accident, and that is
 # invisible afterwards. VISBENCH_PARTIAL is the difference between the two, and
 # setting it is a claim that the gap is intended.
+#
+# COUNT, not just the endpoint. Checking SLURM_ARRAY_TASK_MAX alone lets any
+# range ending at expected-1 through however much it omits: `--array=3-38` on a
+# 39-task matrix passes while skipping the first probe entirely. That is the
+# exact shape of gap this guard exists to refuse, arriving through the guard.
+# SLURM_ARRAY_TASK_COUNT is the number of tasks actually submitted, so it also
+# catches a strided or comma-separated range, which no endpoint check can see.
 if [[ -z ${VISBENCH_PARTIAL:-} ]] \
   && [[ -n ${SLURM_ARRAY_TASK_MAX:-} ]] \
-  && (( SLURM_ARRAY_TASK_MAX != expected - 1 )); then
-  echo "!!! --array ends at ${SLURM_ARRAY_TASK_MAX}, but the matrix is ${expected} tasks" >&2
+  && { (( SLURM_ARRAY_TASK_MAX != expected - 1 )) \
+    || (( ${SLURM_ARRAY_TASK_COUNT:-expected} != expected )); }; then
+  echo "!!! --array covers ${SLURM_ARRAY_TASK_COUNT:-?} tasks ending at ${SLURM_ARRAY_TASK_MAX}," >&2
+  echo "!!! but the matrix is ${expected} tasks" >&2
   echo "!!!   ${#PROBES[@]} probes x ${#BACKBONE_LIST[@]} backbones" >&2
   echo "!!! probes or backbones would be MISSING from the corpus, which does not" >&2
   echo "!!! show up later: every group present would still hold every backbone." >&2
