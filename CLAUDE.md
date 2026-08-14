@@ -100,8 +100,12 @@ all. Re-confirm what is wanted before starting anything; do not assume the
 backlog's order is a plan. **The one thread that was open — why `detection`
 alone fails to reproduce — is closed as of 2026-08-13**: it is GPU
 non-determinism made visible by a discrete metric, it was never a bug, and
-detection reproduces to *three* decimals rather than four. See the bullet in
-"decisions already paid for" for the measurements.
+detection reproduces to *three* decimals rather than four. **Narrowed
+2026-08-14**: it is the DINOv2 rows that drift; both CLIP backbones are
+bit-identical across three runs, so this is a property of the backbone as much
+as of the probe. See the bullet in "decisions already paid for" for the
+measurements, and note the open lead there — the grid-size hypothesis is
+untested on the two ResNets.
 
 **Step 8a added the thirteenth probe**, `corner` — the first whose target is
 computed from the image rather than downloaded, so `visbench/data/derived.py`
@@ -653,10 +657,13 @@ designed up front; extend it the same way, from a case that already runs.
   probe and not of the seeding fix — **diagnosed 2026-08-13, see the next
   bullet.**
 
-- **`detection` does not reproduce to four decimals, it never did, and there is
-  nothing to fix** (2026-08-13). It was recorded as an open mystery through two
-  releases. The answer is that *every* probe's training is non-deterministic on
-  GPU and detection is the only one whose metric can see it.
+- **`detection` does not reproduce to four decimals *on DINOv2*, it never did,
+  and there is nothing to fix** (2026-08-13, narrowed 2026-08-14). It was
+  recorded as an open mystery through two releases. The answer is that *every*
+  probe's training is non-deterministic on GPU and detection is the only one
+  whose metric can see it — **but whether it sees it depends on the backbone,
+  and the first write-up of this bullet got that wrong.** See the "not a
+  probe-wide property" paragraph below before quoting a spread.
 
   Measured on one V100, in this order, each step ruling out the obvious answer
   before reaching for the next:
@@ -680,9 +687,41 @@ designed up front; extend it the same way, from a case that already runs.
   (score) and 0.5 (IoU). A ranking has no averaging to do. So the same noise
   every probe pays is attenuated by twelve metrics and amplified by one.
 
-  **The corpus number is not wrong.** 0.229080 is one draw from a distribution
-  roughly 1e-3 wide, and the two fresh runs bracket it. Do not "correct" the
-  corpus toward any single rerun.
+  **The corpus number is not wrong.** For `dinov2_vits14`, 0.229080 is one draw
+  from a distribution roughly 1e-3 wide, and the two fresh runs bracket it. Do
+  not "correct" the corpus toward any single rerun.
+
+  **It is not a probe-wide property, and the first version of this bullet said
+  it was** (2026-08-14). That claim was measured on `dinov2_vits14` alone and
+  written as though it described `detection`. Both CLIP backbones were then run
+  twice with the corpus flags on the same V100, and both are **bit-identical**
+  — not to four decimals, to every digit, on `map_50`, `map_50_95` *and*
+  `detections_per_image`, and identical to the committed corpus record as well,
+  which was produced months earlier under v0.5.0. So detection reproduces
+  exactly on some backbones and drifts on others:
+
+  | backbone | dense width | grid at 224 | reproduces? |
+  | --- | --- | --- | --- |
+  | `dinov2_vits14` | 384 | 16x16 | **no** — 0.228834 / 0.229836 / corpus 0.229080 |
+  | `dinov2_vitb14` | 768 | 16x16 | **no** — 0.2897 against the corpus's 0.2895 |
+  | `clip_vitb16` | 768 | 14x14 | yes, 0.18940807014166364 three times |
+  | `clip_vitb32` | 768 | 7x7 | yes, 0.188608609616858 three times |
+
+  **The correlate is the grid, not the width** — DINOv2-B shares CLIP's 768
+  channels and still drifts, and the 16x16 grid is the only thing the two
+  drifting rows share and the two stable ones lack. The mechanism that fits is
+  cuDNN choosing an atomics-based backward algorithm at one spatial size and a
+  deterministic one at another. **That is a lead on n=4, not a finding**: the
+  two ResNets (7x7) are unmeasured, and only two repeats were taken per CLIP
+  backbone before the job was stopped. Do not write it up as established
+  without measuring the remaining four rows.
+
+  **What this buys concretely**: the corpus detection board's smallest adjacent
+  gap is `clip_vitb16` 0.1894 against `clip_vitb32` 0.1886, i.e. **0.0008** —
+  *below* the 1e-3 spread measured on DINOv2, which is why the pair was worth
+  checking at all. Both of those rows turn out to be the exactly reproducible
+  ones, so the ordering is verified rather than lucky and **no tie marking is
+  needed**. Every other adjacent gap on that board is 0.04-0.06.
 
   Four things it is **not**, each excluded by measurement rather than argument:
   *version* (the corpus record is v0.5.0 and both reruns are v0.8.0, the only
@@ -697,7 +736,9 @@ designed up front; extend it the same way, from a case that already runs.
   **Do not set the determinism flags to "fix" this.** They would make one
   machine agree with itself while still not making two machines agree, and
   buying that costs a one-time change to every published detection number in a
-  committed corpus. Quote detection to **three** decimals instead.
+  committed corpus. Quote detection to **three** decimals instead — that is the
+  safe floor on every backbone, including the ones that happen to reproduce
+  exactly.
 
   A methodological note worth keeping, because it nearly ended the
   investigation early: a synthetic proxy for this said average precision was
@@ -1429,7 +1470,8 @@ below.
   was never committed so it cannot be diffed. The ordering (B > S) is unchanged
   and the corpus number is the reproducible one. Do not "correct" the corpus
   toward the published pair. **Partly explained as of 2026-08-13** — detection
-  is non-deterministic on GPU at roughly 1e-3 in `map_50`, see the bullet in
+  on DINOv2 is non-deterministic on GPU at roughly 1e-3 in `map_50` (on CLIP it
+  is bit-exact), see the bullet in
   "decisions already paid for". That accounts for a fourth-decimal wobble but
   **not** for the 0.0175 gap against 6c-3, which is an order of magnitude
   larger and remains unexplained; the difference there is still in something no
