@@ -89,8 +89,10 @@ upside down** — see step 6f — v0.7.0 is the contributor-facing release that
 changes no number, and **v0.8.0 (2026-08-07) is the corner probe**, steps 8a and
 8b together.
 
-**v0.9.0 is prepared in the tree** (2026-08-14): four steps of `visbench show`
-(9a-9d) plus the Hub work below, no new probe and no moved number. Before it,
+**v0.9.0 shipped on 2026-08-14**: four steps of `visbench show` (9a-9d) plus
+the Hub work below, no new probe and no moved number. It is on PyPI, tagged,
+released on GitHub and verified out of the wheel by import — see the release
+paragraph further down. Before it,
 **since v0.8.0 shipped the work had been distribution rather than
 measurement** (PR #42, merged 2026-08-07): the Hub integration gained a runnable
 example and a reference page, `visbench run --push-to` publishes the head it
@@ -239,20 +241,39 @@ run through `tail`: it buffers, so a run that is killed part-way leaves no log,
 and the Hub then has to be queried to find out what actually shipped — which
 happened, and is recoverable only because each record names its own pair.
 
-**Package version is `0.9.0` in the source tree and `0.8.0` on PyPI**, and that
-gap is deliberate rather than drift: the release commit (2026-08-14) bumps
-`__init__.py`, `uv.lock` and `CITATION.cff` together and restructures
-`CHANGELOG.md`, but **uploading needs the maintainer's credentials and is
-theirs to run** — never attempt it. Until they do, `pip install visbench` gets
-0.8.0 and none of `visbench show`, `--save-probe`, `--push-to` or the rendered
-gallery. Check [PyPI](https://pypi.org/project/visbench/) rather than this
-paragraph, and verify a new upload the standing way described below: download
-the wheel, put it *first* on `sys.path`, import it, and assert on
-`visbench.__file__` so the editable checkout cannot answer in its place.
+Package version is `0.9.0`, and it is **on PyPI: uploaded 2026-08-14 at
+14:31 UTC**, wheel and sdist both (316 KB and 803 KB), tagged `v0.9.0` on merge
+commit `7816517`, with a GitHub release created from that tag. **Verified the
+standing way**: the wheel downloaded, its SHA256 checked against PyPI's digest
+(`7334297d…`), extracted, put *first* on `sys.path` and **imported**, with an
+assert on `visbench.__file__` so the editable checkout could not answer in its
+place. It reports `__version__ = "0.9.0"`, `SCHEMA_VERSION = 7`,
+`ARTIFACT_VERSION = 1`, thirteen probes, six backbones, and
+`show_probes() == list_probes()` read back *through the import* — which is the
+only way to check 0.9.0's actual content, since its release is a command and a
+package rather than a number. Also confirmed through it: `get_probe(
+"correspondence")` still reports `threshold_units="pixel"`, so v0.6.1's fix
+survives a fourth release, and `DetectionTask.probe_state()` carries `grid_hw`,
+which is 9a's fix.
 
-The paragraph below describes 0.8.0, which is what is installable today.
+**Two things about the 0.9.0 upload that will recur.** Hatchling now emits
+`Metadata-Version: 2.5`, which **twine 6.2.0 rejects** with "not a valid
+metadata version" — the builder outran the checker, and `pip install -U twine`
+(7.0.0) is the fix. PyPI's server accepts 2.5 without complaint. And metadata
+2.5 writes environment markers with **single** quotes (`extra == 'hub'`) where
+earlier versions used double; a check keyed on `extra == "hub"` silently
+matches nothing and reports every extra as empty, which looks exactly like the
+extras having lost their dependencies. Match either quote.
 
-Package version was `0.8.0`, and it is **on PyPI: uploaded 2026-08-07 at
+**Clear `dist/` before building a release.** `twine upload dist/*` uploads
+everything in the directory, so a stale artifact from the previous release is
+attempted too, PyPI refuses a version that already exists, and twine aborts the
+batch — failing on the *old* version before it reaches the new one, which reads
+as a problem with the new one.
+
+The paragraph below describes 0.8.0, the previous release.
+
+Package version was `0.8.0`, and it was **on PyPI: uploaded 2026-08-07 at
 09:42 UTC**, wheel and sdist both (284 KB and 703 KB), tagged `v0.8.0` on
 `574e792`. **Verified the standing way on 2026-08-07** — the published wheel
 downloaded, its SHA256 checked against PyPI's digest, extracted, put *first* on
