@@ -179,3 +179,125 @@ Worth naming so they are not re-scoped from scratch:
   still open, and is the scale-space rather than single-scale question.
 - **Texture / reflectance** overlaps with intrinsic decomposition above.
   Taskonomy ships no reflectance domain, so `mask_valid/` did not unblock it.
+
+## Library surface — candidates that ship no new number
+
+Everything above adds a probe. These do not: they are the parts of the library
+someone reaches for *around* a measurement, and each one is a gap found by
+asking what a new user would try and failing to find it. v0.7 (7a–7e) is the
+precedent — a release that changed no number and was worth shipping anyway.
+
+None of these is a defect. Every one is reachable today by writing Python; what
+is missing is the shortest path to it.
+
+### Looking at what a probe saw and what it predicted
+
+There is no visualisation anywhere in the package. `visbench/results/render.py`
+renders markdown tables from records, and that is the whole story — the only
+image-drawing code is `visbench/demo.py`, which *generates* synthetic inputs
+rather than displaying anything.
+
+The material is already there. Every probe has `predict()`, and
+`SemanticSegmentationTask.predict_labels()` returns `(N, H, W)` class indices
+with a docstring that says "for saving or visualising". What is missing is a way
+to *look* — at an evaluation set's images beside their targets, or at a
+prediction beside its ground truth.
+
+**The argument for this is the project's own bug history, not convenience.**
+Two of the most expensive failures here were geometry misalignments that stayed
+invisible because nothing ever rendered a target next to its image:
+
+- the correspondence misalignment that scored `recall@1px = 0.003`
+- VOC's palette PNGs read through `convert("L")`, turning classes
+  `[0, 1, 15, 255]` into `[0, 38, 147, 220]` — which loads, trains and scores
+  against labels that mean nothing
+
+Both were found by reading code. Both are obvious in one frame of output. A
+dense target that has drifted from its image is the single most common silent
+failure this codebase has, and it is the one a picture catches instantly.
+
+Sketch: a `visbench show` command taking the same `ProbeSpec` dataset flags the
+`run` subcommands already take, writing a grid of image / target / prediction
+panels to a file. Two decisions to make first — whether it takes a saved probe
+artifact (`visbench/hub/`) or trains one, and whether `matplotlib` becomes a
+dependency or PIL alone suffices. PIL alone is likely enough and keeps the core
+install untouched, which matters more here than layout quality.
+
+Hazard worth stating up front: a viewer that applies its *own* resize or
+colour-map is a second geometry, and a second geometry is exactly what
+`DenseFolderDataset` exists to prevent. It must display what the dataset
+yielded, not re-derive it.
+
+### Bringing a dataset VisBench has never heard of
+
+Two tiers exist already and both work:
+
+- **Folder layouts, no code.** `ImageFolderDataset` (class subdirectories or
+  flat), `DenseFolderDataset` (`images/` + `targets/`, with `stems=` for an
+  official split list), `DetectionFolderDataset` (VOC-style XML). NYUv2 joined
+  the corpus with *no code change* because its layout already matched.
+- **Anything else, by subclassing `BaseDataset`** — two abstract methods,
+  `__len__` and `__getitem__`.
+
+So what is missing is narrower than "custom dataset support":
+
+| gap | note |
+| --- | --- |
+| No HuggingFace `datasets` bridge | Neither `datasets` nor `torchvision.datasets` is imported anywhere in the package |
+| No `torchvision.datasets` bridge | Same; both would be thin adapters over `BaseDataset` |
+| A custom dataset cannot be reached from the CLI | `--data` takes a path and a layout; there is no way to name a class |
+
+**The trap to document loudly if this is built.** `BaseDataset` has four
+optional methods beyond the two abstract ones, and skipping them fails
+*silently*: `labels()` (supervised probes have no targets), `cache_identity()`
+(every run re-decodes every image — the memo cannot recognise the file),
+`fingerprint()` (records cannot tell your dataset from another), `describe()`
+(`dataset_params` comes out empty, so two runs are indistinguishable in the
+corpus). `cache_identity` is the worst of them: return `None` and everything
+still works, just slowly, forever. That is the `view_identity` failure — a
+mechanism that existed and was tested for a year while a caller passed bare PIL
+images and paid a full decode on every "cached" run.
+
+Any bridge must therefore supply `cache_identity` and `fingerprint` from
+whatever the source offers, or say in its docstring that it cannot.
+
+### Probing a model VisBench has never heard of
+
+This is the best-supported of the three and mostly needs *showing*, not
+building. `CustomBackbone` is the documented escape hatch and its docstring
+already names the case — a fine-tuned checkpoint, an architecture VisBench has
+never heard of, something from a paper's repo:
+
+```python
+backbone = CustomBackbone(my_model, preprocess=my_transform, name="mine")
+visbench.run(backbone, "retrieval", dataset)
+```
+
+`hash_weights()` keys the cache on the parameters themselves, so a fine-tuned
+checkpoint automatically gets a different cache entry from the model it was
+fine-tuned from. `register_backbone` is a top-level export for anyone who would
+rather have a registry name.
+
+What is missing:
+
+| gap | note |
+| --- | --- |
+| No `examples/` script | `CustomBackbone` appears in the README and in tests, and nowhere in `examples/` — while all thirteen probes have one. The convention here is that a capability is proved by an example on real weights |
+| Not reachable from the CLI | `--backbone` is a registry name, and a string cannot carry an `nn.Module`. Registering a named `BaseBackbone` subclass is the workaround |
+| Fine-tuning does not apply | `finetune_blocks` is DINOv2-only by design and raises elsewhere |
+
+The example is the cheap one and probably comes first: it closes a
+documented-but-undemonstrated gap, and the project's own rule is that the toy
+backbones in `tests/conftest.py` cannot show a training-dynamics problem, so a
+capability wants a real run behind it.
+
+### If these are picked up, this order
+
+Ordered by cost against what they prevent, not by preference:
+
+1. **`examples/custom_backbone.py`** — hours, and closes a gap between what the
+   docs promise and what is demonstrated.
+2. **`visbench show`** — the only one of the three that guards a *silently
+   wrong number*, and the failure class it guards has been paid for twice.
+3. **The dataset bridges** — largest, and the folder path already covers most
+   of what they would buy.
