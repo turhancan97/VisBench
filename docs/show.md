@@ -38,8 +38,8 @@ hand over a PIL image at the working resolution rather than a normalised tensor,
 so there is nothing to invert.
 
 **It draws an invalid pixel as invalid**, in magenta, per that probe's own
-convention. There are four conventions across the nine drawable probes and none
-of them is visible in a tensor's shape or dtype:
+convention. There are four conventions across the eight panel probes and none of
+them is visible in a tensor's shape or dtype:
 
 | convention | probes |
 | --- | --- |
@@ -61,15 +61,17 @@ magnitude would render *identically* to a correct one.
 
 ## What it can draw
 
-Nine probes: `depth`, `surface_normal`, `generic_segmentation`,
-`semantic_segmentation`, `edge`, `keypoints2d`, `occlusion_edge`, `corner` and
-`detection`. Detection boxes are drawn straight onto the crop, in the
-post-transform pixel coordinates the dataset returns.
+Ten probes. Eight are the `image | target | prediction` grid above:
+`depth`, `surface_normal`, `generic_segmentation`, `semantic_segmentation`,
+`edge`, `keypoints2d`, `occlusion_edge` and `corner`.
 
-`classification`, `retrieval` and `similarity` have no spatial target to draw.
-`correspondence` needs a *pair* renderer with match lines rather than a panel
-grid — a different layout, and not yet built, which is worth naming because it
-is the probe whose historical bug is quoted above.
+Two have their own renderer. **`detection`** draws boxes straight onto the crop,
+in the post-transform pixel coordinates the dataset returns.
+**`correspondence`** draws two views side by side with the matches between them
+— see below.
+
+`classification`, `retrieval` and `similarity` have no spatial target to draw
+and are absent from the subcommand list rather than drawn blank.
 
 The flags are the same ones `visbench run` takes for that probe's data, minus
 everything about the training schedule:
@@ -84,6 +86,45 @@ visbench show semantic_segmentation \
 Without `--predict-from` this needs **no backbone, no cache and no GPU** — which
 is when you actually want to look, before spending a training budget on data you
 have not seen.
+
+## Correspondence: the shape of the errors, not their size
+
+```bash
+visbench show correspondence --data /path/to/images --split val \
+    --backbone dinov2_vits14 --frames 4 --out matches.png
+```
+
+Each row is both views with sampled matches drawn between them — green where a
+match landed within `--threshold` pixels of where the geometry says it should
+have, red otherwise, with a short amber segment from the expected position to
+the actual one.
+
+**This is the panel that would have caught `recall@1px = 0.003`.** That bug does
+not look like noise. A homography expressed in original pixels while the
+features came from a 224 centre crop makes every match wrong *in the same
+direction* — and a coherent field of long errors is a broken pipeline, where
+scattered short ones are merely a weak backbone. A recall figure cannot tell
+those apart. A picture can, instantly.
+
+So the row label states it as a number rather than leaving it to the eye:
+**coherence**, the mean resultant length of the error directions, 1.0 when every
+error points the same way and near 0 when they scatter. Measured on 224px
+homography pairs with ResNet-18 features:
+
+| geometry | median error | coherence |
+| --- | --- | --- |
+| correct | 10.2 px, 22.6 px | **0.40, 0.29** |
+| homography in the wrong pixel frame | 293.9 px, 226.6 px | **0.98, 1.00** |
+
+Coherence near 1 means the geometry, the crop or the units are wrong. It is a
+diagnostic, never a score: it says nothing about a backbone and is not recorded.
+
+Two things to know. This probe **always needs a backbone** — the matches are the
+thing being looked at and they do not exist until features do — and
+`--predict-from` is refused, because correspondence is zero-shot and has no
+saved head. And matches are sampled **evenly** across the kept set rather than
+taking the most confident few, which would draw a systematically better picture
+than the score describes.
 
 ## Adding the prediction column
 
@@ -115,9 +156,12 @@ page.save("panels.png")
 ```
 
 `render_probe_panels` takes an optional `predictions` argument — whatever that
-probe's `predict()` returned for exactly those indices. The lower-level pieces
-(`style_for`, `display_range`, `target_to_rgb`, `draw_boxes`, `render_panels`)
-are exported too, for a layout this command does not offer.
+probe's `predict()` returned for exactly those indices. For correspondence,
+`render_match_panels` and `draw_matches` take the regrouped pair features
+`visbench.run` builds, and `error_coherence` returns the diagnostic on its own.
+The lower-level pieces (`style_for`, `display_range`, `target_to_rgb`,
+`draw_boxes`, `render_panels`) are exported too, for a layout this command does
+not offer.
 
 Pillow and numpy only. Nothing here adds a dependency, and there is no
 matplotlib in the core install.

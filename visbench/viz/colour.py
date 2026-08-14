@@ -27,7 +27,7 @@ from dataclasses import dataclass
 import numpy as np
 import torch
 
-from visbench.viz.styles import TargetStyle
+from visbench.viz.styles import COMPOSITE_KINDS, TargetStyle
 
 __all__ = [
     "INVALID_RGB",
@@ -189,10 +189,11 @@ def target_to_rgb(
     has run, so no colouriser needs to know the convention and none of them can
     disagree about it.
     """
-    if style.kind == "boxes":
+    if style.kind in COMPOSITE_KINDS:
+        drawn_by = {"boxes": "panels.draw_boxes", "matches": "matches.draw_matches"}
         raise ValueError(
-            "A box target is drawn onto the frame it belongs to, not as a panel "
-            "of its own. Use visbench.viz.panels.draw_boxes."
+            f"A {style.kind!r} target is drawn onto the frames it belongs to, not as "
+            f"a panel of its own. Use visbench.viz.{drawn_by[style.kind]}."
         )
 
     if style.kind in ("magnitude", "depth"):

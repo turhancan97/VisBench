@@ -65,6 +65,7 @@ step is next rather than attempting the whole roadmap in one session.
 | 8a | Corner detection — the first target computed rather than downloaded | done |
 | 8b | Corner in the corpus: a pinned frame set, and a generated board | done |
 | 9a | `visbench show` — the panel viewer, and `run --save-probe` | done |
+| 9b | `visbench show correspondence` — the pair renderer, and coherence | done |
 
 Steps 7a-7e ship no new probe, backbone or metric. They are the **contributor-
 facing surface**: the shortest path from `pip install` to a number, where the
@@ -101,11 +102,11 @@ all. **There is now a second backlog beside it**, the library-surface one, which
 ships no new number the way v0.7 did; it is in the same part of this file and in
 `docs/roadmap.md`. **Its first item is done as of 2026-08-14**: step 9a shipped
 `visbench show`, the panel viewer, plus `visbench run --save-probe` to feed its
-prediction column — see the build table and the three bullets in "decisions
-already paid for". The two remaining library-surface items are the **dataset
-bridges** and an **`examples/custom_backbone.py`**, and the natural follow-up to
-9a itself is a **pair renderer for `correspondence`**, which needs match lines
-rather than a panel grid. Re-confirm what is wanted before starting anything; do
+prediction column, and **9b added the correspondence pair renderer** — all ten
+drawable probes are now covered and the viewer is complete. See the build table
+and the four bullets in "decisions already paid for". The two remaining
+library-surface items are the **dataset bridges** and an
+**`examples/custom_backbone.py`**. Re-confirm what is wanted before starting anything; do
 not assume either backlog's order is a plan. **The one thread that was open — why `detection`
 alone fails to reproduce — is closed as of 2026-08-13**: it is GPU
 non-determinism made visible by a discrete metric, it was never a bug, and
@@ -382,6 +383,8 @@ visbench/
                    voc_palette, INVALID_RGB — pure, no I/O)
                  panels.py (render_probe_panels, render_panels, draw_boxes —
                    pastes at the dataset's own resolution, never resizes; 9a)
+                 matches.py (render_match_panels, draw_matches, error_coherence
+                   — the pair renderer; two views and the errors between; 9b)
   demo.py        generated shapes + CustomBackbone(resnet18) — `visbench demo`
   runner.py      visbench.run() — the one call the CLI wraps
 examples/        classify, retrieve, correspond, depth, normals, segment,
@@ -865,12 +868,46 @@ designed up front; extend it the same way, from a case that already runs.
   VOC's palette does not contain it. A test asserts that, so a future colouriser
   cannot quietly make the marker ambiguous.
 
-  Two things it is deliberately **not**: it does not train (that is
+  One thing it is deliberately **not**: it does not train. That is
   `run --save-probe`, added alongside, because `--push-to` needed a Hub account
-  and the prediction column otherwise had no CLI-producible input); and it does
-  not cover `correspondence`, which needs a *pair* renderer with match lines
-  rather than a panel grid. That is the natural next viewer step, and it is the
-  probe whose `recall@1px = 0.003` bug is half the argument for the package.
+  and the prediction column otherwise had no CLI-producible input.
+  `correspondence` was out of scope for 9a and is covered by 9b, below.
+
+- **For correspondence it is the *shape* of the errors that diagnoses the bug,
+  not their size — and that is now a number, not an impression** (9b).
+  `error_coherence` is the mean resultant length of the error directions: 1.0
+  when every match is wrong the same way, ~0 when they scatter. Measured on
+  224px homography pairs with ResNet-18 features:
+
+  | geometry | median error | coherence |
+  | --- | --- | --- |
+  | correct | 10.2 px, 22.6 px | **0.40, 0.29** |
+  | homography in the wrong pixel frame | 293.9 px, 226.6 px | **0.98, 1.00** |
+
+  **The median cannot make this call and the coherence can.** A weak backbone
+  and a broken pipeline produce overlapping medians; only the direction
+  distribution separates them, which is exactly the discrimination that took
+  reading the code to make when `recall@1px = 0.003` first appeared. It is a
+  **diagnostic, never a score** — it says nothing about a backbone, it is not
+  recorded, and it must not reach a leaderboard.
+
+  **`match_details` is on the task, and `_pair_errors` calls it.** The panel and
+  the number therefore come from one code path by construction. A renderer that
+  recomputed the geometry would put a *drawing that vouches for a wrong number*
+  one edit away, which is worse than no drawing: the whole value of a panel is
+  that it is independent evidence about the same computation, not about a
+  parallel one.
+
+  **Matches are sampled evenly, never from the front.** `match()` returns them
+  sorted by descending similarity, so a prefix draws the most confident few and
+  shows a systematically better picture than the score describes. Evenly rather
+  than randomly so the same pair draws the same way twice.
+
+  Correspondence is the one drawable probe that **always needs a backbone** —
+  the matches are the thing being looked at and do not exist until features do —
+  and it is also zero-shot, so `--predict-from` is refused by name rather than
+  ignored. Its `show_arguments` is its `add_arguments`: nothing about a match is
+  a training setting, so there was no schedule half to drop.
 
 - **`show` and `run` compose their flags from one callable, and that is a
   correctness property rather than tidiness** (9a). `ProbeSpec.show_arguments`
@@ -996,7 +1033,7 @@ designed up front; extend it the same way, from a case that already runs.
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite is **1504 tests** and green on 2026-08-14, after `visbench show`, as
+fast suite is **1527 tests** and green on 2026-08-14, after `visbench show` and its pair renderer, as
 are all three lint steps and the `-W` docs build — all five run on `dgx1` via
 `sbatch`, since `.venv/bin/python` does not resolve on a `dgxh100` login shell.
 `uv lock --check` was green on 2026-08-06 and no dependency has moved since; the
@@ -2616,7 +2653,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 1504 fast tests
+pytest                                              # 1527 fast tests
 pytest -m slow                                      # 79, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/

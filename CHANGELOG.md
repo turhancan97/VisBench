@@ -11,6 +11,39 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Added
 
+- **`visbench show correspondence` — the pair renderer.** Two views side by
+  side with the matches drawn between them, green where a match landed within
+  `--threshold` pixels of where the geometry says it should have and red
+  otherwise, plus an amber segment from the expected position to the actual one.
+  Tenth drawable probe, and the one the panel grid could not express: it has two
+  images and a geometric relation, not an image and a target of the same shape.
+
+  **This is the panel that would have caught `recall@1px = 0.003`**, and the
+  reason is that the bug does not look like noise. A homography in original
+  pixels against features from a 224 centre crop makes every match wrong *in the
+  same direction*; a coherent field of long errors is a broken pipeline where
+  scattered short ones are a weak backbone, and no recall figure separates them.
+
+  So the row states it as a number: **`error_coherence`**, the mean resultant
+  length of the error directions. Measured on 224px homography pairs with
+  ResNet-18 features — **0.40 and 0.29** for correctly-scored pairs against
+  **0.98 and 1.00** for the same pairs with the homography in the wrong pixel
+  frame, while the median error moved 10-23px → 227-294px. The median alone
+  cannot tell "broken" from "hopeless"; the coherence can. It is a diagnostic,
+  never a score, and is not recorded.
+
+  Matches are sampled **evenly** across the kept set, not taken from the front:
+  they arrive sorted by similarity, so a prefix would draw a systematically
+  better picture than the score describes. The probe always needs a backbone —
+  the matches do not exist until features do — and `--predict-from` is refused
+  by name, since correspondence is zero-shot and has no saved head.
+
+- **`CorrespondenceTask.match_details`** returns every kept match as points and
+  errors in the working frame. `_pair_errors` now calls it, so a drawn panel and
+  a reported number come from one code path by construction — a second copy of
+  the geometry would put a drawing that *vouches for* a wrong number one edit
+  away.
+
 - **`visbench show` — the first visualisation anywhere in the package.** It
   writes a grid of image / target / prediction panels to a file, measures
   nothing and records nothing. Nine probes have a spatial target to draw: the

@@ -31,6 +31,7 @@ from typing import Literal
 import torch
 
 __all__ = [
+    "COMPOSITE_KINDS",
     "TARGET_STYLES",
     "TargetStyle",
     "UnknownTargetStyle",
@@ -45,7 +46,7 @@ __all__ = [
 #: apart because a depth range is in metres and a magnitude range is in
 #: whatever arbitrary unit ``target_scale`` produced, and a caption that
 #: confused the two would invite reading one as the other.
-Kind = Literal["magnitude", "depth", "normals", "binary", "labels", "boxes"]
+Kind = Literal["magnitude", "depth", "normals", "binary", "labels", "boxes", "matches"]
 
 
 def _invalid_zero(target: torch.Tensor) -> torch.Tensor:
@@ -149,7 +150,17 @@ TARGET_STYLES: dict[str, TargetStyle] = {
         invalid=None,
         note="boxes are post-transform pixels, drawn on the crop the probe saw",
     ),
+    "correspondence": TargetStyle(
+        kind="matches",
+        invalid=None,
+        note="two views and the matches between them; needs a backbone, trains nothing",
+    ),
 }
+
+#: Kinds that are not a panel beside their image, and are drawn by their own
+#: renderer instead. Listed so a caller can ask before reaching for
+#: :func:`~visbench.viz.colour.target_to_rgb`, which refuses both by name.
+COMPOSITE_KINDS: frozenset[str] = frozenset({"boxes", "matches"})
 
 
 class UnknownTargetStyle(KeyError):

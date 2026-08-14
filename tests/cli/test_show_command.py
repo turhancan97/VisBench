@@ -197,6 +197,73 @@ class TestDrawing:
         assert "Traceback" not in result.err
 
 
+class TestCorrespondence:
+    """The one drawable probe that is a pair, not an image and a target."""
+
+    def test_it_draws_matches(self, run_cli, flat_folder, tmp_path, cache_dir):
+        out = tmp_path / "corr.png"
+        result = run_cli(
+            "show",
+            "correspondence",
+            "--data",
+            str(flat_folder),
+            "--split",
+            "test",
+            "--backbone",
+            "fake_cli_vit",
+            "--device",
+            "cpu",
+            "--image-size",
+            "64",
+            "--cache",
+            str(cache_dir),
+            "--frames",
+            "2",
+            "--out",
+            str(out),
+        )
+        assert result.code == 0, result.err
+        assert out.is_file()
+        assert "view 0 | view 1" in result.out
+
+    def test_predict_from_is_refused_because_it_trains_nothing(
+        self, run_cli, flat_folder, tmp_path, cache_dir
+    ):
+        """A zero-shot probe has no head, so the flag cannot mean anything.
+
+        Refused by name rather than ignored: silently dropping it would let
+        someone believe they were looking at a saved probe's output.
+        """
+        result = run_cli(
+            "show",
+            "correspondence",
+            "--data",
+            str(flat_folder),
+            "--split",
+            "test",
+            "--backbone",
+            "fake_cli_vit",
+            "--device",
+            "cpu",
+            "--image-size",
+            "64",
+            "--cache",
+            str(cache_dir),
+            "--predict-from",
+            str(tmp_path / "anything.pt"),
+            "--out",
+            str(tmp_path / "p.png"),
+        )
+        assert result.code == 2
+        assert "zero-shot" in result.err
+
+    def test_it_offers_no_schedule_flags_either(self):
+        """Correspondence trains nothing, so there was no half to drop."""
+        offered = _options(_subparsers(build_parser(), "show")["correspondence"])
+        assert "--epochs" not in offered
+        assert {"--max-warp", "--units", "--ratio"} <= offered
+
+
 class TestSaveProbe:
     def test_it_writes_a_loadable_artifact(self, run_cli, dense_folder, tmp_path, cache_dir):
         """The link between the two commands: ``run`` writes, ``show`` reads."""

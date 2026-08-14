@@ -218,10 +218,13 @@ geometry — is guarded by a test pinning the image panel byte-for-byte against
 See [looking at a probe](show.md) for the three rules it keeps and why invalid
 pixels are magenta.
 
-**Still open: a pair renderer for `correspondence`.** Two frames side by side
-with match lines is a different layout from a panel grid, and it is the probe
-whose historical bug is quoted above — so the case for it is the strongest of
-any remaining viewer work.
+**The pair renderer for `correspondence` followed immediately**, so all ten
+drawable probes are covered. Two frames with the matches between them is a
+different layout from a panel grid, and it is the probe whose historical bug is
+quoted above — which is why it reports **coherence**, the mean resultant length
+of the error directions. Measured with ResNet-18 features: 0.29-0.40 when the
+geometry is right, 0.98-1.00 when the homography is in the wrong pixel frame,
+while the median error alone cannot separate "broken" from "hopeless".
 
 ### Bringing a dataset VisBench has never heard of
 

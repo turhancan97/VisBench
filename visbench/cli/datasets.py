@@ -910,6 +910,9 @@ SPECS: dict[str, ProbeSpec] = {
         add_arguments=_correspondence_flags,
         build=_correspondence_splits,
         probe_kwargs=_correspondence_kwargs,
+        # Every flag here shapes the *matches*, so all of them survive into
+        # `show`: there is no schedule half to drop, because nothing trains.
+        show_arguments=_correspondence_flags,
     ),
     "similarity": ProbeSpec(
         summary="zero-shot 2AFC against human perceptual judgements",
