@@ -37,8 +37,8 @@ repository-code: "https://github.com/turhancan97/VisBench"
 url: "https://turhancan97.github.io/VisBench/"
 doi: "10.5281/zenodo.21822684"
 license: MIT
-version: 0.8.0
-date-released: "2026-08-07"
+version: 0.9.0
+date-released: '2026-08-14'
 keywords:
   - computer vision
   - representation learning

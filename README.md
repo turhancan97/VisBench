@@ -20,20 +20,24 @@
 
 ---
 
-> **Status: v0.7.0, on PyPI.** Three backbone families (DINOv2, CLIP, timm CNNs) and
-> twelve tasks run end-to-end across all three levels — high, mid and low —
-> including seven trained dense probes and an anchor-free detection probe, from
-> Python or from the `visbench` command line. **v0.7 adds no probe and changes
-> no number**: it is the release that makes the project approachable — the
-> zero-setup `visbench demo`, a documentation site, a contributor guide, and
-> citation metadata. **v0.6 is the leaderboard
-> release**: a committed corpus of twelve probes against six backbones, the
-> comparability rules that decide what may be ranked together, README tables
-> generated from those records, and probe heads you can save, publish and
-> reload. v0.5 added 2D keypoint detection and occlusion-edge detection; v0.4
-> filled the low-level tier with edge detection; v0.3 added opt-in fine-tuning
-> of the last N blocks — a *different measurement* from a frozen probe, kept
-> apart in the record rather than averaged with it. See
+> **Status: v0.9.0.** Three backbone families (DINOv2, CLIP, timm CNNs) and
+> **thirteen** probes run end-to-end across all three levels — high, mid and
+> low — including eight trained dense probes and an anchor-free detection
+> probe, from Python or from the `visbench` command line.
+>
+> **v0.9 makes every probe *visible*.** `visbench show` draws what a probe saw
+> beside what it predicted, for all thirteen, and each renderer states the
+> diagnostic its own history calls for as a figure rather than leaving it to
+> the eye. It adds no probe and changes no measurement. **v0.8** added `corner`,
+> the first probe whose target VisBench computes rather than downloads; **v0.7**
+> made the project approachable (`visbench demo`, the documentation site, a
+> contributor guide, a DOI); **v0.6** is the leaderboard release — a committed
+> record corpus, the comparability rules that decide what may be ranked
+> together, generated tables, and probe heads you can save, publish and reload.
+> v0.5 added 2D keypoint and occlusion-edge detection; v0.4 filled the
+> low-level tier with edge detection; v0.3 added opt-in fine-tuning of the last
+> N blocks — a *different measurement* from a frozen probe, kept apart in the
+> record rather than averaged with it. See
 > [LEADERBOARD.md](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md)
 > and [the roadmap](https://github.com/turhancan97/VisBench/blob/main/docs/roadmap.md).
 
