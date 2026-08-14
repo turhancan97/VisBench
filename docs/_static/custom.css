@@ -39,3 +39,17 @@ body[data-theme="dark"] table.docutils th {
 .sidebar-logo {
     max-width: 80%;
 }
+
+/* The rendered `visbench show` figures. They are wide pages of panels rather
+ * than illustrations, so let them use the full column and scroll rather than
+ * be scaled down until the captions -- which carry each probe's diagnostic --
+ * stop being readable. A figure whose legend cannot be read is decoration.
+ */
+img.visbench-figure {
+    width: 100%;
+    max-width: 100%;
+    image-rendering: crisp-edges;
+    border: 1px solid rgba(209, 211, 212, 0.35);
+    border-radius: 3px;
+    margin: 0.6rem 0 1.2rem;
+}

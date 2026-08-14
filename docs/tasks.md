@@ -1,5 +1,9 @@
 # The probes, one by one
 
+Every probe on this page can also be *drawn* — see
+[looking at a probe](show.md) for a rendered example of each, image beside
+target, with each probe's own convention for an invalid pixel.
+
 Every measured number on this page is generated from
 [`results/corpus/visbench.jsonl`](https://github.com/turhancan97/VisBench/blob/main/results/corpus/visbench.jsonl), the
 committed record corpus, by [`scripts/render_tables.py`](https://github.com/turhancan97/VisBench/blob/main/scripts/render_tables.py).

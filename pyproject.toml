@@ -79,6 +79,13 @@ visbench = "visbench.cli:main"
 [tool.hatch.build.targets.wheel]
 packages = ["visbench"]
 
+[tool.hatch.build.targets.sdist]
+# The rendered gallery is ~1.9 MB of documentation figures that nobody
+# installing the package needs, and it would nearly triple the sdist. The
+# README and the docs site reference them by URL, so excluding them here costs
+# nothing: `scripts/render_gallery.py` regenerates the lot from one command.
+exclude = ["docs/_static/gallery"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 # Deselected by default so a plain `pytest` never downloads weights. An explicit
