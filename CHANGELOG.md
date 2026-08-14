@@ -67,23 +67,36 @@ so it stands on its own rather than assuming you have read the ones above it.
 - `docs/index.md` said twelve probes in two places. There are thirteen.
 
 - **Detection's reported precision is three decimals, not four.** The probe has
-  never reproduced to four, and the reason turned out not to be a defect. Every
-  probe's training is non-deterministic on GPU — `conv2d` backward accumulates
-  atomically, giving head weights that differ by ~7.5e-09 between two runs from
-  the same seed — but detection is the only probe whose metric can see it.
-  Twelve probes report continuous averages over ~10^5 pixels, where independent
-  noise averages down and never reaches the fourth decimal. Average precision is
-  a discrete ranking over ~50,000 detections with hard thresholds at 0.05 and
-  0.5, and a ranking has no averaging to do.
+  never reproduced to four on DINOv2, and the reason turned out not to be a
+  defect. Every probe's training is non-deterministic on GPU — `conv2d` backward
+  accumulates atomically, giving head weights that differ by ~7.5e-09 between
+  two runs from the same seed — but detection is the only probe whose metric can
+  see it. Twelve probes report continuous averages over ~10^5 pixels, where
+  independent noise averages down and never reaches the fourth decimal. Average
+  precision is a discrete ranking over ~50,000 detections with hard thresholds
+  at 0.05 and 0.5, and a ranking has no averaging to do.
 
-  Measured on one V100 with the corpus flags: two back-to-back runs scored
-  `map_50` 0.228834 and 0.229836, with `detections_per_image` moving 83.0033 to
-  83.0200 — roughly ten of 49,800 detections crossing the score threshold.
-  Under `torch.use_deterministic_algorithms(True)` two runs are identical to
-  six decimals on every metric, which is what pins the cause to the kernels.
+  Measured on one V100 with the corpus flags: two back-to-back runs on
+  DINOv2-S/14 scored `map_50` 0.228834 and 0.229836, with `detections_per_image`
+  moving 83.0033 to 83.0200 — roughly ten of 49,800 detections crossing the
+  score threshold. Under `torch.use_deterministic_algorithms(True)` two runs are
+  identical to six decimals on every metric, which is what pins the cause to the
+  kernels.
 
-  **No number changed and the corpus is untouched.** Its 0.229080 is one draw
-  from a distribution about 1e-3 wide, and both reruns bracket it. The
+  **Whether the drift appears depends on the backbone.** Both CLIP backbones run
+  twice with the same flags are *bit*-identical, to every digit and to the
+  committed corpus record as well: `clip_vitb16` 0.18940807014166364 and
+  `clip_vitb32` 0.188608609616858 three times each. The DINOv2 rows use a 16x16
+  patch grid and the CLIP rows 14x14 and 7x7, which is the likeliest correlate —
+  cuDNN selecting an atomics-based backward kernel at one spatial size and not
+  another — but that is a lead, not a finding: the two ResNet rows are
+  unmeasured. It does settle the one board question this raised, though. The
+  smallest adjacent gap on the detection board is CLIP-B/16 over B/32 at 0.0008,
+  below the DINOv2 spread; both of those rows reproduce exactly, so the ordering
+  stands and neither is marked as tied.
+
+  **No number changed and the corpus is untouched.** DINOv2-S's 0.229080 is one
+  draw from a distribution about 1e-3 wide, and both reruns bracket it. The
   determinism flags are deliberately *not* set: they would make one machine
   agree with itself without making two machines agree, at the cost of a
   one-time change to every published detection number.
