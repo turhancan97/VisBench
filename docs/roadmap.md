@@ -218,13 +218,21 @@ geometry — is guarded by a test pinning the image panel byte-for-byte against
 See [looking at a probe](show.md) for the three rules it keeps and why invalid
 pixels are magenta.
 
-**The pair renderer for `correspondence` followed immediately**, so all ten
-drawable probes are covered. Two frames with the matches between them is a
+**The pair renderer for `correspondence` followed immediately**, and step 9c
+covered the last three, so **every probe is drawable** and
+`show_probes() == list_probes()` is asserted. Two frames with the matches between them is a
 different layout from a panel grid, and it is the probe whose historical bug is
 quoted above — which is why it reports **coherence**, the mean resultant length
 of the error directions. Measured with ResNet-18 features: 0.29-0.40 when the
 geometry is right, 0.98-1.00 when the homography is in the wrong pixel frame,
 while the median error alone cannot separate "broken" from "hopeless".
+
+`classification`, `retrieval` and `similarity` have no spatial target, so they
+draw the *decision* instead — a contact sheet, a query with its neighbours, a
+triplet with the human vote marked. Each states a diagnostic as a figure the way
+coherence does: **class balance**, which catches a split collapsed to one class
+scoring 1.0, and **vote balance**, which catches a vote read from the wrong CSV
+column.
 
 ### Bringing a dataset VisBench has never heard of
 

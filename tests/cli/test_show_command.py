@@ -4,6 +4,7 @@ import argparse
 
 import pytest
 
+import visbench
 from visbench.cli.datasets import SCHEDULE_DEFAULTS, showable_probes, spec_for, supported_probes
 from visbench.cli.main import build_parser
 from visbench.viz import show_probes
@@ -31,17 +32,16 @@ class TestTheCommand:
         assert args.command == "show"
         assert args.probe == "depth"
 
-    def test_only_probes_with_a_spatial_target_get_a_subcommand(self):
-        """A probe with nothing to put in a panel is absent, not drawn blank."""
+    def test_every_registered_probe_is_drawable(self):
+        """The invariant step 9c buys: `show` is valid on every probe.
+
+        Stronger than the subset relation it replaces, and it means a new probe
+        cannot ship undrawable by accident — the same guarantee
+        `test_every_registered_probe_has_a_subcommand` gives for `run`.
+        """
         choices = set(_subparsers(build_parser(), "show"))
         assert choices == set(showable_probes()) == set(show_probes())
-        assert "retrieval" not in choices
-        assert "similarity" not in choices
-        assert choices < set(supported_probes())
-
-    def test_an_undrawable_probe_is_rejected_by_the_parser(self):
-        with pytest.raises(SystemExit):
-            build_parser().parse_args(["show", "retrieval", "--data", "x"])
+        assert choices == set(visbench.list_probes()) == set(supported_probes())
 
     @pytest.mark.parametrize("probe", showable_probes())
     def test_each_subcommand_parses_its_minimum(self, probe):
@@ -262,6 +262,104 @@ class TestCorrespondence:
         offered = _options(_subparsers(build_parser(), "show")["correspondence"])
         assert "--epochs" not in offered
         assert {"--max-warp", "--units", "--ratio"} <= offered
+
+
+class TestTheChoiceProbes:
+    """classification, retrieval and similarity — no spatial target to draw."""
+
+    def test_a_contact_sheet_is_written(self, run_cli, image_folder, tmp_path):
+        out = tmp_path / "cls.png"
+        result = run_cli("show", "classification", "--data", str(image_folder), "--out", str(out))
+        assert result.code == 0, result.err
+        assert out.is_file()
+        assert "contact sheet" in result.out
+
+    def test_the_sheet_needs_no_backbone(self, run_cli, image_folder, tmp_path, monkeypatch):
+        """The dataset check half: labels and balance, before any features."""
+        monkeypatch.setattr(
+            visbench, "get_backbone", lambda *a, **k: pytest.fail("built a backbone")
+        )
+        result = run_cli(
+            "show", "classification", "--data", str(image_folder), "--out", str(tmp_path / "a.png")
+        )
+        assert result.code == 0, result.err
+
+    def test_frames_are_spread_across_a_class_grouped_split(self):
+        """The bug this fixes: a prefix of a labelled folder is one class.
+
+        `balanced_subset` groups by class, so drawing indices 0..3 of a
+        three-class split shows three images of class 0 — reproducing the very
+        artefact the sheet exists to reveal, and looking like a viewer bug.
+        """
+        from visbench.cli.main import _frame_indices
+
+        spread = _frame_indices(available=12, start=0, frames=4, kind="sheet")
+        assert len(set(index // 4 for index in spread)) > 1, spread
+
+        # A dense probe keeps the prefix: its split order carries no structure.
+        assert _frame_indices(available=12, start=0, frames=4, kind="depth") == [0, 1, 2, 3]
+
+    def test_retrieval_loads_the_whole_split_not_just_the_drawn_frames(self):
+        """The gallery *is* the measurement.
+
+        Leave-one-out retrieval over four images ranks each against three
+        alternatives, so shortening the split does not shorten the drawing — it
+        destroys what is being drawn.
+        """
+        from visbench.cli.main import _split_size
+
+        args = build_parser().parse_args(["show", "retrieval", "--data", "x", "--frames", "4"])
+        assert _split_size(args, "ranking") is None
+
+        dense = build_parser().parse_args(["show", "depth", "--data", "x", "--frames", "4"])
+        assert _split_size(dense, "depth") == 4
+
+    def test_retrieval_draws_neighbours(self, run_cli, image_folder, tmp_path, cache_dir):
+        out = tmp_path / "ret.png"
+        result = run_cli(
+            "show",
+            "retrieval",
+            "--data",
+            str(image_folder),
+            "--backbone",
+            "fake_cli_vit",
+            "--device",
+            "cpu",
+            "--cache",
+            str(cache_dir),
+            "--frames",
+            "2",
+            "--neighbours",
+            "3",
+            "--out",
+            str(out),
+        )
+        assert result.code == 0, result.err
+        assert "3 nearest neighbours" in result.out
+
+    @pytest.mark.parametrize("probe", ["retrieval", "similarity"])
+    def test_predict_from_is_refused_on_a_zero_shot_probe(self, probe, run_cli, tmp_path):
+        result = run_cli(
+            "show", probe, "--data", str(tmp_path), "--predict-from", str(tmp_path / "h.pt")
+        )
+        assert result.code == 2
+        assert "zero-shot" in result.err
+
+    def test_retrieval_without_a_backbone_says_why(self, run_cli, image_folder, tmp_path):
+        """Refused before the split is indexed, which on real data is the slow part."""
+        result = run_cli("show", "retrieval", "--data", str(image_folder))
+        assert result.code == 2
+        assert "--backbone is required" in result.err
+        assert "do not exist until a backbone runs" in result.err
+
+    def test_classification_keeps_its_own_schedule_defaults(self):
+        """200 epochs at 1e-2, not the dense probes' 10 at 5e-4.
+
+        One shared defaults table would hand `show` a probe built with the wrong
+        ones, and `load_probe` would then refuse a head that is actually fine.
+        """
+        args = build_parser().parse_args(["show", "classification", "--data", "x"])
+        assert (args.epochs, args.lr, args.train_batch_size) == (200, 1e-2, 256)
 
 
 class TestSaveProbe:

@@ -11,6 +11,40 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Added
 
+- **`visbench show` now covers every probe.** `classification`, `retrieval` and
+  `similarity` were the three left out, because none has a spatial target —
+  nothing to lay beside the image at the same resolution. What they have is a
+  *decision*, and the new `visbench/viz/gallery.py` draws that: a contact sheet
+  of frames and their labels, a query with its nearest neighbours, and a triplet
+  with the human vote marked. `show_probes() == list_probes()` is now asserted,
+  so a new probe cannot ship undrawable by accident.
+
+  Each carries the diagnostic its own history calls for, stated as a figure
+  following `error_coherence`'s precedent:
+
+  - **class balance** — `subset(n)` on a labelled folder takes a prefix and the
+    file list is grouped by class, so an Imagenette prefix is entirely class 0
+    and the run **scores 1.0 while measuring nothing**. The footer reads
+    `1 class, 8 items ... any score here is an artefact` whichever frames were
+    drawn. Frames are picked *spread across* the split for the same reason:
+    drawing a prefix would reproduce the artefact the sheet exists to reveal.
+  - **vote balance** — the NIGHTS candidates are presented in arbitrary order,
+    so the human vote should sit near 50%. Far from it means the vote was read
+    from the wrong CSV column, which otherwise surfaces only as a mediocre
+    accuracy. Drawn, it is unmistakable: the "preferred" candidate is visibly
+    the more distorted one.
+
+  **Retrieval loads the whole split** regardless of `--frames`, because
+  leave-one-out retrieval over four images ranks each against three
+  alternatives — shortening the split would not shorten the drawing, it would
+  destroy what is drawn. `--limit` is now an explicit flag for capping it, and
+  is distinct from `--frames`, how many rows to draw.
+
+  `--backbone` now defaults to `None` and is required only where something must
+  be computed: `correspondence` and `retrieval`, whose content *is* the
+  features, and anywhere `--predict-from` is used. `similarity` draws the human
+  vote without one.
+
 - **`visbench show correspondence` — the pair renderer.** Two views side by
   side with the matches drawn between them, green where a match landed within
   `--threshold` pixels of where the geometry says it should have and red

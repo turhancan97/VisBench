@@ -190,7 +190,13 @@ def target_to_rgb(
     disagree about it.
     """
     if style.kind in COMPOSITE_KINDS:
-        drawn_by = {"boxes": "panels.draw_boxes", "matches": "matches.draw_matches"}
+        drawn_by = {
+            "boxes": "panels.draw_boxes",
+            "matches": "matches.draw_matches",
+            "sheet": "gallery.render_sheet",
+            "ranking": "gallery.render_retrieval_panels",
+            "triplet": "gallery.render_triplet_panels",
+        }
         raise ValueError(
             f"A {style.kind!r} target is drawn onto the frames it belongs to, not as "
             f"a panel of its own. Use visbench.viz.{drawn_by[style.kind]}."

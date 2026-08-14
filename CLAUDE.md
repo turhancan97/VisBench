@@ -66,6 +66,7 @@ step is next rather than attempting the whole roadmap in one session.
 | 8b | Corner in the corpus: a pinned frame set, and a generated board | done |
 | 9a | `visbench show` — the panel viewer, and `run --save-probe` | done |
 | 9b | `visbench show correspondence` — the pair renderer, and coherence | done |
+| 9c | `show` for the last three probes; every probe drawable | done |
 
 Steps 7a-7e ship no new probe, backbone or metric. They are the **contributor-
 facing surface**: the shortest path from `pip install` to a number, where the
@@ -102,11 +103,11 @@ all. **There is now a second backlog beside it**, the library-surface one, which
 ships no new number the way v0.7 did; it is in the same part of this file and in
 `docs/roadmap.md`. **Its first item is done as of 2026-08-14**: step 9a shipped
 `visbench show`, the panel viewer, plus `visbench run --save-probe` to feed its
-prediction column, and **9b added the correspondence pair renderer** — all ten
-drawable probes are now covered and the viewer is complete. See the build table
-and the four bullets in "decisions already paid for". The two remaining
-library-surface items are the **dataset bridges** and an
-**`examples/custom_backbone.py`**. Re-confirm what is wanted before starting anything; do
+prediction column, **9b added the correspondence pair renderer**, and **9c
+covered the last three** — so `visbench show` is valid on *every* probe and
+`show_probes() == list_probes()` is asserted. See the build table and the five
+bullets in "decisions already paid for". The two remaining library-surface items
+are the **dataset bridges** and an **`examples/custom_backbone.py`**. Re-confirm what is wanted before starting anything; do
 not assume either backlog's order is a plan. **The one thread that was open — why `detection`
 alone fails to reproduce — is closed as of 2026-08-13**: it is GPU
 non-determinism made visible by a discrete metric, it was never a bug, and
@@ -385,6 +386,9 @@ visbench/
                    pastes at the dataset's own resolution, never resizes; 9a)
                  matches.py (render_match_panels, draw_matches, error_coherence
                    — the pair renderer; two views and the errors between; 9b)
+                 gallery.py (annotate, render_sheet/_retrieval_panels/
+                   _triplet_panels, class_balance, vote_balance — the probes
+                   whose answer is a choice among images, not a map; 9c)
   demo.py        generated shapes + CustomBackbone(resnet18) — `visbench demo`
   runner.py      visbench.run() — the one call the CLI wraps
 examples/        classify, retrieve, correspond, depth, normals, segment,
@@ -873,6 +877,53 @@ designed up front; extend it the same way, from a case that already runs.
   and the prediction column otherwise had no CLI-producible input.
   `correspondence` was out of scope for 9a and is covered by 9b, below.
 
+- **The three probes with no spatial target draw their *decision*, and each
+  states the diagnostic its own history calls for** (9c). `classification`,
+  `retrieval` and `similarity` have nothing to lay beside the image at the same
+  resolution, which is why they were skipped in 9a. What they have is a choice —
+  which class, which neighbours, which candidate — and drawing it closes the
+  last gap: `show_probes() == list_probes()` is now asserted, so a new probe
+  cannot ship undrawable.
+
+  **`class_balance` is the prefix bug as a figure.** `subset(n)` on a labelled
+  folder takes a prefix and the file list is grouped by class, so an Imagenette
+  prefix is entirely class 0 and the run scores 1.0 while measuring nothing —
+  which is why `balanced_subset` exists. The footer reads `1 class, ... any
+  score here is an artefact` whichever frames were drawn, so the diagnosis does
+  not depend on the sample. **Frames are therefore picked spread across the
+  split for the class-grouped kinds**, not as a prefix: drawing the first four
+  rows would reproduce the artefact the sheet exists to reveal and look like a
+  bug in the viewer.
+
+  **`vote_balance` is the CSV-column bug as a figure.** NIGHTS presents the two
+  candidates in arbitrary order, so the human vote sits near 50%; far from it
+  means the vote was read from the wrong field, which otherwise surfaces only
+  as a mediocre accuracy. Both are **diagnostics, never scores**, like
+  `error_coherence`.
+
+  **Retrieval loads the whole split whatever `--frames` says.** Leave-one-out
+  retrieval over four images ranks each against three alternatives, so
+  shortening the split does not shorten the drawing — it destroys what is being
+  drawn. `--limit` became an explicit `show` flag for this: it is *how much to
+  load*, distinct from `--frames`, *how many rows to draw*.
+
+  **`--backbone` now defaults to `None`** and is demanded only where something
+  must be computed — `correspondence` and `retrieval`, whose content is the
+  features, and anywhere `--predict-from` is passed. It is checked *before* the
+  split is indexed, which on a real dataset is the slow part.
+
+  **Classification keeps its own schedule defaults**
+  (`CLASSIFICATION_SCHEDULE_DEFAULTS`: 200 epochs at 1e-2, not the dense
+  probes' 10 at 5e-4). One shared table would hand `show` a probe built with
+  the wrong ones, and `load_probe` would then refuse a head that is fine.
+
+  **Two bugs were found by rendering a page, not by a test**, which is the
+  argument for this package arriving inside it: PIL's built-in bitmap font has
+  no glyph for an em dash or an ellipsis and draws an empty box, so every
+  caption this package writes is **ASCII** and a test asserts it; and a fixture
+  whose vote column held a raw tally rather than 0/1 read as "humans chose
+  right in 0%" — caught by the footer figure that exists for exactly that.
+
 - **For correspondence it is the *shape* of the errors that diagnoses the bug,
   not their size — and that is now a number, not an impression** (9b).
   `error_coherence` is the mean resultant length of the error directions: 1.0
@@ -1033,7 +1084,7 @@ designed up front; extend it the same way, from a case that already runs.
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite is **1527 tests** and green on 2026-08-14, after `visbench show` and its pair renderer, as
+fast suite is **1571 tests** and green on 2026-08-14, after `visbench show` grew to cover every probe, as
 are all three lint steps and the `-W` docs build — all five run on `dgx1` via
 `sbatch`, since `.venv/bin/python` does not resolve on a `dgxh100` login shell.
 `uv lock --check` was green on 2026-08-06 and no dependency has moved since; the
@@ -2653,7 +2704,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 1527 fast tests
+pytest                                              # 1571 fast tests
 pytest -m slow                                      # 79, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/
