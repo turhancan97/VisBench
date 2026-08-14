@@ -35,7 +35,15 @@ from visbench.data.detection import VOC_CLASSES
 from visbench.data.pair_dataset import HomographyPairDataset
 from visbench.data.triplet import TwoAFCDataset
 
-__all__ = ["ProbeSpec", "Splits", "SPECS", "spec_for", "supported_probes"]
+__all__ = [
+    "ProbeSpec",
+    "Splits",
+    "SCHEDULE_DEFAULTS",
+    "SPECS",
+    "showable_probes",
+    "spec_for",
+    "supported_probes",
+]
 
 
 class Splits(NamedTuple):
@@ -63,6 +71,16 @@ class ProbeSpec:
     build: Callable[[argparse.Namespace], Splits]
     #: Keyword arguments forwarded to :func:`visbench.get_probe`.
     probe_kwargs: Callable[[argparse.Namespace], dict]
+    #: Adds the flags ``visbench show`` needs: the ones :attr:`build` reads, plus
+    #: the ones that decide the head's *shape* (needed to load a saved probe),
+    #: and none of the ones that decide its training. ``None`` means this probe
+    #: has no spatial target to draw, and ``show`` refuses it by name.
+    #:
+    #: A separate callable rather than reusing :attr:`add_arguments`: that would
+    #: put ``--epochs`` and ``--lr`` in ``visbench show depth --help``, promising
+    #: something they cannot do. Splitting the flag groups instead is the move
+    #: step 6d-1 already made to this file, for the same reason.
+    show_arguments: Callable[[argparse.ArgumentParser], None] | None = None
 
 
 # -- shared flag groups ------------------------------------------------------
@@ -79,14 +97,44 @@ def _split_flags(parser: argparse.ArgumentParser, evaluate: str, train: str | No
         )
 
 
-def _dense_flags(parser: argparse.ArgumentParser, target_dir: str) -> None:
-    """The folder-layout flags plus everything in :func:`_head_schedule_flags`.
+def _viewing(view_flags: Callable[[argparse.ArgumentParser], None]) -> Callable:
+    """Turn a probe's non-schedule flags into its ``show_arguments``.
+
+    Every probe's ``add_arguments`` is exactly ``<view flags> + _schedule_flags``,
+    so this composes ``show``'s surface from the *same* callable rather than a
+    parallel copy. That matters more than the tidiness: a second copy could
+    build a different dataset than ``run`` would from the same command line, and
+    a viewer that draws data the probe did not see is worse than no viewer.
+    """
+
+    def add(parser: argparse.ArgumentParser) -> None:
+        view_flags(parser)
+        parser.set_defaults(**SCHEDULE_DEFAULTS)
+
+    return add
+
+
+def _dense_view_flags(parser: argparse.ArgumentParser, target_dir: str) -> None:
+    """Everything a dense probe needs *except* how its head is trained.
 
     Split in two when the edge probe arrived (step 6d-1): Taskonomy is indexed
     from a split list rather than from two named folders, so it wants the head
-    and schedule half without ``--image-dir``, ``--target-dir`` or ``--stems``,
-    which would appear in its ``--help`` promising something they cannot do.
+    half without ``--image-dir``, ``--target-dir`` or ``--stems``, which would
+    appear in its ``--help`` promising something they cannot do.
+
+    Split again for ``visbench show``, which draws data and loads a head but
+    trains nothing — so it wants precisely this and none of
+    :func:`_schedule_flags`. Every probe below is therefore
+    ``<view flags> + _schedule_flags``, and :func:`_viewing` reuses the first
+    half rather than restating it.
     """
+    _dense_folder_flags(parser, target_dir)
+    _image_size_flag(parser)
+    _head_shape_flags(parser)
+
+
+def _dense_folder_flags(parser: argparse.ArgumentParser, target_dir: str) -> None:
+    """Where the images and targets live. Everything ``_dense_splits`` reads."""
     parser.add_argument("--image-dir", default="images", help="image folder inside a split")
     parser.add_argument(
         "--target-dir",
@@ -111,13 +159,14 @@ def _dense_flags(parser: argparse.ArgumentParser, target_dir: str) -> None:
         default=None,
         help="the same for the training split; required alongside --stems",
     )
-    _head_schedule_flags(parser)
 
 
-def _head_schedule_flags(parser: argparse.ArgumentParser) -> None:
-    """Working resolution, head choice, and the training schedule.
+def _image_size_flag(parser: argparse.ArgumentParser) -> None:
+    """The working resolution.
 
-    Shared by every trained dense probe regardless of how its data is indexed.
+    A *data* flag, despite having lived in the head group: it decides the resize
+    and centre crop the dataset applies, so anything that builds a dataset needs
+    it and anything that only trains a head does not.
     """
     parser.add_argument(
         "--image-size",
@@ -125,6 +174,15 @@ def _head_schedule_flags(parser: argparse.ArgumentParser) -> None:
         default=224,
         help="working resolution; must be a multiple of the backbone's patch size",
     )
+
+
+def _head_shape_flags(parser: argparse.ArgumentParser) -> None:
+    """What the head *is*, as opposed to how it was trained.
+
+    These are what ``visbench show --predict-from`` also needs: a saved artifact
+    is only loadable onto a head of the same shape, and ``load_probe`` checks
+    the layers among its four identity fields.
+    """
     parser.add_argument("--head", default="linear", help="linear | dpt; see `visbench list heads`")
     parser.add_argument(
         "--layers",
@@ -134,6 +192,15 @@ def _head_schedule_flags(parser: argparse.ArgumentParser) -> None:
         help="backbone depths to read, e.g. --layers 2 5 8 11; dpt needs several",
     )
     parser.add_argument("--hidden-dim", type=int, default=512, help="DPT width")
+
+
+def _schedule_flags(parser: argparse.ArgumentParser) -> None:
+    """How the head is trained. Nothing here changes what a dataset yields.
+
+    Every default is mirrored in :data:`SCHEDULE_DEFAULTS`, so a command that
+    builds a probe without training it can satisfy ``probe_kwargs`` without
+    offering flags it would ignore. A test pins the two against each other.
+    """
     parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--lr", type=float, default=5e-4)
     parser.add_argument(
@@ -169,6 +236,22 @@ def _head_schedule_flags(parser: argparse.ArgumentParser) -> None:
         "blocks below the cut never train -- so this is for measuring what it saves, and "
         "for trading disk against time on a small split",
     )
+
+
+#: :func:`_schedule_flags`' defaults, for a command that constructs a probe
+#: without training it. ``visbench show --predict-from`` loads a head someone
+#: else's run already fitted, so every one of these is irrelevant to it — but
+#: ``probe_kwargs`` reads them all, and forking that per command is how the two
+#: copies drift. ``parser.set_defaults(**SCHEDULE_DEFAULTS)`` puts them on
+#: ``args`` without putting them in ``--help``.
+SCHEDULE_DEFAULTS: dict[str, Any] = {
+    "epochs": 10,
+    "lr": 5e-4,
+    "train_batch_size": 8,
+    "finetune_blocks": 0,
+    "backbone_lr": None,
+    "no_prefix_cache": False,
+}
 
 
 def _dense_probe_kwargs(args: argparse.Namespace) -> dict:
@@ -294,9 +377,9 @@ def _retrieval_kwargs(args: argparse.Namespace) -> dict:
     return kwargs
 
 
-def _semantic_flags(parser: argparse.ArgumentParser) -> None:
+def _semantic_view_flags(parser: argparse.ArgumentParser) -> None:
     _split_flags(parser, evaluate="val", train="train")
-    _dense_flags(parser, target_dir="labels")
+    _dense_view_flags(parser, target_dir="labels")
     parser.add_argument(
         "--num-classes",
         type=int,
@@ -311,6 +394,11 @@ def _semantic_flags(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _semantic_flags(parser: argparse.ArgumentParser) -> None:
+    _semantic_view_flags(parser)
+    _schedule_flags(parser)
+
+
 def _semantic_splits(args: argparse.Namespace) -> Splits:
     ignore = None if args.ignore_index < 0 else args.ignore_index
     # No max_target: it marks out-of-range sensor readings invalid, and against
@@ -319,6 +407,21 @@ def _semantic_splits(args: argparse.Namespace) -> Splits:
 
 
 def _detection_flags(parser: argparse.ArgumentParser) -> None:
+    _detection_view_flags(parser)
+    parser.add_argument("--epochs", type=int, default=10)
+    parser.add_argument("--lr", type=float, default=5e-4)
+    parser.add_argument("--train-batch-size", type=int, default=8)
+
+
+def _detection_view_flags(parser: argparse.ArgumentParser) -> None:
+    """Detection's own flag set, minus the schedule.
+
+    Not built from :func:`_head_shape_flags`: this probe's head defaults differ
+    (``detection`` rather than ``linear``, ``hidden_dim=0`` rather than 512) and
+    it reads no ``--layers``. The decoding settings belong here too — they shape
+    what ``predict`` emits, so a panel drawn under different ones is not the
+    panel the score came from.
+    """
     _split_flags(parser, evaluate="val", train="train")
     parser.add_argument("--image-dir", default="JPEGImages", help="image folder (VOC's name)")
     parser.add_argument(
@@ -353,9 +456,6 @@ def _detection_flags(parser: argparse.ArgumentParser) -> None:
         help="width of an optional 3x3 stem; 0 (default) keeps the head linear, which is "
         "what makes a difference between backbones a difference between representations",
     )
-    parser.add_argument("--epochs", type=int, default=10)
-    parser.add_argument("--lr", type=float, default=5e-4)
-    parser.add_argument("--train-batch-size", type=int, default=8)
     parser.add_argument(
         "--min-box-size",
         type=float,
@@ -436,9 +536,9 @@ def _detection_kwargs(args: argparse.Namespace) -> dict:
 # -- mid level ---------------------------------------------------------------
 
 
-def _depth_flags(parser: argparse.ArgumentParser) -> None:
+def _depth_view_flags(parser: argparse.ArgumentParser) -> None:
     _split_flags(parser, evaluate="val", train="train")
-    _dense_flags(parser, target_dir="depths")
+    _dense_view_flags(parser, target_dir="depths")
     parser.add_argument(
         "--target-scale",
         type=float,
@@ -446,21 +546,30 @@ def _depth_flags(parser: argparse.ArgumentParser) -> None:
         help="divisor for integer files; 1000 for mm PNGs",
     )
     parser.add_argument("--max-depth", type=float, default=10.0, help="beyond this is invalid")
+    # A head-shape flag, not a schedule one: DepthTask emits one channel per bin,
+    # so a saved head only loads onto a probe built with the same count.
     parser.add_argument("--n-bins", type=int, default=256)
+
+
+def _depth_flags(parser: argparse.ArgumentParser) -> None:
+    _depth_view_flags(parser)
+    _schedule_flags(parser)
 
 
 def _depth_splits(args: argparse.Namespace) -> Splits:
     return _dense_splits(args, target_scale=args.target_scale, max_target=args.max_depth)
 
 
-def _normal_flags(parser: argparse.ArgumentParser) -> None:
+def _normal_view_flags(parser: argparse.ArgumentParser) -> None:
     _split_flags(parser, evaluate="val", train="train")
-    _dense_flags(parser, target_dir="normals")
+    _dense_view_flags(parser, target_dir="normals")
     parser.add_argument(
         "--normal-source",
         default=None,
         help="how the normals were derived (e.g. geonet); recorded, since sources disagree",
     )
+    # Shapes the head: the uncertainty-aware loss adds a fourth output channel
+    # for kappa, so a head fitted with it does not load onto one built without.
     parser.add_argument(
         "--plain-loss",
         action="store_true",
@@ -468,15 +577,25 @@ def _normal_flags(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def _generic_seg_flags(parser: argparse.ArgumentParser) -> None:
+def _normal_flags(parser: argparse.ArgumentParser) -> None:
+    _normal_view_flags(parser)
+    _schedule_flags(parser)
+
+
+def _generic_seg_view_flags(parser: argparse.ArgumentParser) -> None:
     _split_flags(parser, evaluate="val", train="train")
-    _dense_flags(parser, target_dir="masks")
+    _dense_view_flags(parser, target_dir="masks")
     parser.add_argument(
         "--ignore-index",
         type=int,
         default=-1,
         help="raw value marking unlabelled pixels; negative disables (default: disabled)",
     )
+
+
+def _generic_seg_flags(parser: argparse.ArgumentParser) -> None:
+    _generic_seg_view_flags(parser)
+    _schedule_flags(parser)
 
 
 def _generic_seg_splits(args: argparse.Namespace) -> Splits:
@@ -496,8 +615,15 @@ def _taskonomy_flags(parser: argparse.ArgumentParser, *, domain: str) -> None:
     ``protocol`` field exists to prevent. The flag is kept, restricted, so that
     a probe growing a second honest domain has somewhere to put it.
     """
+    _taskonomy_view_flags(parser, domain=domain)
+    _schedule_flags(parser)
+
+
+def _taskonomy_view_flags(parser: argparse.ArgumentParser, *, domain: str) -> None:
+    """The split, resolution, partition and domain — plus the head's shape."""
     _split_flags(parser, evaluate="val", train="train")
-    _head_schedule_flags(parser)
+    _image_size_flag(parser)
+    _head_shape_flags(parser)
     parser.add_argument(
         "--partition",
         default="tiny",
@@ -543,9 +669,16 @@ def _corner_flags(parser: argparse.ArgumentParser) -> None:
     these flags changes the number, so all of them land in ``dataset_params``
     and split the comparability groups on their own.
     """
+    _corner_view_flags(parser)
+    _schedule_flags(parser)
+
+
+def _corner_view_flags(parser: argparse.ArgumentParser) -> None:
+    """Everything ``_corner_splits`` reads, the operator's settings included."""
     _split_flags(parser, evaluate="val", train="train")
     parser.add_argument("--image-dir", default="images", help="image folder inside a split")
-    _head_schedule_flags(parser)
+    _image_size_flag(parser)
+    _head_shape_flags(parser)
     parser.add_argument(
         "--corner-sigma",
         type=float,
@@ -690,6 +823,7 @@ SPECS: dict[str, ProbeSpec] = {
             **_dense_probe_kwargs(args),
             "num_classes": args.num_classes,
         },
+        show_arguments=_viewing(_semantic_view_flags),
     ),
     "detection": ProbeSpec(
         summary="anchor-free single-scale box probe, scored mAP@50 the VOC way",
@@ -697,6 +831,7 @@ SPECS: dict[str, ProbeSpec] = {
         add_arguments=_detection_flags,
         build=_detection_splits,
         probe_kwargs=_detection_kwargs,
+        show_arguments=_viewing(_detection_view_flags),
     ),
     "depth": ProbeSpec(
         summary="probe3d's 256-bin depth protocol",
@@ -708,6 +843,7 @@ SPECS: dict[str, ProbeSpec] = {
             "max_depth": args.max_depth,
             "n_bins": args.n_bins,
         },
+        show_arguments=_viewing(_depth_view_flags),
     ),
     "surface_normal": ProbeSpec(
         summary="probe3d's angular protocol, uncertainty-aware loss",
@@ -719,6 +855,7 @@ SPECS: dict[str, ProbeSpec] = {
             "uncertainty_aware": not args.plain_loss,
             "normal_source": args.normal_source,
         },
+        show_arguments=_viewing(_normal_view_flags),
     ),
     "generic_segmentation": ProbeSpec(
         summary="binary foreground probe; foreground IoU is the number to quote",
@@ -726,6 +863,7 @@ SPECS: dict[str, ProbeSpec] = {
         add_arguments=_generic_seg_flags,
         build=_generic_seg_splits,
         probe_kwargs=_dense_probe_kwargs,
+        show_arguments=_viewing(_generic_seg_view_flags),
     ),
     "edge": ProbeSpec(
         summary="dense edge-magnitude regression; quote edge_correlation",
@@ -733,6 +871,7 @@ SPECS: dict[str, ProbeSpec] = {
         add_arguments=functools.partial(_taskonomy_flags, domain="edge_texture"),
         build=_taskonomy_splits,
         probe_kwargs=_dense_probe_kwargs,
+        show_arguments=_viewing(functools.partial(_taskonomy_view_flags, domain="edge_texture")),
     ),
     "corner": ProbeSpec(
         # The only probe here that needs no target folder: the target is
@@ -742,6 +881,7 @@ SPECS: dict[str, ProbeSpec] = {
         add_arguments=_corner_flags,
         build=_corner_splits,
         probe_kwargs=_dense_probe_kwargs,
+        show_arguments=_viewing(_corner_view_flags),
     ),
     "keypoints2d": ProbeSpec(
         summary="dense 2D keypoint-response regression; quote keypoint_correlation",
@@ -749,6 +889,7 @@ SPECS: dict[str, ProbeSpec] = {
         add_arguments=functools.partial(_taskonomy_flags, domain="keypoints2d"),
         build=_taskonomy_splits,
         probe_kwargs=_dense_probe_kwargs,
+        show_arguments=_viewing(functools.partial(_taskonomy_view_flags, domain="keypoints2d")),
     ),
     "occlusion_edge": ProbeSpec(
         # The one Taskonomy probe here whose target has holes; mask_valid/ is
@@ -761,6 +902,7 @@ SPECS: dict[str, ProbeSpec] = {
         add_arguments=functools.partial(_taskonomy_flags, domain="edge_occlusion"),
         build=_taskonomy_splits,
         probe_kwargs=_dense_probe_kwargs,
+        show_arguments=_viewing(functools.partial(_taskonomy_view_flags, domain="edge_occlusion")),
     ),
     "correspondence": ProbeSpec(
         summary="zero-shot dense matching under a known homography",
@@ -782,6 +924,19 @@ SPECS: dict[str, ProbeSpec] = {
 def supported_probes() -> list[str]:
     """Probe names the CLI can run, sorted."""
     return sorted(SPECS)
+
+
+def showable_probes() -> list[str]:
+    """Probe names ``visbench show`` can draw, sorted.
+
+    A subset of :func:`supported_probes`: a probe with no spatial target has
+    nothing to put in a panel. Kept in step with
+    :func:`visbench.viz.show_probes`, which holds the *drawing* half of the same
+    question, by a test asserting the two sets are equal — the two tables live in
+    different packages precisely so the Python API needs no CLI, and that is
+    exactly the arrangement that lets one grow a row the other lacks.
+    """
+    return sorted(name for name, spec in SPECS.items() if spec.show_arguments is not None)
 
 
 def spec_for(probe: str) -> ProbeSpec:

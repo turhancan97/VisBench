@@ -40,6 +40,7 @@ not measuring the signal.
 | | |
 | --- | --- |
 | Every probe, the data it expects, and what it has measured | [The probes](tasks.md) |
+| Drawing a probe's images beside their targets | [Looking](show.md) |
 | Sharing a trained probe, and what travels with it | [The Hub](hub.md) |
 | How it was built, and what might come next | [Roadmap](roadmap.md) |
 | Thirteen probes against six backbones, ranked | [LEADERBOARD.md](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md) |
@@ -79,6 +80,13 @@ every number, which is what makes it reproducible — against that release.
 :caption: The probes
 
 tasks
+```
+
+```{toctree}
+:hidden:
+:caption: Looking
+
+show
 ```
 
 ```{toctree}

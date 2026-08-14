@@ -129,7 +129,16 @@ show a training-dynamics problem, and one has already been found that way.
 4. Add an entry to `HEADLINE_METRICS` in `visbench/results/render.py`, and a
    direction for each new metric in `visbench/results/leaderboard.py`. Both
    raise on a missing entry rather than guessing.
-5. Add an `examples/` script and a row in
+5. If the probe has a **spatial target**, add a `TargetStyle` row to
+   `TARGET_STYLES` in `visbench/viz/styles.py` and a `show_arguments` callable
+   to its `ProbeSpec`, so `visbench show` can draw it. Both raise on a missing
+   entry, for the same reason the two tables above do — and this one has to
+   state your target's **validity convention** explicitly. There are already
+   four across nine probes (`0`, the zero vector, negative, `NaN`, and *nothing
+   at all* where 0 is a real reading), none of them visible in a tensor's
+   shape. Picking the wrong one renders: the panel comes out looking like a
+   target full of holes.
+6. Add an `examples/` script and a row in
    [`docs/tasks.md`](docs/tasks.md).
 
 **Do not claim another paper's protocol unless you implemented it.** The

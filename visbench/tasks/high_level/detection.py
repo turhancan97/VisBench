@@ -572,6 +572,33 @@ class DetectionTask(BaseTask):
     def head_spec(self) -> dict | None:
         return getattr(self, "_head_spec", None)
 
+    def probe_state(self) -> dict[str, torch.Tensor]:
+        """``grid_hw``, which is fitted state living outside the head.
+
+        Every cell centre — and therefore every decoded box — is computed from
+        the grid the head was fitted on. Saved without it, the weights load
+        cleanly and ``predict`` raises "this probe has not been fitted", which
+        is at least loud; the quieter hazard is a future caller that defaults
+        the grid instead and decodes every box against the wrong pixel
+        coordinates. This is the case ``probe_state`` exists for, and it is the
+        same one ``ClassificationTask``'s standardiser was.
+        """
+        if self.grid_hw is None:
+            return {}
+        return {"grid_hw": torch.tensor(self.grid_hw, dtype=torch.int64)}
+
+    def load_probe_state(self, state: dict[str, torch.Tensor]) -> None:
+        """Restore :meth:`probe_state`, refusing a key this probe cannot use."""
+        unexpected = sorted(set(state) - {"grid_hw"})
+        if unexpected:
+            raise ValueError(
+                f"{type(self).__name__} cannot restore {unexpected}. Refusing rather "
+                "than dropping it: the weights were fitted alongside these tensors."
+            )
+        if "grid_hw" in state:
+            height, width = (int(value) for value in state["grid_hw"])
+            self.grid_hw = (height, width)
+
     def _batch_loss(
         self, batch_features: torch.Tensor, batch_targets: list[dict], centres: torch.Tensor
     ) -> torch.Tensor:

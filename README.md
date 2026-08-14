@@ -216,6 +216,7 @@ wrapper over `visbench.run()` — same cache, same result records, same numbers.
 visbench demo                       # a real probe on generated data, no setup
 visbench list                       # backbones, probes and heads that exist
 visbench run retrieval --data /path/to/imagenette2 --split val
+visbench show depth --data /path/to/nyuv2 --out panels.png
 visbench cache stats
 ```
 
@@ -247,6 +248,28 @@ visbench run detection --data VOCdevkit/VOC2012 \
 
 That last one reports `miou 0.733` on VOC val, against the 0.732 the Python API
 records for the same backbone — which is the check that matters for a wrapper.
+
+### Looking before you measure
+
+`visbench show` writes a grid of image / target / prediction panels to a file.
+It measures nothing — it exists because a dense target that has drifted from its
+image fails *silently*: the probe trains, and the number merely comes out
+mediocre, which reads as a hard task rather than a bug.
+
+```bash
+# no backbone, no cache, no GPU — just the data the probe would see
+visbench show semantic_segmentation --data VOCdevkit/VOC2012 \
+    --stems ImageSets/Segmentation/val.txt --num-classes 21 --out voc.png
+
+# add a prediction column from a head you trained earlier
+visbench run corner --data ./frames --save-probe heads/corner.pt
+visbench show corner --data ./frames --predict-from heads/corner.pt --out corner.png
+```
+
+Nine probes have a spatial target to draw. Invalid pixels are magenta, per each
+probe's own convention — there are four of them and none is visible in a
+tensor's shape. See
+[the guide](https://github.com/turhancan97/VisBench/blob/main/docs/show.md).
 
 Two flags worth knowing. `--batch-size` is the *extraction* batch;
 `--train-batch-size` is the head's, and they are separate because they are
@@ -420,6 +443,7 @@ them at the point of use in the code:
 | --- | --- |
 | **The documentation site** | <https://turhancan97.github.io/VisBench/> |
 | Every probe, its data layout and its measured numbers | [docs/tasks.md](https://github.com/turhancan97/VisBench/blob/main/docs/tasks.md) |
+| Looking at what a probe saw, and what it predicted | [docs/show.md](https://github.com/turhancan97/VisBench/blob/main/docs/show.md) |
 | Twelve probes against six backbones, ranked | [LEADERBOARD.md](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md) |
 | How it was built, and what might come next | [docs/roadmap.md](https://github.com/turhancan97/VisBench/blob/main/docs/roadmap.md) |
 | What changed in each release | [CHANGELOG.md](https://github.com/turhancan97/VisBench/blob/main/CHANGELOG.md) |

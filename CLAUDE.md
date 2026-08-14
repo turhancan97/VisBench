@@ -64,6 +64,7 @@ step is next rather than attempting the whole roadmap in one session.
 | 7e | Citation metadata: `CITATION.cff`, `.zenodo.json`, and a DOI | done |
 | 8a | Corner detection — the first target computed rather than downloaded | done |
 | 8b | Corner in the corpus: a pinned frame set, and a generated board | done |
+| 9a | `visbench show` — the panel viewer, and `run --save-probe` | done |
 
 Steps 7a-7e ship no new probe, backbone or metric. They are the **contributor-
 facing surface**: the shortest path from `pip install` to a number, where the
@@ -96,11 +97,16 @@ moved and no version was bumped, so PyPI is still 0.8.0.
 
 **There is no `next` step.** The remaining work is the candidate task backlog
 further down this file — and the cheapest items there need no new dataset at
-all. **There is now a second backlog beside it**, the library-surface one
-(visualisation, dataset bridges, a custom-backbone example), which ships no new
-number the way v0.7 did; it is in the same part of this file and in
-`docs/roadmap.md`. Re-confirm what is wanted before starting anything; do not
-assume either backlog's order is a plan. **The one thread that was open — why `detection`
+all. **There is now a second backlog beside it**, the library-surface one, which
+ships no new number the way v0.7 did; it is in the same part of this file and in
+`docs/roadmap.md`. **Its first item is done as of 2026-08-14**: step 9a shipped
+`visbench show`, the panel viewer, plus `visbench run --save-probe` to feed its
+prediction column — see the build table and the three bullets in "decisions
+already paid for". The two remaining library-surface items are the **dataset
+bridges** and an **`examples/custom_backbone.py`**, and the natural follow-up to
+9a itself is a **pair renderer for `correspondence`**, which needs match lines
+rather than a panel grid. Re-confirm what is wanted before starting anything; do
+not assume either backlog's order is a plan. **The one thread that was open — why `detection`
 alone fails to reproduce — is closed as of 2026-08-13**: it is GPU
 non-determinism made visible by a discrete metric, it was never a bug, and
 detection reproduces to *three* decimals rather than four. **Narrowed
@@ -187,9 +193,11 @@ heads      linear, dpt, detection
 ```
 
 The CLI exposes all thirteen probes: `visbench list`, `visbench run <probe>`,
-`visbench cache stats|clear`, plus `visbench demo` (7a). A test asserts the
-CLI's table and `list_probes()` are the same set, so a probe cannot ship
-unreachable from a shell by accident.
+`visbench cache stats|clear`, plus `visbench demo` (7a) and **`visbench show
+<probe>` (9a)**. A test asserts the CLI's table and `list_probes()` are the same
+set, so a probe cannot ship unreachable from a shell by accident. `show` is
+deliberately a **subset** — nine probes, the ones with a spatial target — and
+its own test pins that subset against `visbench.viz.show_probes()`.
 
 **`visbench run --push-to REPO_ID` publishes the head it just trained**
 (`--public` overrides the private default), and `scripts/build_corpus.sh` takes
@@ -368,15 +376,22 @@ visbench/
                  low_level/   edge (6d-1), keypoints (Keypoint2DTask, 6d-2),
                               corner (CornerTask, 8a — derived target)
   results/       schema.py (ResultRecord, SCHEMA_VERSION), writer.py
+  viz/           styles.py (TargetStyle + the listed TARGET_STYLES table —
+                   one row per drawable probe, style_for() raises otherwise)
+                 colour.py (DisplayRange/display_range, target_to_rgb,
+                   voc_palette, INVALID_RGB — pure, no I/O)
+                 panels.py (render_probe_panels, render_panels, draw_boxes —
+                   pastes at the dataset's own resolution, never resizes; 9a)
   demo.py        generated shapes + CustomBackbone(resnet18) — `visbench demo`
   runner.py      visbench.run() — the one call the CLI wraps
 examples/        classify, retrieve, correspond, depth, normals, segment,
                  segment_semantic, similarity, detect, edges, keypoints,
                  occlusion_edges, corners, save_probe (the local artifact),
-                 push_probe (the Hub round trip; never uploads without --push)
+                 push_probe (the Hub round trip; never uploads without --push),
+                 show_panels (the viewer; no backbone without --predict-from)
 docs/            conf.py, index.md, tasks.md (the per-probe reference AND the
                  ten generated tables), hub.md (sharing a trained probe),
-                 roadmap.md, _static/custom.css
+                 show.md (the panel viewer), roadmap.md, _static/custom.css
                  — a Sphinx source tree; `_build/` is gitignored
 .github/         workflows/{ci,slow,docs}.yml, ISSUE_TEMPLATE/, PR template
 CITATION.cff     GitHub's cite button + what Zenodo archives (7e)
@@ -820,6 +835,68 @@ designed up front; extend it the same way, from a case that already runs.
   response — the single strongest property of this class of target, and the
   reason `DerivedTargetDataset` does not subclass `DenseFolderDataset`.
 
+- **A viewer that applies its own geometry is worse than no viewer** (9a). This
+  is the single rule `visbench/viz/` exists to keep, and it inverts the usual
+  cost/benefit: a panel's entire evidential content is whether the image and the
+  target line up, so a viewer that resizes for layout, re-reads the source file
+  or re-crops can make a *misaligned pipeline look fine and a correct one look
+  broken*. It is guaranteed by pasting `np.asarray(dataset[i][0])` unchanged,
+  which is cheap only because dense datasets already yield a PIL image at the
+  working resolution rather than a normalised tensor — there is nothing to
+  invert. A fast test pins the image panel byte-for-byte.
+
+  **Four validity conventions, one listed table, no fallback.** The four
+  conventions in the bullet above are invisible in a tensor's shape or dtype, so
+  `TARGET_STYLES` is keyed per probe and `style_for` raises on an unlisted one —
+  the posture `METRIC_DIRECTIONS` takes, for the same reason. A "scalar map,
+  mask the zeros" default is right for depth and silently wrong for the four
+  probes where 0 is a real reading, and it *renders*: the panel comes out
+  looking like a target full of holes. There is a test per convention.
+
+  **A prediction is drawn against the target's range, not its own.** Scaling
+  each panel to its own extremes is the obvious implementation and it hides the
+  most common way a regression head is wrong: a prediction uniformly half the
+  target's magnitude renders identically to a correct one. The test asserts both
+  halves — that the shared range separates them, *and* that independent ranges
+  do not — because only the second one fails if someone "simplifies" it back.
+
+  **Magenta for invalid, chosen because no colouriser here can produce it**:
+  greyscale has no hue, `(n + 1) / 2` cannot reach it for a unit vector, and
+  VOC's palette does not contain it. A test asserts that, so a future colouriser
+  cannot quietly make the marker ambiguous.
+
+  Two things it is deliberately **not**: it does not train (that is
+  `run --save-probe`, added alongside, because `--push-to` needed a Hub account
+  and the prediction column otherwise had no CLI-producible input); and it does
+  not cover `correspondence`, which needs a *pair* renderer with match lines
+  rather than a panel grid. That is the natural next viewer step, and it is the
+  probe whose `recall@1px = 0.003` bug is half the argument for the package.
+
+- **`show` and `run` compose their flags from one callable, and that is a
+  correctness property rather than tidiness** (9a). `ProbeSpec.show_arguments`
+  is built by `_viewing(<probe>_view_flags)`, where every probe's
+  `add_arguments` is exactly `<view flags> + _schedule_flags`. A parallel copy
+  could build a *different dataset* than `run` would from the same command line,
+  and a viewer that draws data the probe did not see is the failure mode this
+  whole feature exists to catch, arriving through the feature itself.
+  `SCHEDULE_DEFAULTS` supplies what `probe_kwargs` reads without putting
+  `--epochs` in `visbench show depth --help`. **`--image-size` moved from the
+  head group to the data group** in that re-cut, where it belongs: it decides
+  the resize and centre crop. `run`'s surface is unchanged flag for flag and
+  default for default — verified by diffing the parsed surface of all thirteen
+  subcommands before and after, and pinned by
+  `test_run_flags_are_unchanged_by_the_split`.
+
+- **`DetectionTask.grid_hw` was fitted state outside the head and was not in
+  `probe_state()`** (9a), so a saved detection probe loaded back and raised
+  "this probe has not been fitted" on `predict`. Latent since v0.6.0 and
+  reachable only through the Hub artifact path, so no measurement moved. It is
+  the case `probe_state` was added for — the same one `ClassificationTask`'s
+  standardiser was — and detection was simply missed when it arrived. **Check
+  any probe that learns something outside `self.head`**, and note that the
+  standing instruction to do so did not prevent this one: the check has to
+  happen when the *probe* is written, not only when the artifact module is.
+
 - **A probe that runs on any folder cannot have a leaderboard without a chosen
   folder** (8a). This is the cost of a derived target and it is not obvious from
   the API: two people's corner numbers are comparable only if they ran the same
@@ -919,10 +996,12 @@ designed up front; extend it the same way, from a case that already runs.
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite is **1418 tests** and green on 2026-08-07, after the Hub work; the three
-lint steps and `uv lock --check` were green on 2026-08-06, as were the 79 slow
-tests, on that morning's nightly rather than locally. If anything is red for
-you, that is new — do not go looking for a known cause here.
+fast suite is **1504 tests** and green on 2026-08-14, after `visbench show`, as
+are all three lint steps and the `-W` docs build — all five run on `dgx1` via
+`sbatch`, since `.venv/bin/python` does not resolve on a `dgxh100` login shell.
+`uv lock --check` was green on 2026-08-06 and no dependency has moved since; the
+79 slow tests were green on that morning's nightly rather than locally. If
+anything is red for you, that is new — do not go looking for a known cause here.
 
 The entries are kept because each one records a *class* of failure this
 codebase has actually shipped, and the next one will rhyme with them.
@@ -2537,7 +2616,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 1418 fast tests
+pytest                                              # 1504 fast tests
 pytest -m slow                                      # 79, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/
