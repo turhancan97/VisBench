@@ -35,8 +35,33 @@ so it stands on its own rather than assuming you have read the ones above it.
   three carry `Identity`, so it would move the architecture as well as the
   recipe.
 
-  **Registered, not yet measured.** The corpus is still ten backbones and 130
-  records; the eleventh column is a separate step.
+  **Measured: thirteen records, so the corpus is eleven backbones and 143.**
+  Purely additive — 13 lines added, none removed — so every number v0.10.0
+  published is byte-identical.
+
+  **The answer is that high-level structure comes from a semantic training
+  signal, not from labels.** On the two high-level boards that are not saturated
+  DINO sits with the supervised model and far above MAE: retrieval **0.9192**
+  against supervised 0.9947 and MAE 0.1883, and semantic segmentation 0.5063
+  against 0.5791 and 0.3350. MAE is last of eleven on both; DINO is fourth and
+  seventh. A label-free objective that learns *categories* recovers nearly all
+  of what labels buy, and a label-free objective that learns *pixels* recovers
+  almost none of it — which the earlier pair could not separate, because it
+  varied both at once.
+
+  **And DINO does not pay MAE's price at the other end.** MAE leads five boards
+  and comes last on four; DINO's worst placing anywhere is eighth of eleven, on
+  a classification board where nine of the eleven score above 0.98. It also
+  takes **two overall firsts** — mid-level similarity at 0.9019, ahead of the
+  0.8701 that had stood since v0.2, and 2D keypoints at 0.2850 — plus second on
+  edges, corners and correspondence. The high/low trade-off the MAE row appears
+  to demonstrate is therefore not a law: one objective is strong at both ends.
+
+  **The high-level sweep is three boards and a tie, not four.** Supervised beats
+  DINO on detection by 0.0009 (0.1669 against 0.1660), which is below the ~1e-3
+  spread this project has measured on detection, so those two rows are a tie at
+  the three decimals detection is quoted to. Classification is saturated and
+  separates nothing either.
 
 ## [0.10.0] — 2026-08-19
 

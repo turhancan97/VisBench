@@ -29,7 +29,8 @@ never pooled with these.
 | backbone | `corner_correlation` | `mae` | `rmse` |
 | --- | --- | --- | --- |
 | `mae_vitb16` | **0.6669** | **0.4187** | 0.6979 |
-| `dinov2_vitb14` | 0.6526 | 0.4402 | **0.6899** |
+| `dino_vitb16` | 0.6657 | 0.4268 | **0.6837** |
+| `dinov2_vitb14` | 0.6526 | 0.4402 | 0.6899 |
 | `dinov2_vits14` | 0.6512 | 0.4510 | 0.6919 |
 | `clip_vitb16` | 0.6227 | 0.4508 | 0.7229 |
 | `supervised_vitb16` | 0.6204 | 0.4710 | 0.7291 |
@@ -48,6 +49,7 @@ Ordered by `corner_correlation`, which **disagrees with `mae`, `rmse`** — this
 | backbone | `edge_correlation` | `mae` | `rmse` |
 | --- | --- | --- | --- |
 | `mae_vitb16` | **0.4982** | **0.4687** | **0.9150** |
+| `dino_vitb16` | 0.4817 | 0.4789 | 0.9150 |
 | `clip_vitb16` | 0.4565 | 0.4882 | 0.9340 |
 | `dinov2_vits14` | 0.4558 | 0.5028 | 0.9226 |
 | `dinov2_vitb14` | 0.4481 | 0.4972 | 0.9265 |
@@ -66,7 +68,8 @@ Ordered by `edge_correlation`, which **disagrees with `mae`, `rmse`** — this t
 
 | backbone | `keypoint_correlation` | `mae` | `rmse` |
 | --- | --- | --- | --- |
-| `mae_vitb16` | **0.2626** | **1.0533** | **2.5342** |
+| `dino_vitb16` | **0.2850** | 1.0827 | **2.5143** |
+| `mae_vitb16` | 0.2626 | **1.0533** | 2.5342 |
 | `supervised_vitb16` | 0.2573 | 1.1242 | 2.5468 |
 | `dinov2_vits14` | 0.2356 | 1.1281 | 2.5472 |
 | `dinov2_vitb14` | 0.2248 | 1.1294 | 2.5541 |
@@ -85,7 +88,8 @@ Ordered by `keypoint_correlation`, which **disagrees with `mae`, `rmse`** — th
 
 | backbone | `auc@10px` | `auc@1px` | `auc@2px` | `auc@5px` | `recall@10px` | `recall@1px` | `recall@2px` | `recall@5px` | `ceiling_auc@10px` | `ceiling_auc@1px` | `ceiling_auc@2px` | `ceiling_auc@5px` | `ceiling_recall@10px` | `ceiling_recall@1px` | `ceiling_recall@2px` | `ceiling_recall@5px` | `num_matches` |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `mae_vitb16` | **0.3549** | 0.0068 | 0.0259 | **0.1370** | **0.7325** | 0.0202 | **0.0776** | **0.3577** | 0.4237 | 0.0070 | 0.0267 | 0.1462 | 0.9212 | 0.0208 | 0.0799 | 0.3932 | 17,300 |
+| `mae_vitb16` | 0.3549 | 0.0068 | 0.0259 | **0.1370** | 0.7325 | 0.0202 | **0.0776** | **0.3577** | 0.4237 | 0.0070 | 0.0267 | 0.1462 | 0.9212 | 0.0208 | 0.0799 | 0.3932 | 17,300 |
+| `dino_vitb16` | **0.3666** | 0.0066 | 0.0254 | 0.1351 | **0.7842** | 0.0195 | 0.0765 | 0.3566 | 0.4245 | 0.0067 | 0.0259 | 0.1418 | 0.9389 | 0.0199 | 0.0782 | 0.3847 | 18,027 |
 | `supervised_vitb16` | 0.3186 | **0.0070** | **0.0260** | 0.1259 | 0.6567 | **0.0202** | 0.0756 | 0.3232 | 0.4265 | 0.0078 | 0.0289 | 0.1468 | 0.9371 | 0.0226 | 0.0838 | 0.3928 | 8,796 |
 | `dinov2_vits14` | 0.3068 | 0.0059 | 0.0217 | 0.1152 | 0.6526 | 0.0165 | 0.0625 | 0.3049 | 0.4513 | 0.0068 | 0.0253 | 0.1454 | 0.9329 | 0.0190 | 0.0741 | 0.4123 | 23,439 |
 | `dinov2_vitb14` | 0.2886 | 0.0052 | 0.0194 | 0.1055 | 0.6260 | 0.0145 | 0.0563 | 0.2816 | 0.4430 | 0.0063 | 0.0238 | 0.1389 | 0.9264 | 0.0180 | 0.0694 | 0.4005 | 27,590 |
@@ -96,7 +100,7 @@ Ordered by `keypoint_correlation`, which **disagrees with `mae`, `rmse`** — th
 | `resnet50` | 0.1094 | 0.0014 | 0.0044 | 0.0299 | 0.3003 | 0.0034 | 0.0119 | 0.0887 | 0.1283 | 0.0017 | 0.0051 | 0.0350 | 0.3595 | 0.0043 | 0.0139 | 0.1038 | 4,373 |
 | `convnext_base` | 0.1043 | 0.0013 | 0.0040 | 0.0280 | 0.2950 | 0.0035 | 0.0111 | 0.0824 | 0.1222 | 0.0013 | 0.0044 | 0.0320 | 0.3575 | 0.0037 | 0.0124 | 0.0940 | 5,413 |
 
-Ordered by `recall@5px`, which **disagrees with `auc@1px`, `auc@2px`, `auc@5px`, `recall@10px`, `recall@1px`, `recall@2px`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
+Ordered by `recall@5px`, which **disagrees with `auc@10px`, `auc@1px`, `auc@2px`, `auc@5px`, `recall@10px`, `recall@1px`, `recall@2px`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
 
 > **Read this first.** Thresholds are in **pixels**, which is the only unit two backbones can be compared in — a patch width is 14px on DINOv2/14 and 32px on a ResNet, so scoring in patch widths asks each backbone a different question. Read `ceiling_` beside every score: a 7x7 grid cannot place a match within 5px more than ~10% of the time whatever its features are, so part of this ordering is resolution rather than quality. `num_matches` is the denominator each backbone's own ratio test left, and it varies by more than 5x.
 
@@ -109,6 +113,7 @@ Ordered by `recall@5px`, which **disagrees with `auc@1px`, `auc@2px`, `auc@5px`,
 | `dinov2_vitb14` | **0.1538** | **0.7851** | **0.9690** | **0.9951** | **0.5308** |
 | `dinov2_vits14` | 0.1639 | 0.7652 | 0.9593 | 0.9931 | 0.5518 |
 | `mae_vitb16` | 0.1986 | 0.6945 | 0.9267 | 0.9833 | 0.6326 |
+| `dino_vitb16` | 0.2025 | 0.6748 | 0.9209 | 0.9819 | 0.6705 |
 | `clip_vitb32` | 0.2092 | 0.6538 | 0.9090 | 0.9828 | 0.7005 |
 | `clip_vitb16` | 0.2158 | 0.6321 | 0.9054 | 0.9807 | 0.7173 |
 | `convnext_base` | 0.2347 | 0.6215 | 0.8932 | 0.9722 | 0.7414 |
@@ -127,6 +132,7 @@ Ordered by `d1`, which **disagrees with `abs_rel`, `d2`, `d3`, `rmse`** — this
 | --- | --- | --- | --- |
 | `dinov2_vitb14` | **0.8408** | **0.7556** | **0.9360** |
 | `dinov2_vits14` | 0.8338 | 0.7494 | 0.9324 |
+| `dino_vitb16` | 0.7835 | 0.6838 | 0.8999 |
 | `clip_vitb16` | 0.7818 | 0.6787 | 0.9027 |
 | `mae_vitb16` | 0.7384 | 0.6374 | 0.8891 |
 | `supervised_vitb16` | 0.7267 | 0.6195 | 0.8839 |
@@ -146,6 +152,7 @@ Ordered by `iou`, which **disagrees with `pixel_acc`** — this task does not ra
 | --- | --- | --- | --- |
 | `mae_vitb16` | **0.1904** | **0.3273** | **0.4261** |
 | `dinov2_vitb14` | 0.2061 | 0.3167 | 0.4315 |
+| `dino_vitb16` | 0.2025 | 0.2928 | 0.4338 |
 | `dinov2_vits14` | 0.2205 | 0.2924 | 0.4373 |
 | `clip_vitb16` | 0.2149 | 0.2558 | 0.4415 |
 | `siglip_vitb16` | 0.2205 | 0.2254 | 0.4423 |
@@ -163,7 +170,8 @@ Ordered by `occlusion_edge_correlation`, which **disagrees with `mae`, `rmse`** 
 
 | backbone | `accuracy` | `f1` | `precision` | `recall` | `tie_rate` |
 | --- | --- | --- | --- | --- | --- |
-| `dinov2_vits14` | **0.8701** | **0.8687** | **0.8625** | **0.8750** | 0.0000 |
+| `dino_vitb16` | **0.9019** | **0.9004** | **0.8979** | **0.9029** | 0.0000 |
+| `dinov2_vits14` | 0.8701 | 0.8687 | 0.8625 | 0.8750 | 0.0000 |
 | `dinov2_vitb14` | 0.8580 | 0.8575 | 0.8458 | 0.8694 | 0.0000 |
 | `siglip_vitb16` | 0.8575 | 0.8552 | 0.8533 | 0.8571 | 0.0000 |
 | `clip_vitb32` | 0.8465 | 0.8443 | 0.8415 | 0.8471 | 0.0000 |
@@ -185,6 +193,7 @@ Ordered by `accuracy`, which **disagrees with `f1`, `precision`, `recall`** — 
 | `mae_vitb16` | **0.2700** | **0.5453** | **0.6557** | **27.5219** | **20.8780** | **35.0638** |
 | `dinov2_vits14` | 0.2185 | 0.4841 | 0.6107 | 29.4827 | 23.8327 | 36.4513 |
 | `dinov2_vitb14` | 0.2104 | 0.4730 | 0.5979 | 30.1143 | 24.4548 | 37.1147 |
+| `dino_vitb16` | 0.1719 | 0.3782 | 0.4999 | 34.3047 | 30.1048 | 41.0298 |
 | `clip_vitb16` | 0.1380 | 0.3399 | 0.4640 | 36.1668 | 32.3666 | 42.5307 |
 | `supervised_vitb16` | 0.1297 | 0.3357 | 0.4588 | 36.7236 | 32.7257 | 43.1069 |
 | `clip_vitb32` | 0.1426 | 0.3342 | 0.4524 | 37.0217 | 33.0977 | 43.6495 |
@@ -208,6 +217,7 @@ Ordered by `mean`, which **disagrees with `d1`, `d2`, `d3`, `median`, `rmse`** �
 | `clip_vitb16` | 0.9954 | 0.9997 |
 | `dinov2_vits14` | 0.9939 | 0.9997 |
 | `siglip_vitb16` | 0.9936 | 0.9995 |
+| `dino_vitb16` | 0.9931 | 0.9997 |
 | `clip_vitb32` | 0.9921 | 0.9992 |
 | `resnet18` | 0.9888 | 0.9995 |
 | `mae_vitb16` | 0.9582 | 0.9985 |
@@ -226,6 +236,7 @@ Ordered by `top1`, which **disagrees with `top5`** — this task does not rank i
 | `clip_vitb32` | 0.1886 | 0.0584 | 20 | 91.3833 |
 | `siglip_vitb16` | 0.1871 | 0.0637 | 20 | 99.8550 |
 | `supervised_vitb16` | 0.1669 | 0.0563 | 20 | 83.5567 |
+| `dino_vitb16` | 0.1660 | 0.0583 | 20 | 78.6033 |
 | `resnet50` | 0.1380 | 0.0420 | 20 | 48.2133 |
 | `mae_vitb16` | 0.1296 | 0.0460 | 20 | 63.7000 |
 | `convnext_base` | 0.0912 | 0.0237 | 20 | 81.1533 |
@@ -244,6 +255,7 @@ Ordered by `map_50`, which **disagrees with `map_50_95`** — this task does not
 | `supervised_vitb16` | **0.9947** | 0.9977 | 0.9990 | 0.9987 |
 | `convnext_base` | 0.9890 | **0.9987** | **0.9995** | **0.9990** |
 | `resnet50` | 0.9357 | 0.9901 | 0.9992 | 0.9987 |
+| `dino_vitb16` | 0.9192 | 0.9868 | 0.9980 | 0.9972 |
 | `dinov2_vitb14` | 0.9171 | 0.9954 | 0.9985 | 0.9977 |
 | `clip_vitb16` | 0.9102 | 0.9893 | 0.9985 | 0.9975 |
 | `dinov2_vits14` | 0.8893 | 0.9921 | 0.9985 | 0.9972 |
@@ -266,6 +278,7 @@ Ordered by `mAP`, which **disagrees with `recall@1`, `recall@10`, `recall@5`** �
 | `clip_vitb32` | 0.6633 | 0.5813 | 0.6067 | 0.8731 |
 | `supervised_vitb16` | 0.6761 | 0.5791 | 0.5877 | 0.8681 |
 | `siglip_vitb16` | 0.6511 | 0.5405 | 0.3210 | 0.8539 |
+| `dino_vitb16` | 0.5964 | 0.5063 | 0.3221 | 0.8632 |
 | `convnext_base` | 0.5902 | 0.4880 | 0.4596 | 0.8310 |
 | `resnet50` | 0.5248 | 0.4574 | 0.5163 | 0.8322 |
 | `resnet18` | 0.4915 | 0.4212 | 0.4497 | 0.8205 |

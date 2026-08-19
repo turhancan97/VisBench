@@ -79,6 +79,9 @@ This is a multi-month roadmap, built one reviewed step at a time.
 - [x] **11a.** the documentation gallery drawn on real photographs — Open
       Images frames under a per-image licence check, rather than generated
       scenes
+- [x] **10d.** DINO ViT-B/16 — a third value of the objective variable, which
+      answers what the supervised/MAE pair could not: high-level structure comes
+      from a semantic training signal, not from labels
 
 ## Roadmap
 
