@@ -72,6 +72,13 @@ This is a multi-month roadmap, built one reviewed step at a time.
 - [x] **10b.** the corpus at 13 probes x 9 backbones — 117 records, and the
       first time the three tiers visibly separate: MAE is first on six boards
       and last on four
+- [x] **10c.** a supervised ViT-B/16 — the same architecture and the same
+      pretraining set as MAE, differing only in objective, so the corpus gets
+      its first controlled experiment: 130 records, and the winner changes
+      almost exactly where the taxonomy says it should
+- [x] **11a.** the documentation gallery drawn on real photographs — Open
+      Images frames under a per-image licence check, rather than generated
+      scenes
 
 ## Roadmap
 
@@ -96,6 +103,15 @@ Every measurement v0.6.1 reported, v0.7.0 reports identically.
 
 **v0.8** — corner detection, the first probe whose target is computed from the
 image rather than downloaded *(done)*.
+
+**v0.9** — `visbench show`: every probe drawable, four renderers, and a
+generated docs gallery *(done)*. It adds no probe and moves no number.
+
+**v0.10** — four more backbones *(done)*: ConvNeXt-B, MAE ViT-B/16 and
+SigLIP-GAP ViT-B/16 through a `TimmBackbone` that now reads a ViT's own
+structure, then a supervised ViT-B/16 that turns the corpus into a controlled
+experiment. Thirteen probes against ten backbones, 130 records. The gallery
+moves to real photographs in the same release.
 
 **Next** — there is no committed next step. What follows is a candidate pool.
 

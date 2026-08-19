@@ -20,10 +20,17 @@
 
 ---
 
-> **Status: v0.9.0.** Three backbone families (DINOv2, CLIP, timm CNNs) and
-> **thirteen** probes run end-to-end across all three levels — high, mid and
-> low — including eight trained dense probes and an anchor-free detection
-> probe, from Python or from the `visbench` command line.
+> **Status: v0.10.0.** Three backbone families (DINOv2, CLIP, timm CNNs and
+> ViTs) and **thirteen** probes run end-to-end across all three levels — high,
+> mid and low — including eight trained dense probes and an anchor-free
+> detection probe, from Python or from the `visbench` command line.
+>
+> **v0.10 is where the three levels separate.** The record corpus is thirteen
+> probes against **ten** backbones, and MAE ViT-B/16 comes first on six of those
+> boards and last on four — so "which backbone is best" is not a well-formed
+> question against it. A supervised ViT-B/16 sharing MAE's architecture *and*
+> pretraining set makes the comparison controlled: one variable, and the winner
+> changes almost exactly at the tier boundary.
 >
 > **v0.9 makes every probe *visible*.** `visbench show` draws what a probe saw
 > beside what it predicted, for all thirteen, and each renderer states the
@@ -82,7 +89,7 @@ the signal. That slide into chance is the demo's actual point.
 
 ```bash
 pip install visbench                    # core: DINOv2, every task, the CLI
-pip install 'visbench[clip,timm]'       # + CLIP and timm CNN backbones
+pip install 'visbench[clip,timm]'       # + CLIP and timm backbones
 pip install 'visbench[hub]'             # + push/pull probes to Hugging Face
 ```
 

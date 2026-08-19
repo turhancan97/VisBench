@@ -93,6 +93,16 @@ upside down** — see step 6f — v0.7.0 is the contributor-facing release that
 changes no number, and **v0.8.0 (2026-08-07) is the corner probe**, steps 8a and
 8b together.
 
+**v0.10.0 is prepared in the tree but not published (2026-08-19).** It is
+steps 10a-10c and 11a: four backbones, 52 new corpus records, and the gallery on
+real photographs. The version, `uv.lock`, `CITATION.cff` and the CHANGELOG all
+moved together in the release commit; the upload is the maintainer's and has not
+happened, so PyPI is still 0.9.0. `docs/roadmap.md`'s build-order checklist also
+gained the 10c and 11a rows it was missing — it had stopped at 10b while
+`CHANGELOG.md` and this file both covered them, which is the standing "update
+the docs in the same commit as the code" rule failing on the doc that records
+the plan.
+
 **v0.9.0 shipped on 2026-08-14**: four steps of `visbench show` (9a-9d) plus
 the Hub work below, no new probe and no moved number. It is on PyPI, tagged,
 released on GitHub and verified out of the wheel by import — see the release
@@ -256,7 +266,22 @@ run through `tail`: it buffers, so a run that is killed part-way leaves no log,
 and the Hub then has to be queried to find out what actually shipped — which
 happened, and is recoverable only because each record names its own pair.
 
-Package version is `0.9.0`, and it is **on PyPI: uploaded 2026-08-14 at
+**Package version is `0.10.0` in the tree and `0.9.0` on PyPI, deliberately.**
+The release commit (2026-08-19) bumped `pyproject.toml`, `visbench/__init__.py`,
+`uv.lock` and `CITATION.cff` together, moved the CHANGELOG's `[Unreleased]`
+section under `## [0.10.0] — 2026-08-19`, and fixed the compare links at the
+bottom of that file, which had been left pointing at `v0.8.0...HEAD` with no
+`[0.9.0]` entry since the previous release. **Uploading needs the maintainer's
+credentials and is theirs to run**, so `pip install visbench` gets 0.9.0 —
+thirteen probes and six backbones — until they do. What 0.10.0 adds is four
+backbones and 52 corpus records, none of which moves a number 0.9.0 published.
+`CITATION.cff` and `.zenodo.json` also stopped saying "Twelve probes" in the
+same commit; that text is what Zenodo archives permanently, and it had been one
+probe short since v0.8.0.
+
+The paragraph below describes 0.9.0, the previous release.
+
+Package version was `0.9.0`, and it was **on PyPI: uploaded 2026-08-14 at
 14:31 UTC**, wheel and sdist both (316 KB and 803 KB), tagged `v0.9.0` on merge
 commit `7816517`, with a GitHub release created from that tag. **Verified the
 standing way**: the wheel downloaded, its SHA256 checked against PyPI's digest
