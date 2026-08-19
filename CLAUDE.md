@@ -637,13 +637,26 @@ designed up front; extend it the same way, from a case that already runs.
   varies at least two things at once, which is why no earlier board could say
   what a gap belonged to.
 
-  Supervised wins all five high-level boards — classification 0.9972 v 0.9582,
-  retrieval **0.9947 v 0.1883**, semantic segmentation 0.5791 v 0.3350,
-  similarity 0.8202 v 0.6897, detection 0.1669 v 0.1296. MAE wins all eight mid-
-  and low-level ones — depth, normals (27.52° v 36.72° mean), correspondence,
-  corner, edge, keypoints2d, occlusion edges, generic segmentation. **Thirteen
-  boards, one variable, and the winner changes exactly at the tier boundary the
-  taxonomy names.**
+  Supervised wins **all four high-level** boards — classification 0.9972 v
+  0.9582, retrieval **0.9947 v 0.1883**, semantic segmentation 0.5791 v 0.3350,
+  detection 0.1669 v 0.1296. MAE wins **all three low-level** ones and **five of
+  six mid-level** ones — depth, normals (27.52° v 36.72° mean), correspondence,
+  occlusion edges, generic segmentation, plus edge, keypoints2d and corner.
+  Thirteen boards, one variable, five against eight.
+
+  **The single crossing is mid-level similarity** (supervised 0.8202 v 0.6897),
+  and it must not be rounded away — this bullet said "the winner changes exactly
+  at the tier boundary" for one commit, which was wrong because it counted
+  `similarity` as high-level. It is **mid-level**, and this file says two
+  sections down that conflating it with high-level retrieval is the one thing
+  not to do with that probe. **Count the tiers from `record.level`, not from
+  which boards feel semantic.** A tidy claim about a taxonomy is exactly the
+  kind that gets written before it is counted.
+
+  A hypothesis for the crossing, untested: NIGHTS' images are Stable Diffusion
+  generations prompted with ImageNet, CIFAR, Flowers-102, Food-101 and SUN397
+  categories, so its 2AFC may reward category familiarity — the in-distribution
+  caveat once more — rather than the resemblance the probe means to isolate.
 
   **`augreg_in1k`, never a 21k recipe**, and this is the whole entry: the 21k
   models are stronger and would be the more flattering number, and they move the
