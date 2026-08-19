@@ -80,11 +80,14 @@ visbench = "visbench.cli:main"
 packages = ["visbench"]
 
 [tool.hatch.build.targets.sdist]
-# The rendered gallery is ~1.9 MB of documentation figures that nobody
+# The rendered gallery is ~3.4 MB of documentation figures that nobody
 # installing the package needs, and it would nearly triple the sdist. The
 # README and the docs site reference them by URL, so excluding them here costs
-# nothing: `scripts/render_gallery.py` regenerates the lot from one command.
-exclude = ["docs/_static/gallery"]
+# nothing: `scripts/fetch_gallery_frames.py` and `scripts/render_gallery.py`
+# regenerate the lot. `assets/gallery_frames` goes with them for the same
+# reason -- it is the gallery's input, and third-party photographs under a
+# licence that is not this package's have no business inside the wheel.
+exclude = ["docs/_static/gallery", "assets/gallery_frames"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

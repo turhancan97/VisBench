@@ -70,6 +70,8 @@ step is next rather than attempting the whole roadmap in one session.
 | 9d | The rendered gallery: one figure per probe, generated not photographed | done |
 | 10a | Three more backbones: `TimmBackbone` learns to read a ViT | done |
 | 10b | The corpus at 13 probes x 9 backbones | done |
+| 10c | Supervised ViT-B/16: the corpus's first controlled experiment | done |
+| 11a | The gallery on real photographs, licence-checked | done |
 
 Steps 7a-7e ship no new probe, backbone or metric. They are the **contributor-
 facing surface**: the shortest path from `pip install` to a number, where the
@@ -159,8 +161,9 @@ reached PyPI on 2026-08-06**, verified out of the wheel; see below.
 
 **What v0.6.0 changed, in one paragraph.** `results/corpus/visbench.jsonl` is a
 committed corpus — 72 records when it shipped, 78 after 8b added `corner`, and
-**117 since 10b added the three timm backbones** — of every probe against every
-backbone, one comparability group each and every group holding all nine.
+117 after 10b added the three timm backbones, and **130 since 10c added a
+supervised ViT** — of every probe against every
+backbone, one comparability group each and every group holding all ten.
 `visbench/results/leaderboard.py`
 holds the rules for which records may be ranked together and
 `visbench/results/render.py` turns an answer into markdown; **ten** marker-
@@ -204,8 +207,8 @@ Registered names — `visbench.list_backbones()`, `list_probes()`,
 
 ```text
 backbones  dinov2_vits14, dinov2_vitb14, clip_vitb16, clip_vitb32,
-           resnet18, resnet50, convnext_base, mae_vitb16, siglip_vitb16
-                                         (+ CustomBackbone, unregistered)
+           resnet18, resnet50, convnext_base, mae_vitb16, siglip_vitb16,
+           supervised_vitb16              (+ CustomBackbone, unregistered)
 probes     classification, retrieval, correspondence, depth, surface_normal,
            generic_segmentation, semantic_segmentation, similarity, detection,
            edge, keypoints2d, occlusion_edge, corner
@@ -625,6 +628,49 @@ designed up front; extend it the same way, from a case that already runs.
   Imagenette's classes are ImageNet-1k wnids, so those two scores are close to
   in-distribution recall rather than transfer. `docs/tasks.md` names both
   backbones now, not just the ResNet.
+
+- **`supervised_vitb16` is the corpus's first controlled experiment, and the
+  split lands on the tier boundary** (10c, 2026-08-19). It is
+  `vit_base_patch16_224.augreg_in1k`: the *same architecture* and the *same
+  pretraining set* as `mae_vitb16`, so the only variable between those two rows
+  of any board is the training objective. Every other pair of backbones here
+  varies at least two things at once, which is why no earlier board could say
+  what a gap belonged to.
+
+  Supervised wins all five high-level boards — classification 0.9972 v 0.9582,
+  retrieval **0.9947 v 0.1883**, semantic segmentation 0.5791 v 0.3350,
+  similarity 0.8202 v 0.6897, detection 0.1669 v 0.1296. MAE wins all eight mid-
+  and low-level ones — depth, normals (27.52° v 36.72° mean), correspondence,
+  corner, edge, keypoints2d, occlusion edges, generic segmentation. **Thirteen
+  boards, one variable, and the winner changes exactly at the tier boundary the
+  taxonomy names.**
+
+  **`augreg_in1k`, never a 21k recipe**, and this is the whole entry: the 21k
+  models are stronger and would be the more flattering number, and they move the
+  pretraining data as well as the objective, which destroys the comparison. A
+  fast test pins the tag against `mae_vitb16`'s so the tempting upgrade fails
+  the suite rather than quietly ruining the experiment.
+
+  **Its classification and retrieval rows carry `convnext_base`'s caveat and
+  more strongly.** Imagenette's classes are ImageNet-1k wnids and this backbone
+  was trained on ImageNet-1k *with labels*, so 0.9972 and 0.9947 are close to
+  in-distribution recall. Do not read the retrieval gap against MAE as a
+  measurement of transfer.
+
+- **`dgx1` was degraded on 2026-08-19 and it does not fail like a broken node**
+  (found while running 10c). A job submitted there hung for 30 minutes with no
+  output and no error; the first read was that the new backbone was broken.
+  `mae_vitb16` — which had run fine five days earlier — hung identically, and
+  forcing HF offline changed nothing, which ruled out both the registration and
+  the network. `python -X importtime` is what named it: on dgx1 **`import torch`
+  spends 1–1.6 seconds per submodule** and never finishes inside 300 s, while
+  dgx2 imports the same venv in 2.4 s. Nothing in Slurm reports the node as
+  unhealthy, so it accepts work and starves it.
+
+  Submit with **`--exclude=dgx1`** until this clears, and when a job on this
+  cluster hangs with an empty log, time an `import torch` on the node before
+  suspecting the code. The venv is still only valid on `dgx1`/`dgx2`, so the
+  usable set is currently one node.
 
 - **The corpus matrix is defined in two files, and one of them was short by a
   probe for a whole release** (10b). `slurm/corpus.sbatch`'s `PROBES` had twelve
@@ -1122,23 +1168,56 @@ designed up front; extend it the same way, from a case that already runs.
   produce a silently wrong number rather than an error, so the logic takes a
   stub and is tested without a download.
 
-- **The docs gallery is generated, not photographed, and the licence is the
-  first reason** (9d). `scripts/render_gallery.py` renders synthetic scenes with
-  exact ground truth and runs the real `visbench show` over them, writing one
-  figure per probe to `docs/_static/gallery/`. VisBench ships to PyPI under MIT;
-  VOC, ImageNet, NYUv2, Taskonomy and NIGHTS each restrict redistribution to
-  some degree and none clearly grants it, so committing panels containing their
-  photographs would put third-party imagery in an MIT package — the same line
-  `NOTICE` already takes on probe3d's CC BY-NC code. **Do not "improve" the
-  gallery by swapping in real frames.**
+- **The docs gallery is real photographs now, and the licence rule that made it
+  generated is unchanged — it was satisfied by better sourcing, not waived**
+  (9d, replaced 2026-08-19). The original bullet said "do not improve the
+  gallery by swapping in real frames", and that instruction was right about
+  every source it had in view: VOC, ImageNet, NYUv2, Taskonomy and NIGHTS each
+  restrict redistribution, none clearly grants it, and committing their frames
+  would put third-party imagery in an MIT package — the line `NOTICE` already
+  takes on probe3d's CC BY-NC code. **Those five are still forbidden and still
+  appear nowhere in this repository.**
 
-  Three properties follow from generating, and they are why this is not merely
-  the safe option: the gallery **rebuilds from one command with no downloads**,
-  so a figure cannot drift from the code; the **ground truth is exact** (sphere
-  normals analytic, depth from the z-order, boxes by construction), so a panel
-  shows its convention rather than an approximation; and **invalid pixels are
-  placed on purpose**, so the magenta marker appears in every figure that has
-  one rather than only where a real frame happened to have a hole.
+  What changed is that a source exists which does grant it. Open Images'
+  validation split is **CC BY 2.0 for all 41,620 images**, with CC BY 4.0 human
+  boxes and instance masks, so `scripts/fetch_gallery_frames.py` fetches from
+  there and `render_gallery.py` draws on the result.
+  **The licence is verified per frame rather than inherited from that
+  sentence**: an allowlist at fetch time, and a refusal for any frame whose
+  metadata carries no author or landing page, because an unattributable CC BY
+  image is one this repository may not redistribute. `CREDITS.md` is generated
+  beside the frames and `tests/test_gallery_licences.py` fails if a committed
+  photograph has no credit — CC BY compliance is the kind of obligation that
+  rots silently, since the page renders correctly either way.
+
+  **The three properties generating used to buy were each paid for
+  differently**, and one was genuinely lost:
+
+  - *rebuilds with no downloads* — kept, by committing the frames
+    (`assets/gallery_frames/`, 1.5 MB). Fetching is a separate one-off command.
+  - *exact ground truth* — kept where the target is computed from the frame
+    (`corner` runs the probe's own generator, `correspondence` warps by a chosen
+    homography) and **replaced by something better** where it is annotated:
+    `detection` and both segmentations now show what a human marked rather than
+    what a script constructed.
+  - *invalid pixels placed on purpose* — **weakened**. Real annotation has holes
+    where it has them. The magenta marker survives because Open Images boxes an
+    object it does not always mask, and a boxed region with no mask under it is
+    genuinely unlabelled — which is what an ignore index is for. That is real
+    structure rather than a placed hole, and it is rarer.
+
+  **Four probes cannot have a target column at all and must not be given one.**
+  `depth`, `surface_normal`, `keypoints2d` and `occlusion_edge` need sensor or
+  reconstruction geometry no redistributable photograph carries. They render
+  `image | prediction` from a *published* Hub head, footer saying so. A
+  three-column figure with an invented middle column would teach the wrong
+  convention to precisely the reader who came to learn it, which is worse than
+  no figure. Two details cost an attempt each: a trained head's `output_size` is
+  **fitted state**, so these heads emit 224x224 whatever they are fed and the
+  figure must be rendered at 224 or the panels differ in size *and framing*; and
+  they are drawn on **interiors**, because the heads were fitted on NYUv2 rooms
+  and a photograph filled by an animal's face shows domain shift rather than the
+  probe.
 
   **The figures live under `docs/_static/`, not `assets/`.** Sphinx cannot
   follow a relative path that escapes its source tree and MyST does not warn
@@ -1284,11 +1363,13 @@ designed up front; extend it the same way, from a case that already runs.
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite is **1628 tests** and green on 2026-08-14, after step 10b, as
+fast suite is **1638 tests** and green on 2026-08-19, after steps 10c and
+11a, as
 are all three lint steps and the `-W` docs build — all five run on `dgx1` via
 `sbatch`, since `.venv/bin/python` does not resolve on a `dgxh100` login shell.
 `uv lock --check` was green on 2026-08-06 and no dependency has moved since; the
-79 slow tests were green on that morning's nightly rather than locally. If
+90 slow tests were green on `main` on 2026-08-14 (up from 79: 10a's timm
+ViT tests had never run in CI, since `slow.yml` does not run on pull requests). If
 anything is red for you, that is new — do not go looking for a known cause here.
 
 The entries are kept because each one records a *class* of failure this
@@ -2904,7 +2985,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 1628 fast tests
+pytest                                              # 1638 fast tests
 pytest -m slow                                      # 79, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/

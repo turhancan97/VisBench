@@ -95,6 +95,7 @@ features at 224px. Humans chose "right" 49.1% of the time, so chance is ~51%:
 | `resnet18` | 0.8317 | 0.8307 | 0.0000 |
 | `clip_vitb16` | 0.8284 | 0.8266 | 0.0000 |
 | `resnet50` | 0.8273 | 0.8282 | 0.0000 |
+| `supervised_vitb16` | 0.8202 | 0.8188 | 0.0000 |
 | `convnext_base` | 0.7725 | 0.7711 | 0.0000 |
 | `mae_vitb16` | 0.6897 | 0.6827 | 0.0000 |
 
@@ -147,6 +148,7 @@ Measured on VOC 2012, 600 train / 600 val images at 224px, ten epochs:
 | `clip_vitb16` | 0.1894 | 0.0622 | 20 | 88.7500 |
 | `clip_vitb32` | 0.1886 | 0.0584 | 20 | 91.3833 |
 | `siglip_vitb16` | 0.1871 | 0.0637 | 20 | 99.8550 |
+| `supervised_vitb16` | 0.1669 | 0.0563 | 20 | 83.5567 |
 | `resnet50` | 0.1380 | 0.0420 | 20 | 48.2133 |
 | `mae_vitb16` | 0.1296 | 0.0460 | 20 | 63.7000 |
 | `convnext_base` | 0.0912 | 0.0237 | 20 | 81.1533 |
@@ -225,6 +227,7 @@ Taskonomy's splits are **disjoint by building** — 25 rooms train, 4 validate,
 | `clip_vitb16` | 0.4565 | 0.9340 | 0.4882 |
 | `dinov2_vits14` | 0.4558 | 0.9226 | 0.5028 |
 | `dinov2_vitb14` | 0.4481 | 0.9265 | 0.4972 |
+| `supervised_vitb16` | 0.4420 | 0.9366 | 0.5086 |
 | `clip_vitb32` | 0.3834 | 0.9656 | 0.5080 |
 | `siglip_vitb16` | 0.3639 | 0.9785 | 0.5169 |
 | `resnet50` | 0.3549 | 0.9770 | 0.5056 |
@@ -283,6 +286,7 @@ so they render as two boards rather than one row each:
 | backbone | `keypoint_correlation` | `mae` | `rmse` |
 | --- | --- | --- | --- |
 | `mae_vitb16` | **0.2626** | **1.0533** | **2.5342** |
+| `supervised_vitb16` | 0.2573 | 1.1242 | 2.5468 |
 | `dinov2_vits14` | 0.2356 | 1.1281 | 2.5472 |
 | `dinov2_vitb14` | 0.2248 | 1.1294 | 2.5541 |
 | `convnext_base` | 0.2187 | 1.1690 | 2.5633 |
@@ -308,11 +312,12 @@ Ordered by `keypoint_correlation`, which **disagrees with `mae`, `rmse`** — th
 | `clip_vitb16` | 0.2558 | 0.2149 | 0.4415 |
 | `siglip_vitb16` | 0.2254 | 0.2205 | 0.4423 |
 | `clip_vitb32` | 0.2174 | 0.2203 | 0.4440 |
+| `supervised_vitb16` | 0.1996 | 0.2435 | 0.4540 |
 | `resnet50` | 0.1979 | 0.2294 | 0.4502 |
 | `resnet18` | 0.1745 | 0.2418 | 0.4578 |
 | `convnext_base` | 0.1741 | 0.2533 | 0.4704 |
 
-Ordered by `occlusion_edge_correlation`, which **disagrees with `mae`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
+Ordered by `occlusion_edge_correlation`, which **disagrees with `mae`, `rmse`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
 
 <sub>occlusion_edge on taskonomy_edge_occlusion/val, protocol=visbench_occlusion_edge_regression, frozen [d12a4923]</sub>
 <!-- /visbench:board -->
@@ -375,6 +380,7 @@ thereby comparable — check the fields.
 | `dinov2_vitb14` | 0.6526 | 0.4402 | **0.6899** |
 | `dinov2_vits14` | 0.6512 | 0.4510 | 0.6919 |
 | `clip_vitb16` | 0.6227 | 0.4508 | 0.7229 |
+| `supervised_vitb16` | 0.6204 | 0.4710 | 0.7291 |
 | `siglip_vitb16` | 0.5383 | 0.4866 | 0.7846 |
 | `clip_vitb32` | 0.5367 | 0.4829 | 0.7825 |
 | `convnext_base` | 0.5129 | 0.4852 | 0.7833 |
@@ -452,13 +458,14 @@ ten-epoch schedule:
 | `dinov2_vits14` | 0.7328 | 0.6841 | 0.9267 | 0.8271 |
 | `clip_vitb16` | 0.6546 | 0.6683 | 0.9019 | 0.7312 |
 | `clip_vitb32` | 0.5813 | 0.6067 | 0.8731 | 0.6633 |
+| `supervised_vitb16` | 0.5791 | 0.5877 | 0.8681 | 0.6761 |
 | `siglip_vitb16` | 0.5405 | 0.3210 | 0.8539 | 0.6511 |
 | `convnext_base` | 0.4880 | 0.4596 | 0.8310 | 0.5902 |
 | `resnet50` | 0.4574 | 0.5163 | 0.8322 | 0.5248 |
 | `resnet18` | 0.4212 | 0.4497 | 0.8205 | 0.4915 |
 | `mae_vitb16` | 0.3350 | 0.4555 | 0.8269 | 0.3757 |
 
-Ordered by `miou`, which **disagrees with `miou_per_image`, `pixel_acc`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
+Ordered by `miou`, which **disagrees with `mean_acc`, `miou_per_image`, `pixel_acc`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
 
 <sub>semantic_segmentation on VOC2012/val, protocol=visbench_semantic_seg, frozen [e14b47db]</sub>
 <!-- /visbench:board -->
@@ -521,6 +528,7 @@ Things that will bite otherwise:
 | `convnext_base` | **0.9997** | **1.0000** |
 | `resnet50` | 0.9980 | 0.9997 |
 | `dinov2_vitb14` | 0.9975 | **1.0000** |
+| `supervised_vitb16` | 0.9972 | 0.9997 |
 | `clip_vitb16` | 0.9954 | 0.9997 |
 | `dinov2_vits14` | 0.9939 | 0.9997 |
 | `siglip_vitb16` | 0.9936 | 0.9995 |
@@ -538,7 +546,8 @@ Ordered by `top1`, which **disagrees with `top5`** — this task does not rank i
 
 | backbone | `mAP` | `recall@1` | `recall@5` |
 | --- | --- | --- | --- |
-| `convnext_base` | **0.9890** | **0.9987** | **0.9990** |
+| `supervised_vitb16` | **0.9947** | 0.9977 | 0.9987 |
+| `convnext_base` | 0.9890 | **0.9987** | **0.9990** |
 | `resnet50` | 0.9357 | 0.9901 | 0.9987 |
 | `dinov2_vitb14` | 0.9171 | 0.9954 | 0.9977 |
 | `clip_vitb16` | 0.9102 | 0.9893 | 0.9975 |
@@ -548,7 +557,7 @@ Ordered by `top1`, which **disagrees with `top5`** — this task does not rank i
 | `siglip_vitb16` | 0.8525 | 0.9799 | 0.9936 |
 | `mae_vitb16` | 0.1883 | 0.6741 | 0.8892 |
 
-Ordered by `mAP`, which **disagrees with `recall@1`, `recall@5`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
+Ordered by `mAP`, which **disagrees with `recall@1`, `recall@10`, `recall@5`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
 
 <sub>retrieval on val/val, frozen [eb312a7b]</sub>
 <!-- /visbench:board -->
@@ -559,6 +568,7 @@ Ordered by `mAP`, which **disagrees with `recall@1`, `recall@5`** — this task 
 | backbone | `recall@5px` | `recall@10px` | `auc@5px` | `ceiling_auc@5px` | `ceiling_recall@10px` | `ceiling_recall@5px` | `num_matches` |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `mae_vitb16` | **0.3577** | **0.7325** | **0.1370** | 0.1462 | 0.9212 | 0.3932 | 17,300 |
+| `supervised_vitb16` | 0.3232 | 0.6567 | 0.1259 | 0.1468 | 0.9371 | 0.3928 | 8,796 |
 | `dinov2_vits14` | 0.3049 | 0.6526 | 0.1152 | 0.1454 | 0.9329 | 0.4123 | 23,439 |
 | `dinov2_vitb14` | 0.2816 | 0.6260 | 0.1055 | 0.1389 | 0.9264 | 0.4005 | 27,590 |
 | `clip_vitb16` | 0.2689 | 0.5725 | 0.1080 | 0.1333 | 0.9159 | 0.3519 | 12,798 |
@@ -581,7 +591,8 @@ Hold that beside the correspondence board: it is what `num_matches` tracks, and
 it moves the score without saying anything about feature quality.
 
 **Read the supervised rows with care.** Imagenette's ten classes are ImageNet-1k
-wnids, and both `resnet50.a1_in1k` and `convnext_base.fb_in1k` were trained on
+wnids, and `resnet50.a1_in1k`, `convnext_base.fb_in1k` and
+`supervised_vitb16` (`vit_base_patch16_224.augreg_in1k`) were all trained on
 ImageNet-1k with labels — they have seen these exact categories, while DINOv2
 and MAE are self-supervised and CLIP and SigLIP are image-text. Their semantic
 scores are close to in-distribution recall, not a transfer result: ConvNeXt tops
@@ -590,6 +601,24 @@ places seventh or lower on every dense geometric one. This says more about the
 dataset than the backbone; a benchmark comparing supervised against
 self-supervised features needs data the supervised model has not been trained
 on.
+
+**The one pair that isolates the objective is `supervised_vitb16` against
+`mae_vitb16`.** They are the same timm architecture pretrained on the same
+ImageNet-1k, differing only in whether the objective was labels or masked pixel
+reconstruction — every other pair of backbones in this corpus varies at least
+two things at once, so this is the only place a gap can be attributed. Over the
+thirteen boards the supervised model wins all five high-level ones and loses all
+eight mid- and low-level ones:
+
+| tier | boards | winner |
+| --- | --- | --- |
+| high-level | classification 0.9972 v 0.9582, retrieval 0.9947 v 0.1883, semantic seg 0.5791 v 0.3350, similarity 0.8202 v 0.6897, detection 0.1669 v 0.1296 | supervised |
+| mid / low-level | depth, surface normals (27.52° v 36.72° mean), correspondence, corner, edge, keypoints2d, occlusion edges, generic seg | MAE |
+
+The retrieval gap is the largest on the board and is **not** a clean transfer
+result: it is the in-distribution caveat above at its strongest, since this
+backbone was trained with labels on the categories Imagenette is drawn from. The
+mid- and low-level half carries no such caveat, and is the half worth quoting.
 
 **MAE is the sharpest tier separation this corpus has produced, and it is worth
 reading before trusting any single board.** `mae_vitb16` is **first on six of

@@ -1,0 +1,563 @@
+{
+  "0001eeaf4aed83f9": {
+    "kind": "class",
+    "label": "airplane",
+    "size": [
+      512,
+      224
+    ]
+  },
+  "0007d6cf88afaa4a": {
+    "kind": "class",
+    "label": "dog",
+    "size": [
+      512,
+      307
+    ]
+  },
+  "0008e425fb49a2bf": {
+    "kind": "class",
+    "label": "dog",
+    "size": [
+      493,
+      512
+    ]
+  },
+  "000c4d66ce89aa69": {
+    "kind": "class",
+    "label": "dog",
+    "size": [
+      512,
+      512
+    ]
+  },
+  "001083f05db4352b": {
+    "kind": "class",
+    "label": "car",
+    "size": [
+      512,
+      320
+    ]
+  },
+  "001a78754e43abc5": {
+    "kind": "class",
+    "label": "tree",
+    "size": [
+      512,
+      384
+    ]
+  },
+  "001a794d1865ee47": {
+    "kind": "class",
+    "label": "car",
+    "size": [
+      512,
+      307
+    ]
+  },
+  "001a809ad40a2f84": {
+    "kind": "class",
+    "label": "car",
+    "size": [
+      512,
+      384
+    ]
+  },
+  "0022e32008e479cb": {
+    "kind": "class",
+    "label": "car",
+    "size": [
+      512,
+      343
+    ]
+  },
+  "00437aa0ab4abf9d": {
+    "kind": "class",
+    "label": "tree",
+    "size": [
+      512,
+      342
+    ]
+  },
+  "00493fdf106b5fdf": {
+    "kind": "class",
+    "label": "dog",
+    "size": [
+      512,
+      341
+    ]
+  },
+  "004a9412eb1a83e8": {
+    "kind": "class",
+    "label": "tree",
+    "size": [
+      512,
+      342
+    ]
+  },
+  "00627adda9a83f9d": {
+    "kind": "class",
+    "label": "tree",
+    "size": [
+      341,
+      512
+    ]
+  },
+  "007384da2ed0464f": {
+    "kind": "class",
+    "label": "airplane",
+    "size": [
+      512,
+      384
+    ]
+  },
+  "019a3d18cb357cf3": {
+    "kind": "class",
+    "label": "airplane",
+    "size": [
+      512,
+      348
+    ]
+  },
+  "01a10772cd4613bb": {
+    "kind": "class",
+    "label": "airplane",
+    "size": [
+      512,
+      384
+    ]
+  },
+  "09270cfd3d9cff39": {
+    "boxes": [
+      {
+        "group_of": false,
+        "label": "Tiger",
+        "xyxy_norm": [
+          0.0375,
+          0.19166666,
+          0.990625,
+          0.87708336
+        ]
+      },
+      {
+        "group_of": false,
+        "label": "Jaguar (Animal)",
+        "xyxy_norm": [
+          0.0390625,
+          0.19166666,
+          0.9984375,
+          0.88125
+        ]
+      },
+      {
+        "group_of": false,
+        "label": "Leopard",
+        "xyxy_norm": [
+          0.0125,
+          0.19166666,
+          0.9703125,
+          0.86875
+        ]
+      }
+    ],
+    "kind": "scene",
+    "masks": [
+      {
+        "label": "Tiger",
+        "path": "masks/09270cfd3d9cff39/0.png"
+      },
+      {
+        "label": "Leopard",
+        "path": "masks/09270cfd3d9cff39/1.png"
+      },
+      {
+        "label": "Jaguar (Animal)",
+        "path": "masks/09270cfd3d9cff39/2.png"
+      }
+    ],
+    "size": [
+      512,
+      384
+    ]
+  },
+  "09b616a35758e42c": {
+    "boxes": [
+      {
+        "group_of": false,
+        "label": "Tomato",
+        "xyxy_norm": [
+          0.103125,
+          0.34583333,
+          0.4640625,
+          0.86875
+        ]
+      },
+      {
+        "group_of": false,
+        "label": "Tomato",
+        "xyxy_norm": [
+          0.1734375,
+          0.0875,
+          0.503125,
+          0.47291666
+        ]
+      },
+      {
+        "group_of": false,
+        "label": "Tomato",
+        "xyxy_norm": [
+          0.4640625,
+          0.52916664,
+          0.728125,
+          0.9145833
+        ]
+      },
+      {
+        "group_of": false,
+        "label": "Tomato",
+        "xyxy_norm": [
+          0.503125,
+          0.10625,
+          0.8546875,
+          0.58958334
+        ]
+      }
+    ],
+    "kind": "scene",
+    "masks": [
+      {
+        "label": "Tomato",
+        "path": "masks/09b616a35758e42c/0.png"
+      },
+      {
+        "label": "Tomato",
+        "path": "masks/09b616a35758e42c/1.png"
+      },
+      {
+        "label": "Tomato",
+        "path": "masks/09b616a35758e42c/2.png"
+      },
+      {
+        "label": "Tomato",
+        "path": "masks/09b616a35758e42c/3.png"
+      }
+    ],
+    "size": [
+      512,
+      384
+    ]
+  },
+  "0cb5cae66bb9c4cd": {
+    "boxes": [
+      {
+        "group_of": false,
+        "label": "Sheep",
+        "xyxy_norm": [
+          0.1734375,
+          0.0,
+          0.846875,
+          0.80625
+        ]
+      },
+      {
+        "group_of": false,
+        "label": "Sheep",
+        "xyxy_norm": [
+          0.5078125,
+          0.0,
+          0.6171875,
+          0.114583336
+        ]
+      },
+      {
+        "group_of": false,
+        "label": "Sheep",
+        "xyxy_norm": [
+          0.825,
+          0.0,
+          0.8921875,
+          0.13958333
+        ]
+      },
+      {
+        "group_of": false,
+        "label": "Alpaca",
+        "xyxy_norm": [
+          0.16875,
+          0.0,
+          0.85625,
+          0.80833334
+        ]
+      },
+      {
+        "group_of": false,
+        "label": "Alpaca",
+        "xyxy_norm": [
+          0.5171875,
+          0.0,
+          0.609375,
+          0.10625
+        ]
+      },
+      {
+        "group_of": false,
+        "label": "Alpaca",
+        "xyxy_norm": [
+          0.825,
+          0.0,
+          0.890625,
+          0.14375
+        ]
+      }
+    ],
+    "kind": "scene",
+    "masks": [
+      {
+        "label": "Alpaca",
+        "path": "masks/0cb5cae66bb9c4cd/0.png"
+      },
+      {
+        "label": "Sheep",
+        "path": "masks/0cb5cae66bb9c4cd/1.png"
+      },
+      {
+        "label": "Alpaca",
+        "path": "masks/0cb5cae66bb9c4cd/2.png"
+      },
+      {
+        "label": "Alpaca",
+        "path": "masks/0cb5cae66bb9c4cd/3.png"
+      },
+      {
+        "label": "Sheep",
+        "path": "masks/0cb5cae66bb9c4cd/4.png"
+      },
+      {
+        "label": "Sheep",
+        "path": "masks/0cb5cae66bb9c4cd/5.png"
+      }
+    ],
+    "size": [
+      512,
+      384
+    ]
+  },
+  "0d80e9ef29a2fffe": {
+    "boxes": [
+      {
+        "group_of": false,
+        "label": "Balloon",
+        "xyxy_norm": [
+          0.0,
+          0.18578352,
+          0.35757574,
+          0.52342486
+        ]
+      },
+      {
+        "group_of": false,
+        "label": "Balloon",
+        "xyxy_norm": [
+          0.22828282,
+          0.5589661,
+          0.3979798,
+          0.7253635
+        ]
+      },
+      {
+        "group_of": false,
+        "label": "Balloon",
+        "xyxy_norm": [
+          0.36161616,
+          0.033925686,
+          0.80404043,
+          0.46042004
+        ]
+      },
+      {
+        "group_of": false,
+        "label": "Balloon",
+        "xyxy_norm": [
+          0.5838384,
+          0.24394184,
+          0.9959596,
+          0.72374797
+        ]
+      }
+    ],
+    "kind": "scene",
+    "masks": [
+      {
+        "label": "Balloon",
+        "path": "masks/0d80e9ef29a2fffe/0.png"
+      },
+      {
+        "label": "Balloon",
+        "path": "masks/0d80e9ef29a2fffe/1.png"
+      },
+      {
+        "label": "Balloon",
+        "path": "masks/0d80e9ef29a2fffe/2.png"
+      },
+      {
+        "label": "Balloon",
+        "path": "masks/0d80e9ef29a2fffe/3.png"
+      }
+    ],
+    "size": [
+      409,
+      512
+    ]
+  },
+  "0d87b8c4ea2f4c79": {
+    "boxes": [
+      {
+        "group_of": false,
+        "label": "Guitar",
+        "xyxy_norm": [
+          0.0,
+          0.0,
+          0.6120944,
+          0.47345132
+        ]
+      },
+      {
+        "group_of": false,
+        "label": "Guitar",
+        "xyxy_norm": [
+          0.0073746312,
+          0.26548672,
+          0.88053095,
+          0.7743363
+        ]
+      },
+      {
+        "group_of": false,
+        "label": "Guitar",
+        "xyxy_norm": [
+          0.17256637,
+          0.67477876,
+          0.7861357,
+          1.0
+        ]
+      }
+    ],
+    "kind": "scene",
+    "masks": [
+      {
+        "label": "Guitar",
+        "path": "masks/0d87b8c4ea2f4c79/0.png"
+      },
+      {
+        "label": "Guitar",
+        "path": "masks/0d87b8c4ea2f4c79/1.png"
+      },
+      {
+        "label": "Guitar",
+        "path": "masks/0d87b8c4ea2f4c79/2.png"
+      }
+    ],
+    "size": [
+      512,
+      342
+    ]
+  },
+  "0ff2a9e5ed288222": {
+    "boxes": [
+      {
+        "group_of": false,
+        "label": "Plant",
+        "xyxy_norm": [
+          0.0,
+          0.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "group_of": false,
+        "label": "Zebra",
+        "xyxy_norm": [
+          0.1953125,
+          0.6125,
+          0.3671875,
+          0.7291667
+        ]
+      },
+      {
+        "group_of": false,
+        "label": "Zebra",
+        "xyxy_norm": [
+          0.271875,
+          0.42708334,
+          0.565625,
+          0.7270833
+        ]
+      },
+      {
+        "group_of": false,
+        "label": "Zebra",
+        "xyxy_norm": [
+          0.478125,
+          0.5208333,
+          0.5921875,
+          0.74375
+        ]
+      },
+      {
+        "group_of": false,
+        "label": "Zebra",
+        "xyxy_norm": [
+          0.734375,
+          0.42291668,
+          0.853125,
+          0.71666664
+        ]
+      }
+    ],
+    "kind": "scene",
+    "masks": [
+      {
+        "label": "Zebra",
+        "path": "masks/0ff2a9e5ed288222/0.png"
+      },
+      {
+        "label": "Zebra",
+        "path": "masks/0ff2a9e5ed288222/1.png"
+      },
+      {
+        "label": "Zebra",
+        "path": "masks/0ff2a9e5ed288222/2.png"
+      },
+      {
+        "label": "Zebra",
+        "path": "masks/0ff2a9e5ed288222/3.png"
+      }
+    ],
+    "size": [
+      512,
+      384
+    ]
+  },
+  "3f6e15958d41abf9": {
+    "kind": "context",
+    "size": [
+      512,
+      306
+    ]
+  },
+  "826690670ace3be4": {
+    "kind": "context",
+    "size": [
+      512,
+      410
+    ]
+  },
+  "dea2fdb1a77ec6bb": {
+    "kind": "context",
+    "size": [
+      512,
+      341
+    ]
+  }
+}

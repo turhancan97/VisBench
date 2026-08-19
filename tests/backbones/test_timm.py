@@ -272,6 +272,11 @@ def siglip():
     return visbench.get_backbone("siglip_vitb16", device="cpu")
 
 
+@pytest.fixture(scope="module")
+def supervised_vit():
+    return visbench.get_backbone("supervised_vitb16", device="cpu")
+
+
 class TestTransformers:
     def test_mae_reports_its_cls_token_and_patch_grid(self, mae):
         assert mae.has_cls_token is True
@@ -309,6 +314,49 @@ class TestTransformers:
         assert features["cls"] is not None
         assert features["cls"].shape[-1] == 768
 
+    def test_supervised_vit_is_mae_with_a_different_objective(
+        self, mae, supervised_vit, solid_images
+    ):
+        """The claim the `supervised_vitb16` entry rests on, as a test.
+
+        Both are `vit_base_patch16_224` pretrained on ImageNet-1k. Everything a
+        record and a comparability group can see about the two is identical --
+        architecture, width, depth, patch grid, prefix tokens, default pooling
+        -- so the *only* variable between those two rows of any board is
+        supervised labels against masked pixel reconstruction. That is what
+        makes the pair worth measuring, and it is why the registered tag is
+        `augreg_in1k`: a 21k recipe would move the pretraining data too.
+        """
+        assert supervised_vit.has_cls_token == mae.has_cls_token is True
+        assert supervised_vit.patch_size == mae.patch_size == 16
+        assert supervised_vit.embed_dim == mae.embed_dim == 768
+        assert supervised_vit.default_pooling() == mae.default_pooling() == Pooling.CLS
+
+        pixels = supervised_vit.preprocess(solid_images)
+        assert (
+            supervised_vit.extract_features(pixels)["grid_hw"]
+            == mae.extract_features(mae.preprocess(solid_images))["grid_hw"]
+            == (14, 14)
+        )
+
+    def test_supervised_vit_is_not_mae(self, mae, supervised_vit, solid_images):
+        """Different weights, which nothing above would notice.
+
+        Every structural assertion in the test above passes if both names
+        resolve to the same checkpoint -- which is one typo in `_VARIANTS`
+        away, and would put the same numbers on the board twice under two
+        names. The cache key is what separates them, so assert on it and on
+        the features it keys.
+        """
+        assert supervised_vit.cache_key() != mae.cache_key()
+
+        pixels = supervised_vit.preprocess(solid_images)
+        assert not torch.allclose(
+            supervised_vit.extract_features(pixels)["pooled"],
+            mae.extract_features(pixels)["pooled"],
+            atol=1e-3,
+        )
+
     def test_multi_layer_costs_one_forward_pass(self, mae, solid_images):
         features = mae.extract_features(mae.preprocess(solid_images), layers=[2, 5, 8, 11])
         assert len(features["dense_layers"]) == 4
@@ -318,12 +366,15 @@ class TestTransformers:
 class TestPooledMatchesTheModelsOwnHead:
     """Which backbones' pooled vector is what the model hands its classifier.
 
-    The claim this module has made since v0.2, now that it covers five models
+    The claim this module has made since v0.2, now that it covers six models
     and one of them breaks it. Pinned in both directions so the exception
     cannot quietly become the rule, or be quietly fixed into one.
     """
 
-    @pytest.mark.parametrize("name", ["resnet18", "resnet50", "mae_vitb16", "siglip_vitb16"])
+    @pytest.mark.parametrize(
+        "name",
+        ["resnet18", "resnet50", "mae_vitb16", "siglip_vitb16", "supervised_vitb16"],
+    )
     def test_it_matches(self, name, solid_images):
         backbone = visbench.get_backbone(name, device="cpu")
         pixels = backbone.preprocess(solid_images)
