@@ -93,11 +93,11 @@ upside down** — see step 6f — v0.7.0 is the contributor-facing release that
 changes no number, and **v0.8.0 (2026-08-07) is the corner probe**, steps 8a and
 8b together.
 
-**v0.10.0 is prepared in the tree but not published (2026-08-19).** It is
-steps 10a-10c and 11a: four backbones, 52 new corpus records, and the gallery on
-real photographs. The version, `uv.lock`, `CITATION.cff` and the CHANGELOG all
-moved together in the release commit; the upload is the maintainer's and has not
-happened, so PyPI is still 0.9.0. `docs/roadmap.md`'s build-order checklist also
+**v0.10.0 shipped on 2026-08-19.** It is steps 10a-10c and 11a: four
+backbones, 52 new corpus records, and the gallery on real photographs. It is on
+PyPI, tagged, released on GitHub, archived by Zenodo and verified out of the
+wheel by import — see the release paragraph further down.
+`docs/roadmap.md`'s build-order checklist also
 gained the 10c and 11a rows it was missing — it had stopped at 10b while
 `CHANGELOG.md` and this file both covered them, which is the standing "update
 the docs in the same commit as the code" rule failing on the doc that records
@@ -266,18 +266,31 @@ run through `tail`: it buffers, so a run that is killed part-way leaves no log,
 and the Hub then has to be queried to find out what actually shipped — which
 happened, and is recoverable only because each record names its own pair.
 
-**Package version is `0.10.0` in the tree and `0.9.0` on PyPI, deliberately.**
-The release commit (2026-08-19) bumped `pyproject.toml`, `visbench/__init__.py`,
-`uv.lock` and `CITATION.cff` together, moved the CHANGELOG's `[Unreleased]`
-section under `## [0.10.0] — 2026-08-19`, and fixed the compare links at the
-bottom of that file, which had been left pointing at `v0.8.0...HEAD` with no
-`[0.9.0]` entry since the previous release. **Uploading needs the maintainer's
-credentials and is theirs to run**, so `pip install visbench` gets 0.9.0 —
-thirteen probes and six backbones — until they do. What 0.10.0 adds is four
-backbones and 52 corpus records, none of which moves a number 0.9.0 published.
-`CITATION.cff` and `.zenodo.json` also stopped saying "Twelve probes" in the
-same commit; that text is what Zenodo archives permanently, and it had been one
-probe short since v0.8.0.
+Package version is `0.10.0`, and it is **on PyPI: uploaded 2026-08-19 at
+17:26 UTC**, wheel and sdist both (321 KB and 840 KB), tagged `v0.10.0` on merge
+commit `9f0b91e`, with a GitHub release created from that tag. **Verified the
+standing way**: the wheel downloaded from the JSON API, its SHA256 checked
+against PyPI's digest (`ac03455b…`), extracted, put *first* on `sys.path` and
+**imported**, with an assert on `visbench.__file__` so the editable checkout
+could not answer in its place. It reports `__version__ = "0.10.0"`,
+`SCHEMA_VERSION = 7`, `ARTIFACT_VERSION = 1`, thirteen probes, **ten**
+backbones with `supervised_vitb16` among them, and
+`show_probes() == list_probes()` read back through the import. Also confirmed
+through it: `get_probe("correspondence")` reports `threshold_units="pixel"` and
+`(1, 2, 5, 10)`, so v0.6.1's fix survives a fifth release, and METADATA puts
+`huggingface-hub` only under `hub` and `all`.
+
+**For the first time the tag, `main` and the wheel all agree.** `v0.10.0` is on
+`9f0b91e`, `main` has not moved since, and the artifact was built from it — the
+two previous releases each had a benign disagreement, in opposite directions,
+which is precisely the pattern that trains you to stop checking. Tagging
+*before* building is what bought it.
+
+**Zenodo archived it as version DOI `10.5281/zenodo.22016457`**, the fourth
+under the concept DOI, which is unchanged and remains the only one quoted
+anywhere. The release commit also stopped `CITATION.cff` and `.zenodo.json`
+saying "Twelve probes" — that text is what Zenodo archives permanently, no test
+reads it, and it had been one probe short since v0.8.0 shipped `corner`.
 
 The paragraph below describes 0.9.0, the previous release.
 
