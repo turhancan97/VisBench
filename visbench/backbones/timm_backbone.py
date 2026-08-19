@@ -62,7 +62,7 @@ _VARIANTS = {
     # than of pretraining data. The 22k recipe is the stronger model and would
     # be the more flattering number, which is exactly why it is not the default.
     "convnext_base": ("convnext_base", "fb_in1k"),
-    # The four ViTs. All are transformers, which this class refused outright
+    # The five ViTs. All are transformers, which this class refused outright
     # until it learned to read a model's own structure -- see `_describe_model`.
     "mae_vitb16": ("vit_base_patch16_224", "mae"),
     # `augreg_in1k`, NOT `augreg_in21k_ft_in1k` -- and the difference is the
@@ -94,6 +94,23 @@ _VARIANTS = {
     # it carries LayerScale where these three carry Identity, so it moves the
     # architecture as well as the recipe.
     "dino_vitb16": ("vit_base_patch16_224", "dino"),
+    # A second supervised row on that architecture, and it is deliberately NOT
+    # a fourth member of the objective family above. `sam_in1k` is ImageNet-1k
+    # with labels, exactly like `augreg_in1k`, and differs in how it was trained
+    # to that objective: sharpness-aware minimisation with light Inception-style
+    # augmentation, against AugReg's AdamW with heavy augmentation and
+    # regularisation. So it varies the *recipe*, not the objective.
+    #
+    # It exists to bound the other rows. A gap between two objectives means
+    # nothing until you know how large a gap two runs of the *same* objective
+    # can produce, and nothing else in this corpus answers that -- every other
+    # pair differs in architecture, data or objective. This one differs in
+    # neither of the three.
+    #
+    # It also holds the input normalisation fixed against `supervised_vitb16`
+    # (both mean/std 0.5), which the objective family cannot do across all
+    # three of its members.
+    "sam_vitb16": ("vit_base_patch16_224", "sam_in1k"),
     # The *GAP* SigLIP, not the canonical one. SigLIP's own head is an
     # `AttentionPoolLatent` (`global_pool='map'`), a learned pooling VisBench
     # has no mode for; this official sibling pools by global average, which is
@@ -168,6 +185,7 @@ def describe_transformer(model: object, model_name: str) -> tuple[bool, int, str
 @register_backbone("mae_vitb16", variant="mae_vitb16")
 @register_backbone("supervised_vitb16", variant="supervised_vitb16")
 @register_backbone("dino_vitb16", variant="dino_vitb16")
+@register_backbone("sam_vitb16", variant="sam_vitb16")
 @register_backbone("siglip_vitb16", variant="siglip_vitb16")
 class TimmBackbone(BaseBackbone):
     """Any timm model — CNN or transformer — through the one interface.

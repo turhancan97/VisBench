@@ -90,6 +90,7 @@ features at 224px. Humans chose "right" 49.1% of the time, so chance is ~51%:
 | --- | --- | --- | --- |
 | `dino_vitb16` | **0.9019** | **0.9004** | 0.0000 |
 | `dinov2_vits14` | 0.8701 | 0.8687 | 0.0000 |
+| `sam_vitb16` | 0.8695 | 0.8675 | 0.0000 |
 | `dinov2_vitb14` | 0.8580 | 0.8575 | 0.0000 |
 | `siglip_vitb16` | 0.8575 | 0.8552 | 0.0000 |
 | `clip_vitb32` | 0.8465 | 0.8443 | 0.0000 |
@@ -149,6 +150,7 @@ Measured on VOC 2012, 600 train / 600 val images at 224px, ten epochs:
 | `clip_vitb16` | 0.1894 | 0.0622 | 20 | 88.7500 |
 | `clip_vitb32` | 0.1886 | 0.0584 | 20 | 91.3833 |
 | `siglip_vitb16` | 0.1871 | 0.0637 | 20 | 99.8550 |
+| `sam_vitb16` | 0.1797 | 0.0544 | 20 | 56.0033 |
 | `supervised_vitb16` | 0.1669 | 0.0563 | 20 | 83.5567 |
 | `dino_vitb16` | 0.1660 | 0.0583 | 20 | 78.6033 |
 | `resnet50` | 0.1380 | 0.0420 | 20 | 48.2133 |
@@ -227,6 +229,7 @@ Taskonomy's splits are **disjoint by building** — 25 rooms train, 4 validate,
 | --- | --- | --- | --- |
 | `mae_vitb16` | **0.4982** | **0.9150** | **0.4687** |
 | `dino_vitb16` | 0.4817 | 0.9150 | 0.4789 |
+| `sam_vitb16` | 0.4734 | 0.9286 | 0.4784 |
 | `clip_vitb16` | 0.4565 | 0.9340 | 0.4882 |
 | `dinov2_vits14` | 0.4558 | 0.9226 | 0.5028 |
 | `dinov2_vitb14` | 0.4481 | 0.9265 | 0.4972 |
@@ -289,6 +292,7 @@ so they render as two boards rather than one row each:
 | backbone | `keypoint_correlation` | `mae` | `rmse` |
 | --- | --- | --- | --- |
 | `dino_vitb16` | **0.2850** | 1.0827 | **2.5143** |
+| `sam_vitb16` | 0.2696 | 1.1117 | 2.5589 |
 | `mae_vitb16` | 0.2626 | **1.0533** | 2.5342 |
 | `supervised_vitb16` | 0.2573 | 1.1242 | 2.5468 |
 | `dinov2_vits14` | 0.2356 | 1.1281 | 2.5472 |
@@ -314,6 +318,7 @@ Ordered by `keypoint_correlation`, which **disagrees with `mae`, `rmse`** — th
 | `dinov2_vitb14` | 0.3167 | 0.2061 | 0.4315 |
 | `dino_vitb16` | 0.2928 | 0.2025 | 0.4338 |
 | `dinov2_vits14` | 0.2924 | 0.2205 | 0.4373 |
+| `sam_vitb16` | 0.2680 | 0.2108 | 0.4391 |
 | `clip_vitb16` | 0.2558 | 0.2149 | 0.4415 |
 | `siglip_vitb16` | 0.2254 | 0.2205 | 0.4423 |
 | `clip_vitb32` | 0.2174 | 0.2203 | 0.4440 |
@@ -385,6 +390,7 @@ thereby comparable — check the fields.
 | `dino_vitb16` | 0.6657 | 0.4268 | **0.6837** |
 | `dinov2_vitb14` | 0.6526 | 0.4402 | 0.6899 |
 | `dinov2_vits14` | 0.6512 | 0.4510 | 0.6919 |
+| `sam_vitb16` | 0.6454 | 0.4305 | 0.7198 |
 | `clip_vitb16` | 0.6227 | 0.4508 | 0.7229 |
 | `supervised_vitb16` | 0.6204 | 0.4710 | 0.7291 |
 | `siglip_vitb16` | 0.5383 | 0.4866 | 0.7846 |
@@ -471,6 +477,7 @@ ten-epoch schedule:
 | `resnet50` | 0.4574 | 0.5163 | 0.8322 | 0.5248 |
 | `resnet18` | 0.4212 | 0.4497 | 0.8205 | 0.4915 |
 | `mae_vitb16` | 0.3350 | 0.4555 | 0.8269 | 0.3757 |
+| `sam_vitb16` | 0.3339 | 0.3905 | 0.8146 | 0.3825 |
 
 Ordered by `miou`, which **disagrees with `mean_acc`, `miou_per_image`, `pixel_acc`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
 
@@ -535,6 +542,7 @@ Things that will bite otherwise:
 | `convnext_base` | **0.9997** | **1.0000** |
 | `resnet50` | 0.9980 | 0.9997 |
 | `dinov2_vitb14` | 0.9975 | **1.0000** |
+| `sam_vitb16` | 0.9972 | **1.0000** |
 | `supervised_vitb16` | 0.9972 | 0.9997 |
 | `clip_vitb16` | 0.9954 | 0.9997 |
 | `dinov2_vits14` | 0.9939 | 0.9997 |
@@ -555,7 +563,8 @@ Ordered by `top1`, which **disagrees with `top5`** — this task does not rank i
 | backbone | `mAP` | `recall@1` | `recall@5` |
 | --- | --- | --- | --- |
 | `supervised_vitb16` | **0.9947** | 0.9977 | 0.9987 |
-| `convnext_base` | 0.9890 | **0.9987** | **0.9990** |
+| `sam_vitb16` | 0.9912 | 0.9944 | **0.9992** |
+| `convnext_base` | 0.9890 | **0.9987** | 0.9990 |
 | `resnet50` | 0.9357 | 0.9901 | 0.9987 |
 | `dino_vitb16` | 0.9192 | 0.9868 | 0.9972 |
 | `dinov2_vitb14` | 0.9171 | 0.9954 | 0.9977 |
@@ -578,6 +587,7 @@ Ordered by `mAP`, which **disagrees with `recall@1`, `recall@10`, `recall@5`** �
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `mae_vitb16` | **0.3577** | 0.7325 | **0.1370** | 0.1462 | 0.9212 | 0.3932 | 17,300 |
 | `dino_vitb16` | 0.3566 | **0.7842** | 0.1351 | 0.1418 | 0.9389 | 0.3847 | 18,027 |
+| `sam_vitb16` | 0.3298 | 0.7369 | 0.1238 | 0.1342 | 0.9316 | 0.3689 | 18,539 |
 | `supervised_vitb16` | 0.3232 | 0.6567 | 0.1259 | 0.1468 | 0.9371 | 0.3928 | 8,796 |
 | `dinov2_vits14` | 0.3049 | 0.6526 | 0.1152 | 0.1454 | 0.9329 | 0.4123 | 23,439 |
 | `dinov2_vitb14` | 0.2816 | 0.6260 | 0.1055 | 0.1389 | 0.9264 | 0.4005 | 27,590 |
