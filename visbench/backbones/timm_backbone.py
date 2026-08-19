@@ -62,9 +62,21 @@ _VARIANTS = {
     # than of pretraining data. The 22k recipe is the stronger model and would
     # be the more flattering number, which is exactly why it is not the default.
     "convnext_base": ("convnext_base", "fb_in1k"),
-    # The two ViTs. Both are transformers, which this class refused outright
+    # The three ViTs. All are transformers, which this class refused outright
     # until it learned to read a model's own structure -- see `_describe_model`.
     "mae_vitb16": ("vit_base_patch16_224", "mae"),
+    # `augreg_in1k`, NOT `augreg_in21k_ft_in1k` -- and the difference is the
+    # whole reason this entry exists. It is the *same architecture and the same
+    # pretraining set* as `mae_vitb16` above (vit_base_patch16_224, ImageNet-1k,
+    # 12 blocks, 768 wide, patch 16, one prefix token), so the only thing that
+    # differs between the two rows is the training objective: supervised labels
+    # against masked pixel reconstruction. Every other pair of backbones in this
+    # corpus varies at least two things at once.
+    #
+    # The 21k recipes are the stronger models and would be the more flattering
+    # numbers, which is exactly why they are not the default -- the same
+    # reasoning `convnext_base` records above.
+    "supervised_vitb16": ("vit_base_patch16_224", "augreg_in1k"),
     # The *GAP* SigLIP, not the canonical one. SigLIP's own head is an
     # `AttentionPoolLatent` (`global_pool='map'`), a learned pooling VisBench
     # has no mode for; this official sibling pools by global average, which is
@@ -137,6 +149,7 @@ def describe_transformer(model: object, model_name: str) -> tuple[bool, int, str
 @register_backbone("resnet50", variant="resnet50")
 @register_backbone("convnext_base", variant="convnext_base")
 @register_backbone("mae_vitb16", variant="mae_vitb16")
+@register_backbone("supervised_vitb16", variant="supervised_vitb16")
 @register_backbone("siglip_vitb16", variant="siglip_vitb16")
 class TimmBackbone(BaseBackbone):
     """Any timm model — CNN or transformer — through the one interface.
@@ -160,8 +173,9 @@ class TimmBackbone(BaseBackbone):
     exactly; MAE reports ``token`` and SigLIP-GAP reports ``avg``; in every case
     the pooled vector is the representation the model hands its own classifier.
 
-    Registered names cover ResNet-18/50, ConvNeXt-B, MAE ViT-B/16 and
-    SigLIP-GAP ViT-B/16; any other timm model works by passing ``model_name=``.
+    Registered names cover ResNet-18/50, ConvNeXt-B, MAE ViT-B/16, supervised
+    ViT-B/16 and SigLIP-GAP ViT-B/16; any other timm model works by passing
+    ``model_name=``.
     """
 
     #: Defaults for the CNN case. Both are overwritten per instance for a

@@ -20,7 +20,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from visbench.backbones.timm_backbone import _POOL_TYPES, describe_transformer
+from visbench.backbones.timm_backbone import _POOL_TYPES, _VARIANTS, describe_transformer
 from visbench.types import Pooling
 
 
@@ -93,3 +93,34 @@ class TestThePoolingTable:
         """
         _, _, pool_type = describe_transformer(_model(pool=pool), "m")
         assert _POOL_TYPES[pool_type] == expected
+
+
+class TestTheVariantTable:
+    """The registered tags, which need no weights to check and do need checking.
+
+    `_VARIANTS` is where a backbone's identity is decided, and a wrong entry is
+    silent in both directions: a mistyped tag loads *some* checkpoint and
+    reports it under the registered name, while two names pointing at one tag
+    put the same numbers on a board twice. `tests/backbones/test_timm.py` pins
+    both against real weights and is `slow`, which CI does not run.
+    """
+
+    def test_supervised_and_mae_vits_differ_only_in_objective(self):
+        """The whole argument for the `supervised_vitb16` row.
+
+        Same timm architecture, same pretraining set (ImageNet-1k), different
+        training objective. Every *other* pair of backbones in this corpus
+        varies at least two things at once, so this is the one row that isolates
+        the objective -- and it stops being that the moment the tag is changed
+        to a 21k recipe, which is the tempting "stronger model" edit.
+        """
+        supervised_model, supervised_tag = _VARIANTS["supervised_vitb16"]
+        mae_model, mae_tag = _VARIANTS["mae_vitb16"]
+
+        assert supervised_model == mae_model == "vit_base_patch16_224"
+        assert supervised_tag == "augreg_in1k", "a 21k tag would move the pretraining data too"
+        assert mae_tag == "mae"
+
+    def test_no_two_registered_names_share_a_checkpoint(self):
+        """A duplicated entry would rank one model against itself."""
+        assert len(set(_VARIANTS.values())) == len(_VARIANTS)

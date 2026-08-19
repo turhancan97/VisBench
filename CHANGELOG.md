@@ -11,6 +11,66 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Added
 
+- **A supervised ViT-B/16, and with it the corpus's first controlled
+  experiment.** `supervised_vitb16` is `vit_base_patch16_224.augreg_in1k`: the
+  *same architecture* and the *same pretraining set* as `mae_vitb16`, differing
+  only in training objective. Ten backbones now, 130 records, thirteen
+  comparability groups all holding all ten.
+
+  `augreg_in1k` rather than the stronger 21k recipes precisely because of that.
+  Every other pair of backbones in this corpus varies at least two things at
+  once — architecture and data, or data and objective — so no board could say
+  which of them a gap belonged to. This pair varies one.
+
+  **The result falls almost exactly along the taxonomy's tiers.** Supervised
+  wins the five high-level boards: classification 0.9972 against 0.9582,
+  retrieval **0.9947 against 0.1883**, semantic segmentation 0.5791 against
+  0.3350, similarity 0.8202 against 0.6897, detection 0.1669 against 0.1296.
+  MAE wins the eight mid- and low-level ones: depth, surface normals (27.52°
+  against 36.72° mean), correspondence, corner, edge, keypoints2d, occlusion
+  edges and generic segmentation. One variable, and the split lands on the tier
+  boundary the three levels were named for.
+
+  **The classification and retrieval rows carry the in-distribution caveat**
+  that `resnet50` and `convnext_base` already do, and more strongly: Imagenette's
+  classes are ImageNet-1k wnids and this backbone was trained on ImageNet-1k
+  with labels, so 0.9972 and 0.9947 are closer to recall than to transfer. The
+  gap against MAE on those two boards is not a measurement of transfer quality.
+
+- **The documentation gallery is drawn on real photographs.** All thirteen
+  figures in `docs/_static/gallery/` are now Open Images frames rather than
+  generated scenes, fetched by a new `scripts/fetch_gallery_frames.py`.
+
+  **The licence is checked, not assumed.** Every frame is CC BY 2.0, verified
+  per image against an allowlist at fetch time, and refused if its metadata
+  carries no author or no landing page — an unattributable CC BY image is one
+  this repository may not redistribute. `assets/gallery_frames/CREDITS.md` is
+  generated beside the frames, and `tests/test_gallery_licences.py` fails if a
+  committed photograph has no credit or a credit names no photograph. `NOTICE`
+  records the whole arrangement.
+
+  **What each figure can show is decided by that constraint, and each says
+  which it is.** `corner` and `correspondence` have exact ground truth computed
+  from the frame itself; `detection`, `generic_segmentation` and
+  `semantic_segmentation` draw Open Images' own boxes and instance masks;
+  `classification` and `retrieval` need only which folder a photograph is in.
+
+  **`depth`, `surface_normal`, `keypoints2d` and `occlusion_edge` drop the
+  target column entirely** and show what a published VisBench head predicts,
+  named in the footer. Those four need sensor or reconstruction geometry that no
+  redistributable photograph carries, and a three-column figure with an invented
+  middle column would teach the wrong convention to exactly the reader who came
+  to learn it. They are drawn on interior frames, because their heads were
+  fitted on NYUv2 rooms and Taskonomy buildings and a photograph filled by an
+  animal's face shows domain shift rather than the probe. They render at 224
+  rather than the gallery's 160: a trained head's `output_size` is fitted state,
+  so these heads emit 224x224 whatever they are fed, and beside a 160 crop the
+  two panels are different sizes *and* different framings.
+
+  The datasets the probes are actually scored on — VOC, ImageNet, NYUv2,
+  Taskonomy, NIGHTS — still appear nowhere in this repository, which is the
+  constraint that produced the generated gallery in the first place.
+
 - **Three more backbones: ConvNeXt-B, MAE ViT-B/16 and SigLIP-GAP ViT-B/16.**
   Nine registered now, across four families. `TimmBackbone` had refused
   transformers outright, and rightly for what it then was: `has_cls_token` and
