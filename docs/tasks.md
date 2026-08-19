@@ -607,18 +607,29 @@ on.
 ImageNet-1k, differing only in whether the objective was labels or masked pixel
 reconstruction — every other pair of backbones in this corpus varies at least
 two things at once, so this is the only place a gap can be attributed. Over the
-thirteen boards the supervised model wins all five high-level ones and loses all
-eight mid- and low-level ones:
+thirteen boards the winner tracks the tier, with exactly one crossing:
 
-| tier | boards | winner |
+| tier | boards | split |
 | --- | --- | --- |
-| high-level | classification 0.9972 v 0.9582, retrieval 0.9947 v 0.1883, semantic seg 0.5791 v 0.3350, similarity 0.8202 v 0.6897, detection 0.1669 v 0.1296 | supervised |
-| mid / low-level | depth, surface normals (27.52° v 36.72° mean), correspondence, corner, edge, keypoints2d, occlusion edges, generic seg | MAE |
+| high-level (4) | classification 0.9972 v 0.9582, retrieval 0.9947 v 0.1883, semantic seg 0.5791 v 0.3350, detection 0.1669 v 0.1296 | **supervised wins all four** |
+| mid-level (6) | depth, surface normals (27.52° v 36.72° mean), correspondence, occlusion edges, generic seg — and similarity 0.8202 v 0.6897 | **MAE wins five, supervised wins similarity** |
+| low-level (3) | edge, keypoints2d, corner | **MAE wins all three** |
 
-The retrieval gap is the largest on the board and is **not** a clean transfer
-result: it is the in-distribution caveat above at its strongest, since this
-backbone was trained with labels on the categories Imagenette is drawn from. The
-mid- and low-level half carries no such caveat, and is the half worth quoting.
+Two things not to round off. **The retrieval gap is the largest on the board and
+is not a clean transfer result**: it is the in-distribution caveat above at its
+strongest, since this backbone was trained with labels on the categories
+Imagenette is drawn from.
+
+And **mid-level similarity is the one board that crosses the tier line**, which
+is worth stating rather than filing under "high-level". A hypothesis, untested:
+NIGHTS' images are Stable Diffusion generations prompted with categories from
+ImageNet, CIFAR-10/100, Flowers-102, Food-101 and SUN397, so a 2AFC over them
+may reward category familiarity rather than the perceptual and geometric
+resemblance the probe is meant to isolate — the in-distribution caveat again,
+in a place it is easy to miss.
+
+The low-level tier and the geometric half of the mid-level one carry no such
+caveat, and are the boards worth quoting.
 
 **MAE is the sharpest tier separation this corpus has produced, and it is worth
 reading before trusting any single board.** `mae_vitb16` is **first on six of

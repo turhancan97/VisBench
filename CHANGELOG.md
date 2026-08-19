@@ -22,14 +22,23 @@ so it stands on its own rather than assuming you have read the ones above it.
   once — architecture and data, or data and objective — so no board could say
   which of them a gap belonged to. This pair varies one.
 
-  **The result falls almost exactly along the taxonomy's tiers.** Supervised
-  wins the five high-level boards: classification 0.9972 against 0.9582,
+  **The result tracks the taxonomy's tiers, with one crossing.** Supervised
+  wins **all four high-level** boards — classification 0.9972 against 0.9582,
   retrieval **0.9947 against 0.1883**, semantic segmentation 0.5791 against
-  0.3350, similarity 0.8202 against 0.6897, detection 0.1669 against 0.1296.
-  MAE wins the eight mid- and low-level ones: depth, surface normals (27.52°
-  against 36.72° mean), correspondence, corner, edge, keypoints2d, occlusion
-  edges and generic segmentation. One variable, and the split lands on the tier
-  boundary the three levels were named for.
+  0.3350, detection 0.1669 against 0.1296. MAE wins **all three low-level**
+  ones — edge, keypoints2d, corner — and **five of the six mid-level** ones:
+  depth, surface normals (27.52° against 36.72° mean), correspondence,
+  occlusion edges, generic segmentation. Five boards to eight.
+
+  **The exception is mid-level similarity**, where supervised wins 0.8202
+  against 0.6897, and it is worth naming rather than rounding away. One
+  plausible reading, offered as a hypothesis rather than a result: NIGHTS'
+  images are Stable Diffusion generations prompted with categories drawn from
+  ImageNet, CIFAR-10/100, Flowers-102, Food-101 and SUN397, so a 2AFC over them
+  may reward category familiarity more than the "perceptual and geometric
+  resemblance" the probe is meant to isolate. That would make it the
+  in-distribution caveat again rather than a genuine mid-level win, and it is
+  untested either way.
 
   **The classification and retrieval rows carry the in-distribution caveat**
   that `resnet50` and `convnext_base` already do, and more strongly: Imagenette's
