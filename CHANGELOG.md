@@ -9,6 +9,43 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+## [0.10.0] — 2026-08-19
+
+**Four more backbones, and with the last of them the corpus stops being a table
+and becomes an experiment.** `TimmBackbone` learned to read a ViT's own
+structure rather than assuming a CNN's, which added ConvNeXt-B, MAE ViT-B/16 and
+SigLIP-GAP ViT-B/16 in one change; a supervised ViT-B/16 followed. The record
+corpus is **thirteen probes against ten backbones, 130 records**, every one of
+the thirteen comparability groups holding all ten.
+
+**The three tiers of the task taxonomy visibly separate for the first time.**
+Through v0.9.0 the boards mostly reproduced a single capacity ordering — DINOv2
+above CLIP above ResNet on nearly everything — which made the high/mid/low split
+look like a taxonomy the numbers merely tolerated. `mae_vitb16` is first on six
+of the thirteen boards and last on four, which no backbone here had done before:
+it leads all three low-level probes plus correspondence, occlusion edges and
+surface normals, and comes last on classification, retrieval, semantic
+segmentation and mid-level similarity. **"Which backbone is best" is not a
+well-formed question against this corpus**, and a summary that picks a winner is
+discarding the result.
+
+**`supervised_vitb16` is what turns that observation into a controlled
+experiment.** It is `vit_base_patch16_224.augreg_in1k` — the same architecture
+and the same pretraining set as `mae_vitb16`, so the only variable between those
+two rows of any board is the training objective. Every other pair of backbones
+in this corpus varies at least two things at once, which is why no earlier board
+could say what a gap belonged to. Supervised wins all four high-level boards;
+MAE wins all three low-level ones and five of the six mid-level ones. Five
+boards to eight, one variable.
+
+**The documentation gallery is drawn on real photographs**, Open Images frames
+under a per-image licence check rather than generated scenes — the same
+redistribution rule as before, satisfied by better sourcing rather than waived.
+
+**Purely additive on the measurement side.** Every number v0.9.0 published is
+byte-identical here; the corpus gained 52 records and lost none, and no ranking
+already quoted moved.
+
 ### Added
 
 - **A supervised ViT-B/16, and with it the corpus's first controlled
@@ -2378,7 +2415,9 @@ API philosophy.
 [#2]: https://github.com/turhancan97/VisBench/issues/2
 [#4]: https://github.com/turhancan97/VisBench/issues/4
 [#3]: https://github.com/turhancan97/VisBench/issues/3
-[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/turhancan97/VisBench/compare/v0.9.0...v0.10.0
+[0.9.0]: https://github.com/turhancan97/VisBench/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/turhancan97/VisBench/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/turhancan97/VisBench/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/turhancan97/VisBench/compare/v0.6.0...v0.6.1
