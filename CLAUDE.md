@@ -280,11 +280,17 @@ through it: `get_probe("correspondence")` reports `threshold_units="pixel"` and
 `(1, 2, 5, 10)`, so v0.6.1's fix survives a fifth release, and METADATA puts
 `huggingface-hub` only under `hub` and `all`.
 
-**For the first time the tag, `main` and the wheel all agree.** `v0.10.0` is on
-`9f0b91e`, `main` has not moved since, and the artifact was built from it — the
-two previous releases each had a benign disagreement, in opposite directions,
-which is precisely the pattern that trains you to stop checking. Tagging
-*before* building is what bought it.
+**The tag and the wheel agree exactly, which the two previous releases could
+not say.** `v0.10.0` is on `9f0b91e` and the artifact was built from that
+commit, so what is installable is what is tagged. Tagging *before* building is
+what bought it, and it is the order to keep.
+
+**`main` is one commit ahead of the tag** — the one recording this paragraph,
+docs only, no code, landed after the upload. That is the same benign gap the
+last two releases had, and the third in a row, which is precisely the pattern
+that trains you to stop checking; it reaches PyPI with the next release. **Do
+not fix it by moving the tag**: a PyPI version can never be re-uploaded and the
+Zenodo archive is permanent, so a moved tag would disagree with both.
 
 **Zenodo archived it as version DOI `10.5281/zenodo.22016457`**, the fourth
 under the concept DOI, which is unchanged and remains the only one quoted
