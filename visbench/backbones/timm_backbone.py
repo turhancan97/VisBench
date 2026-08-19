@@ -62,7 +62,7 @@ _VARIANTS = {
     # than of pretraining data. The 22k recipe is the stronger model and would
     # be the more flattering number, which is exactly why it is not the default.
     "convnext_base": ("convnext_base", "fb_in1k"),
-    # The three ViTs. All are transformers, which this class refused outright
+    # The four ViTs. All are transformers, which this class refused outright
     # until it learned to read a model's own structure -- see `_describe_model`.
     "mae_vitb16": ("vit_base_patch16_224", "mae"),
     # `augreg_in1k`, NOT `augreg_in21k_ft_in1k` -- and the difference is the
@@ -77,6 +77,23 @@ _VARIANTS = {
     # numbers, which is exactly why they are not the default -- the same
     # reasoning `convnext_base` records above.
     "supervised_vitb16": ("vit_base_patch16_224", "augreg_in1k"),
+    # The third objective on that same architecture and that same pretraining
+    # set: DINO's self-distillation, no labels and no pixel reconstruction. It
+    # is what turns the pair above into a family, and it separates two things
+    # that pair cannot: whether a representation's high-level strength comes
+    # from *labels* or merely from a semantic training signal.
+    #
+    # It is also the tighter comparison of the two. `augreg_in1k` normalises
+    # with mean/std 0.5 where `mae` and `dino` both use ImageNet statistics --
+    # each checkpoint gets its own transform, which is the only correct handling
+    # and is what `resolve_data_config` does -- so supervised-against-MAE varies
+    # the objective *and* the input normalisation, while DINO-against-MAE holds
+    # the normalisation fixed.
+    #
+    # `deit3_base_patch16_224.fb_in1k` looks like a fourth member and is not:
+    # it carries LayerScale where these three carry Identity, so it moves the
+    # architecture as well as the recipe.
+    "dino_vitb16": ("vit_base_patch16_224", "dino"),
     # The *GAP* SigLIP, not the canonical one. SigLIP's own head is an
     # `AttentionPoolLatent` (`global_pool='map'`), a learned pooling VisBench
     # has no mode for; this official sibling pools by global average, which is
@@ -150,6 +167,7 @@ def describe_transformer(model: object, model_name: str) -> tuple[bool, int, str
 @register_backbone("convnext_base", variant="convnext_base")
 @register_backbone("mae_vitb16", variant="mae_vitb16")
 @register_backbone("supervised_vitb16", variant="supervised_vitb16")
+@register_backbone("dino_vitb16", variant="dino_vitb16")
 @register_backbone("siglip_vitb16", variant="siglip_vitb16")
 class TimmBackbone(BaseBackbone):
     """Any timm model — CNN or transformer — through the one interface.

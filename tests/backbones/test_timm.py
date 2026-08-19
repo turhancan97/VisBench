@@ -277,6 +277,23 @@ def supervised_vit():
     return visbench.get_backbone("supervised_vitb16", device="cpu")
 
 
+@pytest.fixture(scope="module")
+def dino_vit():
+    return visbench.get_backbone("dino_vitb16", device="cpu")
+
+
+def _normalisation(backbone):
+    """``(mean, std)`` from the transform timm resolved for this checkpoint.
+
+    Matched on the class *name* rather than by importing torchvision, which is
+    a transitive dependency here and not a declared one.
+    """
+    for op in backbone._transform.transforms:
+        if type(op).__name__ == "Normalize":
+            return tuple(float(v) for v in op.mean), tuple(float(v) for v in op.std)
+    raise AssertionError(f"{backbone} has no Normalize step in its transform")
+
+
 class TestTransformers:
     def test_mae_reports_its_cls_token_and_patch_grid(self, mae):
         assert mae.has_cls_token is True
@@ -357,6 +374,53 @@ class TestTransformers:
             atol=1e-3,
         )
 
+    def test_dino_completes_the_objective_family(self, mae, supervised_vit, dino_vit):
+        """Three objectives on one architecture and one pretraining set.
+
+        `supervised_vitb16` made the objective a controlled variable across one
+        pair; this makes it three-valued -- supervised labels, masked pixel
+        reconstruction, self-distillation -- which is what separates "trained
+        with labels" from "trained toward semantics". Everything a record or a
+        comparability group can see about the three is identical, so a board
+        that ranks them differently is ranking objectives.
+        """
+        for other in (mae, supervised_vit):
+            assert dino_vit.has_cls_token == other.has_cls_token is True
+            assert dino_vit.patch_size == other.patch_size == 16
+            assert dino_vit.embed_dim == other.embed_dim == 768
+            assert dino_vit.default_pooling() == other.default_pooling() == Pooling.CLS
+
+    def test_dino_holds_the_input_normalisation_fixed_against_mae(self, mae, dino_vit):
+        """The half of the comparison that is *tighter* than the existing pair.
+
+        Each checkpoint is preprocessed with the statistics it was trained
+        under -- the only correct handling, and what `resolve_data_config`
+        does -- so `supervised_vitb16` (mean/std 0.5) differs from MAE in its
+        input normalisation as well as its objective. DINO and MAE share
+        ImageNet statistics, so that pair varies the objective alone.
+
+        Asserted on the transform rather than argued in a comment, because the
+        claim is about two checkpoints' metadata and a future timm release is
+        free to move it.
+        """
+        assert _normalisation(dino_vit) == _normalisation(mae)
+
+    def test_dino_is_not_mae_or_the_supervised_vit(
+        self, mae, supervised_vit, dino_vit, solid_images
+    ):
+        """Different weights, which nothing structural would notice.
+
+        Every assertion in `test_dino_completes_the_objective_family` passes if
+        two names resolve to one checkpoint, which is a typo away and would put
+        the same numbers on a board twice under different names.
+        """
+        pixels = dino_vit.preprocess(solid_images)
+        pooled = dino_vit.extract_features(pixels)["pooled"]
+
+        for other in (mae, supervised_vit):
+            assert dino_vit.cache_key() != other.cache_key()
+            assert not torch.allclose(pooled, other.extract_features(pixels)["pooled"], atol=1e-3)
+
     def test_multi_layer_costs_one_forward_pass(self, mae, solid_images):
         features = mae.extract_features(mae.preprocess(solid_images), layers=[2, 5, 8, 11])
         assert len(features["dense_layers"]) == 4
@@ -366,14 +430,21 @@ class TestTransformers:
 class TestPooledMatchesTheModelsOwnHead:
     """Which backbones' pooled vector is what the model hands its classifier.
 
-    The claim this module has made since v0.2, now that it covers six models
+    The claim this module has made since v0.2, now that it covers seven models
     and one of them breaks it. Pinned in both directions so the exception
     cannot quietly become the rule, or be quietly fixed into one.
     """
 
     @pytest.mark.parametrize(
         "name",
-        ["resnet18", "resnet50", "mae_vitb16", "siglip_vitb16", "supervised_vitb16"],
+        [
+            "resnet18",
+            "resnet50",
+            "mae_vitb16",
+            "siglip_vitb16",
+            "supervised_vitb16",
+            "dino_vitb16",
+        ],
     )
     def test_it_matches(self, name, solid_images):
         backbone = visbench.get_backbone(name, device="cpu")

@@ -9,6 +9,35 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+### Added
+
+- **`dino_vitb16`, which turns the objective comparison from a pair into a
+  family.** `vit_base_patch16_224.dino` is the same architecture and the same
+  pretraining set as `mae_vitb16` and `supervised_vitb16` — 12 blocks, 768 wide,
+  patch 16, one prefix token, ImageNet-1k — so one variable now takes three
+  values rather than two: supervised labels, masked pixel reconstruction, and
+  self-distillation.
+
+  What the pair could not separate is **"trained with labels" from "trained
+  toward semantics"**. DINO is label-free and semantic, so whichever side of the
+  high-level boards it lands on answers that.
+
+  **It is also the tighter of the two comparisons.** `augreg_in1k` normalises
+  with mean/std 0.5 where `mae` and `dino` both use ImageNet statistics, and
+  each checkpoint is preprocessed with the statistics it was trained under —
+  the only correct handling — so supervised-against-MAE varies the input
+  normalisation alongside the objective, while DINO-against-MAE does not. A
+  test asserts that on the resolved transform rather than leaving it to a
+  comment.
+
+  `deit3_base_patch16_224.fb_in1k` is the near-miss and is refused: it matches
+  every property the family is pinned on and carries `LayerScale` where these
+  three carry `Identity`, so it would move the architecture as well as the
+  recipe.
+
+  **Registered, not yet measured.** The corpus is still ten backbones and 130
+  records; the eleventh column is a separate step.
+
 ## [0.10.0] — 2026-08-19
 
 **Four more backbones, and with the last of them the corpus stops being a table
