@@ -105,21 +105,43 @@ class TestTheVariantTable:
     both against real weights and is `slow`, which CI does not run.
     """
 
-    def test_supervised_and_mae_vits_differ_only_in_objective(self):
-        """The whole argument for the `supervised_vitb16` row.
+    def test_the_objective_family_shares_one_architecture(self):
+        """The whole argument for three of the rows in this table.
 
-        Same timm architecture, same pretraining set (ImageNet-1k), different
-        training objective. Every *other* pair of backbones in this corpus
-        varies at least two things at once, so this is the one row that isolates
-        the objective -- and it stops being that the moment the tag is changed
-        to a 21k recipe, which is the tempting "stronger model" edit.
+        Same timm architecture, same pretraining set (ImageNet-1k), three
+        different training objectives: supervised labels, masked pixel
+        reconstruction, and self-distillation. Every *other* group of backbones
+        in this corpus varies at least two things at once, so this is the one
+        family that isolates the objective -- and it stops being that the moment
+        a tag is changed to a 21k recipe, which is the tempting "stronger model"
+        edit.
+
+        Pinned as a set rather than as pairs: the failure to catch is one member
+        drifting onto different pretraining data, and which member that is
+        cannot be known in advance.
         """
-        supervised_model, supervised_tag = _VARIANTS["supervised_vitb16"]
-        mae_model, mae_tag = _VARIANTS["mae_vitb16"]
+        family = {
+            name: _VARIANTS[name] for name in ("supervised_vitb16", "mae_vitb16", "dino_vitb16")
+        }
 
-        assert supervised_model == mae_model == "vit_base_patch16_224"
-        assert supervised_tag == "augreg_in1k", "a 21k tag would move the pretraining data too"
-        assert mae_tag == "mae"
+        assert {model for model, _ in family.values()} == {"vit_base_patch16_224"}, (
+            f"the objective family no longer shares one architecture: {family}"
+        )
+        assert {tag for _, tag in family.values()} == {"augreg_in1k", "mae", "dino"}, (
+            "a tag moved; a 21k recipe would move the pretraining data too and the "
+            f"family would stop isolating the objective: {family}"
+        )
+
+    def test_deit3_is_not_in_the_objective_family(self):
+        """The near-miss, excluded by measurement rather than by name.
+
+        `deit3_base_patch16_224.fb_in1k` is supervised ImageNet-1k on twelve
+        768-wide blocks with patch 16 and one prefix token, which is every
+        property the family is pinned on -- and it carries `LayerScale` where
+        these three carry `Identity`, so it varies the architecture as well as
+        the recipe. Adding it is the plausible edit this test exists to refuse.
+        """
+        assert not any(model.startswith("deit3") for model, _ in _VARIANTS.values())
 
     def test_no_two_registered_names_share_a_checkpoint(self):
         """A duplicated entry would rank one model against itself."""

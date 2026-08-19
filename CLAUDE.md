@@ -218,7 +218,9 @@ Registered names — `visbench.list_backbones()`, `list_probes()`,
 ```text
 backbones  dinov2_vits14, dinov2_vitb14, clip_vitb16, clip_vitb32,
            resnet18, resnet50, convnext_base, mae_vitb16, siglip_vitb16,
-           supervised_vitb16              (+ CustomBackbone, unregistered)
+           supervised_vitb16, dino_vitb16 (+ CustomBackbone, unregistered)
+           — dino_vitb16 is REGISTERED BUT NOT MEASURED: the corpus is still
+             ten backbones, 130 records, until 10d runs it
 probes     classification, retrieval, correspondence, depth, surface_normal,
            generic_segmentation, semantic_segmentation, similarity, detection,
            edge, keypoints2d, occlusion_edge, corner
@@ -713,6 +715,42 @@ designed up front; extend it the same way, from a case that already runs.
   was trained on ImageNet-1k *with labels*, so 0.9972 and 0.9947 are close to
   in-distribution recall. Do not read the retrieval gap against MAE as a
   measurement of transfer.
+
+- **`dino_vitb16` completes an objective family, and the family is three wide
+  rather than two** (10d, registered 2026-08-19, **not yet measured**).
+  `vit_base_patch16_224.dino` is the same architecture and the same pretraining
+  set as `mae_vitb16` and `supervised_vitb16` — 12 blocks, 768 wide, patch 16,
+  one prefix token, `global_pool='token'`, ImageNet-1k — so the corpus now has
+  three values of one variable instead of two. What the pair could not do is
+  separate **"trained with labels" from "trained toward semantics"**; DINO is
+  label-free and semantic, so it sits on whichever side that distinction falls.
+
+  **The existing pair varies one and a half things, and this is worth stating
+  rather than rounding away.** `augreg_in1k` normalises with mean/std 0.5 while
+  `mae` and `dino` both use ImageNet statistics. Each checkpoint must be
+  preprocessed with the statistics it was trained under — that is what
+  `resolve_data_config({}, model=model)` does per model, and there is no correct
+  alternative — so the supervised-against-MAE comparison carries an input
+  normalisation difference alongside its objective difference. **DINO-against-
+  MAE holds the normalisation fixed**, which makes it the tighter of the two.
+  Pinned by a test on the resolved transform, not by a comment, since a timm
+  release is free to move that metadata.
+
+  **`deit3_base_patch16_224.fb_in1k` is the near-miss and is excluded by
+  structure, not by name.** It is supervised ImageNet-1k on twelve 768-wide
+  blocks with patch 16 and one prefix token — every property the family is
+  pinned on — and it carries `LayerScale` where the three carry `Identity`, so
+  it moves the architecture as well as the recipe. A fast test refuses any
+  `deit3` entry outright.
+
+  **What timm does *not* have, checked rather than assumed** (timm 1.0.28): no
+  MoCo v3, iBOT, MSN or SimMIM at `vit_base_patch16_224`. Those need a
+  checkpoint fetched outside the registry and loaded through `CustomBackbone`,
+  which is a materially larger step and would have to answer how a
+  non-registry backbone reaches the CLI and the corpus at all. Of the tags that
+  *do* exist, only `.dino` qualifies; `.sam_in1k` is a legitimate second
+  control but varies the **optimiser** rather than the objective, so it belongs
+  in its own step if it is wanted.
 
 - **`dgx1` was degraded on 2026-08-19 and it does not fail like a broken node**
   (found while running 10c). A job submitted there hung for 30 minutes with no
