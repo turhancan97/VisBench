@@ -93,9 +93,10 @@ upside down** — see step 6f — v0.7.0 is the contributor-facing release that
 changes no number, and **v0.8.0 (2026-08-07) is the corner probe**, steps 8a and
 8b together.
 
-**10d is done and unreleased (2026-08-19).** `dino_vitb16` is registered *and
-measured*: the corpus is **eleven backbones, 143 records**, and the objective
-family is three wide. Its result is the single most important thing to read
+**10d and 10e are done and unreleased (2026-08-19).** `dino_vitb16` and
+`sam_vitb16` are registered *and* measured: the corpus is **twelve backbones,
+156 records**, the objective family is three wide, and it has a recipe control
+beside it — which refuted half of 10d's own published claim before it shipped. Its result is the single most important thing to read
 before quoting a board from this corpus — see the `dino_vitb16` bullet in
 "decisions already paid for", which also corrects the MAE counts 10b recorded.
 
@@ -725,6 +726,68 @@ designed up front; extend it the same way, from a case that already runs.
   in-distribution recall. Do not read the retrieval gap against MAE as a
   measurement of transfer.
 
+- **A recipe control was added, and it refuted half of an already-published
+  claim** (10e, 2026-08-19). `sam_vitb16` is
+  `vit_base_patch16_224.sam_in1k`: the same architecture, the same pretraining
+  set, the same labels and the same input normalisation as `supervised_vitb16`,
+  differing only in **how it was trained to that objective** — sharpness-aware
+  minimisation with light augmentation, against AugReg's AdamW with heavy
+  augmentation. The corpus is **twelve backbones, 156 records**.
+
+  It exists to supply a denominator nothing else in this corpus had: **a gap
+  between two objectives means nothing until you know how large a gap two runs
+  of the *same* objective can produce.** Every other pair here differs in
+  architecture, data or objective; this one differs in none of the three.
+
+  **On semantic segmentation the recipe gap is larger than the entire objective
+  spread**, which is the finding:
+
+  | board | augreg | sam | recipe gap | objective spread | ratio |
+  | --- | --- | --- | --- | --- | --- |
+  | retrieval | 0.9947 | 0.9912 | 0.0034 | 0.8064 | **234x** |
+  | correspondence | 0.3232 | 0.3298 | 0.0066 | 0.0345 | 5.2x |
+  | depth (d1) | 0.6195 | 0.6356 | 0.0161 | 0.0750 | 4.7x |
+  | similarity | 0.8202 | 0.8695 | 0.0493 | 0.2122 | 4.3x |
+  | detection | 0.1669 | 0.1797 | 0.0128 | 0.0373 | 2.9x |
+  | keypoints2d | 0.2573 | 0.2696 | 0.0123 | 0.0277 | 2.2x |
+  | corner | 0.6204 | 0.6454 | 0.0250 | 0.0465 | 1.9x |
+  | occlusion edge | 0.1996 | 0.2680 | 0.0684 | 0.1277 | 1.9x |
+  | edge | 0.4420 | 0.4734 | 0.0314 | 0.0562 | 1.8x |
+  | generic seg | 0.6195 | 0.6667 | 0.0472 | 0.0643 | 1.4x |
+  | **semantic seg** | 0.5791 | **0.3339** | **0.2452** | 0.2441 | **1.0x** |
+
+  **`sam_vitb16` scores 0.3339 mIoU and `mae_vitb16` scores 0.3350** — a
+  *supervised* backbone with labels, landing within 0.0011 of the pixel-
+  reconstruction one, and **last of twelve**. Whatever that board measures, it
+  is not the training objective. Every setting was identical across all twelve
+  runs (same schedule, same head, same split), so this is not a tuning
+  artefact of one run.
+
+  **What it costs and what survives.** The 10d write-up cited retrieval *and*
+  semantic segmentation as the two boards showing that high-level structure
+  comes from a semantic signal. Retrieval survives enormously — the objective
+  effect there is 234x the recipe effect. The semseg half is dead, and it was
+  already written into `CHANGELOG.md`, `CLAUDE.md` and an open pull request
+  when the control landed.
+
+  **The general rule this establishes: quote an objective gap against the
+  recipe gap on the same board, not against zero.** Seven of the thirteen
+  boards have objective spreads under 3x their recipe gap, so "objective X
+  beats objective Y" is a weak claim on most of this corpus and a strong one on
+  four boards. Nothing in a record says which, and no comparability rule can —
+  the two runs are perfectly comparable, which is the point.
+
+  **It also softens 10c's mid-level story.** `sam_vitb16` beats
+  `supervised_vitb16` on ten of the thirteen boards, several substantially
+  (occlusion edge 0.2680 against 0.1996, generic segmentation 0.6667 against
+  0.6195, similarity 0.8695 against 0.8202, normals 34.56° against 36.72°). So
+  "supervised training is weak at mid- and low-level" was partly a statement
+  about the **AugReg recipe**, not about supervision.
+
+  **The two classification rows are identical to four decimals** (0.9972 both),
+  which is a saturated board rather than a duplicated checkpoint: the weights,
+  cache keys and features are all distinct and a slow test pins that.
+
 - **`dino_vitb16` completes an objective family, and the answer is that
   high-level structure comes from a semantic training signal rather than from
   labels** (10d, 2026-08-19). The corpus is **eleven backbones, 143 records**,
@@ -736,15 +799,22 @@ designed up front; extend it the same way, from a case that already runs.
   separate **"trained with labels" from "trained toward semantics"**; DINO is
   label-free and semantic, so it sits on whichever side that distinction falls.
 
-  **It sits with the supervised model, decisively.** On the two high-level
-  boards that are not saturated: retrieval `dino_vitb16` **0.9192** against
-  supervised 0.9947 and MAE **0.1883**, and semantic segmentation 0.5063
-  against 0.5791 and 0.3350. MAE is last of eleven on both, DINO fourth and
-  seventh. So a label-free objective that learns *categories* recovers nearly
-  everything labels buy, while one that learns *pixels* recovers almost none of
-  it — and the supervised/MAE pair could not tell those apart, because it moved
-  both at once. Part of the residual supervised margin is the in-distribution
-  caveat, since Imagenette's classes are ImageNet-1k wnids.
+  **It sits with the supervised model, and the claim rests on retrieval
+  alone.** `dino_vitb16` scores **0.9192** mAP against supervised 0.9947 and
+  MAE **0.1883** — MAE last of eleven, DINO fourth. So a label-free objective
+  that learns *categories* recovers nearly everything labels buy, while one
+  that learns *pixels* recovers almost none of it, which the supervised/MAE
+  pair could not tell apart because it moved both at once. Part of the residual
+  supervised margin is the in-distribution caveat, since Imagenette's classes
+  are ImageNet-1k wnids.
+
+  **This bullet originally cited semantic segmentation as a second board, and
+  10e's recipe control refuted that half** — see the `sam_vitb16` bullet. On
+  semseg a *supervised* backbone trained under a different recipe lands within
+  0.001 of MAE, so that board cannot separate objectives at all. The sentence
+  was written before the control existed, read as well-supported, and was
+  wrong. **Retrieval is the board that carries this result; do not re-add the
+  second one.**
 
   **The high-level sweep is three boards and a tie.** Supervised beats DINO on
   detection by **0.0009** (0.1669 against 0.1660), which is under the ~1e-3

@@ -132,6 +132,27 @@ class TestTheVariantTable:
             f"family would stop isolating the objective: {family}"
         )
 
+    def test_the_recipe_control_shares_the_objective_of_the_supervised_row(self):
+        """`sam_vitb16` is a control on the *recipe*, not a fourth objective.
+
+        Same architecture, same pretraining set and the same supervised
+        objective as `supervised_vitb16`; what differs is how it was trained to
+        it -- sharpness-aware minimisation with light augmentation, against
+        AugReg's AdamW with heavy augmentation. It exists to bound the objective
+        family: a gap between two objectives means nothing until you know how
+        large a gap two runs of the same objective can produce.
+
+        Pinned so it cannot be quietly recruited into the family it exists to
+        calibrate -- which would turn a recipe difference into a reported
+        objective difference.
+        """
+        sam_model, sam_tag = _VARIANTS["sam_vitb16"]
+        supervised_model, supervised_tag = _VARIANTS["supervised_vitb16"]
+
+        assert sam_model == supervised_model == "vit_base_patch16_224"
+        assert sam_tag == "sam_in1k", "an in21k tag would move the pretraining data too"
+        assert sam_tag != supervised_tag
+
     def test_deit3_is_not_in_the_objective_family(self):
         """The near-miss, excluded by measurement rather than by name.
 

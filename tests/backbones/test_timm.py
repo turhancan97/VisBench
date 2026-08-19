@@ -282,6 +282,11 @@ def dino_vit():
     return visbench.get_backbone("dino_vitb16", device="cpu")
 
 
+@pytest.fixture(scope="module")
+def sam_vit():
+    return visbench.get_backbone("sam_vitb16", device="cpu")
+
+
 def _normalisation(backbone):
     """``(mean, std)`` from the transform timm resolved for this checkpoint.
 
@@ -421,6 +426,33 @@ class TestTransformers:
             assert dino_vit.cache_key() != other.cache_key()
             assert not torch.allclose(pooled, other.extract_features(pixels)["pooled"], atol=1e-3)
 
+    def test_the_recipe_control_is_structurally_the_supervised_row(self, supervised_vit, sam_vit):
+        """Same architecture, same data, same objective, different recipe.
+
+        Nothing a record or a comparability group can see separates these two,
+        which is the point: whatever gap they show on a board is what a change
+        of *training recipe alone* is worth, and every objective gap in this
+        corpus has to be read against it.
+        """
+        assert sam_vit.has_cls_token == supervised_vit.has_cls_token is True
+        assert sam_vit.patch_size == supervised_vit.patch_size == 16
+        assert sam_vit.embed_dim == supervised_vit.embed_dim == 768
+        assert sam_vit.default_pooling() == supervised_vit.default_pooling() == Pooling.CLS
+        assert _normalisation(sam_vit) == _normalisation(supervised_vit)
+
+    def test_the_recipe_control_is_not_the_supervised_row(
+        self, supervised_vit, sam_vit, solid_images
+    ):
+        """Different weights, which nothing structural would notice."""
+        assert sam_vit.cache_key() != supervised_vit.cache_key()
+
+        pixels = sam_vit.preprocess(solid_images)
+        assert not torch.allclose(
+            sam_vit.extract_features(pixels)["pooled"],
+            supervised_vit.extract_features(pixels)["pooled"],
+            atol=1e-3,
+        )
+
     def test_multi_layer_costs_one_forward_pass(self, mae, solid_images):
         features = mae.extract_features(mae.preprocess(solid_images), layers=[2, 5, 8, 11])
         assert len(features["dense_layers"]) == 4
@@ -430,7 +462,7 @@ class TestTransformers:
 class TestPooledMatchesTheModelsOwnHead:
     """Which backbones' pooled vector is what the model hands its classifier.
 
-    The claim this module has made since v0.2, now that it covers seven models
+    The claim this module has made since v0.2, now that it covers eight models
     and one of them breaks it. Pinned in both directions so the exception
     cannot quietly become the rule, or be quietly fixed into one.
     """
@@ -444,6 +476,7 @@ class TestPooledMatchesTheModelsOwnHead:
             "siglip_vitb16",
             "supervised_vitb16",
             "dino_vitb16",
+            "sam_vitb16",
         ],
     )
     def test_it_matches(self, name, solid_images):

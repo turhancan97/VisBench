@@ -82,6 +82,9 @@ This is a multi-month roadmap, built one reviewed step at a time.
 - [x] **10d.** DINO ViT-B/16 — a third value of the objective variable, which
       answers what the supervised/MAE pair could not: high-level structure comes
       from a semantic training signal, not from labels
+- [x] **10e.** a recipe control — the same objective trained two ways, which
+      supplies the denominator every objective claim needs, and refutes 10d's
+      semantic-segmentation evidence on arrival
 
 ## Roadmap
 

@@ -11,6 +11,40 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Added
 
+- **`sam_vitb16`, a recipe control — and it refuted half of the entry below
+  before either shipped.** `vit_base_patch16_224.sam_in1k` is the same
+  architecture, pretraining set, labels and input normalisation as
+  `supervised_vitb16`, differing only in how it was trained to that objective:
+  sharpness-aware minimisation with light augmentation, against AugReg's AdamW
+  with heavy augmentation. Twelve backbones now, **156 records**.
+
+  It supplies a denominator nothing else in this corpus had. **A gap between
+  two objectives means nothing until you know how large a gap two runs of the
+  same objective can produce** — and every other pair here differs in
+  architecture, data or objective, while this one differs in none of the three.
+
+  **On semantic segmentation the recipe gap is larger than the whole objective
+  spread.** `sam_vitb16` scores **0.3339** mIoU against `supervised_vitb16`'s
+  0.5791 — and `mae_vitb16`'s 0.3350. A supervised backbone with labels lands
+  within 0.0011 of the pixel-reconstruction one and comes **last of twelve**,
+  under settings identical across all twelve runs. Whatever that board
+  measures, it is not the training objective, and the entry below no longer
+  cites it.
+
+  **Retrieval survives the same test enormously**: the objective spread there
+  is 0.8064 against a recipe gap of 0.0034, a factor of **234**.
+
+  **The rule this establishes is to quote an objective gap against the recipe
+  gap on the same board, never against zero.** Seven of the thirteen boards
+  have objective spreads under 3x their recipe gap. No comparability rule can
+  flag this — the two runs are perfectly comparable, which is exactly the
+  point.
+
+  It also softens v0.10.0's mid-level story: `sam_vitb16` beats
+  `supervised_vitb16` on ten of the thirteen boards, so "supervised training is
+  weak at mid- and low-level" was partly a statement about the AugReg recipe
+  rather than about supervision.
+
 - **`dino_vitb16`, which turns the objective comparison from a pair into a
   family.** `vit_base_patch16_224.dino` is the same architecture and the same
   pretraining set as `mae_vitb16` and `supervised_vitb16` — 12 blocks, 768 wide,
@@ -40,14 +74,15 @@ so it stands on its own rather than assuming you have read the ones above it.
   published is byte-identical.
 
   **The answer is that high-level structure comes from a semantic training
-  signal, not from labels.** On the two high-level boards that are not saturated
-  DINO sits with the supervised model and far above MAE: retrieval **0.9192**
-  against supervised 0.9947 and MAE 0.1883, and semantic segmentation 0.5063
-  against 0.5791 and 0.3350. MAE is last of eleven on both; DINO is fourth and
-  seventh. A label-free objective that learns *categories* recovers nearly all
-  of what labels buy, and a label-free objective that learns *pixels* recovers
-  almost none of it — which the earlier pair could not separate, because it
-  varied both at once.
+  signal, not from labels.** On retrieval, DINO scores **0.9192** against
+  supervised 0.9947 and MAE 0.1883 — MAE last of eleven, DINO fourth. A
+  label-free objective that learns *categories* recovers nearly all of what
+  labels buy, and one that learns *pixels* recovers almost none of it, which
+  the earlier pair could not separate because it varied both at once.
+
+  **Retrieval is the board that carries this, and semantic segmentation is
+  not** — see `sam_vitb16` below, which was added afterwards and refuted that
+  half before it shipped.
 
   **And DINO does not pay MAE's price at the other end.** MAE leads five boards
   and comes last on four; DINO's worst placing anywhere is eighth of eleven, on
