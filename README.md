@@ -214,6 +214,13 @@ genuinely ambiguous VisBench raises rather than guesses; pass `patch_size=`,
 To give a custom backbone a registry name, subclass `BaseBackbone` and apply
 `@visbench.register_backbone("my_model")` — the same path the built-ins use.
 
+[`examples/custom_backbone.py`](https://github.com/turhancan97/VisBench/blob/main/examples/custom_backbone.py)
+runs all of this end to end and needs no dataset:
+
+```bash
+python examples/custom_backbone.py --finetune --register
+```
+
 Sibling project to [vismatch](https://github.com/gmberton/vismatch) — same
 ergonomic philosophy, applied to representation probing instead of image
 matching.

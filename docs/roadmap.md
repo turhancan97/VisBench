@@ -321,26 +321,35 @@ checkpoint automatically gets a different cache entry from the model it was
 fine-tuned from. `register_backbone` is a top-level export for anyone who would
 rather have a registry name.
 
-What is missing:
+**`examples/custom_backbone.py` closes the first of these** — it wraps
+torchvision's ResNet-18, shows the cache key moving when the weights change,
+and registers a named subclass, all through ordinary `visbench.run()` calls on
+generated data that needs no download.
+
+What remains:
 
 | gap | note |
 | --- | --- |
-| No `examples/` script | `CustomBackbone` appears in the README and in tests, and nowhere in `examples/` — while all thirteen probes have one. The convention here is that a capability is proved by an example on real weights |
-| Not reachable from the CLI | `--backbone` is a registry name, and a string cannot carry an `nn.Module`. Registering a named `BaseBackbone` subclass is the workaround |
+| Not reachable from the CLI | `--backbone` is a registry name, and a string cannot carry an `nn.Module`. Registering a named `BaseBackbone` subclass is the workaround, and the example demonstrates it |
 | Fine-tuning does not apply | `finetune_blocks` is DINOv2-only by design and raises elsewhere |
 
-The example is the cheap one and probably comes first: it closes a
-documented-but-undemonstrated gap, and the project's own rule is that the toy
-backbones in `tests/conftest.py` cannot show a training-dynamics problem, so a
-capability wants a real run behind it.
+**One thing the example measured that was not previously written down**: a
+wrapped model is constructed *before* `run()` seeds, while a registry name is
+constructed *after*, so a trained probe's head is initialised from a different
+RNG state on the two paths. Measured on bit-identical features (max absolute
+difference 0.0), classification top-1 came out 0.9125 wrapped against 0.9062
+named — and each path's own spread across five seeds is 0.0062, so this is RNG
+jitter rather than a cost of wrapping. The wrapped path is *perfectly*
+reproducible, which is the opposite of what the hazard sounds like. Zero-shot
+probes are identical bit for bit, since no head is fitted.
 
 ### If these are picked up, this order
 
 Ordered by cost against what they prevent, not by preference:
 
-1. **`examples/custom_backbone.py`** — hours, and closes a gap between what the
-   docs promise and what is demonstrated.
-2. **`visbench show`** — the only one of the three that guards a *silently
-   wrong number*, and the failure class it guards has been paid for twice.
-3. **The dataset bridges** — largest, and the folder path already covers most
-   of what they would buy.
+1. ~~**`examples/custom_backbone.py`**~~ — **done.** It closed a gap between
+   what the docs promised and what was demonstrated, and measuring it turned up
+   the RNG-position note above.
+2. ~~**`visbench show`**~~ — **done** in v0.9 (steps 9a-9d).
+3. **The dataset bridges** — the one that remains. Largest of the three, and
+   the folder path already covers most of what they would buy.
