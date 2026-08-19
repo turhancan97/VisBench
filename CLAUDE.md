@@ -142,7 +142,8 @@ covered the last three** — so `visbench show` is valid on *every* probe and
 `show_probes() == list_probes()` is asserted — and **9d added the rendered
 gallery**: one generated figure per probe in the README and on the docs site. See the build table and the five
 bullets in "decisions already paid for". The two remaining library-surface items
-are the **dataset bridges** and an **`examples/custom_backbone.py`**. Re-confirm what is wanted before starting anything; do
+are the **dataset bridges** alone — `examples/custom_backbone.py` is done
+(2026-08-19). Re-confirm what is wanted before starting anything; do
 not assume either backlog's order is a plan. **The one thread that was open — why `detection`
 alone fails to reproduce — is closed**: it is GPU non-determinism made visible
 by a discrete metric, it was never a bug, and detection reproduces to *three*
@@ -495,7 +496,8 @@ visbench/
                    whose answer is a choice among images, not a map; 9c)
   demo.py        generated shapes + CustomBackbone(resnet18) — `visbench demo`
   runner.py      visbench.run() — the one call the CLI wraps
-examples/        classify, retrieve, correspond, depth, normals, segment,
+examples/        custom_backbone (the escape hatch + the RNG note),
+                 classify, retrieve, correspond, depth, normals, segment,
                  segment_semantic, similarity, detect, edges, keypoints,
                  occlusion_edges, corners, save_probe (the local artifact),
                  push_probe (the Hub round trip; never uploads without --push),
@@ -725,6 +727,33 @@ designed up front; extend it the same way, from a case that already runs.
   was trained on ImageNet-1k *with labels*, so 0.9972 and 0.9947 are close to
   in-distribution recall. Do not read the retrieval gap against MAE as a
   measurement of transfer.
+
+- **`run()` seeds before it constructs a *name*, so a `CustomBackbone` is
+  constructed outside the seeded window — and that makes it more reproducible,
+  not less** (`examples/custom_backbone.py`, 2026-08-19). The standing bullet
+  below says to pass a backbone's name and take the object back off
+  `RunResult.backbone`. On the custom path that advice is unavailable: a
+  registry name cannot carry an `nn.Module`, so the caller must construct.
+
+  Measured on generated data with features that are **bit-identical** (max
+  absolute difference 0.0), classification top-1:
+
+  | path | seeds 0-4 | spread |
+  | --- | --- | --- |
+  | `CustomBackbone` | 0.9125 0.9125 0.9125 0.9187 0.9125 | 0.0062 |
+  | `run("resnet18")` | 0.9062 0.9125 0.9062 0.9062 0.9125 | 0.0063 |
+
+  **The wrapped path is perfectly reproducible**, and unchanged by RNG consumed
+  before `run()` is called — because construction happens *before* `set_seed`
+  rather than after it, so nothing the caller did can reach the head. The
+  between-path gap of 0.0062 is **the same size as each path's own seed-to-seed
+  spread**, so it is jitter rather than a cost of wrapping. Zero-shot probes are
+  identical bit for bit (retrieval 0.603730 both), since no head is fitted.
+
+  So a wrapped model's trained number is comparable with another number from the
+  same wrapped model, and not with a registered backbone's to the last decimal.
+  **Do not read this as "the custom path is unreliable"** — that is the
+  intuition it was written to correct.
 
 - **A recipe control was added, and it refuted half of an already-published
   claim** (10e, 2026-08-19). `sam_vitb16` is

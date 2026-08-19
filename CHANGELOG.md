@@ -11,6 +11,31 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Added
 
+- **`examples/custom_backbone.py` — the capability that was documented and
+  never demonstrated.** `CustomBackbone` appeared in the README and in tests and
+  nowhere in `examples/`, while all thirteen probes had one. It wraps
+  torchvision's ResNet-18, probes it through ordinary `visbench.run()` calls,
+  shows the cache key moving when the weights change, and registers a named
+  subclass — on generated data, so it needs no dataset and no download beyond a
+  45 MB core-dependency checkpoint.
+
+  **Measuring it turned up something not previously written down.** A wrapped
+  model is constructed *before* `run()` seeds; a registry name is constructed
+  *after*. So a trained probe's head is initialised from a different RNG state
+  on the two paths, from features that are otherwise bit-identical (max absolute
+  difference 0.0): classification top-1 0.9125 wrapped against 0.9062 named.
+  Each path's own spread across five seeds is 0.0062, **the same size**, so this
+  is RNG jitter and not a cost of wrapping — and the wrapped path is *perfectly*
+  reproducible, including under RNG consumed before `run()` is called, which is
+  the opposite of what the hazard sounds like. Zero-shot probes are identical
+  bit for bit, since no head is fitted.
+
+  Writing it also found three bugs in itself that only running it could show: a
+  `FeatureCache(str)` that mypy rejects, a `backbone.cache_key()` call that is a
+  string on the registered path, and a module returning pooled `(B, C)` where
+  the probe wants a conv map. **The rule that a capability wants a real run
+  behind it earned itself again.**
+
 - **`sam_vitb16`, a recipe control — and it refuted half of the entry below
   before either shipped.** `vit_base_patch16_224.sam_in1k` is the same
   architecture, pretraining set, labels and input normalisation as
