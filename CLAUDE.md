@@ -93,6 +93,12 @@ upside down** — see step 6f — v0.7.0 is the contributor-facing release that
 changes no number, and **v0.8.0 (2026-08-07) is the corner probe**, steps 8a and
 8b together.
 
+**10d is done and unreleased (2026-08-19).** `dino_vitb16` is registered *and
+measured*: the corpus is **eleven backbones, 143 records**, and the objective
+family is three wide. Its result is the single most important thing to read
+before quoting a board from this corpus — see the `dino_vitb16` bullet in
+"decisions already paid for", which also corrects the MAE counts 10b recorded.
+
 **v0.10.0 shipped on 2026-08-19.** It is steps 10a-10c and 11a: four
 backbones, 52 new corpus records, and the gallery on real photographs. It is on
 PyPI, tagged, released on GitHub, archived by Zenodo and verified out of the
@@ -219,8 +225,6 @@ Registered names — `visbench.list_backbones()`, `list_probes()`,
 backbones  dinov2_vits14, dinov2_vitb14, clip_vitb16, clip_vitb32,
            resnet18, resnet50, convnext_base, mae_vitb16, siglip_vitb16,
            supervised_vitb16, dino_vitb16 (+ CustomBackbone, unregistered)
-           — dino_vitb16 is REGISTERED BUT NOT MEASURED: the corpus is still
-             ten backbones, 130 records, until 10d runs it
 probes     classification, retrieval, correspondence, depth, surface_normal,
            generic_segmentation, semantic_segmentation, similarity, detection,
            edge, keypoints2d, occlusion_edge, corner
@@ -637,14 +641,19 @@ designed up front; extend it the same way, from a case that already runs.
   wins on mean angular error while DINOv2-B wins on the 11.25° threshold, so
   quoting one and dropping the other manufactures a result.
 
-- **`mae_vitb16` is first on six of the thirteen boards and last on four, and
+- **`mae_vitb16` is first on five of the thirteen boards and last on four, and
   this is the corpus finally demonstrating what the taxonomy claims** (10b,
-  2026-08-14). Read this before quoting any board. Over nine backbones MAE leads
-  all three low-level probes (edge 0.4982, keypoints2d 0.2626, corner 0.6669)
-  plus correspondence (0.3577), occlusion edges (0.3273) and surface normals
-  (27.52° mean) — and comes **ninth** on classification (0.9582), retrieval
-  (0.1883), semantic segmentation (0.3350) and mid-level similarity (0.6897).
-  No other backbone here is simultaneously best and worst.
+  2026-08-14; **counts updated at eleven backbones, 10d**). Read this before
+  quoting any board. MAE leads edge (0.4982), corner (0.6669), correspondence
+  (0.3577), occlusion edges (0.3273) and surface normals (27.52° mean) — and
+  comes **last** on classification (0.9582), retrieval (0.1883), semantic
+  segmentation (0.3350) and mid-level similarity (0.6897). It led keypoints2d
+  too until `dino_vitb16` took that board (0.2850 against 0.2626), which is why
+  this bullet says five rather than 10b's six: **a count over a corpus is a
+  fact about that corpus, not about the backbone**, and it moves when a column
+  is added. No other backbone here is simultaneously best and worst — though see
+  the `dino_vitb16` bullet for why that shape is not the price of low-level
+  strength.
 
   Before 10b the boards mostly reproduced one capacity ordering (DINOv2 > CLIP >
   ResNet on nearly everything), which made the three tiers look like a
@@ -716,14 +725,42 @@ designed up front; extend it the same way, from a case that already runs.
   in-distribution recall. Do not read the retrieval gap against MAE as a
   measurement of transfer.
 
-- **`dino_vitb16` completes an objective family, and the family is three wide
-  rather than two** (10d, registered 2026-08-19, **not yet measured**).
+- **`dino_vitb16` completes an objective family, and the answer is that
+  high-level structure comes from a semantic training signal rather than from
+  labels** (10d, 2026-08-19). The corpus is **eleven backbones, 143 records**,
+  thirteen groups all holding all eleven; the merge was purely additive.
   `vit_base_patch16_224.dino` is the same architecture and the same pretraining
   set as `mae_vitb16` and `supervised_vitb16` — 12 blocks, 768 wide, patch 16,
   one prefix token, `global_pool='token'`, ImageNet-1k — so the corpus now has
   three values of one variable instead of two. What the pair could not do is
   separate **"trained with labels" from "trained toward semantics"**; DINO is
   label-free and semantic, so it sits on whichever side that distinction falls.
+
+  **It sits with the supervised model, decisively.** On the two high-level
+  boards that are not saturated: retrieval `dino_vitb16` **0.9192** against
+  supervised 0.9947 and MAE **0.1883**, and semantic segmentation 0.5063
+  against 0.5791 and 0.3350. MAE is last of eleven on both, DINO fourth and
+  seventh. So a label-free objective that learns *categories* recovers nearly
+  everything labels buy, while one that learns *pixels* recovers almost none of
+  it — and the supervised/MAE pair could not tell those apart, because it moved
+  both at once. Part of the residual supervised margin is the in-distribution
+  caveat, since Imagenette's classes are ImageNet-1k wnids.
+
+  **The high-level sweep is three boards and a tie.** Supervised beats DINO on
+  detection by **0.0009** (0.1669 against 0.1660), which is under the ~1e-3
+  spread measured on that probe, so at the three decimals detection is quoted
+  to those rows are equal. Classification separates nothing either — nine of
+  eleven backbones are above 0.98. Do not report "supervised wins all four".
+
+  **DINO does not pay MAE's price at the other end, which is the second
+  finding.** MAE leads five boards and is last on four; DINO's worst placing
+  anywhere is **eighth of eleven**, and it takes two overall firsts —
+  mid-level similarity **0.9019**, beating the 0.8701 that had stood since v0.2,
+  and keypoints2d **0.2850**, taking that board off MAE — plus second on edge,
+  corner and correspondence. **The high-versus-low trade-off the MAE row looks
+  like it demonstrates is therefore not a law.** One objective is strong at both
+  ends, and any summary drawn from the nine-backbone corpus that reads MAE's
+  shape as "the price of low-level strength" is over-reading it.
 
   **The existing pair varies one and a half things, and this is worth stating
   rather than rounding away.** `augreg_in1k` normalises with mean/std 0.5 while
