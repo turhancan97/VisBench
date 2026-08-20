@@ -174,3 +174,60 @@ def test_the_tier_claim_is_reported_as_it_stands_not_as_hoped(script, capsys):
     out = capsys.readouterr().out
     assert "does NOT hold" in out
     assert "high_level pair by pair" in out, "a failing tier must show its pairs, not just a mean"
+
+
+def test_every_board_in_the_corpus_has_a_source(script):
+    """SOURCE_IMAGES is hand-written, so a new probe silently falls out of it."""
+    boards = script.load_boards(script.CORPUS)
+    assert set(boards) <= set(script.SOURCE_IMAGES), (
+        f"no SOURCE_IMAGES entry for {', '.join(sorted(set(boards) - set(script.SOURCE_IMAGES)))}"
+    )
+
+
+def test_sharing_images_is_not_what_makes_two_boards_agree(script):
+    """The VOC confound test, pinned as a finding.
+
+    `semantic_segmentation` and `generic_segmentation` read the *same 1449
+    images* at the same resolution through the same head; `detection` reads 600
+    different VOC frames. If shared pixels drove agreement, the identical-image
+    pair would be the strongest of the three VOC pairs. It is the weakest, and
+    `generic_segmentation`'s nearest neighbours are boards that read entirely
+    different datasets -- so the tier clustering is not an artefact of how the
+    corpus was assembled.
+    """
+    boards = script.load_boards(script.CORPUS)
+    pairs = script.agreement(boards)
+    same_images = pairs["generic_segmentation", "semantic_segmentation"]
+    assert same_images < pairs["detection", "semantic_segmentation"]
+    assert same_images < pairs["detection", "generic_segmentation"]
+
+    nearest = max(
+        (t for t in boards if t != "generic_segmentation"),
+        key=lambda t: pairs[tuple(sorted(("generic_segmentation", t)))],
+    )
+    assert script.SOURCE_IMAGES[nearest] != "VOC", (
+        f"generic_segmentation's nearest neighbour is {nearest}, which reads VOC too -- "
+        "the shared-images explanation would be back on the table"
+    )
+
+
+def test_imagenette_is_the_second_counterexample(script, capsys):
+    """Three boards on one corpus that barely agree at all.
+
+    classification, retrieval and correspondence all read Imagenette, and their
+    mean pairwise rho is far below the within-source average. Sharing a dataset
+    is plainly not sufficient for agreement, which is the independent check on
+    the VOC result above.
+    """
+    boards = script.load_boards(script.CORPUS)
+    pairs = script.agreement(boards)
+    imagenette = [t for t in boards if script.SOURCE_IMAGES[t] == "Imagenette"]
+    rhos = [
+        pairs[tuple(sorted((a, b)))]
+        for i, a in enumerate(sorted(imagenette))
+        for b in sorted(imagenette)[i + 1 :]
+    ]
+    assert sum(rhos) / len(rhos) < 0.3, "Imagenette's boards should not cohere"
+
+    script.report_sources(boards, script.load_levels(script.CORPUS))
+    assert "same images" in capsys.readouterr().out
