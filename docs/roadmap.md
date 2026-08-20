@@ -70,12 +70,16 @@ This is a multi-month roadmap, built one reviewed step at a time.
 - [x] **10a.** three more backbones — `TimmBackbone` learns to read a ViT, which
       added ConvNeXt-B, MAE ViT-B/16 and SigLIP-GAP ViT-B/16 in one change
 - [x] **10b.** the corpus at 13 probes x 9 backbones — 117 records, and the
-      first time the three tiers visibly separate: MAE is first on six boards
-      and last on four
+      first time the three tiers visibly separate: at nine backbones MAE was
+      first on six boards and last on four (five and three at twelve — a count
+      over a corpus is a fact about that corpus)
 - [x] **10c.** a supervised ViT-B/16 — the same architecture and the same
       pretraining set as MAE, differing only in objective, so the corpus gets
-      its first controlled experiment: 130 records, and the winner changes
-      almost exactly where the taxonomy says it should
+      its first controlled experiment: 130 records, and supervised takes every
+      high-level board while MAE takes every low-level one. The tidy version of
+      that claim — "the winner changes exactly at the tier boundary" — is wrong,
+      because mid-level similarity crosses it; count tiers from `record.level`,
+      not from which boards feel semantic
 - [x] **11a.** the documentation gallery drawn on real photographs — Open
       Images frames under a per-image licence check, rather than generated
       scenes
@@ -118,6 +122,15 @@ SigLIP-GAP ViT-B/16 through a `TimmBackbone` that now reads a ViT's own
 structure, then a supervised ViT-B/16 that turns the corpus into a controlled
 experiment. Thirteen probes against ten backbones, 130 records. The gallery
 moves to real photographs in the same release.
+
+**v0.11** — two more backbones *(done)*, and with them the corpus gets its
+controls: DINO ViT-B/16 completes an objective family three wide on one
+architecture and one pretraining set, and a SAM-trained ViT-B/16 varies only
+the *recipe*, supplying the denominator an objective gap has to be quoted
+against. Thirteen probes against twelve backbones, 156 records. The control
+refuted half of its own family's published claim on arrival. It also ships
+`examples/custom_backbone.py`, the escape hatch that had been documented and
+never demonstrated.
 
 **Next** — there is no committed next step. What follows is a candidate pool.
 

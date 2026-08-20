@@ -72,6 +72,8 @@ step is next rather than attempting the whole roadmap in one session.
 | 10b | The corpus at 13 probes x 9 backbones | done |
 | 10c | Supervised ViT-B/16: the corpus's first controlled experiment | done |
 | 11a | The gallery on real photographs, licence-checked | done |
+| 10d | `dino_vitb16`: the objective family becomes three wide | done |
+| 10e | `sam_vitb16`, a recipe control — the denominator an objective gap needs | done |
 
 **A closed step's full write-up lives in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md), not here.** That file is the archive
@@ -105,12 +107,22 @@ upside down** — see step 6f — v0.7.0 is the contributor-facing release that
 changes no number, and **v0.8.0 (2026-08-07) is the corner probe**, steps 8a and
 8b together.
 
-**10d and 10e are done and unreleased (2026-08-19).** `dino_vitb16` and
-`sam_vitb16` are registered *and* measured: the corpus is **twelve backbones,
-156 records**, the objective family is three wide, and it has a recipe control
-beside it — which refuted half of 10d's own published claim before it shipped. Its result is the single most important thing to read
-before quoting a board from this corpus — see the `dino_vitb16` bullet in
-"decisions already paid for", which also corrects the MAE counts 10b recorded.
+**v0.11.0 is prepared in the tree and is not on PyPI** (2026-08-20). It is
+steps 10d and 10e plus `examples/custom_backbone.py`: the corpus is **twelve
+backbones, 156 records**, the objective family is three wide, and it has a
+recipe control beside it — which refuted half of 10d's own published claim
+before either shipped. That result is the single most important thing to read
+before quoting a board from this corpus — see the `sam_vitb16` and
+`dino_vitb16` bullets in "decisions already paid for". **Uploading is the
+maintainer's to run**; the version is 0.11.0 here and 0.10.0 on PyPI until they
+do, which is the normal state of a release branch, not a mistake to fix.
+
+The release commit also corrected the published counts 10d and 10e moved and
+nobody re-counted: MAE is first on **five** boards and last on **three**, not
+six and four — it lost keypoints2d to `dino_vitb16` and `sam_vitb16`, and
+`sam_vitb16`'s 0.3339 semseg put it below MAE's 0.3350. The generated tables
+were right the whole time; only the prose around them was stale, which is the
+half no test reads.
 
 **v0.10.0 shipped on 2026-08-19.** It is steps 10a-10c and 11a: four
 backbones, 52 new corpus records, and the gallery on real photographs. It is on
@@ -595,17 +607,19 @@ designed up front; extend it the same way, from a case that already runs.
   wins on mean angular error while DINOv2-B wins on the 11.25° threshold, so
   quoting one and dropping the other manufactures a result.
 
-- **`mae_vitb16` is first on five of the thirteen boards and last on four, and
+- **`mae_vitb16` is first on five of the thirteen boards and last on three, and
   this is the corpus finally demonstrating what the taxonomy claims** (10b,
-  2026-08-14; **counts updated at eleven backbones, 10d**). Read this before
-  quoting any board. MAE leads edge (0.4982), corner (0.6669), correspondence
-  (0.3577), occlusion edges (0.3273) and surface normals (27.52° mean) — and
-  comes **last** on classification (0.9582), retrieval (0.1883), semantic
-  segmentation (0.3350) and mid-level similarity (0.6897). It led keypoints2d
-  too until `dino_vitb16` took that board (0.2850 against 0.2626), which is why
-  this bullet says five rather than 10b's six: **a count over a corpus is a
-  fact about that corpus, not about the backbone**, and it moves when a column
-  is added. No other backbone here is simultaneously best and worst — though see
+  2026-08-14; **counts re-read off the board at twelve backbones, 10e**). Read
+  this before quoting any board. MAE leads edge (0.4982), corner (0.6669),
+  correspondence (0.3577), occlusion edges (0.3273) and surface normals
+  (27.52° mean) — and comes **last** on classification (0.9582), retrieval
+  (0.1883) and mid-level similarity (0.6897), with semantic segmentation
+  (0.3350) now *eleventh* rather than last, because `sam_vitb16` scores 0.3339
+  beneath it. It led keypoints2d too until `dino_vitb16` (0.2850) and
+  `sam_vitb16` (0.2696) both passed it. **A count over a corpus is a fact about
+  that corpus, not about the backbone**: both of those counts moved without
+  MAE's features changing, which is why they are re-read off `LEADERBOARD.md`
+  rather than carried forward as prose. No other backbone here is simultaneously best and worst — though see
   the `dino_vitb16` bullet for why that shape is not the price of low-level
   strength.
 
@@ -770,8 +784,9 @@ designed up front; extend it the same way, from a case that already runs.
 
 - **`dino_vitb16` completes an objective family, and the answer is that
   high-level structure comes from a semantic training signal rather than from
-  labels** (10d, 2026-08-19). The corpus is **eleven backbones, 143 records**,
-  thirteen groups all holding all eleven; the merge was purely additive.
+  labels** (10d, 2026-08-19). 10d took the corpus to **eleven backbones, 143
+  records** — twelve and 156 once 10e's control landed — thirteen groups all
+  holding every column; the merge was purely additive.
   `vit_base_patch16_224.dino` is the same architecture and the same pretraining
   set as `mae_vitb16` and `supervised_vitb16` — 12 blocks, 768 wide, patch 16,
   one prefix token, `global_pool='token'`, ImageNet-1k — so the corpus now has
@@ -781,7 +796,7 @@ designed up front; extend it the same way, from a case that already runs.
 
   **It sits with the supervised model, and the claim rests on retrieval
   alone.** `dino_vitb16` scores **0.9192** mAP against supervised 0.9947 and
-  MAE **0.1883** — MAE last of eleven, DINO fourth. So a label-free objective
+  MAE **0.1883** — MAE last of twelve, DINO fifth. So a label-free objective
   that learns *categories* recovers nearly everything labels buy, while one
   that learns *pixels* recovers almost none of it, which the supervised/MAE
   pair could not tell apart because it moved both at once. Part of the residual
@@ -799,12 +814,12 @@ designed up front; extend it the same way, from a case that already runs.
   **The high-level sweep is three boards and a tie.** Supervised beats DINO on
   detection by **0.0009** (0.1669 against 0.1660), which is under the ~1e-3
   spread measured on that probe, so at the three decimals detection is quoted
-  to those rows are equal. Classification separates nothing either — nine of
-  eleven backbones are above 0.98. Do not report "supervised wins all four".
+  to those rows are equal. Classification separates nothing either — eleven of
+  twelve backbones are above 0.98. Do not report "supervised wins all four".
 
   **DINO does not pay MAE's price at the other end, which is the second
-  finding.** MAE leads five boards and is last on four; DINO's worst placing
-  anywhere is **eighth of eleven**, and it takes two overall firsts —
+  finding.** MAE leads five boards and is last on three; DINO's worst placing
+  anywhere is **ninth of twelve**, and it takes two overall firsts —
   mid-level similarity **0.9019**, beating the 0.8701 that had stood since v0.2,
   and keypoints2d **0.2850**, taking that board off MAE — plus second on edge,
   corner and correspondence. **The high-versus-low trade-off the MAE row looks
@@ -1599,8 +1614,8 @@ the measurement behind it, under the step named in brackets.**
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite is **1638 tests** and green on 2026-08-19, after steps 10c and
-11a, as
+fast suite is **1640 tests** and green on 2026-08-20, after steps 10d and
+10e and the v0.11.0 release prep, as
 are all three lint steps and the `-W` docs build — all five run on `dgx1` via
 `sbatch`, since `.venv/bin/python` does not resolve on a `dgxh100` login shell.
 `uv lock --check` was green on 2026-08-06 and no dependency has moved since; the
@@ -2038,7 +2053,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 1638 fast tests
+pytest                                              # 1640 fast tests
 pytest -m slow                                      # 79, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/
