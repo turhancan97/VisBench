@@ -775,6 +775,48 @@ designed up front; extend it the same way, from a case that already runs.
   which is a saturated board rather than a duplicated checkpoint: the weights,
   cache keys and features are all distinct and a slow test pins that.
 
+- **The board clustering is not an artefact of shared datasets, and the check
+  is one the corpus already contained** (2026-08-20,
+  `analyse_board_correlates.py --section sources`). The obvious objection to
+  the tier result below: `detection` and `semantic_segmentation` correlate at
+  +0.804 and *both read VOC*, so the pairing might be about the images rather
+  than the task. Two things refute it.
+
+  **The identical-image pair is the weakest of the three VOC pairs.**
+  `semantic_segmentation` and `generic_segmentation` read the **same 1449
+  images** at the same resolution through the same head and schedule;
+  `detection` reads 600 different VOC frames.
+
+  | pair | rho | |
+  | --- | --- | --- |
+  | detection / semantic_segmentation | **+0.804** | different frames |
+  | detection / generic_segmentation | +0.720 | different frames |
+  | generic_segmentation / semantic_segmentation | **+0.538** | *same 1449 images* |
+
+  Shared pixels as the cause predicts the opposite ordering. And
+  `generic_segmentation`'s five nearest neighbours anywhere in the corpus —
+  surface_normal +0.881, depth +0.867, corner +0.853, occlusion_edge +0.832,
+  edge +0.769 — read **NYUv2 and Taskonomy**, not VOC.
+
+  **Imagenette is the second, independent counterexample.** `classification`,
+  `retrieval` and `correspondence` all read it and average **+0.128** — the
+  lowest within-source figure in the corpus. Sharing a dataset is plainly not
+  sufficient for agreement.
+
+  **What the pooled numbers do say, and it is a real caveat.** Within-source
+  agreement is +0.634 against +0.345 across sources, which is *comparable* to
+  the tier split (+0.594 against +0.304). So dataset is about as good a
+  predictor as tier — but that is carried by Taskonomy (6 pairs, +0.816) and
+  NYUv2 (1 pair, +0.902), which are groups of dense geometric boards that
+  would be expected to agree whatever they read. Neither grouping is the real
+  structure; **what a board's target asks for** is, which is why
+  `generic_segmentation` sits with the resolution-driven dense boards and
+  `semantic_segmentation` does not.
+
+  `SOURCE_IMAGES` is hand-written because the records cannot supply it —
+  Imagenette, NYUv2 and the staged corner frames are **all called `val`** in
+  the `dataset` field, so grouping on it would merge boards sharing nothing.
+
 - **The high-level tier does not cohere at twelve backbones, and it is two
   clusters rather than one loose one** (2026-08-20,
   `analyse_board_correlates.py --section agreement`). The taxonomy's claim,
@@ -1716,7 +1758,7 @@ the measurement behind it, under the step named in brackets.**
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite is **1652 tests** and green on 2026-08-20, after the v0.11.0
+fast suite is **1655 tests** and green on 2026-08-20, after the v0.11.0
 release and the board-correlate analyses, as
 are all three lint steps and the `-W` docs build — all five run on `dgx1` via
 `sbatch`, since `.venv/bin/python` does not resolve on a `dgxh100` login shell.
@@ -2155,7 +2197,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 1652 fast tests
+pytest                                              # 1655 fast tests
 pytest -m slow                                      # 79, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/

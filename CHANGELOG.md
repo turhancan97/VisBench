@@ -11,6 +11,22 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Added
 
+- **The board clustering survives a shared-dataset audit**
+  (`--section sources`). The obvious objection to the tier result below is that
+  `detection` and `semantic_segmentation` correlate at +0.804 and both read
+  VOC. Two things in the corpus refute it. `semantic_segmentation` and
+  `generic_segmentation` read the **same 1449 images** through the same head
+  and agree *least* of the three VOC pairs (+0.538, against +0.804 and +0.720
+  for pairs reading different frames), and `generic_segmentation`'s nearest
+  neighbours are NYUv2 and Taskonomy boards. Independently, the three probes
+  sharing Imagenette average **+0.128** — sharing a dataset is not sufficient
+  for agreement.
+
+  Pooled, within-source agreement is +0.634 against +0.345 across, comparable
+  to the tier split — but that is carried by groups of dense geometric boards
+  that would agree whatever they read. Neither dataset nor tier is the real
+  structure; what the target asks for is.
+
 - **Boards correlated against each other, and the high-level tier does not
   survive it.** `analyse_board_correlates.py --section agreement` ranks every
   board against every other and averages within and across tiers, which is the

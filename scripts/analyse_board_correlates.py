@@ -115,6 +115,35 @@ STRUCTURE: dict[str, Structure] = {
 }
 
 
+#: The image corpus each board reads, for telling a shared-data effect apart
+#: from a shared-capability one.
+#:
+#: Hand-written because the records cannot supply it: three unrelated datasets
+#: are all called ``val`` in the ``dataset`` field (Imagenette, NYUv2 and the
+#: staged Taskonomy corner frames), so grouping on that would merge boards that
+#: share nothing.
+#:
+#: Only ``semantic_segmentation`` and ``generic_segmentation`` read the *same
+#: 1449 images*; the rest of a group shares a corpus, not a split. That
+#: distinction is what makes the VOC trio worth reading pair by pair rather
+#: than as a mean.
+SOURCE_IMAGES: dict[str, str] = {
+    "semantic_segmentation": "VOC",
+    "generic_segmentation": "VOC",
+    "detection": "VOC",
+    "classification": "Imagenette",
+    "retrieval": "Imagenette",
+    "correspondence": "Imagenette",
+    "depth": "NYUv2",
+    "surface_normal": "NYUv2",
+    "edge": "Taskonomy",
+    "keypoints2d": "Taskonomy",
+    "occlusion_edge": "Taskonomy",
+    "corner": "Taskonomy",
+    "similarity": "NIGHTS",
+}
+
+
 def ranks(values: dict[str, float]) -> dict[str, int]:
     """Rank 1 is the best score. Ties take their first position, not a mean.
 
@@ -299,6 +328,60 @@ def report_agreement(boards: dict[str, dict[str, float]], levels: dict[str, str]
         print(f"  {rho:+.3f}  {a} / {b}  ({tag})")
 
 
+def report_sources(boards: dict[str, dict[str, float]], levels: dict[str, str]) -> None:
+    """Is a cluster of boards a shared capability, or just shared images?
+
+    A fair question to ask of any agreement result here, because the probes do
+    not each have their own dataset -- three read VOC and three read Imagenette.
+    If sharing pixels were what made two boards agree, the tier findings would
+    be an artefact of how the corpus was assembled.
+
+    The decisive comparison is inside VOC and needs no new run: semantic and
+    generic segmentation read the *same 1449 images* at the same resolution
+    through the same head, while detection reads 600 different VOC frames.
+    Shared pixels as the cause predicts the identical-image pair is the
+    strongest of the three.
+    """
+    pairs = agreement(boards)
+    within: dict[str, list[float]] = defaultdict(list)
+    across: list[float] = []
+    for (a, b), rho in pairs.items():
+        if SOURCE_IMAGES[a] == SOURCE_IMAGES[b]:
+            within[SOURCE_IMAGES[a]].append(rho)
+        else:
+            across.append(rho)
+
+    print("\n=== do boards agree because they read the same images? ===")
+    pooled = [rho for group in within.values() for rho in group]
+    for source in sorted(within):
+        group = within[source]
+        print(f"  within {source:11s} {sum(group) / len(group):+.3f}  ({len(group):2d} pairs)")
+    print(f"  within any source   {sum(pooled) / len(pooled):+.3f}  ({len(pooled):2d} pairs)")
+    print(f"  across sources      {sum(across) / len(across):+.3f}  ({len(across):2d} pairs)")
+
+    print("\n  the VOC trio, where two boards read the *same* 1449 images:")
+    voc = sorted(t for t in boards if SOURCE_IMAGES[t] == "VOC")
+    for i, a in enumerate(voc):
+        for b in voc[i + 1 :]:
+            same = (
+                "<- same images"
+                if {a, b} == {"semantic_segmentation", "generic_segmentation"}
+                else ""
+            )
+            print(f"    {pairs[a, b]:+.3f}  {a} ({levels[a]}) / {b} ({levels[b]})  {same}")
+
+    # The clincher, and the reason this section exists at all: rank the
+    # identical-image board's neighbours. If shared pixels drove agreement its
+    # VOC siblings would be at the top of this list.
+    probe = "generic_segmentation"
+    print(f"\n  what {probe} agrees with, best first (it reads VOC):")
+    neighbours = sorted(
+        ((pairs[tuple(sorted((probe, t)))], t) for t in boards if t != probe), reverse=True
+    )
+    for rho, task in neighbours[:6]:
+        print(f"    {rho:+.3f}  {task:24s} {levels[task]:11s} {SOURCE_IMAGES[task]}")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--corpus", type=Path, default=CORPUS)
@@ -319,10 +402,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--section",
-        choices=("structure", "agreement", "all"),
+        choices=("structure", "agreement", "sources", "all"),
         default="all",
         help="structure: boards against backbone properties. agreement: boards "
-        "against each other, and the tier claim that rests on it.",
+        "against each other, and the tier claim that rests on it. sources: "
+        "whether agreement is really about sharing a dataset.",
     )
     args = parser.parse_args(argv)
 
@@ -346,6 +430,8 @@ def main(argv: list[str] | None = None) -> int:
         report(boards, args.webli, args.board)
     if args.section in ("agreement", "all") and args.board is None:
         report_agreement(boards, load_levels(args.corpus))
+    if args.section in ("sources", "all") and args.board is None:
+        report_sources(boards, load_levels(args.corpus))
     return 0
 
 

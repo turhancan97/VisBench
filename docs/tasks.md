@@ -48,6 +48,15 @@ capability, and a mean over them describes nothing. Read them individually,
 and note that `semantic_segmentation` behaves like `detection` rather than
 like the two boards it shares a name with.
 
+This clustering is **not** an artefact of which images each probe reads, which
+is the first thing to suspect since `detection` and `semantic_segmentation`
+both run on VOC. `semantic_segmentation` and `generic_segmentation` read the
+*same 1449 images* through the same head, and they agree **least** of the three
+VOC pairs (+0.538, against +0.804 and +0.720 for pairs that read different
+frames). `generic_segmentation`'s nearest neighbours are `surface_normal`,
+`depth` and `corner` — NYUv2 and Taskonomy. And the three probes that share
+Imagenette average +0.128, the lowest figure of any shared corpus here.
+
 Two caveats. This is n=12, so the coefficients are wide. And it is a statement
 about *this corpus*: at nine backbones the high-level tier did cohere (+0.497
 against +0.340), and what changed it was adding three backbones that differ
