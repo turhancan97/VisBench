@@ -9,6 +9,35 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+### Added
+
+- **`scripts/analyse_board_correlates.py`, and the answer to what the semantic
+  segmentation board actually ranks by.** Step 10e showed that board cannot
+  separate training objectives — a supervised backbone lands within 0.0011 mIoU
+  of a pixel-reconstruction one — and left "then what does it separate?" open.
+  The script correlates each board's ordering against the structural properties
+  of the backbones it ranked, using only records already in the corpus, so the
+  answer cost no GPU time.
+
+  **It is the only dense board that does not rank by feature resolution.** Every
+  other one scores between +0.73 and +0.96 Spearman against feature-grid area;
+  semantic segmentation is +0.545, which falls to +0.212 without DINOv2 and to
+  exactly 0.000 with the pretraining data held fixed.
+
+  **The control was already in the corpus.** `generic_segmentation` runs on the
+  same 1449 VOC images at the same resolution with the same linear head and
+  schedule, differing only in whether the target has 2 classes or 21 — and it
+  ranks by grid at +0.958. Same pixels, same probe, opposite behaviour, so this
+  is a property of what the target asks for rather than of the data or the
+  protocol.
+
+  What it rewards instead is weak: pretraining corpus size is the best single
+  correlate at +0.615, the highest of the thirteen boards, but within six
+  *identical* ViT-B/16s the spread is 0.3207 mIoU at only +0.314. **Nothing
+  published needs retracting** — every run used identical settings, so the
+  rankings are comparable. What changes is the reading. At twelve backbones the
+  coefficients have wide error bars, which is what `--drop` is for.
+
 ## [0.11.0] — 2026-08-20
 
 **Two more backbones, and with them the corpus stops being a set of comparisons

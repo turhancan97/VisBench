@@ -775,6 +775,57 @@ designed up front; extend it the same way, from a case that already runs.
   which is a saturated board rather than a duplicated checkpoint: the weights,
   cache keys and features are all distinct and a slow test pins that.
 
+- **The semantic segmentation board is the one dense board that does not rank
+  by feature resolution, and what it rewards instead is not any single
+  structural variable** (2026-08-20, `scripts/analyse_board_correlates.py`).
+  This closes the question 10e left open. That step showed the board cannot
+  separate training objectives — a supervised backbone lands within 0.0011 of a
+  pixel-reconstruction one — without saying what it *does* separate.
+
+  Spearman of each board's ranking against feature-grid area, over the twelve
+  backbones already in the corpus:
+
+  | board | rho vs grid |
+  | --- | --- |
+  | generic_segmentation | **+0.958** |
+  | surface_normal | +0.867 |
+  | corner | +0.860 |
+  | occlusion_edge | +0.853 |
+  | depth | +0.818 |
+  | edge | +0.734 |
+  | **semantic_segmentation** | **+0.545** |
+
+  And the +0.545 is carried by DINOv2, which has both the finest grid and the
+  largest pretraining corpus: **drop those two rows and it falls to +0.212**;
+  hold the pretraining data fixed (the eight IN1k backbones) and it is **exactly
+  0.000**. Width explains nothing anywhere on this board (-0.035).
+
+  **The control was already in the corpus, which is the part worth copying.**
+  `generic_segmentation` runs on the *same 1449 VOC images* at the same
+  resolution with the same linear head and the same schedule; the only thing
+  that differs is whether the target has 2 classes or 21. Grid +0.958 against
+  +0.545, pretraining size +0.238 against +0.615. Same pixels, same probe,
+  opposite behaviour — so this is a property of **what the target asks for**,
+  not of the dataset, the head or the protocol. No new run was needed to
+  establish it.
+
+  **What it tracks is weak and must be quoted as weak.** Pretraining corpus
+  size is the best single correlate at **+0.615**, the highest of all thirteen
+  boards, robust to the WebLI size assumption (+0.615 to +0.650) and to
+  dropping DINOv2 (+0.539). But within the six *identical* ViT-B/16s — same
+  shape, same width, same 196 tokens — it is only +0.314, and the spread there
+  is **0.3207 mIoU** (clip_vitb16 0.6546 down to sam_vitb16 0.3339), larger
+  than the spread across all four CNNs. Most of this board's variance is not
+  architectural at all.
+
+  **Nothing published needs retracting**: every run used identical settings, so
+  the rankings are comparable and the corpus is unaffected. What changes is the
+  *reading* — do not present this board as evidence about a training objective,
+  and do not assume a dense board ranks by resolution because the other six do.
+  **n=12, so these coefficients have wide error bars and the properties are
+  correlated with each other.** It is a lead sized for the corpus, not a proof;
+  `--drop` exists so the next person can check which conclusions survive.
+
 - **`dino_vitb16` completes an objective family, and the answer is that
   high-level structure comes from a semantic training signal rather than from
   labels** (10d, 2026-08-19). 10d took the corpus to **eleven backbones, 143
@@ -1607,8 +1658,8 @@ the measurement behind it, under the step named in brackets.**
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite is **1640 tests** and green on 2026-08-20, after steps 10d and
-10e and the v0.11.0 release prep, as
+fast suite is **1647 tests** and green on 2026-08-20, after the v0.11.0
+release and the semseg board analysis, as
 are all three lint steps and the `-W` docs build — all five run on `dgx1` via
 `sbatch`, since `.venv/bin/python` does not resolve on a `dgxh100` login shell.
 `uv lock --check` was green on 2026-08-06 and no dependency has moved since; the
@@ -2046,7 +2097,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 1640 fast tests
+pytest                                              # 1647 fast tests
 pytest -m slow                                      # 79, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/

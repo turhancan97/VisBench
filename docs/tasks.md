@@ -484,6 +484,30 @@ Ordered by `miou`, which **disagrees with `mean_acc`, `miou_per_image`, `pixel_a
 <sub>semantic_segmentation on VOC2012/val, protocol=visbench_semantic_seg, frozen [e14b47db]</sub>
 <!-- /visbench:board -->
 
+**What this board ranks by is not what the other dense boards rank by, and
+that is worth knowing before quoting it.** Correlate each board's ordering
+against the backbones' feature-grid area, over the twelve backbones in the
+corpus, and every other dense board comes out between +0.73 and +0.96 — a
+finer grid is most of what a dense probe rewards. Semantic segmentation is
+**+0.545**, and that much is carried by DINOv2, which has both the finest grid
+and the largest pretraining corpus: without those two rows it is +0.212, and
+with the pretraining data held fixed it is **0.000**.
+
+The control is already in this page. `generic_segmentation` runs on the *same
+1449 VOC images* at the same resolution with the same linear head and the same
+schedule, and differs only in whether the target has 2 classes or 21 — it
+ranks by grid at **+0.958**. Same pixels, same probe, opposite behaviour, so
+this is a property of the target rather than the data or the protocol.
+
+What it rewards instead is, weakly, pretraining breadth: corpus size is its
+best single correlate at +0.615, the highest of the thirteen boards. But
+within the six *identical* ViT-B/16 backbones the spread is 0.3207 mIoU with
+only a +0.314 correlation, so most of the variance is not structural. **Treat
+this board as evidence about representations, not about training objectives**
+— step 10e's recipe control showed it cannot separate those at all. Reproduce
+any of it with `scripts/analyse_board_correlates.py`; at twelve backbones the
+coefficients have wide error bars.
+
 **Report the linear head.** It is the default and the only one under which a
 difference between two backbones is a difference between two *feature maps*.
 The DPT head is probe3d's own choice and scores higher for everyone, so run
