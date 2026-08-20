@@ -1225,7 +1225,41 @@ still described in `CLAUDE.md` — only the superseded ones are here.
 attempt it, and do not assume a tag means a release went out; check
 [PyPI](https://pypi.org/project/visbench/) if it matters.
 
-**v0.9.0**, the release before v0.10.0:
+**v0.10.0**, the release before v0.11.0:
+
+Package version is `0.10.0`, and it is **on PyPI: uploaded 2026-08-19 at
+17:26 UTC**, wheel and sdist both (321 KB and 840 KB), tagged `v0.10.0` on merge
+commit `9f0b91e`, with a GitHub release created from that tag. **Verified the
+standing way**: the wheel downloaded from the JSON API, its SHA256 checked
+against PyPI's digest (`ac03455b…`), extracted, put *first* on `sys.path` and
+**imported**, with an assert on `visbench.__file__` so the editable checkout
+could not answer in its place. It reports `__version__ = "0.10.0"`,
+`SCHEMA_VERSION = 7`, `ARTIFACT_VERSION = 1`, thirteen probes, **ten**
+backbones with `supervised_vitb16` among them, and
+`show_probes() == list_probes()` read back through the import. Also confirmed
+through it: `get_probe("correspondence")` reports `threshold_units="pixel"` and
+`(1, 2, 5, 10)`, so v0.6.1's fix survives a fifth release, and METADATA puts
+`huggingface-hub` only under `hub` and `all`.
+
+**The tag and the wheel agree exactly, which the two previous releases could
+not say.** `v0.10.0` is on `9f0b91e` and the artifact was built from that
+commit, so what is installable is what is tagged. Tagging *before* building is
+what bought it, and it is the order to keep.
+
+**`main` is one commit ahead of the tag** — the one recording this paragraph,
+docs only, no code, landed after the upload. That is the same benign gap the
+last two releases had, and the third in a row, which is precisely the pattern
+that trains you to stop checking; it reaches PyPI with the next release. **Do
+not fix it by moving the tag**: a PyPI version can never be re-uploaded and the
+Zenodo archive is permanent, so a moved tag would disagree with both.
+
+**Zenodo archived it as version DOI `10.5281/zenodo.22016457`**, the fourth
+under the concept DOI, which is unchanged and remains the only one quoted
+anywhere. The release commit also stopped `CITATION.cff` and `.zenodo.json`
+saying "Twelve probes" — that text is what Zenodo archives permanently, no test
+reads it, and it had been one probe short since v0.8.0 shipped `corner`.
+
+**v0.9.0**, the release before it:
 
 Package version was `0.9.0`, and it was **on PyPI: uploaded 2026-08-14 at
 14:31 UTC**, wheel and sdist both (316 KB and 803 KB), tagged `v0.9.0` on merge
