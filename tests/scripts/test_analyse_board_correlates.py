@@ -107,3 +107,70 @@ def test_error_metrics_are_oriented_before_ranking(script):
     best = max(normals, key=lambda k: normals[k])
     assert normals[best] < 0, "an error metric should have been negated"
     assert best == "mae_vitb16", "mae_vitb16 has the lowest mean angular error in the corpus"
+
+
+def test_levels_come_from_the_records_not_the_task_name(script):
+    """`similarity` is the trap this reads from the corpus to avoid.
+
+    It is mid-level image similarity, deliberately distinct from high-level
+    retrieval, and counting it as high-level is a mistake that shipped here for
+    a commit. Pinned explicitly because a tier analysis keyed on the wrong
+    level produces a plausible number rather than an error.
+    """
+    levels = script.load_levels(script.CORPUS)
+    assert levels["similarity"] == "mid_level"
+    assert levels["retrieval"] == "high_level"
+    assert levels["semantic_segmentation"] == "high_level"
+    assert sorted(set(levels.values())) == ["high_level", "low_level", "mid_level"]
+
+
+def test_a_task_appearing_at_two_levels_is_refused(script, tmp_path):
+    """Two levels for one task would be averaged into both tiers silently."""
+    corpus = tmp_path / "c.jsonl"
+    corpus.write_text(
+        '{"task":"edge","level":"low_level","backbone":"a","metrics":{"edge_correlation":1}}\n'
+        '{"task":"edge","level":"mid_level","backbone":"b","metrics":{"edge_correlation":2}}\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="two levels"):
+        script.load_levels(corpus)
+
+
+def test_agreement_covers_every_unordered_pair_once(script):
+    boards = script.load_boards(script.CORPUS)
+    pairs = script.agreement(boards)
+    n = len(boards)
+    assert len(pairs) == n * (n - 1) // 2
+    assert all(a < b for a, b in pairs), "keys must be sorted, so lookup needs no ordering rule"
+
+
+def test_tier_summary_splits_within_from_across(script):
+    """A hand-checkable case: one tight tier, one loose one, and the mean between."""
+    levels = {"a": "high", "b": "high", "c": "low"}
+    pairs = {("a", "b"): 0.9, ("a", "c"): 0.1, ("b", "c"): 0.3}
+    within, across = script.tier_summary(pairs, levels)
+    assert within == {"high": pytest.approx(0.9)}
+    assert across == pytest.approx(0.2)
+    assert "low" not in within, "a tier with one member has no within-tier pair"
+
+
+def test_the_tier_claim_is_reported_as_it_stands_not_as_hoped(script, capsys):
+    """The high-level tier fails at twelve backbones, and the output must say so.
+
+    This pins a *finding*, not a preference: `classification`/`retrieval` and
+    `detection`/`semantic_segmentation` are two clusters that barely correlate
+    with each other, so the tier mean lands under the cross-tier mean. If a
+    future corpus changes that, this test should be updated deliberately rather
+    than the reporting being softened.
+    """
+    boards = script.load_boards(script.CORPUS)
+    levels = script.load_levels(script.CORPUS)
+    means, across = script.tier_summary(script.agreement(boards), levels)
+    assert means["high_level"] < across
+    assert means["mid_level"] > across
+    assert means["low_level"] > across
+
+    script.report_agreement(boards, levels)
+    out = capsys.readouterr().out
+    assert "does NOT hold" in out
+    assert "high_level pair by pair" in out, "a failing tier must show its pairs, not just a mean"

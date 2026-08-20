@@ -13,6 +13,48 @@ run behind it cannot disagree.
 For the ranking rules — which records may sit in one table at all — see
 [the leaderboard](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md).
 
+## The three tiers do not all cohere, and "high-level" is the one that does not
+
+The probes are grouped into high-, mid- and low-level tiers following
+[Chen, Marks & Cheng](https://arxiv.org/abs/2411.17474), and the natural
+reading is that probes in one tier measure related things. Over the twelve
+backbones in the corpus, that holds for two tiers out of three.
+
+Ranking each board against every other and averaging within and across tiers:
+
+| | mean rho |
+| --- | --- |
+| within low-level | **+0.825** |
+| within mid-level | **+0.666** |
+| within high-level | **+0.296** |
+| across tiers | +0.304 |
+
+High-level sits *below* the cross-tier average, and the mean hides why. It is
+not uniformly loose — it is **two tight pairs that ignore each other**:
+
+| pair | rho |
+| --- | --- |
+| detection / semantic_segmentation | **+0.804** |
+| classification / retrieval | **+0.769** |
+| classification / detection | +0.140 |
+| classification / semantic_segmentation | +0.140 |
+| detection / retrieval | −0.035 |
+| retrieval / semantic_segmentation | −0.042 |
+
+Image-level categorisation on one side, localised prediction on VOC on the
+other, and nothing linking them. So **do not average a backbone's high-level
+results into one figure of merit** — the four boards are not measuring one
+capability, and a mean over them describes nothing. Read them individually,
+and note that `semantic_segmentation` behaves like `detection` rather than
+like the two boards it shares a name with.
+
+Two caveats. This is n=12, so the coefficients are wide. And it is a statement
+about *this corpus*: at nine backbones the high-level tier did cohere (+0.497
+against +0.340), and what changed it was adding three backbones that differ
+only in training objective and recipe. Reproduce or re-test any of it with
+[`scripts/analyse_board_correlates.py`](https://github.com/turhancan97/VisBench/blob/main/scripts/analyse_board_correlates.py)
+`--section agreement`.
+
 ## Classification and retrieval
 
 The two probes that need only a labelled image folder.

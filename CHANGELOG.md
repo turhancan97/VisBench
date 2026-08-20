@@ -11,6 +11,36 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Added
 
+- **Boards correlated against each other, and the high-level tier does not
+  survive it.** `analyse_board_correlates.py --section agreement` ranks every
+  board against every other and averages within and across tiers, which is the
+  taxonomy's own claim stated as a number. Two tiers hold and one does not:
+  low-level +0.825, mid-level +0.666, **high-level +0.296 against a cross-tier
+  +0.304**.
+
+  **The mean hides the shape.** High-level is not uniformly loose, it is two
+  tight pairs that ignore each other — `detection`/`semantic_segmentation` at
+  +0.804 and `classification`/`retrieval` at +0.769, with all four pairs
+  between them from −0.042 to +0.140. Image-level categorisation on one side,
+  localised VOC prediction on the other. A failing tier therefore prints pair
+  by pair rather than only its mean, because a uniformly loose tier would
+  question the probes while two clusters question the tier.
+
+  It also explains the semantic segmentation result below: that board's
+  nearest neighbour anywhere in the corpus is `detection`, not the semantic
+  boards it shares a tier with.
+
+  **What broke it was a controlled axis, not more rows.** At nine backbones
+  every tier cohered (high-level +0.497). The three added since are all
+  ViT-B/16 on ImageNet-1k differing only in objective and recipe, and the tier
+  stopped cohering exactly when the corpus stopped varying only capacity. The
+  n=9 column reproduces a previous ad-hoc analysis to three decimals, which is
+  the check that this measures what that measured.
+
+  **This is not the taxonomy being wrong** — it is the narrower claim that
+  those four boards measure one thing. Do not average a backbone's high-level
+  results into a figure of merit. n=12, so the coefficients are wide.
+
 - **`scripts/analyse_board_correlates.py`, and the answer to what the semantic
   segmentation board actually ranks by.** Step 10e showed that board cannot
   separate training objectives — a supervised backbone lands within 0.0011 mIoU
