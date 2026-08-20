@@ -318,112 +318,51 @@ anywhere. The release commit also stopped `CITATION.cff` and `.zenodo.json`
 saying "Twelve probes" — that text is what Zenodo archives permanently, no test
 reads it, and it had been one probe short since v0.8.0 shipped `corner`.
 
-The paragraph below describes 0.9.0, the previous release.
+**Releasing — the standing rules, learned across v0.6.0 through v0.10.0.** The
+release-by-release detail is in [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md),
+under "Release history"; what recurs is:
 
-Package version was `0.9.0`, and it was **on PyPI: uploaded 2026-08-14 at
-14:31 UTC**, wheel and sdist both (316 KB and 803 KB), tagged `v0.9.0` on merge
-commit `7816517`, with a GitHub release created from that tag. **Verified the
-standing way**: the wheel downloaded, its SHA256 checked against PyPI's digest
-(`7334297d…`), extracted, put *first* on `sys.path` and **imported**, with an
-assert on `visbench.__file__` so the editable checkout could not answer in its
-place. It reports `__version__ = "0.9.0"`, `SCHEMA_VERSION = 7`,
-`ARTIFACT_VERSION = 1`, thirteen probes, six backbones, and
-`show_probes() == list_probes()` read back *through the import* — which is the
-only way to check 0.9.0's actual content, since its release is a command and a
-package rather than a number. Also confirmed through it: `get_probe(
-"correspondence")` still reports `threshold_units="pixel"`, so v0.6.1's fix
-survives a fourth release, and `DetectionTask.probe_state()` carries `grid_hw`,
-which is 9a's fix.
+- **Tag before building**, so the artifact is built from the tagged commit.
+  v0.10.0 is the first release whose tag and wheel agree exactly, and that is
+  what bought it.
+- **Never move a tag to close a gap.** A PyPI version can never be re-uploaded
+  and a Zenodo archive is permanent, so a moved tag would disagree with both.
+  Three releases running have had `main` one docs-only commit ahead of the tag;
+  that gap reaches PyPI with the next release, and is precisely the benign
+  pattern that trains you to stop checking.
+- **Clear `dist/` first.** `twine upload dist/*` uploads everything in the
+  directory, so a stale artifact from the previous release is attempted too,
+  PyPI refuses a version that already exists, and twine aborts the batch —
+  failing on the *old* version before it reaches the new one, which reads as a
+  problem with the new one.
+- **Keep twine current.** Hatchling emits `Metadata-Version: 2.5`, which twine
+  6.2.0 rejects as "not a valid metadata version" — the builder outran the
+  checker, and `pip install -U twine` (7.0.0) is the fix; PyPI's server accepts
+  2.5 without complaint. Metadata 2.5 also writes environment markers with
+  **single** quotes (`extra == 'hub'`) where earlier versions used double, so a
+  check keyed on `extra == "hub"` silently matches nothing and reports every
+  extra as empty — which looks exactly like the extras having lost their
+  dependencies. Match either quote.
+- **Verify out of the published wheel, by import.** Download it from the JSON
+  API, check its SHA256 against PyPI's digest, extract it, put it *first* on
+  `sys.path` and **import** it, with an assert on `visbench.__file__` so the
+  editable checkout cannot answer in its place. That last step is the one worth
+  copying: without it the check passes on a machine where the package is
+  already installed, whatever the wheel contains.
+- **When a release's content is a default value, read it back through an
+  import, not out of the source text** — source inspection cannot rule out a
+  runtime override. That is how v0.6.1's `threshold_units="pixel"` was
+  confirmed, and it has been re-read through every release since.
+- **`.venv/` has no `pip`** — it is uv-managed, so `pip download` and
+  `python -m pip` both fail there. Fetch the artifact with `urllib` and unpack
+  it with `zipfile` (there is no `unzip` on this machine either). That keeps
+  `.venv/` matching what CI has, which is the reason not to install `pip` into
+  it to make the check easier.
+- **`pip download` can report "No matching distribution found" for a version
+  the JSON API already lists.** That is pip's cached index page, not a failed
+  upload; `--no-cache-dir` resolves it. Check the JSON API before concluding an
+  upload did not happen.
 
-**Two things about the 0.9.0 upload that will recur.** Hatchling now emits
-`Metadata-Version: 2.5`, which **twine 6.2.0 rejects** with "not a valid
-metadata version" — the builder outran the checker, and `pip install -U twine`
-(7.0.0) is the fix. PyPI's server accepts 2.5 without complaint. And metadata
-2.5 writes environment markers with **single** quotes (`extra == 'hub'`) where
-earlier versions used double; a check keyed on `extra == "hub"` silently
-matches nothing and reports every extra as empty, which looks exactly like the
-extras having lost their dependencies. Match either quote.
-
-**Clear `dist/` before building a release.** `twine upload dist/*` uploads
-everything in the directory, so a stale artifact from the previous release is
-attempted too, PyPI refuses a version that already exists, and twine aborts the
-batch — failing on the *old* version before it reaches the new one, which reads
-as a problem with the new one.
-
-The paragraph below describes 0.8.0, the previous release.
-
-Package version was `0.8.0`, and it was **on PyPI: uploaded 2026-08-07 at
-09:42 UTC**, wheel and sdist both (284 KB and 703 KB), tagged `v0.8.0` on
-`574e792`. **Verified the standing way on 2026-08-07** — the published wheel
-downloaded, its SHA256 checked against PyPI's digest, extracted, put *first* on
-`sys.path` and **imported**, with an assert on `visbench.__file__` so the
-editable checkout cannot answer in its place. That last step is the one worth
-copying: without it the check passes on a machine where the package is already
-installed, whatever the wheel contains. It reports `__version__ = "0.8.0"`,
-`SCHEMA_VERSION = 7`, `ARTIFACT_VERSION = 1`, **thirteen** probes with `corner`
-among them, six backbones, and `visbench.data.derived` exporting
-`ShiTomasiResponse`/`DerivedTargetDataset`. Two further reads *through the
-import*, since neither is visible in a version number: `get_probe(
-"correspondence")` still reports `threshold_units="pixel"` and thresholds
-`(1, 2, 5, 10)`, so v0.6.1's fix survived two releases; and METADATA puts
-`huggingface-hub` only under `hub` and `all`, never in the core requirements.
-The published README carries the concept DOI `10.5281/zenodo.21822684` and no
-other.
-
-**`.venv/` has no `pip`** — it is uv-managed, so `pip download` and
-`python -m pip` both fail there. Fetch the artifact from PyPI's JSON API with
-`urllib` and unpack it with `zipfile` (there is no `unzip` on this machine
-either). That keeps `.venv/` matching what CI has, which is the reason not to
-install `pip` into it to make the check easier.
-
-**The tag-versus-artifact gap recurred, in the other direction this time.**
-`main` is one commit ahead of `v0.8.0` — `48571bd`, the DOI badge fix — and that
-commit landed at 09:50 UTC, **eight minutes after the 09:42 upload**, so unlike
-v0.7.0 the extra commit is *not* in the wheel. It is one line of README, no
-code, and it reaches PyPI with the next release; its own commit message says so.
-Two consecutive releases have now had `main`, the tag and the wheel disagree
-benignly, which is precisely the direction that trains you to stop checking.
-**Do not fix either by moving a tag**: a PyPI version can never be re-uploaded
-and the Zenodo archive is permanent, so a moved tag would disagree with both.
-
-The upload before it was **v0.7.0 on 2026-08-06 at 15:57 UTC**, wheel and sdist
-(266 KB and 665 KB). Verified the way v0.6.1 was — the wheel downloaded, put on
-`sys.path` and *imported* — because v0.7.0's content is a command and a docs
-extra, neither of which a version number shows: `__version__ = "0.7.0"`, twelve
-probes, `demo` among the CLI's four commands, and `get_probe("correspondence")`
-still reporting `threshold_units="pixel"` so v0.6.1's fix survived the release.
-METADATA confirmed the `docs` extra (sphinx, furo, myst-parser,
-sphinx-copybutton) and `huggingface-hub` still only under `hub` and `all`. Its
-uploaded artifact was one commit *ahead* of the `v0.7.0` tag (`39e0495`), built
-from `main` after `7ee0d07`, so `git show v0.7.0:README.md` has no DOI and the
-published README does — harmless, and the first half of the pattern above.
-
-The upload before it was **v0.6.0 on 2026-08-02**
-([PyPI](https://pypi.org/project/visbench/)) — wheel and sdist both (276 KB and
-645 KB), tagged `v0.6.0` on merge commit `77986e9`. Verified by downloading the published wheel and reading
-`__version__ = "0.6.0"`, `SCHEMA_VERSION = 7`, `ARTIFACT_VERSION = 1` and the
-five modules v0.6.0 added (`results/render.py`, `results/leaderboard.py`,
-`hub/{__init__,artifact,remote}.py`) *out of it*, plus the METADATA confirming
-`huggingface-hub` appears only under the `hub` and `all` extras and never in the
-core requirements. Not by trusting the version number, which is the whole point
-of the exercise.
-
-**v0.6.1 followed the same day** — wheel and sdist both, tagged `v0.6.1` on
-merge commit `dc5bc40`, verified the same way *and one step further*. A version
-number cannot show what that release changed, because its entire content is a
-changed default: so the published wheel was put on `sys.path` and imported, and
-`get_probe("correspondence")` was constructed from it. It reports
-`threshold_units="pixel"`, `thresholds=(1, 2, 5, 10)` and a headline of
-`recall@5px`, with `"patch"` still accepted. **When a release's content is a
-default value, read it back through an import, not out of the source text** —
-source inspection cannot rule out a runtime override.
-
-One wrinkle worth knowing: `pip download` reported "No matching distribution
-found" for a freshly uploaded version while the JSON API already listed it. That
-is pip's cached index page, not a failed upload — `--no-cache-dir` resolved it.
-Check the JSON API before concluding an upload did not happen.
-
-Whether anything followed is not something this paragraph can know.
 **Publishing needs the maintainer's credentials and is theirs to
 run** — never attempt it, and do not assume a tag means a release went out, or
 that `main` matches what is installable; check

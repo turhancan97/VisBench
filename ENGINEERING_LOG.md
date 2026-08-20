@@ -1210,3 +1210,98 @@ predicts — DINOv2 > CLIP-16 > the 7x7 grids, matching all eight dense probes.
 - HF Hub integration for sharing pretrained probe heads and a public
   leaderboard, once there's enough task/backbone coverage for a leaderboard
   to be meaningful.
+
+---
+
+## Release history — what each upload verified
+
+Moved out of `CLAUDE.md` on 2026-08-20 with the v0.3 step write-ups, and for
+the same reason: every session was carrying five releases of upload detail.
+The rules these releases *established* are in `CLAUDE.md` under "Releasing";
+what follows is the record of each one, newest first. The current release is
+still described in `CLAUDE.md` — only the superseded ones are here.
+
+**Publishing needs the maintainer's credentials and is theirs to run.** Never
+attempt it, and do not assume a tag means a release went out; check
+[PyPI](https://pypi.org/project/visbench/) if it matters.
+
+**v0.9.0**, the release before v0.10.0:
+
+Package version was `0.9.0`, and it was **on PyPI: uploaded 2026-08-14 at
+14:31 UTC**, wheel and sdist both (316 KB and 803 KB), tagged `v0.9.0` on merge
+commit `7816517`, with a GitHub release created from that tag. **Verified the
+standing way**: the wheel downloaded, its SHA256 checked against PyPI's digest
+(`7334297d…`), extracted, put *first* on `sys.path` and **imported**, with an
+assert on `visbench.__file__` so the editable checkout could not answer in its
+place. It reports `__version__ = "0.9.0"`, `SCHEMA_VERSION = 7`,
+`ARTIFACT_VERSION = 1`, thirteen probes, six backbones, and
+`show_probes() == list_probes()` read back *through the import* — which is the
+only way to check 0.9.0's actual content, since its release is a command and a
+package rather than a number. Also confirmed through it: `get_probe(
+"correspondence")` still reports `threshold_units="pixel"`, so v0.6.1's fix
+survives a fourth release, and `DetectionTask.probe_state()` carries `grid_hw`,
+which is 9a's fix.
+
+
+**v0.8.0**, the release before it:
+
+Package version was `0.8.0`, and it was **on PyPI: uploaded 2026-08-07 at
+09:42 UTC**, wheel and sdist both (284 KB and 703 KB), tagged `v0.8.0` on
+`574e792`. **Verified the standing way on 2026-08-07** — the published wheel
+downloaded, its SHA256 checked against PyPI's digest, extracted, put *first* on
+`sys.path` and **imported**, with an assert on `visbench.__file__` so the
+editable checkout cannot answer in its place. That last step is the one worth
+copying: without it the check passes on a machine where the package is already
+installed, whatever the wheel contains. It reports `__version__ = "0.8.0"`,
+`SCHEMA_VERSION = 7`, `ARTIFACT_VERSION = 1`, **thirteen** probes with `corner`
+among them, six backbones, and `visbench.data.derived` exporting
+`ShiTomasiResponse`/`DerivedTargetDataset`. Two further reads *through the
+import*, since neither is visible in a version number: `get_probe(
+"correspondence")` still reports `threshold_units="pixel"` and thresholds
+`(1, 2, 5, 10)`, so v0.6.1's fix survived two releases; and METADATA puts
+`huggingface-hub` only under `hub` and `all`, never in the core requirements.
+The published README carries the concept DOI `10.5281/zenodo.21822684` and no
+other.
+
+
+**The tag-versus-artifact gap recurred, in the other direction this time.**
+`main` is one commit ahead of `v0.8.0` — `48571bd`, the DOI badge fix — and that
+commit landed at 09:50 UTC, **eight minutes after the 09:42 upload**, so unlike
+v0.7.0 the extra commit is *not* in the wheel. It is one line of README, no
+code, and it reaches PyPI with the next release; its own commit message says so.
+Two consecutive releases have now had `main`, the tag and the wheel disagree
+benignly, which is precisely the direction that trains you to stop checking.
+**Do not fix either by moving a tag**: a PyPI version can never be re-uploaded
+and the Zenodo archive is permanent, so a moved tag would disagree with both.
+
+The upload before it was **v0.7.0 on 2026-08-06 at 15:57 UTC**, wheel and sdist
+(266 KB and 665 KB). Verified the way v0.6.1 was — the wheel downloaded, put on
+`sys.path` and *imported* — because v0.7.0's content is a command and a docs
+extra, neither of which a version number shows: `__version__ = "0.7.0"`, twelve
+probes, `demo` among the CLI's four commands, and `get_probe("correspondence")`
+still reporting `threshold_units="pixel"` so v0.6.1's fix survived the release.
+METADATA confirmed the `docs` extra (sphinx, furo, myst-parser,
+sphinx-copybutton) and `huggingface-hub` still only under `hub` and `all`. Its
+uploaded artifact was one commit *ahead* of the `v0.7.0` tag (`39e0495`), built
+from `main` after `7ee0d07`, so `git show v0.7.0:README.md` has no DOI and the
+published README does — harmless, and the first half of the pattern above.
+
+The upload before it was **v0.6.0 on 2026-08-02**
+([PyPI](https://pypi.org/project/visbench/)) — wheel and sdist both (276 KB and
+645 KB), tagged `v0.6.0` on merge commit `77986e9`. Verified by downloading the published wheel and reading
+`__version__ = "0.6.0"`, `SCHEMA_VERSION = 7`, `ARTIFACT_VERSION = 1` and the
+five modules v0.6.0 added (`results/render.py`, `results/leaderboard.py`,
+`hub/{__init__,artifact,remote}.py`) *out of it*, plus the METADATA confirming
+`huggingface-hub` appears only under the `hub` and `all` extras and never in the
+core requirements. Not by trusting the version number, which is the whole point
+of the exercise.
+
+**v0.6.1 followed the same day** — wheel and sdist both, tagged `v0.6.1` on
+merge commit `dc5bc40`, verified the same way *and one step further*. A version
+number cannot show what that release changed, because its entire content is a
+changed default: so the published wheel was put on `sys.path` and imported, and
+`get_probe("correspondence")` was constructed from it. It reports
+`threshold_units="pixel"`, `thresholds=(1, 2, 5, 10)` and a headline of
+`recall@5px`, with `"patch"` still accepted. **When a release's content is a
+default value, read it back through an import, not out of the source text** —
+source inspection cannot rule out a runtime override.
