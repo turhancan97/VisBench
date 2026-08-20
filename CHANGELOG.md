@@ -9,6 +9,50 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+## [0.11.0] — 2026-08-20
+
+**Two more backbones, and with them the corpus stops being a set of comparisons
+and becomes a set of controls.** v0.10.0 made one comparison honest by holding
+architecture and pretraining set fixed across a supervised ViT-B/16 and an MAE
+one. v0.11.0 finishes the job at both ends: `dino_vitb16` adds a *third* value
+of that same variable, and `sam_vitb16` varies something else entirely — the
+training recipe — so that an objective gap finally has a denominator. Thirteen
+probes against **twelve** backbones, **156 records**, every one of the thirteen
+comparability groups holding all twelve. Both merges were purely additive, so
+every number v0.10.0 published is unchanged here.
+
+**The control refuted half of the family's own published claim, before either
+shipped.** `sam_vitb16` differs from `supervised_vitb16` only in how it was
+trained to the same objective — sharpness-aware minimisation with light
+augmentation against AugReg's AdamW with heavy augmentation. On semantic
+segmentation that recipe change costs 0.2452 mIoU, which is *larger than the
+entire spread across training objectives* on the same board: a supervised
+backbone trained with labels lands at 0.3339, within 0.0011 of the
+pixel-reconstruction one, and last of twelve. Whatever that board measures, it
+is not the objective. Retrieval survives the same test enormously — the
+objective effect there is 234x the recipe effect — so the family's high-level
+result stands on retrieval and no longer cites semantic segmentation.
+
+**The rule this leaves behind: quote an objective gap against the recipe gap on
+the same board, not against zero.** Seven of the thirteen boards have objective
+spreads under 3x their recipe gap. Nothing in a record says which, and no
+comparability rule can — the two runs are perfectly comparable, which is the
+point.
+
+**`dino_vitb16` answers what the supervised/MAE pair could not.** DINO is
+label-free and semantic, so it separates "trained with labels" from "trained
+toward semantics", which the earlier pair moved together. It scores 0.9192 mAP
+on retrieval against supervised's 0.9947 and MAE's 0.1883: a label-free
+objective that learns categories recovers nearly everything labels buy, while
+one that learns pixels recovers almost none of it. It also declines to pay
+MAE's price at the other end — its worst placing anywhere is ninth of twelve,
+and it takes mid-level similarity (0.9019, beating the 0.8701 that had stood
+since v0.2) and 2D keypoints (0.2850) outright. **The high-versus-low
+trade-off the MAE row looks like it demonstrates is therefore not a law.**
+
+Also here: `examples/custom_backbone.py`, closing a gap between a capability
+this project documented and one it had ever demonstrated.
+
 ### Added
 
 - **`examples/custom_backbone.py` — the capability that was documented and
@@ -122,6 +166,29 @@ so it stands on its own rather than assuming you have read the ones above it.
   spread this project has measured on detection, so those two rows are a tie at
   the three decimals detection is quoted to. Classification is saturated and
   separates nothing either.
+
+### Changed
+
+- **The published counts the two new backbones moved.** The generated tables
+  and `LEADERBOARD.md` were regenerated with each merge; the prose counting
+  them was not, so the README and `docs/tasks.md` still described a nine- or
+  ten-backbone board. MAE is first on **five** boards and last on **three**,
+  not six and four: it lost 2D keypoints to `dino_vitb16` (0.2850) and
+  `sam_vitb16` (0.2696), and it is no longer last on semantic segmentation
+  because `sam_vitb16` scores 0.3339 beneath it. Both corrections have the same
+  shape — **a count over a corpus is a fact about that corpus, not about the
+  backbone**, and neither number moved because MAE changed.
+- **`docs/roadmap.md` no longer claims the winner changes at the tier
+  boundary.** Mid-level similarity crosses it, so the tiers have to be counted
+  from `record.level` rather than from which boards feel semantic, and 10e
+  weakened the claim further by showing the semantic-segmentation board cannot
+  separate objectives at all.
+- **`CLAUDE.md` is split, and `ENGINEERING_LOG.md` is new.** The contributor
+  file had passed the 150k-character limit it is loaded under, at 203k, so the
+  closed v0.3 step write-ups and the superseded release histories moved to an
+  archive at the repo root while the rules they established stayed behind.
+  203k -> 132k. No user-facing behaviour changes; the file is internal.
+
 
 ## [0.10.0] — 2026-08-19
 
@@ -2529,7 +2596,8 @@ API philosophy.
 [#2]: https://github.com/turhancan97/VisBench/issues/2
 [#4]: https://github.com/turhancan97/VisBench/issues/4
 [#3]: https://github.com/turhancan97/VisBench/issues/3
-[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/turhancan97/VisBench/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/turhancan97/VisBench/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/turhancan97/VisBench/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/turhancan97/VisBench/compare/v0.7.0...v0.8.0
