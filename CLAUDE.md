@@ -775,6 +775,64 @@ designed up front; extend it the same way, from a case that already runs.
   which is a saturated board rather than a duplicated checkpoint: the weights,
   cache keys and features are all distinct and a slow test pins that.
 
+- **The high-level tier does not cohere at twelve backbones, and it is two
+  clusters rather than one loose one** (2026-08-20,
+  `analyse_board_correlates.py --section agreement`). The taxonomy's claim,
+  tested as "probes within a tier agree with each other more than probes across
+  tiers":
+
+  | | n=9 | n=12 |
+  | --- | --- | --- |
+  | within low_level | +0.761 | **+0.825** |
+  | within mid_level | +0.666 | **+0.666** |
+  | within high_level | +0.497 | **+0.296** |
+  | across tiers | +0.340 | **+0.304** |
+
+  At nine backbones every within-tier mean cleared the cross-tier mean. At
+  twelve, **high-level lands below it** — so the tier claim, stated that way,
+  now fails. Mid-level is identical to three decimals at both widths, which is
+  the stability that makes the high-level move worth believing.
+
+  **The mean is hiding the shape, and the shape is the finding.** High-level
+  is not uniformly loose; it is two tight pairs that ignore each other:
+
+  | pair | rho |
+  | --- | --- |
+  | detection / semantic_segmentation | **+0.804** |
+  | classification / retrieval | **+0.769** |
+  | classification / detection | +0.140 |
+  | classification / semantic_segmentation | +0.140 |
+  | detection / retrieval | -0.035 |
+  | retrieval / semantic_segmentation | -0.042 |
+
+  Image-level categorisation on one side, localised VOC prediction on the
+  other, and **nothing between them**. That is why the script prints a failing
+  tier pair by pair: a uniformly loose tier would mean the probes are noisy,
+  two clusters mean the *tier* is wrong, and a mean cannot tell you which.
+
+  It also explains the semseg result in the bullet below — that board's nearest
+  neighbour anywhere in the corpus is `detection`, not the two semantic boards
+  it shares a tier with.
+
+  **What broke it was adding a controlled axis, not adding rows.** The three
+  backbones between n=9 and n=12 are `supervised_vitb16`, `dino_vitb16` and
+  `sam_vitb16` — all ViT-B/16 on ImageNet-1k, differing only in objective and
+  recipe. The high-level tier survived every backbone that varied capacity and
+  stopped cohering the moment the corpus varied *objective* with everything
+  else held down.
+
+  **Do not read this as the taxonomy being wrong.** It comes from Chen, Marks &
+  Cheng and it is what this library is organised around; what fails is the
+  narrower claim that these four boards measure one thing. Treat `high_level`
+  as a folder, not as a quantity to average over. **n=12, so the coefficients
+  are wide** — `--drop` re-runs without any row, and the n=9 column above is
+  exactly `--drop supervised_vitb16 --drop dino_vitb16 --drop sam_vitb16`.
+
+  **The n=9 column reproduces a previous session's ad-hoc analysis to three
+  decimals** (0.50 / 0.76 / 0.67 / 0.34, recorded then and never committed),
+  which is the check that the script is measuring what that analysis measured
+  rather than something new that happens to look similar.
+
 - **The semantic segmentation board is the one dense board that does not rank
   by feature resolution, and what it rewards instead is not any single
   structural variable** (2026-08-20, `scripts/analyse_board_correlates.py`).
@@ -1658,8 +1716,8 @@ the measurement behind it, under the step named in brackets.**
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite is **1647 tests** and green on 2026-08-20, after the v0.11.0
-release and the semseg board analysis, as
+fast suite is **1652 tests** and green on 2026-08-20, after the v0.11.0
+release and the board-correlate analyses, as
 are all three lint steps and the `-W` docs build — all five run on `dgx1` via
 `sbatch`, since `.venv/bin/python` does not resolve on a `dgxh100` login shell.
 `uv lock --check` was green on 2026-08-06 and no dependency has moved since; the
@@ -2097,7 +2155,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 1647 fast tests
+pytest                                              # 1652 fast tests
 pytest -m slow                                      # 79, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/

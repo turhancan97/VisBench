@@ -160,6 +160,63 @@ def load_boards(corpus: Path) -> dict[str, dict[str, float]]:
     return dict(boards)
 
 
+def load_levels(corpus: Path) -> dict[str, str]:
+    """``{task: level}``, read from the records rather than from the task name.
+
+    **Count tiers from ``record.level``, never from which boards feel
+    semantic.** `similarity` is the trap: it is mid-level image similarity,
+    kept deliberately distinct from high-level retrieval, and counting it as
+    high-level is a mistake that shipped in this repository for a commit. The
+    record already carries the answer, so there is no reason to infer one.
+    """
+    levels: dict[str, str] = {}
+    for line in corpus.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        record = json.loads(line)
+        task, level = record["task"], record["level"]
+        if levels.setdefault(task, level) != level:
+            raise ValueError(f"{task} appears at two levels: {levels[task]} and {level}")
+    return levels
+
+
+def agreement(boards: dict[str, dict[str, float]]) -> dict[tuple[str, str], float]:
+    """Spearman between every pair of boards, keyed by a sorted task pair.
+
+    This is the question the structural correlations cannot answer: two boards
+    can both track resolution and still rank backbones differently, and two
+    boards that track nothing structural can still agree with each other. What
+    the taxonomy claims is that probes within a tier agree more than probes
+    across tiers, and only a board-against-board matrix tests that.
+    """
+    tasks = sorted(boards)
+    return {
+        (a, b): spearman(boards[a], boards[b]) for i, a in enumerate(tasks) for b in tasks[i + 1 :]
+    }
+
+
+def tier_summary(
+    pairs: dict[tuple[str, str], float], levels: dict[str, str]
+) -> tuple[dict[str, float], float]:
+    """Mean within-tier rho per level, and the single cross-tier mean.
+
+    The claim under test is *relative*: every within-tier mean should exceed
+    the cross-tier mean. An absolute value means little, because a corpus whose
+    backbones all sit on one capacity axis makes every board agree with every
+    other -- which is exactly what the n=6 version of this analysis found, and
+    why it concluded the tiers do not separate.
+    """
+    within: dict[str, list[float]] = defaultdict(list)
+    across: list[float] = []
+    for (a, b), rho in pairs.items():
+        if levels[a] == levels[b]:
+            within[levels[a]].append(rho)
+        else:
+            across.append(rho)
+    means = {level: sum(v) / len(v) for level, v in within.items()}
+    return means, sum(across) / len(across)
+
+
 def _property(name: str, backbones: list[str], webli: float) -> dict[str, float]:
     getters = {
         "tokens": lambda s: float(s.tokens),
@@ -190,6 +247,58 @@ def report(boards: dict[str, dict[str, float]], webli: float, only: str | None) 
         print(f"  {task:24s} vs grid {tok:+.3f}   vs pretraining size {dat:+.3f}")
 
 
+def report_agreement(boards: dict[str, dict[str, float]], levels: dict[str, str]) -> None:
+    """Boards against each other, and the tier claim that rests on it."""
+    pairs = agreement(boards)
+    n = len(next(iter(boards.values())))
+
+    print(f"\n=== do probes within a tier agree more than probes across tiers? (n={n}) ===")
+    means, across = tier_summary(pairs, levels)
+    for level in sorted(means):
+        count = sum(1 for a, b in pairs if levels[a] == levels[b] == level)
+        verdict = "above" if means[level] > across else "BELOW"
+        print(f"  within {level:11s} {means[level]:+.3f}  ({count:2d} pairs)  {verdict} cross-tier")
+    print(
+        f"  across tiers        {across:+.3f}  "
+        f"({sum(1 for a, b in pairs if levels[a] != levels[b]):2d} pairs)"
+    )
+    failing = sorted(level for level, mean in means.items() if mean <= across)
+    if not failing:
+        print("  -> every within-tier mean exceeds the cross-tier mean: the taxonomy holds here")
+    else:
+        print(
+            "  -> at least one tier is no tighter than chance pairing: the taxonomy does NOT hold"
+        )
+
+    # A tier mean averages over pairs, and an average cannot say whether a tier
+    # is uniformly loose or is two tight clusters ignoring each other. Those
+    # want different responses -- the first questions the probes, the second
+    # questions the tier -- so a failing tier prints its pairs, not just a mean.
+    for level in failing:
+        print(f"\n  {level} pair by pair, since its mean is what failed:")
+        members = sorted(t for t in boards if levels[t] == level)
+        for i, a in enumerate(members):
+            for b in members[i + 1 :]:
+                print(f"    {pairs[a, b]:+.3f}  {a} / {b}")
+
+    identical = [pair for pair, rho in pairs.items() if rho == 1.0]
+    print(f"\n  boards ranking identically: {len(identical)} of {len(pairs)}")
+    for a, b in identical:
+        print(f"    {a} == {b}")
+    if identical:
+        print("    (two probes producing one ordering measure one thing, whatever they are named)")
+
+    print("\n=== most and least agreement between boards ===")
+    ordered = sorted(pairs.items(), key=lambda kv: -kv[1])
+    for (a, b), rho in ordered[:5]:
+        tag = "same tier" if levels[a] == levels[b] else "cross"
+        print(f"  {rho:+.3f}  {a} / {b}  ({tag})")
+    print("  ...")
+    for (a, b), rho in ordered[-5:]:
+        tag = "same tier" if levels[a] == levels[b] else "cross"
+        print(f"  {rho:+.3f}  {a} / {b}  ({tag})")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--corpus", type=Path, default=CORPUS)
@@ -207,6 +316,13 @@ def main(argv: list[str] | None = None) -> int:
         type=float,
         default=1.0e10,
         help="assumed WebLI size, since it is not pinned to one public figure",
+    )
+    parser.add_argument(
+        "--section",
+        choices=("structure", "agreement", "all"),
+        default="all",
+        help="structure: boards against backbone properties. agreement: boards "
+        "against each other, and the tier claim that rests on it.",
     )
     args = parser.parse_args(argv)
 
@@ -226,7 +342,10 @@ def main(argv: list[str] | None = None) -> int:
         for board in boards.values():
             board.pop(backbone, None)
 
-    report(boards, args.webli, args.board)
+    if args.section in ("structure", "all"):
+        report(boards, args.webli, args.board)
+    if args.section in ("agreement", "all") and args.board is None:
+        report_agreement(boards, load_levels(args.corpus))
     return 0
 
 
