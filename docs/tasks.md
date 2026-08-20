@@ -652,13 +652,20 @@ The low-level tier and the geometric half of the mid-level one carry no such
 caveat, and are the boards worth quoting.
 
 **MAE is the sharpest tier separation this corpus has produced, and it is worth
-reading before trusting any single board.** `mae_vitb16` is **first on six of
-the thirteen** — all three low-level probes (edge, 2D keypoints, corner), plus
-correspondence, occlusion edges and surface normals — and **last or
-next-to-last on the four semantic ones**: ninth on classification (0.9582),
-ninth on retrieval (0.1883), ninth on semantic segmentation (0.3350) and ninth
-on mid-level similarity (0.6897). No other backbone here is simultaneously best
-and worst.
+reading before trusting any single board.** `mae_vitb16` is **first on five of
+the thirteen** — edge, corner, correspondence, occlusion edges and surface
+normals — and **last or next-to-last on the four semantic ones**: twelfth on
+classification (0.9582), twelfth on retrieval (0.1883), twelfth on mid-level
+similarity (0.6897) and eleventh on semantic segmentation (0.3350). No other
+backbone here is simultaneously best and worst.
+
+Two of those figures moved when the corpus widened from nine backbones to
+twelve, and how they moved is itself the lesson. MAE led **2D keypoints** and
+is third now, behind `dino_vitb16` (0.2850) and `sam_vitb16` (0.2696), so its
+count of firsts is five rather than six. And it is no longer last on semantic
+segmentation, because `sam_vitb16` lands beneath it at 0.3339. **A count over a
+corpus is a fact about that corpus, not about the backbone** — both numbers
+moved without MAE's features changing at all.
 
 Its correspondence win is not the grid. `mae_vitb16` scores 0.3577 against a
 `ceiling_recall@5px` of 0.3932, where `dinov2_vits14` scores 0.3049 against a

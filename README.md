@@ -20,17 +20,25 @@
 
 ---
 
-> **Status: v0.10.0.** Three backbone families (DINOv2, CLIP, timm CNNs and
+> **Status: v0.11.0.** Three backbone families (DINOv2, CLIP, timm CNNs and
 > ViTs) and **thirteen** probes run end-to-end across all three levels — high,
 > mid and low — including eight trained dense probes and an anchor-free
 > detection probe, from Python or from the `visbench` command line.
 >
-> **v0.10 is where the three levels separate.** The record corpus is thirteen
-> probes against **ten** backbones, and MAE ViT-B/16 comes first on six of those
-> boards and last on four — so "which backbone is best" is not a well-formed
-> question against it. A supervised ViT-B/16 sharing MAE's architecture *and*
-> pretraining set makes the comparison controlled: one variable, and the winner
-> changes almost exactly at the tier boundary.
+> **v0.11 is where the corpus gets its controls.** The record corpus is thirteen
+> probes against **twelve** backbones, and MAE ViT-B/16 comes first on five of
+> those boards and last on three — so "which backbone is best" is not a
+> well-formed question against it. Three of the twelve share an architecture and
+> a pretraining set and differ *only* in training objective, which is what lets
+> a gap be attributed to anything at all. A fourth differs from one of them only
+> in training **recipe**, and that is the one that supplies the denominator:
+> quote an objective gap against the recipe gap on the same board, not against
+> zero. On semantic segmentation the recipe gap is the larger of the two.
+>
+> **v0.10 separated the three levels** — `TimmBackbone` learned to read a ViT's
+> own structure, which added ConvNeXt-B, MAE and SigLIP-GAP in one change, and
+> the documentation gallery moved to real photographs under a per-image licence
+> check.
 >
 > **v0.9 makes every probe *visible*.** `visbench show` draws what a probe saw
 > beside what it predicted, for all thirteen, and each renderer states the
