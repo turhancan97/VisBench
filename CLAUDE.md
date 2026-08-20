@@ -107,15 +107,15 @@ upside down** — see step 6f — v0.7.0 is the contributor-facing release that
 changes no number, and **v0.8.0 (2026-08-07) is the corner probe**, steps 8a and
 8b together.
 
-**v0.11.0 is prepared in the tree and is not on PyPI** (2026-08-20). It is
-steps 10d and 10e plus `examples/custom_backbone.py`: the corpus is **twelve
-backbones, 156 records**, the objective family is three wide, and it has a
-recipe control beside it — which refuted half of 10d's own published claim
-before either shipped. That result is the single most important thing to read
-before quoting a board from this corpus — see the `sam_vitb16` and
-`dino_vitb16` bullets in "decisions already paid for". **Uploading is the
-maintainer's to run**; the version is 0.11.0 here and 0.10.0 on PyPI until they
-do, which is the normal state of a release branch, not a mistake to fix.
+**v0.11.0 shipped on 2026-08-20.** It is steps 10d and 10e plus
+`examples/custom_backbone.py`: the corpus is **twelve backbones, 156 records**,
+the objective family is three wide, and it has a recipe control beside it —
+which refuted half of 10d's own published claim before either shipped. That
+result is the single most important thing to read before quoting a board from
+this corpus — see the `sam_vitb16` and `dino_vitb16` bullets in "decisions
+already paid for". It is on PyPI, tagged, released on GitHub, archived by
+Zenodo and verified out of the wheel by import — see the release paragraph
+further down.
 
 The release commit also corrected the published counts 10d and 10e moved and
 nobody re-counted: MAE is first on **five** boards and last on **three**, not
@@ -298,50 +298,43 @@ run through `tail`: it buffers, so a run that is killed part-way leaves no log,
 and the Hub then has to be queried to find out what actually shipped — which
 happened, and is recoverable only because each record names its own pair.
 
-Package version is `0.10.0`, and it is **on PyPI: uploaded 2026-08-19 at
-17:26 UTC**, wheel and sdist both (321 KB and 840 KB), tagged `v0.10.0` on merge
-commit `9f0b91e`, with a GitHub release created from that tag. **Verified the
-standing way**: the wheel downloaded from the JSON API, its SHA256 checked
-against PyPI's digest (`ac03455b…`), extracted, put *first* on `sys.path` and
+Package version is `0.11.0`, and it is **on PyPI, uploaded 2026-08-20**, wheel
+and sdist both (321,900 and 860,881 bytes), tagged `v0.11.0` on merge commit
+`1f0908e`, with a GitHub release created from that tag. **Verified the standing
+way**: the wheel downloaded from the JSON API, its SHA256 checked against
+PyPI's digest (`0c7f3ec1…`), extracted, put *first* on `sys.path` and
 **imported**, with an assert on `visbench.__file__` so the editable checkout
-could not answer in its place. It reports `__version__ = "0.10.0"`,
-`SCHEMA_VERSION = 7`, `ARTIFACT_VERSION = 1`, thirteen probes, **ten**
-backbones with `supervised_vitb16` among them, and
+could not answer in its place. It reports `__version__ = "0.11.0"`,
+`SCHEMA_VERSION = 7`, `ARTIFACT_VERSION = 1`, thirteen probes, **twelve**
+backbones with `dino_vitb16` and `sam_vitb16` among them, and
 `show_probes() == list_probes()` read back through the import. Also confirmed
 through it: `get_probe("correspondence")` reports `threshold_units="pixel"` and
-`(1, 2, 5, 10)`, so v0.6.1's fix survives a fifth release, and METADATA puts
+`(1, 2, 5, 10)`, so v0.6.1's fix survives a sixth release, and METADATA puts
 `huggingface-hub` only under `hub` and `all`.
 
-**The tag and the wheel agree exactly, which the two previous releases could
-not say.** `v0.10.0` is on `9f0b91e` and the artifact was built from that
-commit, so what is installable is what is tagged. Tagging *before* building is
-what bought it, and it is the order to keep.
+**`main`, the tag and the wheel all agree exactly** — all three at `1f0908e`,
+the second release running. The artifact was also verified *before* upload and
+its digest is identical to what PyPI now serves, so nothing was rebuilt or
+substituted in between. Tagging before building is what buys this; keep the
+order.
 
-**`main` is one commit ahead of the tag** — the one recording this paragraph,
-docs only, no code, landed after the upload. That is the same benign gap the
-last two releases had, and the third in a row, which is precisely the pattern
-that trains you to stop checking; it reaches PyPI with the next release. **Do
-not fix it by moving the tag**: a PyPI version can never be re-uploaded and the
-Zenodo archive is permanent, so a moved tag would disagree with both.
-
-**Zenodo archived it as version DOI `10.5281/zenodo.22016457`**, the fourth
+**Zenodo archived it as version DOI `10.5281/zenodo.22027316`**, the fifth
 under the concept DOI, which is unchanged and remains the only one quoted
-anywhere. The release commit also stopped `CITATION.cff` and `.zenodo.json`
-saying "Twelve probes" — that text is what Zenodo archives permanently, no test
-reads it, and it had been one probe short since v0.8.0 shipped `corner`.
+anywhere.
 
-**Releasing — the standing rules, learned across v0.6.0 through v0.10.0.** The
+
+**Releasing — the standing rules, learned across v0.6.0 through v0.11.0.** The
 release-by-release detail is in [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md),
 under "Release history"; what recurs is:
 
 - **Tag before building**, so the artifact is built from the tagged commit.
-  v0.10.0 is the first release whose tag and wheel agree exactly, and that is
-  what bought it.
+  v0.10.0 was the first release whose tag and wheel agree exactly and v0.11.0
+  the second, which is what that order buys.
 - **Never move a tag to close a gap.** A PyPI version can never be re-uploaded
   and a Zenodo archive is permanent, so a moved tag would disagree with both.
-  Three releases running have had `main` one docs-only commit ahead of the tag;
-  that gap reaches PyPI with the next release, and is precisely the benign
-  pattern that trains you to stop checking.
+  Three releases up to v0.10.0 had `main` one docs-only commit ahead of the
+  tag, which is precisely the benign pattern that trains you to stop checking;
+  such a gap reaches PyPI with the next release.
 - **Clear `dist/` first.** `twine upload dist/*` uploads everything in the
   directory, so a stale artifact from the previous release is attempted too,
   PyPI refuses a version that already exists, and twine aborts the batch —
