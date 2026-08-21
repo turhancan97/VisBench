@@ -11,6 +11,31 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Added
 
+- **A resolution control, and the finding that feature resolution is not what
+  DINOv2's dense lead is made of.** Feature resolution is the strongest
+  structural correlate of every dense board (rho +0.50 to +0.96, where width
+  correlates with nothing), and the only backbones carrying 256 tokens are the
+  two DINOv2s — so grid size, the DINOv2 objective and LVD-142M pretraining
+  were one variable, and no dense board could say which of the three it ranked.
+
+  `dinov2_vitb14_196` separates them: the same weights and hub ref at 196px, a
+  14x14 grid matching every ViT-B/16 in the corpus. **Matching the grid costs
+  under 3% on all five dense boards**, and DINOv2-B keeps its lead over the
+  entire ViT-B/16 pack on both boards it led — 0.7407 against `dino_vitb16`'s
+  0.6838 on `generic_segmentation`, 0.7791 against `mae_vitb16`'s 0.6945 on
+  `depth`. Resolution accounts for 21% and 7% of those two gaps respectively.
+
+  On `surface_normal`, `edge` and `corner` DINOv2-B never led at all, so there
+  was no lead to explain — the confound was narrower than the correlation table
+  suggested, which is half the finding.
+
+  The five records are in
+  [`results/controls/resolution.jsonl`](results/controls/resolution.jsonl),
+  **deliberately outside the corpus** although they pass `comparability_key`
+  against every board they ran on. The corpus says what a backbone scores; a
+  control says what changes when one thing about one backbone moves. Nothing in
+  `results/controls/` feeds a generated table.
+
 - **The board clustering survives a shared-dataset audit**
   (`--section sources`). The obvious objection to the tier result below is that
   `detection` and `semantic_segmentation` correlate at +0.804 and both read
@@ -83,6 +108,30 @@ so it stands on its own rather than assuming you have read the ones above it.
   published needs retracting** — every run used identical settings, so the
   rankings are comparable. What changes is the reading. At twelve backbones the
   coefficients have wide error bars, which is what `--drop` is for.
+
+### Fixed
+
+- **A reconfigured backbone could silently delete the corpus row it was built
+  to be compared against.** `latest_per_backbone` keys on `record.backbone` and
+  keeps the newest — right for a re-run, catastrophic for a reconfiguration.
+  `DINOv2.__init__` set `self.name = variant`, so the same weights at a
+  different `image_size` reported `dinov2_vitb14`, and the newer record would
+  have evicted the 224px number from every board it appeared on with nothing
+  rendered saying the configuration had moved.
+
+  Latent since v0.1 and unreachable until something was actually run at a
+  second resolution, so no published number ever moved. `backbone_key` carried
+  the resolution the whole time, so the **cache** was never at risk — two
+  mechanisms that look like one.
+
+  Three changes: `DINOv2` takes a `name=` so a configuration can declare what it
+  calls itself; **`latest_per_backbone` now raises** when one name arrives under
+  two `backbone_key`s, the posture `METRIC_DIRECTIONS` and `style_for` already
+  take; and `register_backbone`/`register_task` take `name` positional-only, so
+  a decorator parameter cannot shadow a constructor argument of the same name.
+
+- `CLAUDE.md`'s registered-backbone list was missing `sam_vitb16`, which shipped
+  in v0.11.0. The generated tables and `LEADERBOARD.md` had it throughout.
 
 ## [0.11.0] — 2026-08-20
 

@@ -529,9 +529,33 @@ def latest_per_backbone(records: Iterable[ResultRecord]) -> list[ResultRecord]:
     Timestamps are ISO 8601 UTC (``utc_timestamp``), so lexicographic ordering
     is chronological. Ties keep the last seen, matching "append-only file, later
     line wins".
+
+    Raises
+    ------
+    ValueError
+        If one ``backbone`` name arrives under two different ``backbone_key``
+        values. A re-run is the same model measured again; two keys mean two
+        *models* -- different weights, resolution or hub ref -- and collapsing
+        them would let whichever ran last evict the other from every board it
+        appears on, with no rendered field saying the configuration moved.
+
+        This is the same posture ``METRIC_DIRECTIONS`` and ``style_for`` take.
+        The alternative is not "a slightly wrong row": it is a corpus number
+        replaced by a different measurement wearing its name, which is the one
+        failure a leaderboard cannot be allowed to have. Give the second
+        configuration its own name -- every backbone constructor takes one.
     """
     newest: dict[str, ResultRecord] = {}
+    keys: dict[str, str] = {}
     for record in records:
+        seen = keys.setdefault(record.backbone, record.backbone_key)
+        if seen != record.backbone_key:
+            raise ValueError(
+                f"{record.backbone!r} appears under two backbone_keys: "
+                f"{seen!r} and {record.backbone_key!r}. These are different "
+                "models, so ranking them as one row would silently drop one. "
+                "Register or construct the second under its own name."
+            )
         current = newest.get(record.backbone)
         if current is None or record.timestamp >= current.timestamp:
             newest[record.backbone] = record

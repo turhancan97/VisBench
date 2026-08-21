@@ -13,6 +13,40 @@ run behind it cannot disagree.
 For the ranking rules — which records may sit in one table at all — see
 [the leaderboard](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md).
 
+## Feature resolution is the strongest correlate of every dense board
+
+Across the twelve backbones, the size of the feature grid correlates with every
+dense board — +0.958 with `generic_segmentation`, +0.867 with `surface_normal`,
++0.818 with `depth` — while embedding width correlates with essentially nothing
+(-0.44 to +0.43, no consistent sign). Reproduce with
+`scripts/analyse_board_correlates.py --section structure`.
+
+That was confounded, because the only backbones carrying 256 tokens are the two
+DINOv2s: grid size, the DINOv2 training objective and LVD-142M pretraining were
+one variable. The `dinov2_vitb14_196` control separates them by running the
+same weights at 196px, giving DINOv2-B the same 14x14 grid as every ViT-B/16.
+
+| board | 256 tokens | 196 tokens | change |
+| --- | --- | --- | --- |
+| `generic_segmentation` | 0.7556 | 0.7407 | -2.0% |
+| `depth` | 0.7851 | 0.7791 | -0.8% |
+| `surface_normal` (deg, lower better) | 30.1143 | 30.6556 | +1.8% |
+| `edge` | 0.4481 | 0.4363 | -2.6% |
+| `corner` | 0.6526 | 0.6349 | -2.7% |
+
+**Matching the grid costs under 3% everywhere**, and DINOv2-B keeps its lead
+over the whole ViT-B/16 pack on both boards it led. Resolution accounts for 21%
+of its `generic_segmentation` lead and 7% of its `depth` lead — most of the gap
+is not the grid. On the other three boards DINOv2-B never led (`mae_vitb16` is
+ahead), so there was no lead for resolution to explain.
+
+The control spans 256 to 196 tokens where the corpus correlation spans 49 to
+256, so it bounds the comparison that was confounded and says nothing about the
+49-token backbones. See
+[`results/controls/`](https://github.com/turhancan97/VisBench/tree/main/results/controls)
+for the records and the full write-up; they are deliberately kept out of the
+corpus, so no table on this page contains them.
+
 ## The three tiers do not all cohere, and "high-level" is the one that does not
 
 The probes are grouped into high-, mid- and low-level tiers following

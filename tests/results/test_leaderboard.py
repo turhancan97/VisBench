@@ -5,6 +5,9 @@ one merge of shipping. The module exists because those rules were prose, and
 prose does not fail a build.
 """
 
+import json
+from pathlib import Path
+
 import pytest
 
 from visbench.results import ResultRecord
@@ -478,6 +481,58 @@ def test_latest_per_backbone_keeps_the_newest():
     kept = latest_per_backbone([old, new, other])
     assert len(kept) == 2
     assert {r.backbone: r.timestamp for r in kept}["dinov2_vits14"] == "2026-07-31T10:00:00+00:00"
+
+
+def test_two_configurations_under_one_name_are_refused():
+    """The failure this guard exists for: a corpus row replaced, not added.
+
+    `latest_per_backbone` keys on the record's `backbone` field and keeps the
+    newest, which is right for a re-run and catastrophic for a *reconfiguration*
+    that kept the name. DINOv2 at 196px is a different model from DINOv2 at
+    224px -- a 14x14 grid against 16x16 -- and until `DINOv2` took a `name=`,
+    both reported `dinov2_vitb14`. Ranking them as one row does not misplace a
+    number; it deletes the older one from every board it appears on, with
+    nothing rendered saying the configuration moved.
+    """
+    at224 = make_record(
+        backbone="dinov2_vitb14",
+        backbone_key="dinov2/dinov2_vitb14/224/7764ea0f912e",
+        timestamp="2026-08-01T10:00:00+00:00",
+    )
+    at196 = make_record(
+        backbone="dinov2_vitb14",
+        backbone_key="dinov2/dinov2_vitb14/196/7764ea0f912e",
+        timestamp="2026-08-21T10:00:00+00:00",
+    )
+    with pytest.raises(ValueError, match="two backbone_keys"):
+        latest_per_backbone([at224, at196])
+
+
+def test_a_renamed_configuration_ranks_beside_the_original():
+    """Naming the control is the fix, and it must leave both rows standing."""
+    at224 = make_record(backbone="dinov2_vitb14", backbone_key="dinov2/dinov2_vitb14/224/ref")
+    at196 = make_record(backbone="dinov2_vitb14_196", backbone_key="dinov2/dinov2_vitb14/196/ref")
+    kept = latest_per_backbone([at224, at196])
+    assert {r.backbone for r in kept} == {"dinov2_vitb14", "dinov2_vitb14_196"}
+
+
+def test_the_corpus_has_one_key_per_backbone_name():
+    """The guard is only safe to add because the committed corpus satisfies it.
+
+    Also the check that catches the mistake at its source: a control run whose
+    backbone forgot its own name lands in `visbench.jsonl` looking exactly like
+    a re-run of the model it was built to be compared against.
+    """
+    corpus = Path(__file__).resolve().parents[2] / "results" / "corpus" / "visbench.jsonl"
+    keys: dict[str, str] = {}
+    for line in corpus.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        row = json.loads(line)
+        seen = keys.setdefault(row["backbone"], row["backbone_key"])
+        assert seen == row["backbone_key"], (
+            f"{row['backbone']} appears under {seen} and {row['backbone_key']}"
+        )
 
 
 def test_describe_distinguishes_groups_that_read_alike():

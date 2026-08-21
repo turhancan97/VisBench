@@ -25,6 +25,22 @@ _VARIANTS = {
     "dinov2_vitb14": ("dinov2_vitb14", 768, 14, 0),
 }
 
+#: ``dinov2_vitb14_196`` is a **resolution control**, not a new model: the same
+#: weights at 196px, whose 14x14 grid matches every ViT-B/16 in the corpus
+#: instead of DINOv2's usual 16x16. Feature resolution is the strongest
+#: correlate of every dense board (rho +0.50 to +0.96), and the only backbones
+#: carrying 256 tokens are the two DINOv2s -- so grid size, the DINOv2
+#: objective and LVD-142M pretraining are one variable, and no board can say
+#: which of them it ranked. This column separates them.
+#:
+#: Only the downward direction exists. DINOv2 interpolates its position
+#: embeddings as part of its own forward pass, so 196px is its intended use;
+#: open_clip does not interpolate at all, and timm needs ``dynamic_img_size``,
+#: so no ViT-B/16 here can be raised to 256 tokens without changing the model.
+#: The control is therefore one-sided, and 196px is slightly off DINOv2's
+#: training resolution -- read a drop as "resolution or distribution", not as
+#: resolution alone.
+
 _HUB_REPO = "facebookresearch/dinov2"
 
 #: Pinned upstream commit. torch.hub defaults to the repository's default
@@ -50,6 +66,12 @@ def _file_digest(path: Path) -> str:
 
 @register_backbone("dinov2_vits14", variant="dinov2_vits14")
 @register_backbone("dinov2_vitb14", variant="dinov2_vitb14")
+@register_backbone(
+    "dinov2_vitb14_196",
+    variant="dinov2_vitb14",
+    image_size=196,
+    name="dinov2_vitb14_196",
+)
 class DINOv2(BaseBackbone):
     """DINOv2 ViT with a CLS token, so default pooling is CLS.
 
@@ -71,6 +93,7 @@ class DINOv2(BaseBackbone):
         image_size: int = 224,
         hub_ref: str = HUB_REF,
         checkpoint: str | Path | None = None,
+        name: str | None = None,
     ) -> None:
         """Load the hub checkpoint for ``variant``, freeze it, set eval mode.
 
@@ -85,6 +108,15 @@ class DINOv2(BaseBackbone):
             network. The architecture still comes from torch.hub (cached after
             one download), so this covers a pinned local copy of the weights
             rather than a fully offline install.
+        name:
+            What this configuration calls itself in a result record. Defaults
+            to ``variant``, which is right when the variant *is* the
+            configuration -- and wrong the moment anything else about the
+            forward pass is changed, because the record's ``backbone`` field is
+            what a leaderboard keys a row on. Two configurations reporting one
+            name do not produce two rows: the newer evicts the older, silently
+            and with no field saying so. Pass a distinct name whenever you
+            change ``image_size``, ``hub_ref`` or ``checkpoint``.
         """
         super().__init__(device)
 
@@ -100,7 +132,7 @@ class DINOv2(BaseBackbone):
                 "A ragged final patch would silently change the grid shape."
             )
 
-        self.name = variant
+        self.name = name or variant
         self.variant = variant
         self.embed_dim = embed_dim
         self.patch_size = patch_size
