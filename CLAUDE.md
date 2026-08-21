@@ -255,7 +255,9 @@ Registered names — `visbench.list_backbones()`, `list_probes()`,
 ```text
 backbones  dinov2_vits14, dinov2_vitb14, clip_vitb16, clip_vitb32,
            resnet18, resnet50, convnext_base, mae_vitb16, siglip_vitb16,
-           supervised_vitb16, dino_vitb16 (+ CustomBackbone, unregistered)
+           supervised_vitb16, dino_vitb16, sam_vitb16,
+           dinov2_vitb14_196 (a resolution control, not a corpus column)
+           (+ CustomBackbone, unregistered)
 probes     classification, retrieval, correspondence, depth, surface_normal,
            generic_segmentation, semantic_segmentation, similarity, detection,
            edge, keypoints2d, occlusion_edge, corner
@@ -640,6 +642,18 @@ designed up front; extend it the same way, from a case that already runs.
   - **Two backbones' high-level scores are close to in-distribution recall**,
     not transfer: `convnext_base` and `supervised_vitb16` are ImageNet-1k
     supervised and Imagenette's classes are ImageNet-1k wnids.
+  - **Feature resolution is the strongest correlate of every dense board, and
+    it is not what DINOv2's lead is made of.** Holding weights fixed and
+    cutting DINOv2-B from 256 to 196 tokens costs under 3% on all five dense
+    boards, and it keeps its lead over the whole ViT-B/16 pack on both boards
+    it led — 21% of the `generic_segmentation` gap and 7% of the `depth` one.
+    On the other three boards DINOv2-B never led, so there was nothing to
+    explain. **Check who leads a board before explaining their lead.**
+  - **A control is rankable and still must not be listed beside the corpus.**
+    `results/controls/` holds records that pass `comparability_key` against
+    their board and answer a different question from it — the corpus says what
+    a backbone scores, a control says what changes when one thing about one
+    backbone moves. Nothing there feeds a generated table.
   - **n=12.** Every correlation above has wide error bars.
 
 - **`run()` seeds before it constructs a *name*, so a `CustomBackbone` is
@@ -852,6 +866,27 @@ designed up front; extend it the same way, from a case that already runs.
   with the S-versus-B ordering unmoved. That is a property of the detection
   probe and not of the seeding fix — **diagnosed 2026-08-13, see the next
   bullet.**
+
+- **A backbone that changes its configuration must change its *name*, or a
+  leaderboard silently deletes the row it was built to be compared against**
+  (the resolution control, 2026-08-21). `latest_per_backbone` keys on
+  `record.backbone` and keeps the newest, which is right for a re-run and
+  catastrophic for a reconfiguration: `DINOv2.__init__` set `self.name =
+  variant`, so the same weights at 196px reported `dinov2_vitb14` and would
+  have evicted the corpus's 224px number from all five boards it touched. Not a
+  wrong row — a **deleted** one, with no rendered field saying the
+  configuration had moved.
+
+  Three things now stop it, and the middle one is the guard: `DINOv2` takes a
+  `name=`; **`latest_per_backbone` raises when one name arrives under two
+  `backbone_key`s**, the posture `METRIC_DIRECTIONS` and `style_for` already
+  take; and `register_backbone`/`register_task` take `name` positional-only, so
+  a decorator parameter cannot shadow a constructor argument of the same name.
+
+  The general rule: **pass a distinct name whenever you change `image_size`,
+  `hub_ref` or `checkpoint`.** `backbone_key` already separates the cache
+  correctly — it carried the resolution all along — so the cache was never at
+  risk and the *record* was. Two mechanisms that look like one.
 
 - **Verify with the exact commands CI runs** (below). A local env with extra
   packages installed will pass checks that CI fails.

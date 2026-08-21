@@ -102,6 +102,10 @@ class Structure:
 STRUCTURE: dict[str, Structure] = {
     "dinov2_vits14": Structure(256, 384, "ViT", "LVD-142M", 1.42e8, "ssl-discriminative"),
     "dinov2_vitb14": Structure(256, 768, "ViT", "LVD-142M", 1.42e8, "ssl-discriminative"),
+    # A resolution control, not a corpus column: the same weights at 196px, so
+    # its grid matches every ViT-B/16. Listed here so this script can be run
+    # against results/controls/resolution.jsonl, which the corpus never holds.
+    "dinov2_vitb14_196": Structure(196, 768, "ViT", "LVD-142M", 1.42e8, "ssl-discriminative"),
     "clip_vitb16": Structure(196, 768, "ViT", "WIT-400M", 4.0e8, "language"),
     "siglip_vitb16": Structure(196, 768, "ViT", "WebLI", 1.0e10, "language"),
     "mae_vitb16": Structure(196, 768, "ViT", "IN1k", 1.28e6, "reconstruction"),
