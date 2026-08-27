@@ -124,6 +124,29 @@ is low *and* `train top1` is low, the probe underfitted — raise `--lr` or
 `--epochs`. If `train top1` is near 1.0, the backbone genuinely does not
 separate those classes.
 
+### Scene classification
+
+`scene_classification` is the same linear probe on a different question: the
+category of the *place* in the frame — its layout and context — rather than of
+an object in it. A backbone can be strong at one and weak at the other, so it
+is a **distinct probe with its own leaderboard board**, not a dataset flag on
+`classification`. (It has to be: a board renders one comparability group, and
+records on a second dataset under one task name would make the object board
+unrenderable.)
+
+[`examples/scene_classify.py`](https://github.com/turhancan97/VisBench/blob/main/examples/scene_classify.py)
+runs it on any labelled folder; the canonical dataset is Places365-standard,
+which ships in exactly the `train/<class>/` + `val/<class>/` layout:
+
+```bash
+python examples/scene_classify.py --data /path/to/places365_standard --limit 100
+```
+
+Places365 scenes overlap what ImageNet-supervised backbones already saw, so for
+those the number is closer to in-distribution recall than transfer. The
+measured board is pending — this probe ships with a rank check, not yet a full
+corpus column.
+
 [`examples/retrieve.py`](https://github.com/turhancan97/VisBench/blob/main/examples/retrieve.py) does the zero-shot version —
 no training at all, every image queries every other by cosine similarity:
 

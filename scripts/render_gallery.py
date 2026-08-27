@@ -429,6 +429,15 @@ def figures(root: Path, backbone: str, classes: list[str]) -> dict[str, list[str
             "--columns",
             "4",
         ],
+        "scene_classification": [
+            "scene_classification",
+            "--data",
+            folder,
+            "--frames",
+            "8",
+            "--columns",
+            "4",
+        ],
         "retrieval": [
             "retrieval",
             "--data",

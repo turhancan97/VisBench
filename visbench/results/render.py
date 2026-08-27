@@ -52,6 +52,7 @@ __all__ = [
 #: and the prose around it cannot disagree about what was being measured.
 HEADLINE_METRICS: dict[str, str] = {
     "classification": "top1",
+    "scene_classification": "top1",
     "retrieval": "mAP",
     # Pixels, not patch widths: a patch is a different physical distance on
     # every backbone, so `recall@1p` ranked this board upside down until v0.6.1.
@@ -88,6 +89,13 @@ CAVEATS: dict[str, str] = {
         "single-scale, so it has no feature pyramid and small objects fall "
         "between cells. The board ranks representations, which is what it is "
         "for — it is not a detector benchmark."
+    ),
+    "scene_classification": (
+        "This is *scene* category, not object category — a distinct question "
+        "from the `classification` board, and a backbone's rank can move "
+        "between the two. Places365 scenes overlap what ImageNet-supervised "
+        "backbones already saw, so for those the number is closer to "
+        "in-distribution recall than transfer."
     ),
 }
 

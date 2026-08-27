@@ -162,7 +162,19 @@ claim itself no longer holds for *high-level* at twelve backbones — same file.
 
 **There is no `next` step.** The remaining work is the candidate task backlog
 further down this file — and the cheapest items there need no new dataset at
-all. **There is now a second backlog beside it**, the library-surface one, which
+all. **The first of those is done as of 2026-08-27**: `scene_classification`,
+a fourteenth probe, is scene category on the same linear-probe path as object
+`classification` (Places365-standard, read with no loader code). It ships as
+*the probe plus a rank check* — the full 12-backbone corpus board is the
+follow-up step, the way `corner` split 8a from 8b. See its `CHANGELOG.md` entry
+and the "decisions already paid for" bullet on why it is a distinct probe. The
+rank check (4 backbones) confirms it ranks: `convnext_base` is first on
+Imagenette object classification and **last** of the four on Places365 scenes,
+`clip_vitb16` the reverse, and the object board is saturated (spread 0.006)
+where the scene board is not (0.057). The `CORPUS_FINDINGS.md` entry waits on
+the committed board.
+
+**There is now a second backlog beside it**, the library-surface one, which
 ships no new number the way v0.7 did; it is in the same part of this file and in
 `docs/roadmap.md`. **Its first item is done as of 2026-08-14**: step 9a shipped
 `visbench show`, the panel viewer, plus `visbench run --save-probe` to feed its
@@ -258,18 +270,19 @@ backbones  dinov2_vits14, dinov2_vitb14, clip_vitb16, clip_vitb32,
            supervised_vitb16, dino_vitb16, sam_vitb16,
            dinov2_vitb14_196 (a resolution control, not a corpus column)
            (+ CustomBackbone, unregistered)
-probes     classification, retrieval, correspondence, depth, surface_normal,
-           generic_segmentation, semantic_segmentation, similarity, detection,
-           edge, keypoints2d, occlusion_edge, corner
+probes     classification, scene_classification, retrieval, correspondence,
+           depth, surface_normal, generic_segmentation, semantic_segmentation,
+           similarity, detection, edge, keypoints2d, occlusion_edge, corner
+           (scene_classification has no corpus board yet — a rank check only)
 heads      linear, dpt, detection
 ```
 
-The CLI exposes all thirteen probes: `visbench list`, `visbench run <probe>`,
+The CLI exposes all fourteen probes: `visbench list`, `visbench run <probe>`,
 `visbench cache stats|clear`, plus `visbench demo` (7a) and **`visbench show
 <probe>` (9a)**. A test asserts the CLI's table and `list_probes()` are the same
-set, so a probe cannot ship unreachable from a shell by accident. `show` is
-deliberately a **subset** — nine probes, the ones with a spatial target — and
-its own test pins that subset against `visbench.viz.show_probes()`.
+set, so a probe cannot ship unreachable from a shell by accident. Since 9c
+`show` is valid on *every* probe and `show_probes() == list_probes()` is
+asserted.
 
 **`visbench run --push-to REPO_ID` publishes the head it just trained**
 (`--public` overrides the private default), and `scripts/build_corpus.sh` takes
@@ -726,6 +739,22 @@ designed up front; extend it the same way, from a case that already runs.
   should prompt. 6d-2 nearly shipped an occlusion-edge probe scoring 0.088 with
   an S-versus-B gap of 0.0035; the score alone looked like "a hard task", and
   the gap is what showed it was measuring nothing.
+- **A second dataset for an existing probe needs a new probe *name*, not a
+  flag** (`scene_classification`, 2026-08-27). `scripts/render_tables.py::board_for`
+  renders exactly one table per task and **refuses a task with more than one
+  comparability group**, and `comparability_key` groups by dataset name and
+  fingerprint — so a Places365 record under `task="classification"` does not
+  merge with the Imagenette board, it makes that board *unrenderable*. Scene
+  classification is therefore `SceneClassificationTask(ClassificationTask)` with
+  `self.name = "scene_classification"` and a `protocol` string, exactly as
+  `corner` is a renamed `DenseMagnitudeTask`. Adding the name means touching
+  every fixed table that a `test_show_command.py` assertion pins equal to
+  `list_probes()`: `_REGISTRATION_MODULES`, `HEADLINE_METRICS`, the CLI `SPECS`
+  row, `TARGET_STYLES`, both corpus-script probe arrays, the gallery `figures()`
+  map and a committed `docs/_static/gallery/<name>.png`, and
+  `analyse_board_correlates.py`'s copied `HEADLINE_METRICS`. A probe that is
+  "just a dataset swap" is still a dozen small edits, because the name is load-
+  bearing everywhere.
 - **The NIGHTS ImageNet split is a contamination check, not a subset.**
   `test_imagenet` and `test_no_imagenet` partition the test set by whether the
   reference image came from ImageNet. DINOv2-S scores 0.882 against 0.854 across
@@ -1671,8 +1700,12 @@ ImageNet variants, `Imagenette`.
 this is what the `similarity` probe reads), `places365_standard` (`train/`,
 `val/`, `categories_places365.txt`), `SUN397`, `mit67_indoor_scenes`,
 `caltech101`, `country211`, `CUB-200`, `oxford_flowers102`. **Scene
-classification is therefore a dataset-swap on the existing linear-probe path**,
-not an acquisition step.
+classification was a dataset-swap on the existing linear-probe path** and
+shipped 2026-08-27 as the `scene_classification` probe on `places365_standard`
+(a new probe *name* rather than a flag — see the "decisions already paid for"
+bullet). Its 12-backbone corpus board is still pending. Fine-grained
+recognition (CUB, Flowers102, Stanford Cars/Dogs) is the same shape and still
+open.
 
 **Verified absent, both levels:** any optical-flow set (Sintel, KITTI,
 FlyingChairs), NYUv2, any intrinsic-image set (IIW, SAW, MIT intrinsic).

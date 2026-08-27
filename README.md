@@ -303,13 +303,15 @@ visbench show correspondence --data ./images --backbone dinov2_vits14 --out matc
 
 ![A contact sheet of frames and their class labels](https://raw.githubusercontent.com/turhancan97/VisBench/main/docs/_static/gallery/classification.png)
 
-**Every probe can be drawn** — all thirteen, across four renderers, and a test
+![A contact sheet of frames and their scene labels](https://raw.githubusercontent.com/turhancan97/VisBench/main/docs/_static/gallery/scene_classification.png)
+
+**Every probe can be drawn** — all fourteen, across four renderers, and a test
 asserts `show_probes() == list_probes()` so a new one cannot ship undrawable.
 Dense targets get an `image | target | prediction` grid, detection gets boxes,
-correspondence gets match lines, and the three probes with no spatial target
-(`classification`, `retrieval`, `similarity`) get a view of the *decision* they
-made — a contact sheet, a query and its neighbours, a triplet with the human
-vote marked.
+correspondence gets match lines, and the probes with no spatial target
+(`classification`, `scene_classification`, `retrieval`, `similarity`) get a view
+of the *decision* they made — a contact sheet, a query and its neighbours, a
+triplet with the human vote marked.
 
 Each renderer states its own diagnostic as a figure rather than leaving it to
 the eye: invalid pixels in magenta per each probe's own convention (there are

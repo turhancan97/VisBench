@@ -49,6 +49,7 @@ CORPUS = ROOT / "results" / "corpus" / "visbench.jsonl"
 #: pins the two tables against each other, so the copy cannot drift.
 HEADLINE_METRICS: dict[str, str] = {
     "classification": "top1",
+    "scene_classification": "top1",
     "retrieval": "mAP",
     "correspondence": "recall@5px",
     "similarity": "accuracy",

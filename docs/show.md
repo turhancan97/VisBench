@@ -267,6 +267,23 @@ reproduce the very artefact the sheet exists to reveal.
 Without `--predict-from` this is a *dataset* check and needs no backbone. With
 one it becomes an error analysis: the caption reads `predicted != actual`.
 
+### `scene_classification` — the same sheet, a different question
+
+```bash
+visbench show scene_classification --data ./places365 --split val --frames 12 --out scene.png
+```
+
+```{image} _static/gallery/scene_classification.png
+:alt: A contact sheet of frames and their scene labels
+:class: visbench-figure
+```
+
+Identical panel to `classification` — a contact sheet, the same balance footer,
+the same prefix-collapse warning — because `scene_classification` *is* a linear
+probe on pooled features; only the labels differ (a place category, not an
+object). It is a separate probe with its own leaderboard board, so its figure
+is drawn separately even though the renderer is the same one.
+
 ### `retrieval` — a query and its neighbours
 
 ```bash

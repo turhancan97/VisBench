@@ -51,6 +51,7 @@ VOC=/shared/sets/datasets/pascal_voc_2021/VOCdevkit/VOC2012
 VOC_BINARY="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/data/voc_binary"
 CORNER_FRAMES="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/data/corner_frames"
 IMAGENETTE=/shared/sets/datasets/Imagenette/imagenette2
+PLACES365=/shared/sets/datasets/vision/places365_standard
 NIGHTS=/shared/sets/datasets/vision/nights
 TASKONOMY=/shared/sets/datasets/taskonomy-dataset/taskonomy
 NYU=/shared/sets/datasets/vision/probing_3D/nyuv2_new
@@ -126,6 +127,21 @@ run() {
 
 probe_classification() {
   run classification --data "$IMAGENETTE" --split val --train-split train
+}
+
+probe_scene_classification() {
+  # Places365-standard: train/<class>/ + val/<class>/, 365 classes, which
+  # ImageFolderDataset reads with no loader code. Scene category, not object
+  # category -- a distinct high-level probe from `classification`, with its own
+  # board, because a backbone's rank can move between the two.
+  #
+  # --limit 100 pins the board. The official val is 100 images per class, so
+  # this scores the whole val split and caps training at 100 images per class;
+  # two people's scene numbers are comparable only if they ran the same subset,
+  # the same constraint probe_corner carries. A different --limit selects a
+  # different set of files and so a different dataset fingerprint, which lands
+  # the run in a different comparability group rather than beside these.
+  run scene_classification --data "$PLACES365" --split val --train-split train --limit 100
 }
 
 probe_retrieval() {
@@ -249,6 +265,7 @@ probe_surface_normal() {
 
 ALL_PROBES=(
   classification
+  scene_classification
   retrieval
   correspondence
   similarity

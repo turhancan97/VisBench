@@ -11,6 +11,44 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Added
 
+- **`scene_classification` — a fourteenth probe, scene category rather than
+  object category.** Mechanically it is the object-classification linear probe
+  (`SceneClassificationTask` subclasses `ClassificationTask`); what differs is
+  the question — the category of the *place*, its layout and context, which a
+  backbone can be good at while being weak at object identity. It is a distinct
+  probe with its own leaderboard board rather than a dataset flag on
+  `classification`, because `board_for` renders one comparability group per
+  task and records on a second dataset under one task name would make the
+  object board unrenderable.
+
+  The canonical dataset is Places365-standard, which
+  `ImageFolderDataset` reads with no loader code (`train/<class>/` +
+  `val/<class>/`, 365 classes). Ships with
+  [`examples/scene_classify.py`](examples/scene_classify.py), a `visbench run
+  scene_classification` / `visbench show scene_classification` CLI row, a
+  gallery figure, and `probe_scene_classification` in `build_corpus.sh`
+  (`--limit 100`: the full 100/class official val, 100 training images per
+  class). **The full 12-backbone corpus board is a follow-up step** — this
+  ships the probe and a rank check, not yet a corpus column.
+
+  The rank check (Places365 val, `--limit 100`, top-1) against the Imagenette
+  object-`classification` board, on four backbones:
+
+  | backbone | scene top-1 | object top-1 |
+  | --- | --- | --- |
+  | `clip_vitb16` | **0.3921** (1st) | 0.9954 (3rd) |
+  | `dinov2_vitb14` | 0.3863 (2nd) | 0.9975 (2nd) |
+  | `dinov2_vits14` | 0.3511 (3rd) | 0.9939 (4th) |
+  | `convnext_base` | 0.3356 (4th) | **0.9997** (1st) |
+
+  The ordering is genuinely different — `convnext_base` goes from first on
+  objects to last on scenes, `clip_vitb16` the reverse — and the object board
+  is saturated across these four (spread 0.006) where the scene board is not
+  (spread 0.057, ~10x wider). `convnext_base` is ImageNet-1k supervised and
+  Imagenette's classes are ImageNet-1k wnids, so its object number is close to
+  in-distribution recall and does not carry to scenes. So the probe measures
+  something the `classification` board does not.
+
 - **A resolution control, and the finding that feature resolution is not what
   DINOv2's dense lead is made of.** Feature resolution is the strongest
   structural correlate of every dense board (rho +0.50 to +0.96, where width
