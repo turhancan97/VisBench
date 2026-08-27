@@ -182,7 +182,7 @@ dense probe has to test for.
 |---|---|---|
 | Instance segmentation | high | The category-labelled counterpart to the existing binary segmentation; COCO-style polygon annotations |
 | Fine-grained recognition | high | Reuses the existing linear-probe classification path; only the dataset changes |
-| Scene classification (Places365) | high | Same, at scene rather than object granularity |
+| ~~Scene classification (Places365)~~ | high | **Done** — `scene_classification`, a distinct probe on the linear-probe path. Ships with a rank check; the full corpus board is pending. |
 | Relative depth ordering | mid | A ranking-only weakening of the existing depth probe — different protocol, same targets |
 | Intrinsic image decomposition (albedo vs shading) | mid | Classic Marr-style separation of appearance from geometry and lighting. Ground truth is scarce outside synthetic data |
 | Room / scene layout estimation | mid | Floor–wall–ceiling boundaries |
