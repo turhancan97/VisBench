@@ -13,7 +13,7 @@ them rather than only the conclusions.
 
 **The single most important one, if you read nothing else:** "which backbone is
 best" is not a well-formed question against this corpus. `mae_vitb16` is first
-on five of the thirteen boards and last on three. A summary that picks a winner
+on five of the fourteen boards and last on three. A summary that picks a winner
 is discarding the result.
 
 Two standing cautions apply to everything below:
@@ -90,15 +90,17 @@ Two standing cautions apply to everything below:
   happens when one thing changes". Mixing them makes a board answer two
   questions, which is the same reason the schema never ranks across `finetune`.
 
-- **`mae_vitb16` is first on five of the thirteen boards and last on three, and
+- **`mae_vitb16` is first on five of the fourteen boards and last on three, and
   this is the corpus finally demonstrating what the taxonomy claims** (10b,
-  2026-08-14; **counts re-read off the board at twelve backbones, 10e**). Read
+  2026-08-14; **counts re-read off the board at twelve backbones, 10e**; scene
+  board added 2026-08-28). Read
   this before quoting any board. MAE leads edge (0.4982), corner (0.6669),
   correspondence (0.3577), occlusion edges (0.3273) and surface normals
   (27.52° mean) — and comes **last** on classification (0.9582), retrieval
   (0.1883) and mid-level similarity (0.6897), with semantic segmentation
   (0.3350) now *eleventh* rather than last, because `sam_vitb16` scores 0.3339
-  beneath it. It led keypoints2d too until `dino_vitb16` (0.2850) and
+  beneath it. `scene_classification`, the fourteenth board, is another semantic
+  one and MAE places tenth of twelve there — same tier pattern, not a new last. It led keypoints2d too until `dino_vitb16` (0.2850) and
   `sam_vitb16` (0.2696) both passed it. **A count over a corpus is a fact about
   that corpus, not about the backbone**: both of those counts moved without
   MAE's features changing, which is why they are re-read off `LEADERBOARD.md`
@@ -257,7 +259,8 @@ Two standing cautions apply to everything below:
   set, the same labels and the same input normalisation as `supervised_vitb16`,
   differing only in **how it was trained to that objective** — sharpness-aware
   minimisation with light augmentation, against AugReg's AdamW with heavy
-  augmentation. The corpus is **twelve backbones, 156 records**.
+  augmentation. The corpus is **twelve backbones, 168 records** across fourteen
+  boards.
 
   It exists to supply a denominator nothing else in this corpus had: **a gap
   between two objectives means nothing until you know how large a gap two runs
@@ -366,55 +369,66 @@ Two standing cautions apply to everything below:
   `--drop` exists so the next person can check which conclusions survive.
 
 
-- **The high-level tier does not cohere at twelve backbones, and it is two
-  clusters rather than one loose one** (2026-08-20,
-  `analyse_board_correlates.py --section agreement`). The taxonomy's claim,
-  tested as "probes within a tier agree with each other more than probes across
-  tiers":
+- **The high-level tier is two clusters, not one — and the tier-mean test flips
+  sign with the corpus, so read the clusters, not the mean** (2026-08-20,
+  updated 2026-08-28, `analyse_board_correlates.py --section agreement`). The
+  taxonomy's claim, tested as "probes within a tier agree with each other more
+  than probes across tiers":
 
-  | | n=9 | n=12 |
-  | --- | --- | --- |
-  | within low_level | +0.761 | **+0.825** |
-  | within mid_level | +0.666 | **+0.666** |
-  | within high_level | +0.497 | **+0.296** |
-  | across tiers | +0.340 | **+0.304** |
+  | | n=9, 13 boards | n=12, 13 boards | n=12, 14 boards |
+  | --- | --- | --- | --- |
+  | within low_level | +0.761 | +0.825 | **+0.825** |
+  | within mid_level | +0.666 | +0.666 | **+0.666** |
+  | within high_level | +0.497 | +0.296 | **+0.297** |
+  | across tiers | +0.340 | +0.304 | **+0.265** |
 
   At nine backbones every within-tier mean cleared the cross-tier mean. At
-  twelve, **high-level lands below it** — so the tier claim, stated that way,
-  now fails. Mid-level is identical to three decimals at both widths, which is
-  the stability that makes the high-level move worth believing.
+  twelve it did not — high-level landed below. Adding `scene_classification` as
+  the fourteenth board moved it marginally back above, and **the within-high
+  mean barely changed** (+0.296 → +0.297): what moved was the *cross-tier*
+  mean, dragged down because `scene_classification` disagrees sharply with the
+  low-level tier (−0.40 with `keypoints2d`, the most negative pair in the
+  corpus). Mid-level is identical to three decimals across all three columns.
 
-  **The mean is hiding the shape, and the shape is the finding.** High-level
-  is not uniformly loose; it is two tight pairs that ignore each other:
+  So the sign of "high-level mean minus cross-tier mean" is within noise and
+  has been on both sides. **The stable finding is the shape**: high-level is not
+  one loose tier, it is two tight clusters that ignore each other.
 
   | pair | rho |
   | --- | --- |
   | detection / semantic_segmentation | **+0.804** |
   | classification / retrieval | **+0.769** |
+  | detection / scene_classification | **+0.720** |
+  | scene_classification / semantic_segmentation | +0.524 |
+  | classification / scene_classification | +0.161 |
   | classification / detection | +0.140 |
   | classification / semantic_segmentation | +0.140 |
   | detection / retrieval | -0.035 |
   | retrieval / semantic_segmentation | -0.042 |
+  | retrieval / scene_classification | -0.217 |
 
   Image-level categorisation on one side, localised VOC prediction on the
-  other, and **nothing between them**. That is why the script prints a failing
-  tier pair by pair: a uniformly loose tier would mean the probes are noisy,
-  two clusters mean the *tier* is wrong, and a mean cannot tell you which.
+  other, and **nothing between them** — and `scene_classification`, image-level
+  classification by construction, sits with the *localised* cluster (+0.72 with
+  detection, −0.22 with retrieval). A place category is read from layout and
+  spatial context, which is what the VOC-dense probes reward and single-object
+  Imagenette does not; the ImageNet-1k-supervised backbones that top the object
+  board are near-bottom on both scene classification and dense VOC.
 
   It also explains the semseg result in the bullet below — that board's nearest
   neighbour anywhere in the corpus is `detection`, not the two semantic boards
   it shares a tier with.
 
-  **What broke it was adding a controlled axis, not adding rows.** The three
-  backbones between n=9 and n=12 are `supervised_vitb16`, `dino_vitb16` and
-  `sam_vitb16` — all ViT-B/16 on ImageNet-1k, differing only in objective and
-  recipe. The high-level tier survived every backbone that varied capacity and
-  stopped cohering the moment the corpus varied *objective* with everything
-  else held down.
+  **What first pulled high-level below the line was a controlled axis, not
+  rows.** The three backbones between n=9 and n=12 are `supervised_vitb16`,
+  `dino_vitb16` and `sam_vitb16` — all ViT-B/16 on ImageNet-1k, differing only
+  in objective and recipe. The within-high mean fell from +0.497 to +0.296 the
+  moment the corpus varied *objective* with capacity held down, and adding a
+  fourteenth board did not move it back.
 
   **Do not read this as the taxonomy being wrong.** It comes from Chen, Marks &
   Cheng and it is what this library is organised around; what fails is the
-  narrower claim that these four boards measure one thing. Treat `high_level`
+  narrower claim that these five boards measure one thing. Treat `high_level`
   as a folder, not as a quantity to average over. **n=12, so the coefficients
   are wide** — `--drop` re-runs without any row, and the n=9 column above is
   exactly `--drop supervised_vitb16 --drop dino_vitb16 --drop sam_vitb16`.
@@ -454,8 +468,9 @@ Two standing cautions apply to everything below:
   sufficient for agreement.
 
   **What the pooled numbers do say, and it is a real caveat.** Within-source
-  agreement is +0.634 against +0.345 across sources, which is *comparable* to
-  the tier split (+0.594 against +0.304). So dataset is about as good a
+  agreement is +0.634 against +0.306 across sources, which is *comparable* to
+  the tier split (within-tier means well above the +0.265 cross-tier). So
+  dataset is about as good a
   predictor as tier — but that is carried by Taskonomy (6 pairs, +0.816) and
   NYUv2 (1 pair, +0.902), which are groups of dense geometric boards that
   would be expected to agree whatever they read. Neither grouping is the real
@@ -466,6 +481,37 @@ Two standing cautions apply to everything below:
   `SOURCE_IMAGES` is hand-written because the records cannot supply it —
   Imagenette, NYUv2 and the staged corner frames are **all called `val`** in
   the `dataset` field, so grouping on it would merge boards sharing nothing.
+
+
+- **`scene_classification` ranks backbones almost independently of the object
+  `classification` board — the two "classification" boards are not one
+  measurement** (2026-08-28, 12 backbones, Places365 val, `--limit 100`).
+  Spearman between the two orderings is **+0.16**.
+
+  | | object (Imagenette) | scene (Places365) |
+  | --- | --- | --- |
+  | 1st | `convnext_base` 0.9997 | `siglip_vitb16` 0.4035 |
+  | top of board | ImageNet-1k supervised CNNs | image-text ViTs (SigLIP, both CLIPs) |
+  | `convnext_base` | 1st | 9th |
+  | `supervised_vitb16` | 5th | 11th |
+  | `mae_vitb16` | 12th | 10th |
+  | spread | 0.041 (saturated, 11/12 above 0.988) | **0.132** |
+
+  Three things are going on and they reinforce each other. **The object board is
+  saturated** — a spread of 0.04 with eleven backbones clustered above 0.988
+  cannot rank. **Imagenette's classes are ImageNet-1k wnids**, so the supervised
+  CNNs' object numbers are in-distribution recall, not transfer, and Places365
+  removes that advantage. And **scene category is a spatial-context task**:
+  `scene_classification` correlates +0.72 with `detection` and +0.52 with
+  `semantic_segmentation` but only +0.16 with object `classification` and −0.22
+  with `retrieval` — it sits with the localised-prediction cluster of the
+  high-level tier, not the image-level-categorisation one it nominally belongs
+  to (see the tier finding above).
+
+  Practical consequence: quote scene classification as a *separate* semantic
+  result, and do not read a high object-classification number as saying
+  anything about scene understanding — for the supervised CNNs it says close to
+  the opposite. **n=12, one seed.**
 
 
 - **`detection` does not reproduce to four decimals *on DINOv2*, it never did,

@@ -47,40 +47,51 @@ The control spans 256 to 196 tokens where the corpus correlation spans 49 to
 for the records and the full write-up; they are deliberately kept out of the
 corpus, so no table on this page contains them.
 
-## The three tiers do not all cohere, and "high-level" is the one that does not
+## The high-level tier is two clusters, not one
 
 The probes are grouped into high-, mid- and low-level tiers following
 [Chen, Marks & Cheng](https://arxiv.org/abs/2411.17474), and the natural
-reading is that probes in one tier measure related things. Over the twelve
-backbones in the corpus, that holds for two tiers out of three.
-
-Ranking each board against every other and averaging within and across tiers:
+reading is that probes in one tier measure related things. Ranking each board
+against every other and averaging within and across tiers:
 
 | | mean rho |
 | --- | --- |
 | within low-level | **+0.825** |
 | within mid-level | **+0.666** |
-| within high-level | **+0.296** |
-| across tiers | +0.304 |
+| within high-level | **+0.297** |
+| across tiers | +0.265 |
 
-High-level sits *below* the cross-tier average, and the mean hides why. It is
-not uniformly loose — it is **two tight pairs that ignore each other**:
+Every within-tier mean now exceeds the cross-tier mean, but do not read that as
+the high-level tier cohering. It sat *below* the cross-tier line at thirteen
+boards and crossed it only when `scene_classification` (the fourteenth) was
+added — and it crossed by pulling the *cross-tier* number down, because that
+board disagrees sharply with the low-level tier (−0.40 with `keypoints2d`). The
+within-high-level mean barely moved.
+
+What is stable across six, nine and twelve backbones is that high-level is
+**two tight clusters that ignore each other**:
 
 | pair | rho |
 | --- | --- |
 | detection / semantic_segmentation | **+0.804** |
 | classification / retrieval | **+0.769** |
+| detection / scene_classification | **+0.720** |
+| scene_classification / semantic_segmentation | +0.524 |
+| classification / scene_classification | +0.161 |
 | classification / detection | +0.140 |
 | classification / semantic_segmentation | +0.140 |
 | detection / retrieval | −0.035 |
 | retrieval / semantic_segmentation | −0.042 |
+| retrieval / scene_classification | −0.217 |
 
 Image-level categorisation on one side, localised prediction on VOC on the
-other, and nothing linking them. So **do not average a backbone's high-level
-results into one figure of merit** — the four boards are not measuring one
-capability, and a mean over them describes nothing. Read them individually,
-and note that `semantic_segmentation` behaves like `detection` rather than
-like the two boards it shares a name with.
+other, and nothing linking them. **`scene_classification` is image-level
+classification and still lands with the localised cluster** (+0.72 with
+detection, −0.22 with retrieval) — a place category is recovered from layout
+and context, which is what the VOC-dense probes reward and single-object
+Imagenette does not. So **do not average a backbone's high-level results into
+one figure of merit** — the five boards are not measuring one capability, and a
+mean over them describes nothing. Read them individually.
 
 This clustering is **not** an artefact of which images each probe reads, which
 is the first thing to suspect since `detection` and `semantic_segmentation`
@@ -91,10 +102,13 @@ frames). `generic_segmentation`'s nearest neighbours are `surface_normal`,
 `depth` and `corner` — NYUv2 and Taskonomy. And the three probes that share
 Imagenette average +0.128, the lowest figure of any shared corpus here.
 
-Two caveats. This is n=12, so the coefficients are wide. And it is a statement
-about *this corpus*: at nine backbones the high-level tier did cohere (+0.497
-against +0.340), and what changed it was adding three backbones that differ
-only in training objective and recipe. Reproduce or re-test any of it with
+Two caveats. This is n=12, so the coefficients are wide. And the tier means are
+a statement about *this corpus*: at nine backbones the high-level tier mean was
+above the cross-tier line (+0.497 against +0.340), at thirteen boards it was
+below, and at fourteen it is marginally above again — moved each time by which
+backbones and which boards are in the set, not by any board's features
+changing. The two-cluster structure is what survives all three. Reproduce or
+re-test with
 [`scripts/analyse_board_correlates.py`](https://github.com/turhancan97/VisBench/blob/main/scripts/analyse_board_correlates.py)
 `--section agreement`.
 
@@ -144,8 +158,8 @@ python examples/scene_classify.py --data /path/to/places365_standard --limit 100
 
 Places365 scenes overlap what ImageNet-supervised backbones already saw, so for
 those the number is closer to in-distribution recall than transfer. The
-measured board is pending — this probe ships with a rank check, not yet a full
-corpus column.
+twelve-backbone board is under [Measured on Places365](#measured-on-places365),
+and it ranks backbones almost independently of the object one.
 
 [`examples/retrieve.py`](https://github.com/turhancan97/VisBench/blob/main/examples/retrieve.py) does the zero-shot version —
 no training at all, every image queries every other by cosine similarity:
@@ -870,6 +884,54 @@ hits, 0 misses, 8 s end to end. Switching to `--pooling mean` is a genuine
 re-extraction (3,925 misses, 56 s) because pooling is part of the cache key —
 and it costs about 1.8 points of recall@1 here, which is the sort of question
 these two lines of CLI exist to answer.
+
+## Measured on Places365
+
+`scene_classification`, on Places365-standard: the full official validation
+split (36,500 images, 100 per class across 365 scene categories) scored, with
+100 training images per class (`--limit 100`). Linear probe on pooled features,
+the same path and schedule as object `classification`.
+
+<!-- visbench:board task=scene_classification metrics=top1,top5 heading=3 -->
+### scene_classification
+
+| backbone | `top1` | `top5` |
+| --- | --- | --- |
+| `siglip_vitb16` | **0.4035** | **0.6930** |
+| `clip_vitb16` | 0.3934 | 0.6760 |
+| `clip_vitb32` | 0.3890 | 0.6769 |
+| `dinov2_vitb14` | 0.3865 | 0.6562 |
+| `resnet50` | 0.3575 | 0.6525 |
+| `dinov2_vits14` | 0.3529 | 0.6430 |
+| `sam_vitb16` | 0.3430 | 0.6318 |
+| `dino_vitb16` | 0.3410 | 0.6320 |
+| `convnext_base` | 0.3356 | 0.6176 |
+| `mae_vitb16` | 0.3111 | 0.6046 |
+| `supervised_vitb16` | 0.3068 | 0.5855 |
+| `resnet18` | 0.2712 | 0.5535 |
+
+Ordered by `top1`, which **disagrees with `top5`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
+
+> **Read this first.** This is *scene* category, not object category — a distinct question from the `classification` board, and a backbone's rank can move between the two. Places365 scenes overlap what ImageNet-supervised backbones already saw, so for those the number is closer to in-distribution recall than transfer.
+
+<sub>scene_classification on val/val, protocol=visbench_scene_linear_probe, frozen [9f6f94e8]</sub>
+<!-- /visbench:board -->
+
+**This board ranks backbones almost independently of the object board.**
+Spearman correlation between the two orderings is **+0.16** across the twelve
+backbones. The image-text models take the top three places (`siglip_vitb16`
+0.4035, both CLIPs behind it), where on Imagenette they sit mid-pack. The two
+ImageNet-1k **supervised** backbones fall the hardest: `convnext_base` goes from
+first on objects to ninth here, `supervised_vitb16` from fifth to eleventh —
+Imagenette's classes are ImageNet-1k wnids, so their object numbers are close to
+in-distribution recall, and Places365 is where that advantage does not apply.
+`mae_vitb16` is tenth, consistent with its last-or-near-last placing on every
+other semantic board.
+
+The object board is also **saturated** — eleven of twelve backbones score above
+0.988 top-1, a spread of 0.04 — where this one spans 0.271 to 0.404, a spread of
+0.13. A saturated board cannot rank; this is the reason scene classification is
+a separate probe rather than a note under the object one.
 
 Every one of these examples has a `visbench run` equivalent — see
 [the command-line section of the README](https://github.com/turhancan97/VisBench/blob/main/README.md#the-command-line). They stay because an example is readable

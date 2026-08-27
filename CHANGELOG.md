@@ -25,29 +25,31 @@ so it stands on its own rather than assuming you have read the ones above it.
   `ImageFolderDataset` reads with no loader code (`train/<class>/` +
   `val/<class>/`, 365 classes). Ships with
   [`examples/scene_classify.py`](examples/scene_classify.py), a `visbench run
-  scene_classification` / `visbench show scene_classification` CLI row, a
-  gallery figure, and `probe_scene_classification` in `build_corpus.sh`
-  (`--limit 100`: the full 100/class official val, 100 training images per
-  class). **The full 12-backbone corpus board is a follow-up step** — this
-  ships the probe and a rank check, not yet a corpus column.
+  scene_classification` / `visbench show scene_classification` CLI row, and a
+  gallery figure.
 
-  The rank check (Places365 val, `--limit 100`, top-1) against the Imagenette
-  object-`classification` board, on four backbones:
+  **The 12-backbone corpus board is committed** (`build_corpus.sh` runs it at
+  `--limit 100`: the full 100/class official val scored, 100 training images
+  per class). The corpus is now **168 records across fourteen boards**. Top-1,
+  against the Imagenette object-`classification` board:
 
-  | backbone | scene top-1 | object top-1 |
+  | | object 1st → | scene 1st → |
   | --- | --- | --- |
-  | `clip_vitb16` | **0.3921** (1st) | 0.9954 (3rd) |
-  | `dinov2_vitb14` | 0.3863 (2nd) | 0.9975 (2nd) |
-  | `dinov2_vits14` | 0.3511 (3rd) | 0.9939 (4th) |
-  | `convnext_base` | 0.3356 (4th) | **0.9997** (1st) |
+  | | `convnext_base` 0.9997 (supervised CNN) | `siglip_vitb16` 0.4035 (image-text ViT) |
+  | `convnext_base` | 1st | 9th |
+  | `supervised_vitb16` | 5th | 11th |
+  | `mae_vitb16` | 12th | 10th |
+  | spread | 0.041 (saturated) | **0.132** |
 
-  The ordering is genuinely different — `convnext_base` goes from first on
-  objects to last on scenes, `clip_vitb16` the reverse — and the object board
-  is saturated across these four (spread 0.006) where the scene board is not
-  (spread 0.057, ~10x wider). `convnext_base` is ImageNet-1k supervised and
-  Imagenette's classes are ImageNet-1k wnids, so its object number is close to
-  in-distribution recall and does not carry to scenes. So the probe measures
-  something the `classification` board does not.
+  Spearman between the two orderings is **+0.16** — the two "classification"
+  boards rank backbones almost independently. The object board is saturated
+  (eleven of twelve above 0.988) and, for the ImageNet-1k-supervised backbones,
+  measures in-distribution recall rather than transfer (Imagenette's classes
+  are ImageNet-1k wnids). `scene_classification` correlates +0.72 with
+  `detection` and +0.52 with `semantic_segmentation` but +0.16 with object
+  `classification` — it joins the localised / spatial-context cluster of the
+  high-level tier, not the image-level-categorisation one. See the
+  `scene_classification` and updated tier findings in `CORPUS_FINDINGS.md`.
 
 - **A resolution control, and the finding that feature resolution is not what
   DINOv2's dense lead is made of.** Feature resolution is the strongest

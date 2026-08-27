@@ -112,7 +112,9 @@ changes no number, and **v0.8.0 (2026-08-07) is the corner probe**, steps 8a and
 8b together.
 
 **v0.11.0 shipped on 2026-08-20.** It is steps 10d and 10e plus
-`examples/custom_backbone.py`: the corpus is **twelve backbones, 156 records**,
+`examples/custom_backbone.py`: the corpus was **twelve backbones, 156 records**
+at that release (**168 across fourteen boards** since `scene_classification`'s
+board landed, 2026-08-28),
 the objective family is three wide, and it has a recipe control beside it —
 which refuted half of 10d's own published claim before either shipped. That
 result is the single most important thing to read before quoting a board from
@@ -162,17 +164,20 @@ claim itself no longer holds for *high-level* at twelve backbones — same file.
 
 **There is no `next` step.** The remaining work is the candidate task backlog
 further down this file — and the cheapest items there need no new dataset at
-all. **The first of those is done as of 2026-08-27**: `scene_classification`,
-a fourteenth probe, is scene category on the same linear-probe path as object
-`classification` (Places365-standard, read with no loader code). It ships as
-*the probe plus a rank check* — the full 12-backbone corpus board is the
-follow-up step, the way `corner` split 8a from 8b. See its `CHANGELOG.md` entry
-and the "decisions already paid for" bullet on why it is a distinct probe. The
-rank check (4 backbones) confirms it ranks: `convnext_base` is first on
-Imagenette object classification and **last** of the four on Places365 scenes,
-`clip_vitb16` the reverse, and the object board is saturated (spread 0.006)
-where the scene board is not (0.057). The `CORPUS_FINDINGS.md` entry waits on
-the committed board.
+all. **The first of those is done**: `scene_classification`, a fourteenth
+probe, is scene category on the same linear-probe path as object
+`classification` (Places365-standard, read with no loader code). The probe
+shipped 2026-08-27 and its **12-backbone corpus board landed 2026-08-28** — the
+corpus is now 168 records across fourteen boards. See the `CHANGELOG.md` entry,
+the "decisions already paid for" bullet on why it is a distinct probe, and the
+`scene_classification` and tier findings in `CORPUS_FINDINGS.md`. The headline:
+the scene board ranks backbones almost independently of the object board
+(Spearman +0.16) — image-text ViTs lead, the ImageNet-1k-supervised CNNs that
+top the saturated object board fall to 9th/11th, and `scene_classification`
+correlates with the `detection`/`semantic_segmentation` cluster (+0.72/+0.52),
+not with object `classification` (+0.16). Adding it also flipped the high-level
+tier-mean back above the cross-tier line — which is why that finding now reads
+"two clusters, sign is noise".
 
 **There is now a second backlog beside it**, the library-surface one, which
 ships no new number the way v0.7 did; it is in the same part of this file and in
@@ -273,7 +278,6 @@ backbones  dinov2_vits14, dinov2_vitb14, clip_vitb16, clip_vitb32,
 probes     classification, scene_classification, retrieval, correspondence,
            depth, surface_normal, generic_segmentation, semantic_segmentation,
            similarity, detection, edge, keypoints2d, occlusion_edge, corner
-           (scene_classification has no corpus board yet — a rank check only)
 heads      linear, dpt, detection
 ```
 
@@ -628,7 +632,7 @@ designed up front; extend it the same way, from a case that already runs.
   `scripts/analyse_board_correlates.py` reproduces the correlational ones.
 
   - **"Which backbone is best" is not a well-formed question against this
-    corpus.** `mae_vitb16` is first on five of the thirteen boards and last on
+    corpus.** `mae_vitb16` is first on five of the fourteen boards and last on
     three. A summary that picks a winner is discarding the result.
   - **A count over a corpus is a fact about that corpus, not about a
     backbone.** Two of MAE's counts moved without its features changing, purely
@@ -641,11 +645,16 @@ designed up front; extend it the same way, from a case that already runs.
   - **The semantic segmentation board separates neither training objectives nor
     feature resolution**, which every other dense board ranks by. Do not
     present it as evidence about an objective.
-  - **The high-level tier does not cohere**: within-tier agreement (+0.296) is
-    *below* cross-tier (+0.304), and it is two clusters — `classification`/
-    `retrieval` and `detection`/`semantic_segmentation` — that ignore each
-    other. Treat `high_level` as a folder, not a quantity to average over.
-    Mid- and low-level do cohere. This is not the taxonomy being wrong.
+  - **The high-level tier is two clusters, not one** — `classification`/
+    `retrieval` (image-level categorisation) and `detection`/
+    `semantic_segmentation`/`scene_classification` (localised / spatial-context
+    prediction) — that barely correlate with each other. The tier-mean-vs-
+    cross-tier sign has flipped both ways with corpus composition (below the
+    line at 13 boards, marginally above at 14) and is noise; the two clusters
+    are the stable finding. `scene_classification` is image-level classification
+    yet lands with the localised cluster (+0.72 with `detection`, −0.22 with
+    `retrieval`). Treat `high_level` as a folder, not a quantity to average
+    over. Mid- and low-level cohere. This is not the taxonomy being wrong.
   - **That clustering is not a shared-dataset artefact**, checked: the two
     boards reading the *same 1449 images* agree least of the three VOC pairs,
     and Imagenette's three probes average +0.128.
@@ -752,9 +761,13 @@ designed up front; extend it the same way, from a case that already runs.
   `list_probes()`: `_REGISTRATION_MODULES`, `HEADLINE_METRICS`, the CLI `SPECS`
   row, `TARGET_STYLES`, both corpus-script probe arrays, the gallery `figures()`
   map and a committed `docs/_static/gallery/<name>.png`, and
-  `analyse_board_correlates.py`'s copied `HEADLINE_METRICS`. A probe that is
-  "just a dataset swap" is still a dozen small edits, because the name is load-
-  bearing everywhere.
+  `analyse_board_correlates.py`'s copied `HEADLINE_METRICS`. Then the board step
+  adds `analyse_board_correlates.py`'s `SOURCE_IMAGES` (hand-written, a test
+  fails without it), a `docs/tasks.md` board marker, and — because a fourteenth
+  high-level board shifts every tier and source correlation — a deliberate
+  rewrite of the tier-coherence test and finding. A probe that is "just a
+  dataset swap" is still a dozen small edits plus a corpus analysis, because
+  the name is load-bearing everywhere and the board is not inert.
 - **The NIGHTS ImageNet split is a contamination check, not a subset.**
   `test_imagenet` and `test_no_imagenet` partition the test set by whether the
   reference image came from ImageNet. DINOv2-S scores 0.882 against 0.854 across

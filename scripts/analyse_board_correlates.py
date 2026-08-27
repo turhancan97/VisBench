@@ -137,6 +137,7 @@ SOURCE_IMAGES: dict[str, str] = {
     "generic_segmentation": "VOC",
     "detection": "VOC",
     "classification": "Imagenette",
+    "scene_classification": "Places365",
     "retrieval": "Imagenette",
     "correspondence": "Imagenette",
     "depth": "NYUv2",
