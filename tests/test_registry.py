@@ -57,6 +57,51 @@ def test_registration_does_not_write_class_name():
     assert registry._BACKBONES["dinov2_vits14"][0] is registry._BACKBONES["dinov2_vitb14"][0]
 
 
+def test_the_resolution_control_declares_its_own_name():
+    """A control that kept `dinov2_vitb14` would evict it, not join it.
+
+    `DINOv2.__init__` sets `self.name = name or variant`, and the record's
+    `backbone` field is what `latest_per_backbone` keys a leaderboard row on.
+    Registering the 196px configuration without a `name` would give two models
+    one row and let the newer silently replace the corpus's 224px number on
+    every board.
+
+    Checked off the registered defaults rather than by constructing, so this
+    runs in the fast suite -- constructing needs 330 MB of weights, and CI does
+    not run `-m slow`. The whole point of the guard is that it catches a
+    silently wrong number, which is the class of check CLAUDE.md requires to be
+    fast.
+    """
+    _, defaults = registry._BACKBONES["dinov2_vitb14_196"]
+    assert defaults["variant"] == "dinov2_vitb14", "same weights as the 224px column"
+    assert defaults["image_size"] == 196, "14x14 tokens, matching every ViT-B/16"
+    assert defaults["name"] == "dinov2_vitb14_196", (
+        "without this the record reports 'dinov2_vitb14' and evicts the corpus row"
+    )
+    assert defaults["name"] != registry._BACKBONES["dinov2_vitb14"][1].get("name", "dinov2_vitb14")
+
+
+def test_register_backbone_does_not_shadow_a_constructor_name():
+    """`name` is positional-only on the decorator, so a backbone may take one.
+
+    Without the `/` this registration raises `TypeError: got multiple values
+    for argument 'name'` at import time -- which is loud, but only because the
+    collision happened to land on a parameter the decorator already used.
+    """
+
+    @registry.register_backbone("temporary_control", name="temporary_control", image_size=196)
+    class Control:
+        pass
+
+    try:
+        assert registry._BACKBONES["temporary_control"][1] == {
+            "name": "temporary_control",
+            "image_size": 196,
+        }
+    finally:
+        del registry._BACKBONES["temporary_control"]
+
+
 class TestImportTolerance:
     """A missing extra hides one name; a real bug must not hide as one.
 

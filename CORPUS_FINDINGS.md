@@ -31,6 +31,65 @@ Two standing cautions apply to everything below:
 ---
 
 
+- **Feature resolution is the strongest correlate of every dense board, and on
+  the two boards where that mattered it explains under a quarter of the gap**
+  (the resolution control, 2026-08-21).
+  [`results/controls/resolution.jsonl`](results/controls/resolution.jsonl) is
+  the measurement; that directory's README is the write-up.
+
+  The confound was real and this file was built without noticing it. Tokens
+  correlate +0.958 with `generic_segmentation`, +0.867 with `surface_normal`,
+  +0.818 with `depth` — the strongest structural correlate of any dense board,
+  where width correlates with essentially nothing. And **the only backbones
+  carrying 256 tokens are the two DINOv2s**, so grid size, the DINOv2 objective
+  and LVD-142M pretraining were one variable. No dense board could say which of
+  the three it had ranked.
+
+  `dinov2_vitb14_196` separates them: the same weights and the same hub ref at
+  196px, whose 14x14 grid matches every ViT-B/16 in the corpus.
+
+  | board | 256 tok | 196 tok | change | rel |
+  | --- | --- | --- | --- | --- |
+  | `generic_segmentation` | 0.7556 | 0.7407 | -0.0149 | 2.0% |
+  | `depth` | 0.7851 | 0.7791 | -0.0060 | 0.8% |
+  | `surface_normal` (deg, lower better) | 30.1143 | 30.6556 | +0.5413 | 1.8% |
+  | `edge` | 0.4481 | 0.4363 | -0.0119 | 2.6% |
+  | `corner` | 0.6526 | 0.6349 | -0.0178 | 2.7% |
+
+  **Matching the grid costs under 3% on every board**, and DINOv2-B keeps its
+  lead over the entire ViT-B/16 pack on both boards it led — 0.7407 against
+  `dino_vitb16`'s 0.6838, and 0.7791 against `mae_vitb16`'s 0.6945. Resolution
+  accounts for **21%** of the `generic_segmentation` lead and **7%** of the
+  `depth` one; between 79% and 93% survives.
+
+  **The confound was narrower than it first looked, and saying so is half the
+  finding.** On `surface_normal`, `edge` and `corner` DINOv2-B never led at all
+  — `mae_vitb16` is ahead on all three — so there was no lead for resolution to
+  explain. A first reading of the correlation table treated all five as
+  confounded. Check who actually leads a board before explaining their lead.
+
+  **Two limits travel with the number.** The control spans 256 to 196 tokens,
+  about 1.3x, while the corpus correlation spans 49 to 256, about 5x — so it
+  bounds the slope where the DINOv2-versus-ViT-B/16 comparison lives and says
+  nothing about the 49-token backbones, where `clip_vitb32` (0.6019) against
+  `clip_vitb16` (0.6787) suggests the large jumps are. And 196px is slightly
+  off DINOv2's training resolution, so read a drop as "resolution or
+  distribution", not resolution alone.
+
+  **It is one-sided because nothing else here can be raised.** DINOv2
+  interpolates its position embeddings inside its own forward pass, so 196px is
+  its intended use. open_clip does not interpolate at all
+  (`RuntimeError: tensor a (257) must match tensor b (197)`) and timm needs
+  `dynamic_img_size` (`Input height (256) doesn't match model (224)`), so no
+  ViT-B/16 in this corpus can be given a 16x16 grid without changing the model.
+
+  **The control is deliberately not in the corpus**, though it passes
+  `comparability_key` against every board it ran on — the five records land in
+  the *identical* group. The corpus answers "what does this backbone score",
+  and every row in it is a model somebody might choose; a control answers "what
+  happens when one thing changes". Mixing them makes a board answer two
+  questions, which is the same reason the schema never ranks across `finetune`.
+
 - **`mae_vitb16` is first on five of the thirteen boards and last on three, and
   this is the corpus finally demonstrating what the taxonomy claims** (10b,
   2026-08-14; **counts re-read off the board at twelve backbones, 10e**). Read

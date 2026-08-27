@@ -55,7 +55,7 @@ def _register(
     return decorator
 
 
-def register_backbone(name: str, **default_kwargs: Any) -> Callable[[type], type]:
+def register_backbone(name: str, /, **default_kwargs: Any) -> Callable[[type], type]:
     """Class decorator registering a :class:`BaseBackbone` subclass under ``name``.
 
     ``default_kwargs`` are passed to the constructor when the backbone is built
@@ -64,12 +64,24 @@ def register_backbone(name: str, **default_kwargs: Any) -> Callable[[type], type
 
     Raises on duplicate names rather than silently overwriting, so a typo in a
     new backbone cannot shadow an existing one.
+
+    ``name`` is **positional-only** so that it cannot shadow a constructor
+    argument of the same name. ``DINOv2`` takes a ``name=`` telling a record
+    what a configuration calls itself, and without the ``/`` registering one
+    reads as two values for this function's own parameter -- a ``TypeError`` at
+    import, which is the good outcome, but only because the collision happened
+    to be on a name the decorator already used. The barrier belongs here rather
+    than in a rule about what constructors may call their arguments.
     """
     return _register(_BACKBONES, "Backbone", name, default_kwargs)
 
 
-def register_task(name: str, **default_kwargs: Any) -> Callable[[type], type]:
-    """Class decorator registering a :class:`BaseTask` subclass under ``name``."""
+def register_task(name: str, /, **default_kwargs: Any) -> Callable[[type], type]:
+    """Class decorator registering a :class:`BaseTask` subclass under ``name``.
+
+    ``name`` is positional-only for the reason given in
+    :func:`register_backbone`.
+    """
     return _register(_TASKS, "Task", name, default_kwargs)
 
 
