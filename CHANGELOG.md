@@ -9,6 +9,13 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+## [0.12.0] — 2026-08-28
+
+Two new probes and the last library-surface gap. `scene_classification` and
+`orientation` bring the corpus to **15 probes × 12 backbones, 180 records**;
+the dataset bridges close the "bring your own dataset" backlog. No schema change
+— every v0.11.0 number is reported identically — and no breaking API change.
+
 ### Added
 
 - **Dataset bridges — `TorchvisionDataset` and `HuggingFaceDataset`, and a

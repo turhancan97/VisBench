@@ -471,7 +471,7 @@ for the full reference.
 
 ## Reproducibility
 
-**Thirteen probes against twelve backbones, as records:
+**Fifteen probes against twelve backbones, as records:
 [LEADERBOARD.md](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md).**
 Every board there — and every measured table below — is generated from
 [`results/corpus/visbench.jsonl`](https://github.com/turhancan97/VisBench/blob/main/results/corpus/visbench.jsonl),
@@ -527,7 +527,7 @@ them at the point of use in the code:
 | **The documentation site** | <https://turhancan97.github.io/VisBench/> |
 | Every probe, its data layout and its measured numbers | [docs/tasks.md](https://github.com/turhancan97/VisBench/blob/main/docs/tasks.md) |
 | Looking at what a probe saw, and what it predicted | [docs/show.md](https://github.com/turhancan97/VisBench/blob/main/docs/show.md) |
-| Thirteen probes against twelve backbones, ranked | [LEADERBOARD.md](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md) |
+| Fifteen probes against twelve backbones, ranked | [LEADERBOARD.md](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md) |
 | How it was built, and what might come next | [docs/roadmap.md](https://github.com/turhancan97/VisBench/blob/main/docs/roadmap.md) |
 | What changed in each release | [CHANGELOG.md](https://github.com/turhancan97/VisBench/blob/main/CHANGELOG.md) |
 | Borrowed evaluation protocols and their licences | [NOTICE](https://github.com/turhancan97/VisBench/blob/main/NOTICE) |
@@ -549,7 +549,7 @@ or use:
   doi     = {10.5281/zenodo.21822684},
   url     = {https://doi.org/10.5281/zenodo.21822684},
   license = {MIT},
-  version = {0.7.0}
+  version = {0.12.0}
 }
 ```
 

@@ -347,7 +347,19 @@ run through `tail`: it buffers, so a run that is killed part-way leaves no log,
 and the Hub then has to be queried to find out what actually shipped — which
 happened, and is recoverable only because each record names its own pair.
 
-Package version is `0.11.0`, and it is **on PyPI, uploaded 2026-08-20**, wheel
+**`0.12.0` is prepared but NOT yet published** (release-prep commit, 2026-08-28):
+`pyproject.toml`, `visbench/__init__.py`, `uv.lock`, `CITATION.cff`
+(`version` + `date-released: 2026-08-28`) and `.zenodo.json` all moved to
+0.12.0, `CHANGELOG.md`'s `[Unreleased]` became `[0.12.0]`, and the stale
+"Thirteen probes" strings in `README.md`/`docs/index.md` were corrected to
+"Fifteen". No schema change (still v7). The maintainer still has to tag, build,
+`twine upload`, cut the GitHub release and let Zenodo archive it — see the
+"Publishing needs the maintainer's credentials" paragraph and the standing
+release rules below. **Check [PyPI](https://pypi.org/project/visbench/) before
+assuming 0.12.0 is installable.**
+
+Package version was `0.11.0` through the last release, and it is **on PyPI,
+uploaded 2026-08-20**, wheel
 and sdist both (321,900 and 860,881 bytes), tagged `v0.11.0` on merge commit
 `1f0908e`, with a GitHub release created from that tag. **Verified the standing
 way**: the wheel downloaded from the JSON API, its SHA256 checked against
