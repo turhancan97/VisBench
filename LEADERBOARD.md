@@ -280,6 +280,29 @@ Ordered by `mAP`, which **disagrees with `recall@1`, `recall@10`, `recall@5`** �
 
 <sub>retrieval on val/val, frozen [eb312a7b]</sub>
 
+### scene_classification
+
+| backbone | `top1` | `top5` |
+| --- | --- | --- |
+| `siglip_vitb16` | **0.4035** | **0.6930** |
+| `clip_vitb16` | 0.3934 | 0.6760 |
+| `clip_vitb32` | 0.3890 | 0.6769 |
+| `dinov2_vitb14` | 0.3865 | 0.6562 |
+| `resnet50` | 0.3575 | 0.6525 |
+| `dinov2_vits14` | 0.3529 | 0.6430 |
+| `sam_vitb16` | 0.3430 | 0.6318 |
+| `dino_vitb16` | 0.3410 | 0.6320 |
+| `convnext_base` | 0.3356 | 0.6176 |
+| `mae_vitb16` | 0.3111 | 0.6046 |
+| `supervised_vitb16` | 0.3068 | 0.5855 |
+| `resnet18` | 0.2712 | 0.5535 |
+
+Ordered by `top1`, which **disagrees with `top5`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
+
+> **Read this first.** This is *scene* category, not object category — a distinct question from the `classification` board, and a backbone's rank can move between the two. Places365 scenes overlap what ImageNet-supervised backbones already saw, so for those the number is closer to in-distribution recall than transfer.
+
+<sub>scene_classification on val/val, protocol=visbench_scene_linear_probe, frozen [9f6f94e8]</sub>
+
 ### semantic_segmentation
 
 | backbone | `mean_acc` | `miou` | `miou_per_image` | `pixel_acc` |

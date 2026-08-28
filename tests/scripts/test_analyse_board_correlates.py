@@ -154,26 +154,44 @@ def test_tier_summary_splits_within_from_across(script):
     assert "low" not in within, "a tier with one member has no within-tier pair"
 
 
-def test_the_tier_claim_is_reported_as_it_stands_not_as_hoped(script, capsys):
-    """The high-level tier fails at twelve backbones, and the output must say so.
+def test_the_high_level_tier_is_two_clusters_not_one(script):
+    """The stable finding is the structure, not the sign of tier-mean minus cross.
 
-    This pins a *finding*, not a preference: `classification`/`retrieval` and
-    `detection`/`semantic_segmentation` are two clusters that barely correlate
-    with each other, so the tier mean lands under the cross-tier mean. If a
-    future corpus changes that, this test should be updated deliberately rather
-    than the reporting being softened.
+    `classification`/`retrieval` (image-level categorisation) and
+    `detection`/`semantic_segmentation` (localised prediction on VOC) are two
+    clusters that barely correlate with each other. That held at six, nine and
+    twelve backbones and thirteen boards. The *sign* of `high_level` mean minus
+    the cross-tier mean did not: it was below at thirteen boards and moved
+    marginally above when `scene_classification` (the fourteenth) was added,
+    because that board's strong disagreement with the low-level tier pulls the
+    cross-tier mean down. So this test pins the clusters and treats the tier
+    mean as the marginal quantity it is.
     """
     boards = script.load_boards(script.CORPUS)
     levels = script.load_levels(script.CORPUS)
-    means, across = script.tier_summary(script.agreement(boards), levels)
-    assert means["high_level"] < across
+    pairs = script.agreement(boards)
+
+    def rho(a, b):
+        return pairs[tuple(sorted((a, b)))]
+
+    # The two clusters are each tight,
+    assert rho("classification", "retrieval") > 0.6
+    assert rho("detection", "semantic_segmentation") > 0.6
+    # and they ignore each other.
+    assert rho("classification", "detection") < 0.3
+    assert rho("classification", "semantic_segmentation") < 0.3
+    assert rho("retrieval", "detection") < 0.3
+
+    # scene_classification is image-level classification but ranks with the
+    # localised cluster, not with object classification.
+    assert rho("scene_classification", "detection") > 0.5
+    assert rho("scene_classification", "classification") < 0.3
+
+    means, across = script.tier_summary(pairs, levels)
     assert means["mid_level"] > across
     assert means["low_level"] > across
-
-    script.report_agreement(boards, levels)
-    out = capsys.readouterr().out
-    assert "does NOT hold" in out
-    assert "high_level pair by pair" in out, "a failing tier must show its pairs, not just a mean"
+    # high_level sits within noise of the cross-tier mean, either side.
+    assert abs(means["high_level"] - across) < 0.1
 
 
 def test_every_board_in_the_corpus_has_a_source(script):
