@@ -89,6 +89,19 @@ class TestWhereMagentaLands:
         grey = _rgb(torch.rand(16, 16), "edge")
         assert not (grey == np.array(INVALID_RGB)).all(axis=-1).any()
 
+    def test_orientation_brightness_is_coherence_and_hue_is_the_angle(self):
+        """A zero-coherence pixel reads as black, not as a confident colour;
+        two different orientations at equal coherence read as different hues."""
+        # column 0: coherence 0 -> black. column 1: coherence 1, orientation 0.
+        # column 2: coherence 1, orientation 45 deg (2*theta = pi/2 -> sin term).
+        target = torch.zeros(2, 1, 3)
+        target[0, 0, 1] = 1.0
+        target[1, 0, 2] = 1.0
+        rgb = _rgb(target, "orientation")
+        assert tuple(rgb[0, 0]) == (0, 0, 0)
+        assert rgb[0, 1].max() > 200  # bright
+        assert tuple(rgb[0, 1]) != tuple(rgb[0, 2])  # different orientation, different hue
+
 
 class TestTheVOCPalette:
     def test_class_indices_are_used_as_indices(self):

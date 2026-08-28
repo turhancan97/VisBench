@@ -50,6 +50,7 @@ Kind = Literal[
     "magnitude",
     "depth",
     "normals",
+    "orientation",
     "binary",
     "labels",
     "boxes",
@@ -155,6 +156,11 @@ TARGET_STYLES: dict[str, TargetStyle] = {
         kind="magnitude",
         invalid=None,
         note="log1p(1e4*lambda_min), computed from this exact crop",
+    ),
+    "orientation": TargetStyle(
+        kind="orientation",
+        invalid=None,
+        note="hue is the local orientation, brightness its coherence; computed from this crop",
     ),
     "detection": TargetStyle(
         kind="boxes",

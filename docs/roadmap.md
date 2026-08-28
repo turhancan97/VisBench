@@ -89,6 +89,14 @@ This is a multi-month roadmap, built one reviewed step at a time.
 - [x] **10e.** a recipe control — the same objective trained two ways, which
       supplies the denominator every objective claim needs, and refutes 10d's
       semantic-segmentation evidence on arrival
+- [x] **backlog: `scene_classification`** — scene category on the object
+      `classification` linear-probe path (Places365), a new probe *name* rather
+      than a dataset flag; ranks backbones almost independently of the object
+      board (Spearman +0.16)
+- [x] **backlog: `orientation`** — gradient orientation, the fourth low-level
+      probe and the second derived from the frame, but the first whose target
+      is a direction; DoG-blob was rejected first for overlapping 0.51 with
+      `corner`
 
 ## Roadmap
 
@@ -149,26 +157,30 @@ magnitude map.
 
 No new dataset. Taskonomy's `edge_texture` is already a target *computed from
 the RGB frame*, and the same is true of these, so a target generator plus a
-`DenseMagnitudeTask` subclass is most of the work. The `corner` probe (v0.8)
-is the worked example — read `visbench/data/derived.py` and
-`visbench/tasks/low_level/corner.py` before starting one of these.
+task subclass is most of the work. `corner` (v0.8) is the worked example for a
+magnitude target and `orientation` for a vector one — read
+`visbench/data/derived.py` and `visbench/tasks/low_level/{corner,orientation}.py`
+before starting one of these.
 
 | Task | Level | Note |
 |---|---|---|
-| Local orientation / gradient fields (structure tensor, HOG-style) | low | Vector-valued rather than magnitude, so it needs more than a `DenseMagnitudeTask` subclass; closer to surface normals in shape |
+| Local orientation / gradient fields | low | **Implemented** as `orientation` — a 2-channel `(cos 2θ, sin 2θ)` field with coherence-weighted angular error; the first derived target that could not reuse `DenseMagnitudeTask` |
 | Superpixel / texture segmentation | low | Grouping by local photometric similarity alone, no figure-ground reasoning |
-| Blob detection (DoG, LoG) | low | The scale-space counterpart to `corner`'s single-scale cornerness |
+| Blob detection (DoG, LoG) | low | **Rejected** — the pre-measurement found its target correlates 0.51 with `corner`, as redundant with an existing probe as `corner` is with `edge` |
 
 Three things a derived target has to establish before it is worth shipping,
 none of which a probe run reveals on its own — all three cost real time on the
-corner probe:
+`corner` and `orientation` probes:
 
 1. **Check the response's tail** before assuming the magnitude protocol
    transfers. A target with too much mass in its strongest 1% of pixels scores
-   badly and ranks nothing.
-2. **Check the overlap with what already ships.** Cornerness correlates 0.52
-   with `edge_texture`, which is higher than any two shipped targets correlate
-   with each other.
+   badly and ranks nothing. (An angle has no tail, so `orientation` skipped the
+   compression — confirmed by the pre-measurement.)
+2. **Check the overlap with what already ships, *before building*.** Cornerness
+   correlates 0.52 with `edge_texture`; DoG blob correlated 0.51 with `corner`
+   and was dropped; `orientation`'s `|r|` with both is under 0.09, because it
+   measures phase. This costs an afternoon of correlations, not a probe run per
+   backbone.
 3. **A correlated target still earns its place if it *ranks* differently**, and
    that — not the absolute score — is the criterion.
 
@@ -219,8 +231,12 @@ Worth naming so they are not re-scoped from scratch:
   half of contour detection, at mid level.
 - **Corner detection** is implemented (v0.8) as Shi-Tomasi cornerness computed
   from the RGB frame — λ_min rather than Harris's `R`, because it is
-  non-negative by construction and has no `k` to record. Blob detection is
-  still open, and is the scale-space rather than single-scale question.
+  non-negative by construction and has no `k` to record.
+- **Gradient orientation** is implemented as `orientation` — a coherence-weighted
+  `(cos 2θ, sin 2θ)` field, also computed from the frame, the first derived
+  target that is a direction rather than a magnitude. **Blob detection (DoG)
+  was rejected** by its pre-measurement: the target correlates 0.51 with
+  `corner`.
 - **Texture / reflectance** overlaps with intrinsic decomposition above.
   Taskonomy ships no reflectance domain, so `mask_valid/` did not unblock it.
 

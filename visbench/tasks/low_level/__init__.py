@@ -10,7 +10,10 @@ at the other.
 
 Corner detection joined them as the third, and is the first probe in the library
 whose target is **computed from the image** rather than read from a rendered
-dataset — so it runs on any image folder, with no download. See
+dataset — so it runs on any image folder, with no download. Gradient orientation
+estimation is the fourth: also derived, but the first whose target is a
+*direction* rather than a magnitude, so it cannot reuse
+:class:`~visbench.tasks.magnitude_base.DenseMagnitudeTask`. See
 :mod:`visbench.data.derived`.
 
 See ``README.md`` in this folder for the remaining intended scope (optical flow,
@@ -20,5 +23,6 @@ texture/reflectance, image quality assessment) and what each would cost.
 from visbench.tasks.low_level.corner import CornerTask
 from visbench.tasks.low_level.edge import EdgeTask
 from visbench.tasks.low_level.keypoints import Keypoint2DTask
+from visbench.tasks.low_level.orientation import OrientationTask
 
-__all__ = ["CornerTask", "EdgeTask", "Keypoint2DTask"]
+__all__ = ["CornerTask", "EdgeTask", "Keypoint2DTask", "OrientationTask"]

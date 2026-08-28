@@ -85,6 +85,8 @@ METRIC_DIRECTIONS: dict[str, Direction] = {
     "abs_rel": "lower",
     "mean": "lower",
     "median": "lower",
+    # gradient orientation (low-level) — degrees of angular error
+    "orientation_error": "lower",
     # dense regression, shared by depth, normals and the magnitude probes
     "rmse": "lower",
     "mae": "lower",

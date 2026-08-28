@@ -11,6 +11,41 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Added
 
+- **`orientation` — a fifteenth probe: local gradient orientation, the fourth
+  low-level task.** Like `corner` its target is computed from the RGB frame
+  (`OrientationResponse` in `visbench/data/derived.py`), so it runs on any image
+  folder with no download. Unlike `corner`, `edge` and `keypoints2d` the target
+  is a *direction*, not a magnitude — so it is the first derived probe that
+  could not reuse `DenseMagnitudeTask`.
+
+  The dominant gradient orientation is `2θ = atan2(2·Ixy, Ixx − Iyy)` from the
+  Gaussian-windowed structure tensor. The angle is defined modulo π (an edge and
+  its reverse run the same way), so the target is the unit vector
+  `(cos 2θ, sin 2θ)` — single-valued under that wrap — with its length set to
+  the coherence `(λ_max − λ_min) / (λ_max + λ_min)`. The loss is a
+  coherence-weighted angular error and the metric, `orientation_error`, is the
+  coherence-weighted mean angular error in degrees, halved into `[0, 90]` (45 is
+  chance). Only 1.4% of Taskonomy tiny val pixels fall below coherence 0.1, so
+  the weighting is not a mask.
+
+  **It measures phase, which no other probe does.** Per-image `|r|` with the
+  `edge_texture` target is 0.07 and with `corner` 0.08, where `corner` and
+  `edge` themselves sit at 0.53 — so an orientation score is close to
+  independent evidence about a backbone. **DoG-blob detection was the first
+  candidate for this slot and was rejected** on the same overlap check: its
+  target correlated 0.51 with `corner`, as redundant with an existing probe as
+  `corner` is with `edge`.
+
+  An angle has no heavy tail, so unlike `corner` there is no `log1p` and no
+  scale to sweep — the pre-measurement confirmed this before the task was
+  written. The one operator setting, `--orientation-sigma`, travels in
+  `dataset_params`. Ships with
+  [`examples/orientation.py`](examples/orientation.py), a `visbench run
+  orientation` / `visbench show orientation` CLI row (drawn in colour: hue is
+  the orientation, brightness the coherence), and a gallery figure. The
+  12-backbone corpus board is pending — it reuses the same pinned
+  `data/corner_frames/` set as `corner`.
+
 - **`scene_classification` — a fourteenth probe, scene category rather than
   object category.** Mechanically it is the object-classification linear probe
   (`SceneClassificationTask` subclasses `ClassificationTask`); what differs is

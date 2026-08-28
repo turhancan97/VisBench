@@ -555,6 +555,36 @@ and third on corners** while the two ResNets swap. See
 for why the operator is Shi-Tomasi rather than Harris, and for the tail
 measurements that chose the compression.
 
+## Gradient orientation — a derived target that is a direction, not a magnitude
+
+[`examples/orientation.py`](https://github.com/turhancan97/VisBench/blob/main/examples/orientation.py).
+The fourth low-level probe and the second whose target is computed from the
+frame — but the first whose target is a *direction*: the local orientation
+structure runs, read as `2θ = atan2(2·Ixy, Ixx − Iyy)` from the same
+Gaussian-windowed structure tensor whose smaller eigenvalue is the corner
+response.
+
+```bash
+visbench run orientation --data /path/to/any/images --limit 600
+```
+
+The angle is defined **modulo π** — an edge and its reverse run the same way —
+so the target is the unit vector `(cos 2θ, sin 2θ)`, which is single-valued
+under that wrap, with its length set to the **coherence**
+`(λ_max − λ_min) / (λ_max + λ_min)`. Loss and metric both weight by that length,
+so a flat isotropic patch contributes ~0 rather than being masked out by a
+threshold nobody chose. Only 1.4% of Taskonomy tiny val pixels fall below
+coherence 0.1. The metric, `orientation_error`, is the coherence-weighted mean
+angular error in degrees, halved into `[0, 90]` (45 is chance).
+
+**It measures phase, which no other probe here does.** Per-image `|r|` with the
+`edge_texture` target is 0.07 and with `corner` 0.08, where `corner` and `edge`
+themselves sit at 0.53 — so an orientation score is close to independent
+evidence about a backbone, unlike a corner score beside an edge score. Its board
+uses the same pinned Taskonomy frames as `corner` and `edge`; `--orientation-sigma`
+travels in `dataset_params` and splits the comparability groups on its own. The
+12-backbone board is pending.
+
 ## Dense tasks
 
 [`examples/depth.py`](https://github.com/turhancan97/VisBench/blob/main/examples/depth.py),

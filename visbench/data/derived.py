@@ -50,7 +50,12 @@ from PIL import Image
 from visbench.data.base import BaseDataset, list_files
 from visbench.data.dense import load_image
 
-__all__ = ["ShiTomasiResponse", "DerivedTargetDataset", "structure_tensor"]
+__all__ = [
+    "ShiTomasiResponse",
+    "OrientationResponse",
+    "DerivedTargetDataset",
+    "structure_tensor",
+]
 
 #: Luminance weights (ITU-R BT.601), the convention PIL's ``convert("L")`` uses.
 #: Spelled out rather than delegated because the target is defined by this
@@ -230,6 +235,111 @@ class ShiTomasiResponse:
         return hashlib.sha256(parts.encode()).hexdigest()[:12]
 
 
+@dataclass(frozen=True)
+class OrientationResponse:
+    """Local gradient orientation — the direction structure runs, per pixel.
+
+    Where :class:`ShiTomasiResponse` asks *how much* the intensity varies, this
+    asks *which way*. The dominant gradient orientation is read from the same
+    Gaussian-windowed structure tensor:
+
+    .. math::
+
+        2\\theta = \\operatorname{atan2}(2 I_{xy},\\ I_{xx} - I_{yy})
+
+    an angle defined **modulo** :math:`\\pi` — an edge and its reverse run the
+    same way — so the target is the unit vector :math:`(\\cos 2\\theta,
+    \\sin 2\\theta)`, which is single-valued under that wrap where the raw angle
+    is not.
+
+    **The vector's length carries the coherence**, :math:`(\\lambda_{max} -
+    \\lambda_{min}) / (\\lambda_{max} + \\lambda_{min})` in :math:`[0, 1]` — 1
+    where one direction dominates, 0 in an isotropic or flat patch where no
+    orientation is defined. So the target is ``coherence * (cos 2t, sin 2t)``,
+    and a near-zero-length target pixel means "no orientation here", exactly the
+    convention :func:`~visbench.metrics.dense.surface_normal_metrics` already
+    uses for a zero-length normal. :class:`~visbench.tasks.low_level.orientation.OrientationTask`
+    weights its loss and masks its metric by that length rather than dropping a
+    hard-thresholded set of pixels — measured on Taskonomy tiny val, only 1.4%
+    of pixels fall below coherence 0.1, so this is a weighting, not a hole.
+
+    **No compression, unlike the corner target.** Orientation is an angle, so
+    there is no heavy tail to tame: the raw structure-tensor readout at
+    ``sigma=2.0`` recovers a synthetic grating's orientation to under a degree
+    and its overlap with ``edge_texture`` and ``corner`` is |r| < 0.09 — it
+    measures phase, which no other probe here does.
+
+    Parameters
+    ----------
+    sigma:
+        Standard deviation, in pixels, of the Gaussian window the tensor is
+        summed over — the scale the operator sees. Dominant orientation moves
+        under 3 degrees between ``sigma`` 1.5 and 3.0, so this is not a
+        knife-edge, but it is recorded because 1.5 and 3.0 are still different
+        targets.
+    """
+
+    sigma: float = 2.0
+
+    #: Named in the record's ``protocol``. As with :class:`ShiTomasiResponse`,
+    #: the operator not the family: ``sigma`` travels in ``dataset_params`` so
+    #: two settings land in two comparability groups without anyone noticing.
+    operator = "structure_tensor_orientation"
+
+    def __post_init__(self) -> None:
+        if self.sigma <= 0:
+            raise ValueError(f"sigma must be positive, got {self.sigma}")
+
+    def __call__(self, image: Image.Image) -> torch.Tensor:
+        """The orientation field for one PIL image, as ``(2, H, W)`` float32.
+
+        The image is expected to be **already at the working geometry**: this
+        does no resizing and no cropping, see the module docstring. The two
+        channels are ``coherence * cos 2theta`` and ``coherence * sin 2theta``.
+        """
+        array = torch.from_numpy(np.asarray(image.convert("RGB"), dtype=np.float32) / 255.0)
+        grey = (
+            _LUMA[0] * array[..., 0] + _LUMA[1] * array[..., 1] + _LUMA[2] * array[..., 2]
+        ).view(1, 1, *array.shape[:2])
+
+        tensor = structure_tensor(grey, self.sigma)
+        ixx, ixy, iyy = (component.squeeze(0).squeeze(0) for component in tensor)
+        two_theta = torch.atan2(2.0 * ixy, ixx - iyy)
+
+        trace = ixx + iyy
+        discriminant = torch.clamp((ixx - iyy) ** 2 + 4.0 * ixy * ixy, min=0.0).sqrt()
+        coherence = torch.where(
+            trace > 1e-12, discriminant / trace.clamp(min=1e-12), torch.zeros_like(trace)
+        ).clamp(0.0, 1.0)
+
+        return torch.stack([coherence * two_theta.cos(), coherence * two_theta.sin()])
+
+    def describe(self) -> dict[str, Any]:
+        """Everything that changes the target, for ``dataset_params``.
+
+        Exhaustive on purpose — the gradient kernel and luminance weights are
+        named though neither is configurable, because a record that omits them
+        would silently mean something else if either changed.
+        """
+        return {
+            "target_operator": self.operator,
+            "target_sigma": self.sigma,
+            "target_encoding": "coherence_weighted_double_angle",
+            "target_gradient": "sobel3_over8",
+            "target_luma": "bt601",
+        }
+
+    def token(self) -> str:
+        """Compact stable string for the fingerprint."""
+        parts = "|".join(f"{k}={v}" for k, v in sorted(self.describe().items()))
+        return hashlib.sha256(parts.encode()).hexdigest()[:12]
+
+
+#: The two derived generators share a duck type: ``__call__(PIL) -> Tensor``,
+#: ``describe() -> dict``, ``token() -> str`` and an ``operator`` string.
+DerivedGenerator = ShiTomasiResponse | OrientationResponse
+
+
 class DerivedTargetDataset(BaseDataset):
     """An image folder whose targets are computed from the images.
 
@@ -259,7 +369,7 @@ class DerivedTargetDataset(BaseDataset):
         image_dir: str = "images",
         split: str = "train",
         image_size: int = 224,
-        generator: ShiTomasiResponse | None = None,
+        generator: DerivedGenerator | None = None,
         extensions: tuple[str, ...] = (".jpg", ".jpeg", ".png", ".webp"),
         stems: Sequence[str] | None = None,
         max_images: int | None = None,
@@ -341,7 +451,11 @@ class DerivedTargetDataset(BaseDataset):
         return resized.crop((left, top, left + self.image_size, top + self.image_size))
 
     def target(self, index: int) -> torch.Tensor:
-        """``(image_size, image_size)``, computed from the cropped image.
+        """The target for one frame, computed from the cropped image.
+
+        Shape is ``(image_size, image_size)`` for a scalar generator
+        (:class:`ShiTomasiResponse`) and ``(C, image_size, image_size)`` for a
+        vector one (:class:`OrientationResponse`, ``C=2``).
 
         Note what is *absent*: no resize, no nearest-neighbour resampling, no
         ``max_target``. The target is generated at the working resolution, so

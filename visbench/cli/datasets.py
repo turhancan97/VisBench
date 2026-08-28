@@ -30,7 +30,7 @@ from visbench.data import (
     TaskonomyDataset,
 )
 from visbench.data.dense import load_label_map, load_mask, load_normal_map
-from visbench.data.derived import DerivedTargetDataset, ShiTomasiResponse
+from visbench.data.derived import DerivedTargetDataset, OrientationResponse, ShiTomasiResponse
 from visbench.data.detection import VOC_CLASSES
 from visbench.data.pair_dataset import HomographyPairDataset
 from visbench.data.triplet import TwoAFCDataset
@@ -747,6 +747,49 @@ def _corner_splits(args: argparse.Namespace) -> Splits:
     return Splits(evaluate=load(args.split), train=load(args.train_split))
 
 
+def _orientation_flags(parser: argparse.ArgumentParser) -> None:
+    """One image folder, and the structure-tensor scale that reads its orientation.
+
+    Like ``_corner_flags`` there is no ``--target-dir`` — the target is derived.
+    The only operator setting is ``--orientation-sigma``: an angle has no heavy
+    tail, so there is no compression to configure. It still lands in
+    ``dataset_params`` and splits the comparability groups.
+    """
+    _orientation_view_flags(parser)
+    _schedule_flags(parser)
+
+
+def _orientation_view_flags(parser: argparse.ArgumentParser) -> None:
+    """Everything ``_orientation_splits`` reads."""
+    _split_flags(parser, evaluate="val", train="train")
+    parser.add_argument("--image-dir", default="images", help="image folder inside a split")
+    _image_size_flag(parser)
+    _head_shape_flags(parser)
+    parser.add_argument(
+        "--orientation-sigma",
+        type=float,
+        default=2.0,
+        help="Gaussian window of the structure tensor, in pixels — the scale the "
+        "operator sees. Dominant orientation moves under 3 degrees between 1.5 "
+        "and 3.0 (default: 2.0)",
+    )
+
+
+def _orientation_splits(args: argparse.Namespace) -> Splits:
+    generator = OrientationResponse(sigma=args.orientation_sigma)
+    common = {
+        "image_dir": args.image_dir,
+        "image_size": args.image_size,
+        "generator": generator,
+        "max_images": args.limit,
+    }
+
+    def load(split: str) -> DerivedTargetDataset:
+        return DerivedTargetDataset(root=args.data / split, split=split, **common)
+
+    return Splits(evaluate=load(args.split), train=load(args.train_split))
+
+
 def _correspondence_flags(parser: argparse.ArgumentParser) -> None:
     _split_flags(parser, evaluate="", train=None)
     parser.add_argument("--max-warp", type=float, default=0.2, help="corner shift, 0-0.5")
@@ -919,6 +962,16 @@ SPECS: dict[str, ProbeSpec] = {
         build=_corner_splits,
         probe_kwargs=_dense_probe_kwargs,
         show_arguments=_viewing(_corner_view_flags),
+    ),
+    "orientation": ProbeSpec(
+        # Derived like corner, but the target is a direction not a magnitude.
+        summary="dense gradient-orientation regression on a derived target; "
+        "quote orientation_error",
+        layout="<data>/<split>/images/*.jpg   (no targets: they are computed)",
+        add_arguments=_orientation_flags,
+        build=_orientation_splits,
+        probe_kwargs=_dense_probe_kwargs,
+        show_arguments=_viewing(_orientation_view_flags),
     ),
     "keypoints2d": ProbeSpec(
         summary="dense 2D keypoint-response regression; quote keypoint_correlation",

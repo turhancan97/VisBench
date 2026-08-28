@@ -117,6 +117,7 @@ PROBES=(
   keypoints2d
   occlusion_edge
   corner
+  orientation
 )
 # Which backbones the matrix covers. Overridable, because the corpus is widened
 # a few backbones at a time rather than re-run whole: the DINOv2 pair is already
