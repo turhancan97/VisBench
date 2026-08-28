@@ -52,6 +52,9 @@ VOC_BINARY="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/data/voc_binary"
 CORNER_FRAMES="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/data/corner_frames"
 IMAGENETTE=/shared/sets/datasets/Imagenette/imagenette2
 PLACES365=/shared/sets/datasets/vision/places365_standard
+# The readable CUB copy. `cub_200_2011/CUB_200_2011` at the top level is
+# permission-denied, and this one already ships the official split as folders.
+CUB=/shared/sets/datasets/vision/CUB-200/images_train_test
 NIGHTS=/shared/sets/datasets/vision/nights
 TASKONOMY=/shared/sets/datasets/taskonomy-dataset/taskonomy
 NYU=/shared/sets/datasets/vision/probing_3D/nyuv2_new
@@ -142,6 +145,21 @@ probe_scene_classification() {
   # different set of files and so a different dataset fingerprint, which lands
   # the run in a different comparability group rather than beside these.
   run scene_classification --data "$PLACES365" --split val --train-split train --limit 100
+}
+
+probe_fine_grained_classification() {
+  # CUB-200-2011: 200 bird species, train/<class>/ + val/<class>/, which
+  # ImageFolderDataset reads with no loader code. Subordinate categories inside
+  # one basic-level class -- a distinct high-level probe from `classification`,
+  # whose Imagenette board is saturated precisely because its ten classes are
+  # basic-level ImageNet-1k wnids.
+  #
+  # No --limit: this is the *whole* official split, 5994 train / 5794 val,
+  # which is what makes the board comparable to the published CUB literature.
+  # `test/` in this copy is a symlink to `val/`, so naming val is naming the
+  # official test set -- do not "fix" it to --split test, which would index the
+  # same files under a different path and so a different fingerprint.
+  run fine_grained_classification --data "$CUB" --split val --train-split train
 }
 
 probe_retrieval() {
@@ -281,6 +299,7 @@ probe_surface_normal() {
 ALL_PROBES=(
   classification
   scene_classification
+  fine_grained_classification
   retrieval
   correspondence
   similarity

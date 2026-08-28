@@ -172,6 +172,71 @@ those the number is closer to in-distribution recall than transfer. The
 twelve-backbone board is under [Measured on Places365](#measured-on-places365),
 and it ranks backbones almost independently of the object one.
 
+### Fine-grained recognition
+
+`fine_grained_classification` is the same linear probe again, and the third
+distinct question on that one path. Object classification asks whether a
+representation separates *basic-level* categories — a bird from a car — which
+is the level ImageNet-1k supervision optimises directly, and the level at which
+the Imagenette board is saturated. This one asks whether it separates
+*subordinate* categories inside one basic-level class: 200 species of bird that
+share a body plan, a pose distribution and a background, and differ in the shape
+of a beak or the colour of a wing bar. The information either survived the
+encoder or it did not.
+
+It is a distinct probe for the same reason `scene_classification` is — a board
+renders one comparability group, so a second dataset under one task name would
+make the object board unrenderable.
+
+[`examples/fine_grained_classify.py`](https://github.com/turhancan97/VisBench/blob/main/examples/fine_grained_classify.py)
+runs it on any labelled folder; the canonical dataset is CUB-200-2011, whose
+official 5994/5794 split ships in exactly the `train/<class>/` + `val/<class>/`
+layout:
+
+```bash
+python examples/fine_grained_classify.py --data /path/to/CUB-200/images_train_test
+```
+
+Stanford Cars and Stanford Dogs are the same shape and run the same probe under
+a different dataset fingerprint — which puts them in a different comparability
+group, so they cannot be quoted beside a CUB number.
+
+### The rank check
+
+A probe earns its place by *ranking* backbones, not by producing a high number,
+so six were measured before it shipped. The full twelve-backbone board is a
+separate step; these are the whole official split at the default schedule.
+
+| backbone | top-1 | top-5 | train top-1 |
+|---|---|---|---|
+| `dinov2_vitb14` | **0.8674** | 0.9734 | 1.0000 |
+| `dinov2_vits14` | 0.8642 | 0.9717 | 1.0000 |
+| `clip_vitb16` | 0.8050 | 0.9586 | 1.0000 |
+| `resnet50` | 0.6938 | 0.9135 | 1.0000 |
+| `supervised_vitb16` | 0.6617 | 0.8880 | 1.0000 |
+| `mae_vitb16` | 0.4698 | 0.7686 | 1.0000 |
+
+**A spread of 0.3976**, against an object board where the top backbones sit
+within a point of each other. That is the argument for the probe: the same
+linear head on the same features, asked a subordinate question instead of a
+basic-level one, separates backbones the saturated board cannot.
+
+**The probe does not underfit**, which is worth stating because 200 classes
+over ~6k training images is exactly where you would expect it to. `train top1`
+is **1.0000 on all six**. A linear map from 384–2048 dimensions to 200 classes
+has the capacity to separate 5994 points, so the schedule saturates and the
+whole gap to the validation score is generalisation. A low number here is a
+property of the representation.
+
+**The in-distribution confound does not carry over from the object board**, and
+this was measured rather than assumed. ImageNet-1k holds 59 bird classes, so
+the ImageNet-1k-supervised backbones were expected to be flattered here the way
+`convnext_base` and `supervised_vitb16` are flattered by Imagenette's
+ImageNet-1k wnids. They are not: `resnet50` and `supervised_vitb16` place
+**4th and 5th of six**, below both DINOv2s and CLIP. Basic-level supervision
+appears to discard exactly the within-class variation this board asks about —
+which is a claim about six backbones, and the full board is what will test it.
+
 [`examples/retrieve.py`](https://github.com/turhancan97/VisBench/blob/main/examples/retrieve.py) does the zero-shot version —
 no training at all, every image queries every other by cosine similarity:
 

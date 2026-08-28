@@ -97,6 +97,11 @@ This is a multi-month roadmap, built one reviewed step at a time.
       probe and the second derived from the frame, but the first whose target
       is a direction; DoG-blob was rejected first for overlapping 0.51 with
       `corner`
+- [x] **backlog: `fine_grained_classification`** — subordinate category on the
+      same linear-probe path (CUB-200-2011), the third distinct question on that
+      one implementation; a new probe *name* rather than a dataset flag, for the
+      reason `scene_classification` is. The twelve-backbone board is the next
+      step
 
 ## Roadmap
 
@@ -193,7 +198,7 @@ dense probe has to test for.
 | Task | Level | Note |
 |---|---|---|
 | Instance segmentation | high | The category-labelled counterpart to the existing binary segmentation; COCO-style polygon annotations |
-| Fine-grained recognition | high | Reuses the existing linear-probe classification path; only the dataset changes |
+| ~~Fine-grained recognition (CUB-200-2011)~~ | high | **Done** — `fine_grained_classification`, a distinct probe on the linear-probe path. Subordinate categories where the object board asks a basic-level question, which is why the object board is saturated and this one is not. The corpus board is pending. |
 | ~~Scene classification (Places365)~~ | high | **Done** — `scene_classification`, a distinct probe on the linear-probe path. Ships with a rank check; the full corpus board is pending. |
 | Relative depth ordering | mid | A ranking-only weakening of the existing depth probe — different protocol, same targets |
 | Intrinsic image decomposition (albedo vs shading) | mid | Classic Marr-style separation of appearance from geometry and lighting. Ground truth is scarce outside synthetic data |

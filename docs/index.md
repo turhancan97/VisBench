@@ -4,7 +4,7 @@
 tasks.**
 
 VisBench answers one question with as little ceremony as possible: *what does
-this vision backbone actually encode?* Fifteen probes, three backbone families,
+this vision backbone actually encode?* Sixteen probes, three backbone families,
 one `run()` call, and a result record that says exactly how every number was
 produced.
 

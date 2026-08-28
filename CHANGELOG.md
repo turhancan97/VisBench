@@ -9,6 +9,90 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+### Added
+
+- **`fine_grained_classification` — a sixteenth probe, and the third distinct
+  question on the linear-probe path.** Object `classification` asks whether a
+  representation separates *basic-level* categories — a bird from a car — which
+  is the level ImageNet-1k supervision optimises directly, and the level at
+  which the Imagenette board is saturated. This one asks whether it separates
+  *subordinate* categories inside one basic-level class: 200 species of bird
+  that share a body plan, a pose distribution and a background, and differ in
+  the shape of a beak or the colour of a wing bar.
+
+  The canonical dataset is **CUB-200-2011**, whose official 5994/5794 split
+  ships in exactly the `train/<class>/` + `val/<class>/` layout
+  `ImageFolderDataset` reads with no loader code. Stanford Cars and Stanford
+  Dogs are the same shape and run the same probe under a different dataset
+  fingerprint, which puts them in a different comparability group.
+
+  **It is a new probe *name*, not a dataset flag on `classification`**, for the
+  reason `scene_classification` is: `board_for` renders exactly one table per
+  task and refuses a task with more than one comparability group, so a CUB
+  record under `task="classification"` would not join the Imagenette board — it
+  would make that board *unrenderable*. `FineGrainedClassificationTask` is
+  therefore a subclass that changes one field, `self.name`, plus a `protocol`
+  string for provenance. Everything mechanical is the parent's.
+
+  **The rank check, on six backbones over the whole official split** — a probe
+  earns its place by ranking, not by producing a high number:
+
+  | backbone | top-1 | top-5 | train top-1 |
+  |---|---|---|---|
+  | `dinov2_vitb14` | **0.8674** | 0.9734 | 1.0000 |
+  | `dinov2_vits14` | 0.8642 | 0.9717 | 1.0000 |
+  | `clip_vitb16` | 0.8050 | 0.9586 | 1.0000 |
+  | `resnet50` | 0.6938 | 0.9135 | 1.0000 |
+  | `supervised_vitb16` | 0.6617 | 0.8880 | 1.0000 |
+  | `mae_vitb16` | 0.4698 | 0.7686 | 1.0000 |
+
+  A spread of **0.3976**, where the object board's leaders sit within a point
+  of each other. Same head, same features, a subordinate question instead of a
+  basic-level one.
+
+  **Two expectations were written down before the run and one of them was
+  wrong.** The probe was expected to underfit — 200 classes over ~6k training
+  images — and does not: `train_top1` is 1.0000 on all six, because a linear
+  map from 384–2048 dimensions to 200 classes can separate 5994 points. The
+  whole spread is therefore generalisation, which is the stronger result.
+
+  And the ImageNet-bird confound was expected to flatter the ImageNet-1k
+  supervised backbones the way Imagenette's wnids flatter them on the object
+  board. It does not: `resnet50` and `supervised_vitb16` place **4th and 5th of
+  six**, below both DINOv2s and CLIP. Basic-level supervision appears to
+  discard the within-class variation this board asks about. `CAVEATS` now
+  records the measurement rather than the prediction.
+
+  The **twelve-backbone corpus board is a separate step** and is not in this
+  entry — `scripts/build_corpus.sh` and `slurm/corpus.sbatch` both carry the
+  probe, and `probe_fine_grained_classification` runs the whole official split
+  with no `--limit`, which is what makes the board comparable to the published
+  CUB literature.
+
+### Changed
+
+- **The gallery size guard is per figure, and its total scales with the probe
+  count.** It was a flat 4 MB for the whole directory, which the sixteenth
+  figure failed by existing rather than by being large — the gallery was already
+  at 4.03 MB with a perfectly ordinary 220 KB page. A flat total also cannot
+  express the failure it documents: one page rendered at four times its intended
+  size passes while there is slack, and fires later on someone else's reasonable
+  figure. `MAX_FIGURE_BYTES` is now asserted per file, and the total is that
+  times `len(list_probes())`.
+
+### Fixed
+
+- **Stale probe and board counts in `README.md`, `docs/index.md`,
+  `docs/show.md` and `scripts/render_gallery.py`.** The v0.12.0 release-prep
+  pass corrected the "Thirteen probes" strings and missed the rest: the status
+  block still said "v0.11.0" and "thirteen probes", three passages said the
+  gallery drew "all thirteen" or "all fourteen", and the corpus paragraph still
+  described thirteen boards with MAE first on five — it has been fifteen boards
+  and six since `orientation` landed. The generated tables were right
+  throughout; only the prose around them was stale, which is the half no test
+  reads.
+
+
 ## [0.12.0] — 2026-08-28
 
 Two new probes and the last library-surface gap. `scene_classification` and

@@ -50,6 +50,7 @@ CORPUS = ROOT / "results" / "corpus" / "visbench.jsonl"
 HEADLINE_METRICS: dict[str, str] = {
     "classification": "top1",
     "scene_classification": "top1",
+    "fine_grained_classification": "top1",
     "retrieval": "mAP",
     "correspondence": "recall@5px",
     "similarity": "accuracy",
@@ -139,6 +140,7 @@ SOURCE_IMAGES: dict[str, str] = {
     "detection": "VOC",
     "classification": "Imagenette",
     "scene_classification": "Places365",
+    "fine_grained_classification": "CUB-200-2011",
     "retrieval": "Imagenette",
     "correspondence": "Imagenette",
     "depth": "NYUv2",

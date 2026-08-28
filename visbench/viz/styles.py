@@ -182,6 +182,11 @@ TARGET_STYLES: dict[str, TargetStyle] = {
         invalid=None,
         note="a contact sheet of frames and their scene labels; the footer states the balance",
     ),
+    "fine_grained_classification": TargetStyle(
+        kind="sheet",
+        invalid=None,
+        note="a contact sheet of frames and their species labels; the footer states the balance",
+    ),
     "retrieval": TargetStyle(
         kind="ranking",
         invalid=None,

@@ -102,7 +102,7 @@ magnitude would render *identically* to a correct one.
 
 ## What it can draw
 
-**Every probe.** All fourteen, across four renderers — a test asserts
+**Every probe.** All sixteen, across four renderers — a test asserts
 `show_probes() == list_probes()`, so a new probe cannot ship undrawable.
 
 | renderer | probes | a row is |
@@ -295,6 +295,31 @@ the same prefix-collapse warning — because `scene_classification` *is* a linea
 probe on pooled features; only the labels differ (a place category, not an
 object). It is a separate probe with its own leaderboard board, so its figure
 is drawn separately even though the renderer is the same one.
+
+### `fine_grained_classification` — the sheet where the labels stop being obvious
+
+```bash
+visbench show fine_grained_classification --data ./CUB-200/images_train_test \
+    --split val --frames 12 --out cub.png
+```
+
+```{image} _static/gallery/fine_grained_classification.png
+:alt: A contact sheet of frames and their labels, four per class
+:class: visbench-figure
+```
+
+The third probe on the same renderer. **The frames above are the gallery's own
+CC BY folder, not CUB** — the four classes shown are basic-level, because
+CUB-200-2011 is not redistributable and every figure on this page is drawn on
+photographs this repository is allowed to ship. What the figure demonstrates is
+the renderer and the footer, which are what you would see on CUB; the species
+names are not.
+
+It is also the probe where looking at the sheet earns the most. With 200
+classes the balance footer is doing real work — a `--limit` that collapses the
+split to a handful of classes is much harder to notice in a score here than on
+a ten-class board — and with `--predict-from` the `predicted != actual`
+captions show *which* species a backbone confuses, which a top-1 cannot.
 
 ### `retrieval` — a query and its neighbours
 

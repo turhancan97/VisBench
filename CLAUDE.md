@@ -166,6 +166,36 @@ claim itself no longer holds for *high-level* at twelve backbones — same file.
 further down this file — and the cheapest items there need no new dataset at
 all. **Two of those are done.**
 
+**`fine_grained_classification`, a sixteenth probe, shipped 2026-08-28.**
+Subordinate category on the same linear-probe path as object `classification`
+and `scene_classification` — **CUB-200-2011**, the official 5994/5794 split,
+read with no loader code from `vision/CUB-200/images_train_test/`. Three probes
+now share one implementation and ask three questions: basic-level, place, and
+subordinate. It is a distinct probe *name* for the same reason
+`scene_classification` is; see that bullet in "decisions already paid for",
+which the second instance confirmed edit for edit. Proved end to end on
+DINOv2-S over the whole split. **Its 12-backbone corpus board is NOT run
+yet** — the corpus is still 180 records across fifteen boards, and
+`probe_fine_grained_classification` in `scripts/build_corpus.sh` runs the whole
+official split with no `--limit`, which is what makes the board comparable to
+the published CUB literature.
+
+**The rank check, six backbones, whole official split**: `dinov2_vitb14`
+0.8674, `dinov2_vits14` 0.8642, `clip_vitb16` 0.8050, `resnet50` 0.6938,
+`supervised_vitb16` 0.6617, `mae_vitb16` 0.4698 — a spread of **0.3976** where
+the object board's leaders sit within a point of each other. **Two written-down
+expectations were tested and one was wrong, which is why both are now recorded
+as measurements in `CAVEATS`.** It does *not* underfit — `train_top1` is
+1.0000 on all six, since a linear map from 384-2048 dims to 200 classes
+separates 5994 points — so the whole spread is generalisation and a weak number
+is a property of the representation. And **the ImageNet-bird confound does not
+carry over**: ImageNet-1k holds 59 bird classes and the two ImageNet-1k
+supervised backbones were expected to be flattered as they are by Imagenette's
+wnids, but `resnet50` and `supervised_vitb16` place **4th and 5th of six**,
+below both DINOv2s and CLIP. Basic-level supervision appears to discard the
+within-class variation this board asks about. That is a claim about six
+backbones; the full board tests it.
+
 **`orientation`, a fifteenth probe, shipped 2026-08-28** with its 12-backbone
 corpus board — **the corpus is now 180 records across fifteen boards**. Local
 gradient orientation, the fourth low-level task and the second computed from the
@@ -212,8 +242,9 @@ closed** (2026-08-28): the **dataset bridges** shipped —
 `TorchvisionDataset` / `HuggingFaceDataset` in `visbench.data`, plus
 `--dataset torchvision:… | hf:…` on the three image-level probes — after
 `visbench show` (9a-9d) and `examples/custom_backbone.py` (2026-08-19). The
-candidate-task backlog (photometric superpixels, fine-grained recognition,
-BSDS500 edge, optical flow) is what remains. Re-confirm what is wanted before
+candidate-task backlog is what remains, and **fine-grained recognition came
+off it on 2026-08-28** (`fine_grained_classification`, CUB-200-2011) leaving
+photometric superpixels, BSDS500 edge and optical flow. Re-confirm what is wanted before
 starting anything; do not assume its order is a plan. **The one thread that was open — why `detection`
 alone fails to reproduce — is closed**: it is GPU non-determinism made visible
 by a discrete metric, it was never a bug, and detection reproduces to *three*
@@ -299,14 +330,15 @@ backbones  dinov2_vits14, dinov2_vitb14, clip_vitb16, clip_vitb32,
            supervised_vitb16, dino_vitb16, sam_vitb16,
            dinov2_vitb14_196 (a resolution control, not a corpus column)
            (+ CustomBackbone, unregistered)
-probes     classification, scene_classification, retrieval, correspondence,
+probes     classification, scene_classification,
+           fine_grained_classification, retrieval, correspondence,
            depth, surface_normal, generic_segmentation, semantic_segmentation,
            similarity, detection, edge, keypoints2d, occlusion_edge, corner,
            orientation
 heads      linear, dpt, detection
 ```
 
-The CLI exposes all fifteen probes: `visbench list`, `visbench run <probe>`,
+The CLI exposes all sixteen probes: `visbench list`, `visbench run <probe>`,
 `visbench cache stats|clear`, plus `visbench demo` (7a) and **`visbench show
 <probe>` (9a)**. A test asserts the CLI's table and `list_probes()` are the same
 set, so a probe cannot ship unreachable from a shell by accident. Since 9c
@@ -812,6 +844,26 @@ designed up front; extend it the same way, from a case that already runs.
   rewrite of the tier-coherence test and finding. A probe that is "just a
   dataset swap" is still a dozen small edits plus a corpus analysis, because
   the name is load-bearing everywhere and the board is not inert.
+
+  **Confirmed a second time by `fine_grained_classification`** (CUB-200-2011,
+  2026-08-28), which followed that edit list exactly and needed nothing not on
+  it — so treat the list as complete rather than re-deriving it. Three probes
+  now share one implementation and ask three questions, which is the point:
+  `classification` is basic-level, `scene_classification` is place, and
+  `fine_grained_classification` is subordinate. A test pins all three
+  identities *and* that their three `protocol` strings are distinct, since the
+  failure mode is two of them collapsing into one board.
+
+  One thing that list did *not* cover, found by the sixteenth probe: **the
+  gallery had a flat 4 MB size budget, and a new figure failed it by existing.**
+  The gallery was at 4.03 MB with a perfectly ordinary 220 KB page, and these
+  are photographs — ~80k distinct colours, so lossless re-encoding buys under
+  1% and there was nothing to shrink. The guard was also not expressing what it
+  documents: a *total* budget lets one page rendered at four times its intended
+  size pass while there is slack, then fires on someone else's reasonable
+  figure later. It is per figure now (`MAX_FIGURE_BYTES`), with the total scaled
+  by `len(list_probes())`. **Raising a budget to make a guard pass is usually
+  wrong; check first whether the budget was measuring the right thing.**
 - **The NIGHTS ImageNet split is a contamination check, not a subset.**
   `test_imagenet` and `test_no_imagenet` partition the test set by whether the
   reference image came from ImageNet. DINOv2-S scores 0.882 against 0.854 across
@@ -1481,8 +1533,8 @@ the measurement behind it, under the step named in brackets.**
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite is **1655 tests** and green on 2026-08-20, after the v0.11.0
-release and the board-correlate analyses, as
+fast suite is **1748 tests** and green on 2026-08-28, after the
+`fine_grained_classification` probe, as
 are all three lint steps and the `-W` docs build — all five run on `dgx1` via
 `sbatch`, since `.venv/bin/python` does not resolve on a `dgxh100` login shell.
 `uv lock --check` was green on 2026-08-06 and no dependency has moved since; the
@@ -1791,9 +1843,18 @@ this is what the `similarity` probe reads), `places365_standard` (`train/`,
 classification was a dataset-swap on the existing linear-probe path** and
 shipped 2026-08-27 as the `scene_classification` probe on `places365_standard`
 (a new probe *name* rather than a flag — see the "decisions already paid for"
-bullet). Its 12-backbone corpus board landed 2026-08-28. Fine-grained
-recognition (CUB, Flowers102, Stanford Cars/Dogs) is the same shape and still
-open.
+bullet). Its 12-backbone corpus board landed 2026-08-28. **Fine-grained
+recognition shipped the same way on 2026-08-28** as
+`fine_grained_classification`, on **CUB-200-2011** — and the copy to use is
+`vision/CUB-200/images_train_test/`, which already holds the official
+5994/5794 split as `train/<class>/` + `val/<class>/`. Two traps in that
+directory: the top-level `cub_200_2011/CUB_200_2011` is **permission-denied**,
+and `test/` is a **symlink to `val/`**, so naming `val` is naming the official
+test set and `--split test` would index the same files under a different path
+and so a different fingerprint. Stanford Cars (`train_cars`/`test_cars`, 196
+numeric class dirs) is the same folder shape and still open; Stanford Dogs and
+Flowers102 are **not** — both keep their splits in `.mat` files and so need
+loader code, which is a different cost class from a folder swap.
 
 **Verified absent, both levels:** any optical-flow set (Sintel, KITTI,
 FlyingChairs), NYUv2, any intrinsic-image set (IIW, SAW, MIT intrinsic).
@@ -1972,7 +2033,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 1655 fast tests
+pytest                                              # 1748 fast tests
 pytest -m slow                                      # 79, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/
