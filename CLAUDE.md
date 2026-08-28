@@ -113,8 +113,8 @@ changes no number, and **v0.8.0 (2026-08-07) is the corner probe**, steps 8a and
 
 **v0.11.0 shipped on 2026-08-20.** It is steps 10d and 10e plus
 `examples/custom_backbone.py`: the corpus was **twelve backbones, 156 records**
-at that release (**168 across fourteen boards** since `scene_classification`'s
-board landed, 2026-08-28),
+at that release (**180 across fifteen boards** since `scene_classification`'s and
+then `orientation`'s boards landed, both 2026-08-28),
 the objective family is three wide, and it has a recipe control beside it —
 which refuted half of 10d's own published claim before either shipped. That
 result is the single most important thing to read before quoting a board from
@@ -166,24 +166,29 @@ claim itself no longer holds for *high-level* at twelve backbones — same file.
 further down this file — and the cheapest items there need no new dataset at
 all. **Two of those are done.**
 
-**`orientation`, a fifteenth probe, shipped 2026-08-28** (probe only; its
-12-backbone board is the next step). Local gradient orientation, the fourth
-low-level task and the second computed from the frame — but the first whose
-target is a *direction*, so the first that could not reuse `DenseMagnitudeTask`.
-The target is `(cos 2θ, sin 2θ)` with its length set to the coherence; the
-metric `orientation_error` is degrees of coherence-weighted angular error,
-halved so 45 is chance. It measures phase — per-image `|r|` with `corner` and
-`edge` is under 0.09, where those two sit at 0.53. **DoG-blob was the first
-candidate for this slot and was rejected**: its pre-measurement found 0.51
-overlap with `corner`. See the "decisions already paid for" bullet and
-`CHANGELOG.md`. The board reuses the same pinned `data/corner_frames/` set as
-`corner`; the corpus is still 168 records across fourteen boards until it runs.
+**`orientation`, a fifteenth probe, shipped 2026-08-28** with its 12-backbone
+corpus board — **the corpus is now 180 records across fifteen boards**. Local
+gradient orientation, the fourth low-level task and the second computed from the
+frame — but the first whose target is a *direction*, so the first that could not
+reuse `DenseMagnitudeTask`. The target is `(cos 2θ, sin 2θ)` with its length set
+to the coherence; the metric `orientation_error` is degrees of coherence-weighted
+angular error, halved so 45 is chance. It measures phase — per-image `|r|` with
+the `corner` and `edge` *targets* is under 0.09, where those two sit at 0.53.
+**DoG-blob was the first candidate for this slot and was rejected**: its
+pre-measurement found 0.51 overlap with `corner`. The board spans 18.8°–31.2°
+(chance 45); `mae_vitb16` leads, the image-text ViTs are *last*. **Its board is
+not independent even though its target is**: it ranks backbones like
+`keypoints2d` (rho +0.95), `corner` (+0.82), `edge` (+0.79), and it tightened
+the low-level tier (+0.825 → +0.839). `orientation`/`scene_classification` at
+−0.51 is the corpus's most negative pair. See the "decisions already paid for"
+bullet, `CHANGELOG.md` and the `orientation` and tier findings in
+`CORPUS_FINDINGS.md`. MAE is now first on **six** of fifteen boards (was five).
+Board reuses `corner`'s pinned `data/corner_frames/` set.
 
 **`scene_classification`, a fourteenth probe**, is scene category on the same
 linear-probe path as object
 `classification` (Places365-standard, read with no loader code). The probe
-shipped 2026-08-27 and its **12-backbone corpus board landed 2026-08-28** — the
-corpus is now 168 records across fourteen boards. See the `CHANGELOG.md` entry,
+shipped 2026-08-27 and its **12-backbone corpus board landed 2026-08-28**. See the `CHANGELOG.md` entry,
 the "decisions already paid for" bullet on why it is a distinct probe, and the
 `scene_classification` and tier findings in `CORPUS_FINDINGS.md`. The headline:
 the scene board ranks backbones almost independently of the object board
@@ -652,7 +657,7 @@ designed up front; extend it the same way, from a case that already runs.
   `scripts/analyse_board_correlates.py` reproduces the correlational ones.
 
   - **"Which backbone is best" is not a well-formed question against this
-    corpus.** `mae_vitb16` is first on five of the fourteen boards and last on
+    corpus.** `mae_vitb16` is first on six of the fifteen boards and last on
     three. A summary that picks a winner is discarding the result.
   - **A count over a corpus is a fact about that corpus, not about a
     backbone.** Two of MAE's counts moved without its features changing, purely

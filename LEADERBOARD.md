@@ -87,6 +87,27 @@ Ordered by `keypoint_correlation`, which **disagrees with `mae`, `rmse`** — th
 
 <sub>keypoints2d on taskonomy_keypoints2d/val, protocol=visbench_keypoint2d_regression, frozen [e647c722]</sub>
 
+### orientation
+
+| backbone | `d1` | `d2` | `median` | `orientation_error` | `rmse` |
+| --- | --- | --- | --- | --- | --- |
+| `mae_vitb16` | **0.5819** | **0.7268** | **8.2188** | **18.8226** | **30.1200** |
+| `dino_vitb16` | 0.5243 | 0.6849 | 10.6865 | 21.4371 | 32.5358 |
+| `sam_vitb16` | 0.5231 | 0.6810 | 10.8360 | 21.7229 | 32.9081 |
+| `dinov2_vits14` | 0.4962 | 0.6688 | 12.0166 | 22.1313 | 32.7543 |
+| `supervised_vitb16` | 0.4607 | 0.6353 | 13.8851 | 24.2909 | 34.9895 |
+| `dinov2_vitb14` | 0.4646 | 0.6311 | 13.7809 | 24.5829 | 35.5653 |
+| `convnext_base` | 0.4191 | 0.5780 | 17.0131 | 28.2318 | 39.4966 |
+| `clip_vitb16` | 0.4097 | 0.5740 | 17.5263 | 28.2994 | 39.3106 |
+| `resnet18` | 0.4072 | 0.5670 | 17.7684 | 29.0002 | 40.2771 |
+| `clip_vitb32` | 0.3857 | 0.5491 | 19.3148 | 29.9626 | 40.9577 |
+| `resnet50` | 0.3958 | 0.5529 | 18.7450 | 29.9675 | 41.2367 |
+| `siglip_vitb16` | 0.3760 | 0.5316 | 20.4059 | 31.1589 | 42.3126 |
+
+Ordered by `orientation_error`, which **disagrees with `d1`, `d2`, `median`, `rmse`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
+
+<sub>orientation on val/val, protocol=visbench_structure_tensor_orientation_regression, frozen [38bd953b]</sub>
+
 ### correspondence
 
 | backbone | `auc@10px` | `auc@1px` | `auc@2px` | `auc@5px` | `recall@10px` | `recall@1px` | `recall@2px` | `recall@5px` | `ceiling_auc@10px` | `ceiling_auc@1px` | `ceiling_auc@2px` | `ceiling_auc@5px` | `ceiling_recall@10px` | `ceiling_recall@1px` | `ceiling_recall@2px` | `ceiling_recall@5px` | `num_matches` |

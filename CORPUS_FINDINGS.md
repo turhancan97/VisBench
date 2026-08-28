@@ -13,7 +13,7 @@ them rather than only the conclusions.
 
 **The single most important one, if you read nothing else:** "which backbone is
 best" is not a well-formed question against this corpus. `mae_vitb16` is first
-on five of the fourteen boards and last on three. A summary that picks a winner
+on six of the fifteen boards and last on three. A summary that picks a winner
 is discarding the result.
 
 Two standing cautions apply to everything below:
@@ -90,13 +90,14 @@ Two standing cautions apply to everything below:
   happens when one thing changes". Mixing them makes a board answer two
   questions, which is the same reason the schema never ranks across `finetune`.
 
-- **`mae_vitb16` is first on five of the fourteen boards and last on three, and
+- **`mae_vitb16` is first on six of the fifteen boards and last on three, and
   this is the corpus finally demonstrating what the taxonomy claims** (10b,
   2026-08-14; **counts re-read off the board at twelve backbones, 10e**; scene
-  board added 2026-08-28). Read
+  board added 2026-08-28, `orientation` board 2026-08-28). Read
   this before quoting any board. MAE leads edge (0.4982), corner (0.6669),
-  correspondence (0.3577), occlusion edges (0.3273) and surface normals
-  (27.52° mean) — and comes **last** on classification (0.9582), retrieval
+  correspondence (0.3577), occlusion edges (0.3273), surface normals
+  (27.52° mean) and **orientation** (18.82° error) — and comes **last** on
+  classification (0.9582), retrieval
   (0.1883) and mid-level similarity (0.6897), with semantic segmentation
   (0.3350) now *eleventh* rather than last, because `sam_vitb16` scores 0.3339
   beneath it. `scene_classification`, the fourteenth board, is another semantic
@@ -375,24 +376,30 @@ Two standing cautions apply to everything below:
   taxonomy's claim, tested as "probes within a tier agree with each other more
   than probes across tiers":
 
-  | | n=9, 13 boards | n=12, 13 boards | n=12, 14 boards |
-  | --- | --- | --- | --- |
-  | within low_level | +0.761 | +0.825 | **+0.825** |
-  | within mid_level | +0.666 | +0.666 | **+0.666** |
-  | within high_level | +0.497 | +0.296 | **+0.297** |
-  | across tiers | +0.340 | +0.304 | **+0.265** |
+  | | n=9, 13 boards | n=12, 13 boards | n=12, 14 boards | n=12, 15 boards |
+  | --- | --- | --- | --- | --- |
+  | within low_level | +0.761 | +0.825 | +0.825 | **+0.839** |
+  | within mid_level | +0.666 | +0.666 | +0.666 | **+0.666** |
+  | within high_level | +0.497 | +0.296 | +0.297 | **+0.297** |
+  | across tiers | +0.340 | +0.304 | +0.265 | **+0.266** |
 
   At nine backbones every within-tier mean cleared the cross-tier mean. At
   twelve it did not — high-level landed below. Adding `scene_classification` as
   the fourteenth board moved it marginally back above, and **the within-high
   mean barely changed** (+0.296 → +0.297): what moved was the *cross-tier*
-  mean, dragged down because `scene_classification` disagrees sharply with the
-  low-level tier (−0.40 with `keypoints2d`, the most negative pair in the
-  corpus). Mid-level is identical to three decimals across all three columns.
+  mean, dragged down because the image-level high-level boards disagree sharply
+  with the low-level tier — the most negative pair in the corpus is now
+  `orientation` / `scene_classification` at **−0.51**. The fifteenth board,
+  `orientation`, then *tightened* the low-level tier (+0.825 → +0.839): despite
+  a target that is near-independent of every other probe's per pixel (it is a
+  phase, `|r|` under 0.09 with `edge` and `corner`), its board ranks backbones
+  almost exactly like `keypoints2d` (+0.95), `corner` (+0.82) and `edge`
+  (+0.79). Mid-level is identical to three decimals across all four columns.
 
   So the sign of "high-level mean minus cross-tier mean" is within noise and
   has been on both sides. **The stable finding is the shape**: high-level is not
-  one loose tier, it is two tight clusters that ignore each other.
+  one loose tier, it is two tight clusters that ignore each other; low-level is
+  one cluster and `orientation` did not change that.
 
   | pair | rho |
   | --- | --- |
@@ -468,10 +475,10 @@ Two standing cautions apply to everything below:
   sufficient for agreement.
 
   **What the pooled numbers do say, and it is a real caveat.** Within-source
-  agreement is +0.634 against +0.306 across sources, which is *comparable* to
-  the tier split (within-tier means well above the +0.265 cross-tier). So
+  agreement is +0.674 against +0.298 across sources, which is *comparable* to
+  the tier split (within-tier means well above the +0.266 cross-tier). So
   dataset is about as good a
-  predictor as tier — but that is carried by Taskonomy (6 pairs, +0.816) and
+  predictor as tier — but that is carried by Taskonomy (10 pairs, +0.810) and
   NYUv2 (1 pair, +0.902), which are groups of dense geometric boards that
   would be expected to agree whatever they read. Neither grouping is the real
   structure; **what a board's target asks for** is, which is why
@@ -512,6 +519,36 @@ Two standing cautions apply to everything below:
   result, and do not read a high object-classification number as saying
   anything about scene understanding — for the supervised CNNs it says close to
   the opposite. **n=12, one seed.**
+
+- **`orientation` — a target that is independent per pixel and a board that is
+  not** (2026-08-28, 12 backbones, the same pinned Taskonomy `tiny` frames as
+  `corner` and `edge`). The orientation probe measures local gradient *phase*,
+  and its target's per-image correlation with the `edge` and `corner` targets
+  is **under 0.09** — where those two sit at 0.53. That was the pre-measurement
+  criterion for building it at all: DoG-blob was rejected for the same check at
+  0.51 with `corner`.
+
+  But the *board* is not independent. Over the twelve backbones it ranks them
+  almost exactly like `keypoints2d` (**rho +0.95**, one of the strongest pairs
+  in the whole corpus), `corner` (+0.82), `edge` (+0.79) and `correspondence`
+  (+0.85), and it *anti*-correlates with the image-level semantic boards
+  (`scene_classification` **−0.51**, the corpus's most negative pair;
+  `classification` −0.15). The spread is 18.8°–31.2° against a 45° chance
+  floor, so every backbone is well clear of chance. `mae_vitb16` leads (as it
+  does across the low-level tier), the image-text ViTs `siglip_vitb16` and
+  `clip_vitb32` are *last* — the opposite of a semantic board — and DINOv2-S
+  beats DINOv2-B (22.1° vs 24.6°), the "bigger is not better on low-level"
+  pattern again.
+
+  The lesson is that **target independence and board independence are separate
+  properties**. Adding a probe whose target overlaps an existing one (like
+  `corner` at 0.52 with `edge`) can still be worth it if the ranking differs;
+  adding one whose target is *orthogonal* (like `orientation`) can still produce
+  a board that says nothing new about the ordering. What `orientation` adds is
+  not a new capability axis — it is one more backbone-ranking that agrees with
+  the geometry cluster, which is itself the finding: a backbone good at
+  localised structure is good at all of it, magnitude and phase alike. **n=12,
+  one seed.**
 
 
 - **`detection` does not reproduce to four decimals *on DINOv2*, it never did,

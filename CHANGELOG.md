@@ -42,9 +42,20 @@ so it stands on its own rather than assuming you have read the ones above it.
   `dataset_params`. Ships with
   [`examples/orientation.py`](examples/orientation.py), a `visbench run
   orientation` / `visbench show orientation` CLI row (drawn in colour: hue is
-  the orientation, brightness the coherence), and a gallery figure. The
-  12-backbone corpus board is pending — it reuses the same pinned
-  `data/corner_frames/` set as `corner`.
+  the orientation, brightness the coherence), and a gallery figure.
+
+  **The 12-backbone corpus board is committed** — it reuses the same pinned
+  `data/corner_frames/` set as `corner`, so the corpus is now **180 records
+  across fifteen boards**. `orientation_error` spans 18.8° (`mae_vitb16`) to
+  31.2° (`siglip_vitb16`) against a 45° chance floor; the image-text ViTs are
+  *last*, the opposite of a semantic board, and DINOv2-S beats DINOv2-B. **The
+  board is not independent even though the target is**: despite per-image `|r|`
+  under 0.09 with the `edge` and `corner` targets, it ranks backbones like
+  `keypoints2d` (Spearman +0.95), `corner` (+0.82) and `edge` (+0.79), and it
+  tightened the low-level tier mean (+0.825 → +0.839). `orientation` /
+  `scene_classification` at −0.51 is the corpus's most negative pair. MAE is now
+  first on six of fifteen boards, was five. See the `orientation` and tier
+  findings in `CORPUS_FINDINGS.md`.
 
 - **`scene_classification` — a fourteenth probe, scene category rather than
   object category.** Mechanically it is the object-classification linear probe
