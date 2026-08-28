@@ -4,7 +4,7 @@
 tasks.**
 
 VisBench answers one question with as little ceremony as possible: *what does
-this vision backbone actually encode?* Thirteen probes, three backbone families,
+this vision backbone actually encode?* Fifteen probes, three backbone families,
 one `run()` call, and a result record that says exactly how every number was
 produced.
 
@@ -43,7 +43,7 @@ not measuring the signal.
 | Drawing a probe's images beside their targets | [Looking](show.md) |
 | Sharing a trained probe, and what travels with it | [The Hub](hub.md) |
 | How it was built, and what might come next | [Roadmap](roadmap.md) |
-| Thirteen probes against twelve backbones, ranked | [LEADERBOARD.md](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md) |
+| Fifteen probes against twelve backbones, ranked | [LEADERBOARD.md](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md) |
 | Setting up, the checks, and how to add a probe | [CONTRIBUTING.md](https://github.com/turhancan97/VisBench/blob/main/CONTRIBUTING.md) |
 
 ## What makes it different
