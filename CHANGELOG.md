@@ -9,6 +9,16 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+## [0.13.0] — 2026-08-28
+
+A sixteenth probe, and the record finally says how the fit went. CUB-200-2011
+brings the corpus to **16 probes × 12 backbones, 192 records**, and it
+*replicates* v0.12.0's most surprising result rather than merely adding to it.
+Schema moves to **v8** — additive, so every existing record reads unchanged and
+no published number moves — because a trained run had been throwing away the one
+diagnostic that says whether a low score means an underfitting probe or a weak
+representation.
+
 ### Added
 
 - **Schema v8: `training`, how the fit itself went.** Every trained probe
@@ -3043,7 +3053,9 @@ API philosophy.
 [#2]: https://github.com/turhancan97/VisBench/issues/2
 [#4]: https://github.com/turhancan97/VisBench/issues/4
 [#3]: https://github.com/turhancan97/VisBench/issues/3
-[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/turhancan97/VisBench/compare/v0.12.0...v0.13.0
+[0.12.0]: https://github.com/turhancan97/VisBench/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/turhancan97/VisBench/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/turhancan97/VisBench/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/turhancan97/VisBench/compare/v0.8.0...v0.9.0

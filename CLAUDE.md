@@ -395,6 +395,27 @@ run through `tail`: it buffers, so a run that is killed part-way leaves no log,
 and the Hub then has to be queried to find out what actually shipped — which
 happened, and is recoverable only because each record names its own pair.
 
+**`0.13.0` is prepared but NOT yet published** (release-prep commit,
+2026-08-28): `pyproject.toml`, `visbench/__init__.py`, `uv.lock`,
+`CITATION.cff` and `.zenodo.json`'s description ("Fifteen probes" → "Sixteen",
+with fine-grained added to the list) all moved to 0.13.0, and `CHANGELOG.md`'s
+`[Unreleased]` became `[0.13.0]`. **Schema moves to v8** — the one release since
+v0.6.0 that changes it, and the reason not to sit on this one: 0.12.0 reads up
+to v7 and *refuses* a v8 record outright, so a schema version that is not
+installable is one nobody else can read. Verified against the published 0.12.0
+wheel rather than assumed.
+
+The release-prep also fixed something 0.12.0's prep missed: `CHANGELOG.md`'s
+link refs at the bottom had **no `[0.12.0]` entry at all** and `[Unreleased]`
+still compared from `v0.11.0`. Every section now has a matching ref, checked
+both ways.
+
+The maintainer still has to tag, build, `twine upload`, cut the GitHub release
+and let Zenodo archive it — see the "Publishing needs the maintainer's
+credentials" paragraph and the standing release rules below. **Check
+[PyPI](https://pypi.org/project/visbench/) before assuming 0.13.0 is
+installable.**
+
 **`0.12.0` is fully released** (2026-08-28). On PyPI — wheel and sdist both
 (338,079 and 1,023,738 bytes, wheel sha256 `c55a63b7…`) — tagged `v0.12.0` on
 merge commit `f5afcd3`, with a GitHub release cut from that tag and archived by
