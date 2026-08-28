@@ -69,11 +69,37 @@ def test_every_readme_figure_exists():
             assert (GALLERY / f"{probe}.png").is_file()
 
 
+#: What one figure may weigh. These are PNGs of real photographs -- ~80k
+#: distinct colours, so lossless re-encoding buys under 1% -- and a page of
+#: panels costs 200-400 KB however it is saved. A figure past this is not a
+#: photograph problem: it is too many panels, or a page rendered at the wrong
+#: resolution, which is the failure this guard is for.
+MAX_FIGURE_BYTES = 500_000
+
+
+def test_no_single_figure_balloons():
+    """The failure this guard exists for, stated as the per-figure thing it is.
+
+    A fixed budget for the *whole* gallery cannot express it. One page rendered
+    at four times the intended size passes a total budget while there is slack,
+    and then a later, entirely reasonable figure fails instead -- the guard
+    firing on the wrong commit, which is worse than not firing.
+    """
+    for path in sorted(GALLERY.glob("*.png")):
+        size = path.stat().st_size
+        assert size < MAX_FIGURE_BYTES, f"{path.name} is {size / 1e6:.2f} MB"
+
+
 def test_the_figures_are_small_enough_to_commit():
-    """Documentation, not data. A figure that balloons should be noticed here.
+    """Documentation, not data -- and the budget scales with the probe count.
 
     The sdist excludes this directory precisely because it is not needed to
-    install the package, but the repository still carries it.
+    install the package, but the repository still carries it. The total was a
+    flat 4 MB while the gallery held thirteen to fifteen figures; a sixteenth
+    probe then failed it for existing rather than for being large. Per probe is
+    what the number was always meant to say.
     """
-    total = sum(path.stat().st_size for path in GALLERY.glob("*.png"))
-    assert total < 4_000_000, f"the gallery is {total / 1e6:.1f} MB"
+    figures = list(GALLERY.glob("*.png"))
+    budget = MAX_FIGURE_BYTES * len(visbench.list_probes())
+    total = sum(path.stat().st_size for path in figures)
+    assert total < budget, f"the gallery is {total / 1e6:.1f} MB over {budget / 1e6:.1f} MB"

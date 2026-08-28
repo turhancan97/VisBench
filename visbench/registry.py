@@ -139,6 +139,7 @@ _REGISTRATION_MODULES: dict[str, str | None] = {
     "visbench.backbones.timm_backbone": "timm",
     "visbench.tasks.high_level.classification": None,
     "visbench.tasks.high_level.scene_classification": None,
+    "visbench.tasks.high_level.fine_grained_classification": None,
     "visbench.tasks.high_level.retrieval": None,
     "visbench.tasks.high_level.semantic_segmentation": None,
     "visbench.tasks.high_level.detection": None,

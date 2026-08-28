@@ -53,6 +53,7 @@ __all__ = [
 HEADLINE_METRICS: dict[str, str] = {
     "classification": "top1",
     "scene_classification": "top1",
+    "fine_grained_classification": "top1",
     "retrieval": "mAP",
     # Pixels, not patch widths: a patch is a different physical distance on
     # every backbone, so `recall@1p` ranked this board upside down until v0.6.1.
@@ -97,6 +98,25 @@ CAVEATS: dict[str, str] = {
         "between the two. Places365 scenes overlap what ImageNet-supervised "
         "backbones already saw, so for those the number is closer to "
         "in-distribution recall than transfer."
+    ),
+    "fine_grained_classification": (
+        "This is *subordinate* category — 200 bird species that share a body "
+        "plan — not the basic-level question the `classification` board asks, "
+        "and a backbone's rank moves a long way between the two. **The "
+        "in-distribution confound that shapes the object board does not carry "
+        "over here**, which was measured rather than assumed: ImageNet-1k "
+        "holds 59 bird classes, so the four ImageNet-1k-*supervised* backbones "
+        "were expected to be flattered, and instead they take places 8, 9, 10 "
+        "and 11 of twelve — `convnext_base`, `resnet50`, `supervised_vitb16`, "
+        "`resnet18`, above only `mae_vitb16`. The controlled comparison says "
+        "the same thing: among the four ViT-B/16 models, the supervised one is "
+        "second-to-last, behind both `sam_vitb16` and `dino_vitb16`. "
+        "Basic-level supervision appears to discard the within-class variation "
+        "this board asks about. The probe also does **not** underfit despite "
+        "200 classes over ~6k training images — `train_top1` is 1.0000 on all "
+        "six backbones it was measured on directly, including the board's last "
+        "place — so the spread is generalisation and a low score is a property "
+        "of the representation."
     ),
 }
 

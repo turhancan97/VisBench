@@ -20,13 +20,13 @@
 
 ---
 
-> **Status: v0.11.0.** Three backbone families (DINOv2, CLIP, timm CNNs and
-> ViTs) and **thirteen** probes run end-to-end across all three levels — high,
+> **Status: v0.12.0.** Three backbone families (DINOv2, CLIP, timm CNNs and
+> ViTs) and **sixteen** probes run end-to-end across all three levels — high,
 > mid and low — including eight trained dense probes and an anchor-free
 > detection probe, from Python or from the `visbench` command line.
 >
-> **v0.11 is where the corpus gets its controls.** The record corpus is thirteen
-> probes against **twelve** backbones, and MAE ViT-B/16 comes first on five of
+> **v0.11 is where the corpus gets its controls.** The record corpus is fifteen
+> probes against **twelve** backbones, and MAE ViT-B/16 comes first on six of
 > those boards and last on three — so "which backbone is best" is not a
 > well-formed question against it. Three of the twelve share an architecture and
 > a pretraining set and differ *only* in training objective, which is what lets
@@ -41,7 +41,7 @@
 > check.
 >
 > **v0.9 makes every probe *visible*.** `visbench show` draws what a probe saw
-> beside what it predicted, for all thirteen, and each renderer states the
+> beside what it predicted, for all sixteen, and each renderer states the
 > diagnostic its own history calls for as a figure rather than leaving it to
 > the eye. It adds no probe and changes no measurement. **v0.8** added `corner`,
 > the first probe whose target VisBench computes rather than downloads; **v0.7**
@@ -327,7 +327,7 @@ visbench show correspondence --data ./images --backbone dinov2_vits14 --out matc
 
 ![A contact sheet of frames and their scene labels](https://raw.githubusercontent.com/turhancan97/VisBench/main/docs/_static/gallery/scene_classification.png)
 
-**Every probe can be drawn** — all fourteen, across four renderers, and a test
+**Every probe can be drawn** — all sixteen, across four renderers, and a test
 asserts `show_probes() == list_probes()` so a new one cannot ship undrawable.
 Dense targets get an `image | target | prediction` grid, detection gets boxes,
 correspondence gets match lines, and the probes with no spatial target
@@ -351,7 +351,7 @@ the datasets the probes are actually scored on cannot be republished, which is
 why they are not what you see. Boxes and masks are Open Images' own annotations;
 the four probes needing sensor geometry show a *prediction* from a published
 head instead of an invented target, and say so on the figure. See
-[all thirteen](https://turhancan97.github.io/VisBench/show.html), or
+[all sixteen](https://turhancan97.github.io/VisBench/show.html), or
 [the guide](https://github.com/turhancan97/VisBench/blob/main/docs/show.md).
 
 Two flags worth knowing. `--batch-size` is the *extraction* batch;
@@ -471,7 +471,7 @@ for the full reference.
 
 ## Reproducibility
 
-**Fifteen probes against twelve backbones, as records:
+**Sixteen probes against twelve backbones, as records:
 [LEADERBOARD.md](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md).**
 Every board there — and every measured table below — is generated from
 [`results/corpus/visbench.jsonl`](https://github.com/turhancan97/VisBench/blob/main/results/corpus/visbench.jsonl),
@@ -527,7 +527,7 @@ them at the point of use in the code:
 | **The documentation site** | <https://turhancan97.github.io/VisBench/> |
 | Every probe, its data layout and its measured numbers | [docs/tasks.md](https://github.com/turhancan97/VisBench/blob/main/docs/tasks.md) |
 | Looking at what a probe saw, and what it predicted | [docs/show.md](https://github.com/turhancan97/VisBench/blob/main/docs/show.md) |
-| Fifteen probes against twelve backbones, ranked | [LEADERBOARD.md](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md) |
+| Sixteen probes against twelve backbones, ranked | [LEADERBOARD.md](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md) |
 | How it was built, and what might come next | [docs/roadmap.md](https://github.com/turhancan97/VisBench/blob/main/docs/roadmap.md) |
 | What changed in each release | [CHANGELOG.md](https://github.com/turhancan97/VisBench/blob/main/CHANGELOG.md) |
 | Borrowed evaluation protocols and their licences | [NOTICE](https://github.com/turhancan97/VisBench/blob/main/NOTICE) |

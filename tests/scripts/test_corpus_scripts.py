@@ -76,3 +76,90 @@ def test_every_listed_probe_has_a_builder(all_probes):
     text = BUILD_CORPUS.read_text()
     for probe in all_probes:
         assert f"probe_{probe}()" in text, f"ALL_PROBES names {probe}, no probe_{probe}()"
+
+
+# -- merge_corpus.sh ---------------------------------------------------------
+#
+# The corpus is widened one board at a time, so `results/corpus/parts/` holds
+# only the most recent board. `merge_corpus.sh` originally rebuilt the corpus
+# with `cat parts/*.jsonl > corpus`, which was right exactly once -- at 6e-2,
+# when one array produced the whole matrix -- and became silently destructive
+# as soon as the corpus outgrew a single run. Measured on 2026-08-28: 12
+# orientation parts against a 180-record, 15-board corpus, so a rebuild would
+# have dropped 168 records and 14 boards without an error. The generated tables
+# would simply have rendered fewer boards, and every board still present would
+# still have held every backbone -- the same shape of invisible gap the sbatch
+# array guard exists for.
+#
+# These run the real script, because the failure was in what it *did* and a
+# string-scraping test would have passed against the destructive version.
+
+MERGE_CORPUS = ROOT / "scripts" / "merge_corpus.sh"
+CORPUS = ROOT / "results" / "corpus" / "visbench.jsonl"
+
+
+@pytest.fixture
+def corpus_lines() -> list[str]:
+    """Real records, so the script's own validation pass has something to parse."""
+    lines = CORPUS.read_text().splitlines()
+    assert len(lines) >= 4, "the committed corpus is unexpectedly small"
+    return lines
+
+
+def _run_merge(parts: Path, corpus: Path, **env_extra: str):
+    import os
+    import subprocess
+
+    env = {**os.environ, "PARTS": str(parts), "CORPUS": str(corpus), **env_extra}
+    return subprocess.run(
+        ["bash", str(MERGE_CORPUS)], capture_output=True, text=True, env=env, check=False
+    )
+
+
+def test_merging_a_single_board_does_not_delete_the_others(tmp_path, corpus_lines):
+    """The regression: parts/ holds one board, the corpus holds many."""
+    parts = tmp_path / "parts"
+    parts.mkdir()
+    corpus = tmp_path / "corpus.jsonl"
+    corpus.write_text("\n".join(corpus_lines[:4]) + "\n")
+    (parts / "probe__backbone.jsonl").write_text("\n".join(corpus_lines[4:6]) + "\n")
+
+    result = _run_merge(parts, corpus)
+    assert result.returncode == 0, result.stderr
+
+    merged = corpus.read_text().splitlines()
+    for line in corpus_lines[:4]:
+        assert line in merged, "merging a single board deleted records already in the corpus"
+    for line in corpus_lines[4:6]:
+        assert line in merged, "the new part was not merged in"
+
+
+def test_merging_twice_adds_nothing(tmp_path, corpus_lines):
+    """Idempotent by exact line, which is what makes a re-merge safe to run."""
+    parts = tmp_path / "parts"
+    parts.mkdir()
+    corpus = tmp_path / "corpus.jsonl"
+    corpus.write_text("\n".join(corpus_lines[:4]) + "\n")
+    (parts / "probe__backbone.jsonl").write_text("\n".join(corpus_lines[4:6]) + "\n")
+
+    assert _run_merge(parts, corpus).returncode == 0
+    once = corpus.read_text()
+    assert _run_merge(parts, corpus).returncode == 0
+    assert corpus.read_text() == once
+
+
+def test_rebuild_is_still_available_and_explicit(tmp_path, corpus_lines):
+    """The 6e-2 behaviour is kept for the case it was written for, behind a flag.
+
+    It has to stay reachable -- a full-matrix array with a corpus to replace is
+    a real workflow -- but it must be asked for, since it is the destructive one.
+    """
+    parts = tmp_path / "parts"
+    parts.mkdir()
+    corpus = tmp_path / "corpus.jsonl"
+    corpus.write_text("\n".join(corpus_lines[:4]) + "\n")
+    (parts / "probe__backbone.jsonl").write_text("\n".join(corpus_lines[4:6]) + "\n")
+
+    assert _run_merge(parts, corpus, REBUILD="1").returncode == 0
+    merged = corpus.read_text().splitlines()
+    assert merged == corpus_lines[4:6], "REBUILD should replace the corpus with the parts"

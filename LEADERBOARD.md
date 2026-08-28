@@ -280,6 +280,29 @@ Ordered by `map_50`, which **disagrees with `map_50_95`** — this task does not
 
 <sub>detection on detection_folder/val, protocol=visbench_anchor_free_det, frozen [4d3fbeb4]</sub>
 
+### fine_grained_classification
+
+| backbone | `top1` | `top5` |
+| --- | --- | --- |
+| `dinov2_vitb14` | **0.8683** | **0.9757** |
+| `dinov2_vits14` | 0.8652 | 0.9707 |
+| `clip_vitb16` | 0.8045 | 0.9591 |
+| `sam_vitb16` | 0.7927 | 0.9486 |
+| `siglip_vitb16` | 0.7839 | 0.9427 |
+| `dino_vitb16` | 0.7520 | 0.9253 |
+| `clip_vitb32` | 0.7344 | 0.9289 |
+| `convnext_base` | 0.7311 | 0.9210 |
+| `resnet50` | 0.6943 | 0.9137 |
+| `supervised_vitb16` | 0.6590 | 0.8873 |
+| `resnet18` | 0.6177 | 0.8693 |
+| `mae_vitb16` | 0.4696 | 0.7686 |
+
+Ordered by `top1`, which **disagrees with `top5`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
+
+> **Read this first.** This is *subordinate* category — 200 bird species that share a body plan — not the basic-level question the `classification` board asks, and a backbone's rank moves a long way between the two. **The in-distribution confound that shapes the object board does not carry over here**, which was measured rather than assumed: ImageNet-1k holds 59 bird classes, so the four ImageNet-1k-*supervised* backbones were expected to be flattered, and instead they take places 8, 9, 10 and 11 of twelve — `convnext_base`, `resnet50`, `supervised_vitb16`, `resnet18`, above only `mae_vitb16`. The controlled comparison says the same thing: among the four ViT-B/16 models, the supervised one is second-to-last, behind both `sam_vitb16` and `dino_vitb16`. Basic-level supervision appears to discard the within-class variation this board asks about. The probe also does **not** underfit despite 200 classes over ~6k training images — `train_top1` is 1.0000 on all six backbones it was measured on directly, including the board's last place — so the spread is generalisation and a low score is a property of the representation.
+
+<sub>fine_grained_classification on val/val, protocol=visbench_fine_grained_linear_probe, frozen [a10a2fcf]</sub>
+
 ### retrieval
 
 | backbone | `mAP` | `recall@1` | `recall@10` | `recall@5` |

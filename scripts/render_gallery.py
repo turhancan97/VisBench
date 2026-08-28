@@ -14,7 +14,7 @@ time, with the attribution CC BY requires written to ``CREDITS.md``.
 
 That buys real photographs *with real human annotation* for the probes whose
 targets are annotated, and exact ground truth for the probes that compute their
-own. It does not buy metric geometry, so the thirteen probes are drawn three
+own. It does not buy metric geometry, so the sixteen probes are drawn three
 ways and each figure says which it is:
 
 - **exact ground truth, computed from the frame itself** -- ``corner`` runs the
@@ -432,6 +432,15 @@ def figures(root: Path, backbone: str, classes: list[str]) -> dict[str, list[str
         ],
         "scene_classification": [
             "scene_classification",
+            "--data",
+            folder,
+            "--frames",
+            "8",
+            "--columns",
+            "4",
+        ],
+        "fine_grained_classification": [
+            "fine_grained_classification",
             "--data",
             folder,
             "--frames",

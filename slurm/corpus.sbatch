@@ -105,6 +105,7 @@ fi
 PROBES=(
   classification
   scene_classification
+  fine_grained_classification
   retrieval
   correspondence
   similarity

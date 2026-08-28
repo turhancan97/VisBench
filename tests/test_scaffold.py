@@ -24,6 +24,7 @@ MODULES = [
     "visbench.tasks.high_level",
     "visbench.tasks.high_level.classification",
     "visbench.tasks.high_level.scene_classification",
+    "visbench.tasks.high_level.fine_grained_classification",
     "visbench.tasks.high_level.retrieval",
     "visbench.tasks.mid_level",
     "visbench.tasks.mid_level.correspondence",
