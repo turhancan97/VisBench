@@ -50,7 +50,20 @@ __all__ = ["ResultRecord", "SCHEMA_VERSION", "utc_timestamp"]
 #:    property of the backbone, so both are needed and neither replaces the
 #:    other. ``None`` on every earlier record, where the resolved value is the
 #:    only thing that was ever known.
-SCHEMA_VERSION = 7
+#: 8. Added ``training``, the diagnostics of the fit itself. Every trained probe
+#:    already computed ``train_loss`` (and the classification family
+#:    ``train_top1``), printed it to a log line and dropped it — so a corpus of
+#:    156 trained runs could not answer the one question this library says
+#:    matters most about a low score: whether the probe underfitted, which
+#:    *understates* a backbone, or whether the representation genuinely does not
+#:    carry the answer. Those are opposite conclusions from the same number:
+#:    binary segmentation on 80 images reads 0.16 IoU at the defaults and 0.87
+#:    at ``epochs=40`` on identical features. ``None`` for the three zero-shot
+#:    probes and for every record written before this, which fit nothing — so
+#:    absence and "trains nothing" agree, as they do for ``finetune``. An open
+#:    dict for ``task_params``' reason: a new probe's own diagnostic must not
+#:    force another bump.
+SCHEMA_VERSION = 8
 
 
 @dataclass
@@ -108,6 +121,16 @@ class ResultRecord:
         already carries; a fine-tuned one measures what it can be adapted into,
         and averaging or ranking the two together is meaningless. This is the
         field that makes the difference legible to a leaderboard.
+    training:
+        ``None`` for a probe that trains nothing — the three zero-shot probes,
+        and every record written before schema v8. Otherwise an open dict of
+        how the *fit* went: ``train_loss`` for every trained probe here, plus
+        ``train_top1`` for the classification family. This is what separates an
+        underfitting probe from a weak representation, which are opposite
+        readings of the same low score, and it is about the training split —
+        ``metrics`` is what ``evaluate()`` returned about the evaluation split.
+        Never rank on it: a probe that fits its training data perfectly has said
+        nothing yet about a backbone.
     layer / layers:
         Which backbone depth the features came from. ``layer`` is the
         single-layer form and ``layers`` the resolved list a multiscale head
@@ -139,6 +162,7 @@ class ResultRecord:
     layer: int | None = None
     layers: list[int] | None = None
     finetune: dict | None = None
+    training: dict | None = None
     seed: int | None = None
     duration_seconds: float | None = None
     notes: str | None = None

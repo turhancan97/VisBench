@@ -156,6 +156,35 @@ def test_a_vit_and_a_cnn_asked_for_the_same_thing(fake_vit, fake_cnn, splits, ca
     assert comparability_key(vit) == comparability_key(cnn)
 
 
+def test_a_trained_run_records_how_the_fit_went(fake_vit, splits, cache):
+    """Schema v8. The diagnostic has to reach the *record*, not only a log line.
+
+    That was the gap: every trained probe computed `train_loss`, printed it and
+    dropped it, so a corpus of trained runs could not answer whether a low score
+    was an underfitting probe -- which understates a backbone -- or a weak
+    representation. Those are opposite conclusions from the same number.
+    """
+    train, val = splits
+    result = visbench.run(
+        fake_vit, "classification", val, train_dataset=train, cache=cache, device="cpu"
+    )
+
+    assert result.record.training is not None
+    assert set(result.record.training) == {"train_loss", "train_top1"}
+    assert result.record.training["train_top1"] == result.probe.train_top1
+    # It describes the fit, not the evaluation, so it must not be in `metrics` --
+    # where every leaderboard code path would meet it and could only refuse it.
+    assert "train_loss" not in result.metrics
+    assert result.record.schema_version == 8
+
+
+def test_a_zero_shot_run_records_no_training(fake_vit, splits, cache):
+    """None, like `finetune`: there is no fit to describe."""
+    _, val = splits
+    result = visbench.run(fake_vit, "retrieval", val, cache=cache)
+    assert result.record.training is None
+
+
 def test_seed_and_duration_are_recorded(fake_vit, splits, cache):
     _, val = splits
     result = visbench.run(fake_vit, "retrieval", val, cache=cache, seed=7)

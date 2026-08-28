@@ -11,6 +11,50 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Added
 
+- **Schema v8: `training`, how the fit itself went.** Every trained probe
+  computed `train_loss` — and the classification family `train_top1` — printed
+  it to a log line, and dropped it before the record. So the corpus could not
+  answer the one question this library says matters most about a low score:
+  whether the probe **underfitted**, which *understates* a backbone, or whether
+  the representation genuinely does not carry the answer. Those are opposite
+  conclusions from the same number, and binary segmentation on 80 training
+  images is the proof — 0.16 IoU at the defaults, 0.87 at `epochs=40`, on
+  identical features.
+
+  Found by friction rather than audit: the CUB write-up could claim "does not
+  underfit" for the six backbones run by hand and could not check it for the six
+  run on the cluster, because their `train_top1` existed only in a Slurm log.
+  156 trained records, none able to answer it.
+
+  ```
+  metrics:  {top1: 0.8683, top5: 0.9757}          # the evaluation split
+  training: {train_loss: 0.0001, train_top1: 1.0}  # the fit
+  ```
+
+  **A separate field rather than entries in `metrics`.** `metrics` is what
+  `evaluate()` returned about the evaluation split and every leaderboard path
+  reads it; a training number there is one the ranking code could only refuse.
+  `DIAGNOSTIC_METRICS` already exists and would have worked, so this was a real
+  choice — rejected because it blurs what `metrics` means and widens the
+  key-collision surface the `ceiling_` guard exists for. An **open dict**, for
+  `task_params`' stated reason: a future probe's own diagnostic must not force
+  another bump. **`None`, not `{}`,** for the three zero-shot probes — no fit
+  happened, which is a different statement from "trained and reported nothing",
+  and it is what every pre-v8 record carries by absence, exactly as `finetune`
+  does.
+
+  Additive as always: all 192 existing records read unchanged under the v8
+  reader and come back with `training = None`. Three implementations of
+  `BaseTask.training_summary()` — on `DenseTrainingTask`, `ClassificationTask`
+  and `DetectionTask` — cover all thirteen trained probes, and a test
+  parametrised over `list_probes()` fails when a new probe trains a head and
+  does not report it.
+
+  **Never rank on it.** A probe that fits its training data perfectly has said
+  nothing yet about a backbone: on CUB every backbone reaches `train_top1`
+  1.0000, including the one that comes last on the board.
+
+
 - **`fine_grained_classification` — a sixteenth probe, and the third distinct
   question on the linear-probe path.** Object `classification` asks whether a
   representation separates *basic-level* categories — a bird from a car — which

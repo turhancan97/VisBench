@@ -195,6 +195,21 @@ Every run writes a JSON record under one **additive-only** schema. Never remove
 or repurpose a field; add one and bump `SCHEMA_VERSION`, so old records stay
 readable.
 
+Two fields are easy to confuse and must not be merged. `metrics` is what
+`evaluate()` returned about the **evaluation** split, and every leaderboard code
+path reads it. `training` is how the **fit** went — `train_loss` for every
+trained probe, plus `train_top1` for the classification family — and is `None`
+for the three zero-shot probes, which fit nothing. It exists because a low score
+has two opposite readings, an unconverged probe or a weak representation, and
+only the training numbers separate them. **Never rank on `training`**: a probe
+that fits its training data perfectly has said nothing yet about a backbone.
+
+If you add a probe that trains something, override `training_summary()`. The
+three existing implementations (`DenseTrainingTask`, `ClassificationTask`,
+`DetectionTask`) cover every probe that ships, so a new dense or linear probe
+inherits it for free; a probe with its own training loop does not, and a test
+over `list_probes()` is what catches that.
+
 ## Style
 
 Line length and formatting are `ruff`'s; run `ruff format`. Beyond that:

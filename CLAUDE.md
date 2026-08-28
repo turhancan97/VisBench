@@ -307,7 +307,7 @@ delimited tables and `LEADERBOARD.md` are generated from the corpus, and a
 v0.6.0 shipped; 7b moved them to `docs/tasks.md`, and corner's joined them in
 8b.) `visbench/hub/` serialises a
 trained head with the backbone identity beside it and moves it to and from the
-Hugging Face Hub behind a `[hub]` extra. Schema is **v7** — `pooling_requested`, because keying
+Hugging Face Hub behind a `[hub]` extra. Schema was **v7** at that release — `pooling_requested`, because keying
 comparability on resolved pooling could never rank a CNN against a ViT.
 
 **v0.3's numbered steps are all done: 6a (fine-tuning), 6b
@@ -496,8 +496,8 @@ point it at `.../blob/main/...`, or `raw.githubusercontent.com` for an image.
 is a Sphinx source tree, not package metadata, so its links must be *relative*
 and must resolve, and none may escape the tree with `../` — which Sphinx cannot
 follow and MyST does not warn about, so `-W` would not catch one.
-Result schema is at **v7** (`pooling_requested` added in 6e-2b; `finetune` was
-6a; `dataset_params` was 5j) and is **additive only**: never remove or repurpose
+Result schema is at **v8** (`training` added 2026-08-28; `pooling_requested`
+in 6e-2b; `finetune` was 6a; `dataset_params` was 5j) and is **additive only**: never remove or repurpose
 a field, or old records stop being readable.
 
 ### Layout worth knowing before editing
@@ -776,6 +776,38 @@ designed up front; extend it the same way, from a case that already runs.
     a backbone scores, a control says what changes when one thing about one
     backbone moves. Nothing there feeds a generated table.
   - **n=12.** Every correlation above has wide error bars.
+
+- **A trained probe records how its fit went, and the reason it took until
+  schema v8 is worth keeping** (2026-08-28). Every trained probe computed
+  `train_loss` — and the classification family `train_top1` — printed it to a
+  log line, and dropped it before the record. So the corpus could not answer
+  the one question this file says matters most about a low score: whether the
+  probe **underfitted**, which *understates* a backbone, or whether the
+  representation genuinely does not carry the answer. Those are opposite
+  conclusions from the same number, and the binary-segmentation bullet above is
+  the proof — 0.16 IoU at the defaults against 0.87 at `epochs=40`, identical
+  features.
+
+  Found by friction, not by audit: the CUB write-up could claim "does not
+  underfit" for the six backbones run by hand and could not check it for the
+  six run on the cluster, because their `train_top1` existed only in a Slurm
+  log. 156 trained records, none of them able to answer it.
+
+  **`training` is a separate field, not entries in `metrics`.** `metrics` is
+  what `evaluate()` returned about the *evaluation* split, and every leaderboard
+  path reads it; a training number there is one the ranking code can only refuse.
+  `DIAGNOSTIC_METRICS` does exist and would have worked, which is why this was a
+  real choice rather than an obvious one — it was rejected because it blurs what
+  `metrics` means and widens the key-collision surface the `ceiling_` guard
+  exists for. **An open dict**, for `task_params`' stated reason: a future
+  probe's own diagnostic must not force another bump. **`None`, not `{}`,** for
+  the three zero-shot probes — no fit happened, which is a different statement
+  from "trained and reported nothing", and it is what every pre-v8 record
+  carries by absence, exactly as `finetune` does.
+
+  **Never rank on it.** A probe that fits its training data perfectly has said
+  nothing yet about a backbone; on CUB every backbone reaches `train_top1`
+  1.0000, including the one that comes last.
 
 - **`run()` seeds before it constructs a *name*, so a `CustomBackbone` is
   constructed outside the seeded window — and that makes it more reproducible,
@@ -2041,6 +2073,9 @@ the dataset bridges (largest). What remains is the candidate-task backlog.
   pooling mode, feature mode, layers, metrics, timestamp — under one
   **additive-only** schema, so leaderboard tooling never needs a retrofit.
   Bump `SCHEMA_VERSION` when adding a field; never remove or repurpose one.
+  A *trained* run also records `training` (v8) — how the fit itself went, which
+  is what separates an underfitting probe from a weak representation, and is
+  never something to rank on.
 - Package for PyPI from v0.1: `pyproject.toml`, semantic versioning,
   `pip install visbench` as the eventual target install path.
 - Cite prior art in code comments and docs wherever an evaluation protocol is

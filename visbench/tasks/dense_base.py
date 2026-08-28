@@ -291,6 +291,22 @@ class DenseTrainingTask(BaseTask):
         training, which for anything that drifts is the more useful of the two.
         """
 
+    def training_summary(self) -> dict | None:
+        """The final epoch's mean training loss, for the record.
+
+        Every dense probe inherits this, so all nine report it. It is the
+        number that separates an underfitting probe from a weak representation:
+        binary segmentation on 80 training images reads 0.16 IoU at the
+        defaults and 0.87 at ``epochs=40`` on *identical* features, and only
+        the loss says which of those a given low score is.
+
+        ``None`` before :meth:`fit`, so a record can never claim a fit that did
+        not happen.
+        """
+        if self.train_loss is None:
+            return None
+        return {"train_loss": self.train_loss}
+
     def _task_params(self) -> dict:
         """Subclass-specific entries for the result record's ``task_params``."""
         return {}

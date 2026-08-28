@@ -482,7 +482,10 @@ published number and the run behind it cannot disagree.
 
 Every run logs a structured JSON record — backbone, weights key, task, dataset,
 pooling, feature mode, metrics, seed, timestamp — under one schema from v0.1,
-so leaderboard tooling never needs a retrofit. Dependencies are pinned in
+so leaderboard tooling never needs a retrofit. A trained run also records how
+its **fit** went (`train_loss`, and `train_top1` where the probe has one), which
+is what tells an underfitting probe apart from a weak representation — opposite
+readings of the same low score. Dependencies are pinned in
 [`uv.lock`](https://github.com/turhancan97/VisBench/blob/main/uv.lock) — exact versions and hashes for every platform, covering
 the `clip` and `dev` extras too — and CI fails if it drifts from
 `pyproject.toml`. The ranges in `pyproject.toml` carry upper bounds so that a
