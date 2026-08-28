@@ -259,8 +259,11 @@ closed** (2026-08-28): the **dataset bridges** shipped —
 `--dataset torchvision:… | hf:…` on the three image-level probes — after
 `visbench show` (9a-9d) and `examples/custom_backbone.py` (2026-08-19). The
 candidate-task backlog is what remains, and **fine-grained recognition came
-off it on 2026-08-28** (`fine_grained_classification`, CUB-200-2011) leaving
-photometric superpixels, BSDS500 edge and optical flow. Re-confirm what is wanted before
+off it on 2026-08-28** (`fine_grained_classification`, CUB-200-2011).
+**Photometric superpixels was built and rejected the same day** — it scored
+0.021-0.043 after passing every pre-measurement; see the bullet below and
+`visbench/tasks/low_level/README.md`. That leaves BSDS500 edge and optical flow,
+**both of which need a download first**: nothing cheap remains. Re-confirm what is wanted before
 starting anything; do not assume its order is a plan. **The one thread that was open — why `detection`
 alone fails to reproduce — is closed**: it is GPU non-determinism made visible
 by a discrete metric, it was never a bug, and detection reproduces to *three*
@@ -1185,6 +1188,43 @@ designed up front; extend it the same way, from a case that already runs.
   response — the single strongest property of this class of target, and the
   reason `DerivedTargetDataset` does not subclass `DenseFolderDataset`.
 
+- **The gauntlet asks whether a target is distinctive; it never asked whether
+  it is *recoverable*. Photometric superpixels is what that cost** (built and
+  rejected 2026-08-28). SLIC boundary regression passed every gate — tail 0.055
+  against `edge_occlusion`'s 0.46, overlap with `edge_texture` 0.267 per image
+  against the 0.52 `corner` shipped with, cross-image `|r|` 0.044 (below the
+  edge target's own 0.060, so the boundaries followed the image and not SLIC's
+  seeding lattice), and two rival formulations rejected on the overlap rule.
+  Then it scored **0.0434 / 0.0209 / 0.0238** on DINOv2-S, CLIP-B/16 and
+  ResNet-50, where the *weakest* shipped low-level probe (`keypoints2d`) scores
+  0.179-0.236 and `corner` scores 0.492-0.651. Spread 0.023, with ResNet-50
+  "beating" CLIP by 0.003, and `train_loss` **lowest** for the worst scorers —
+  the heads learned the mean boundary density and nothing about location.
+
+  **The missing check is an oracle, and it is cheap.** Every existing gate is
+  about the target's distribution or its relation to other targets. None asks
+  what the probe could score if the features *did* contain the answer. A 1px
+  SLIC boundary in a flat region is placed by the seeding lattice and
+  sub-threshold colour noise, which is not in a 14px patch token in principle —
+  so its ceiling is near zero and no backbone can rank on it.
+  `CorrespondenceTask.evaluate_ceiling` is the same idea already in this
+  codebase. **Add an oracle run to the gauntlet before the next derived probe**;
+  it costs one run rather than a board.
+
+  **A pooled-resolution overlap check is not that test, and nearly became a
+  false veto.** The boundary map reads 0.267 against `edge` at full resolution
+  and 0.684 pooled to a 16x16 grid, which looked decisive — until it was
+  calibrated: the shipped `corner` target reads **0.781** there and its board
+  ranks backbones differently from `edge` anyway. **Calibrate a new rejection
+  criterion against something that already passed before letting it reject
+  anything.**
+
+  What survived: `DerivedTargetDataset` memoises computed targets now
+  (`MEMO_LIMIT`), because `CachedFeatures.__getitem__` calls
+  `dataset.target(index)` on every access — a ten-epoch streaming run had been
+  recomputing every target ten times, which `corner` and `orientation` were
+  both paying.
+
 - **The overlap check is a veto, and `orientation` is the probe that proves it
   earns its keep** (2026-08-28). DoG-blob detection was the obvious next derived
   probe — the scale-space counterpart to `corner`. Its pre-measurement (the same
@@ -1622,8 +1662,8 @@ the measurement behind it, under the step named in brackets.**
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite is **1748 tests** and green on 2026-08-28, after the
-`fine_grained_classification` probe, as
+fast suite is **1784 tests** and green on 2026-08-28, after the
+`fine_grained_classification` probe and schema v8, as
 are all three lint steps and the `-W` docs build — all five run on `dgx1` via
 `sbatch`, since `.venv/bin/python` does not resolve on a `dgxh100` login shell.
 `uv lock --check` was green on 2026-08-06 and no dependency has moved since; the
@@ -2125,7 +2165,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 1748 fast tests
+pytest                                              # 1784 fast tests
 pytest -m slow                                      # 79, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/

@@ -9,6 +9,61 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A derived target was recomputed once per *epoch*, not once per frame.**
+  `CachedFeatures.__getitem__` calls `dataset.target(index)` on every access, so
+  a ten-epoch streaming run recomputed every target ten times over. `corner` and
+  `orientation` had both been paying that quietly.
+
+  `DerivedTargetDataset.target` now memoises, bounded by `MEMO_LIMIT` so an
+  unbounded run cannot compete with the *features* for memory. Safe by
+  construction rather than convention: a derived target is a pure function of an
+  immutable image and a frozen-dataclass generator, so a memoised value cannot
+  go stale. The test asserts the generator's **call count**, not a clock,
+  because this codebase already has a standing rule that a wall clock is not a
+  metric.
+
+### Rejected — photometric superpixels
+
+Not a change to the package: no probe shipped. It is recorded because the work
+was done and the *reason* it failed is worth more than the code was.
+
+A `superpixel` probe was built in full — SLIC partition, boundary-map target,
+`DenseMagnitudeTask` subclass, CLI row, tests, docs, figure — and reverted the
+same day after measuring it on real weights:
+
+| probe | dinov2_vits14 | clip_vitb16 | resnet50 |
+|---|---|---|---|
+| `corner` | 0.6512 | 0.6227 | 0.4923 |
+| `edge` | 0.4558 | 0.4565 | 0.3549 |
+| `keypoints2d` | 0.2356 | 0.2175 | 0.1792 |
+| **`superpixel`** | **0.0434** | **0.0209** | **0.0238** |
+
+Five times below the weakest probe that ships, with a spread of 0.023 in which
+ResNet-50 "beats" CLIP by 0.003 — and `train_loss` *lowest* for the worst
+scorers, which says the heads learned the mean boundary density and nothing
+about location.
+
+**Every gate passed first**, which is the point. Tail 0.055 against
+`edge_occlusion`'s ruinous 0.46; overlap with `edge_texture` 0.267 per image,
+well under the 0.52 `corner` shipped with; cross-image `|r|` 0.044, *below* the
+edge target's own 0.060, so the boundaries followed the image and not SLIC's
+lattice. Two rival formulations were rejected on the overlap rule along the way.
+
+**The gap it exposed**: every check in the gauntlet is about the *target* — its
+distribution, and its relation to other targets. None asks whether the target is
+**recoverable from patch features at all**. A SLIC boundary is one pixel wide
+and, in a flat region, its position is set by the seeding lattice and
+sub-threshold colour noise, which is not in a 14px patch token in principle.
+
+A pooled-resolution overlap check was tried and is *not* the missing test — and
+it produced a misleading near-veto: the boundary map reads 0.684 against `edge`
+at a 16x16 grid, but the shipped `corner` target reads **0.781** there and ranks
+differently anyway. The cheap missing check is an **oracle** — what this probe
+could score if the features contained the answer — which costs one run rather
+than a board. The full write-up is in `visbench/tasks/low_level/README.md`.
+
 ## [0.13.0] — 2026-08-28
 
 A sixteenth probe, and the record finally says how the fit went. CUB-200-2011
