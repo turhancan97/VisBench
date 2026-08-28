@@ -9,8 +9,24 @@
 #
 #   scripts/merge_corpus.sh
 #
-# Idempotent: it rebuilds the corpus from the parts every time rather than
-# appending, so running it twice does not double every record.
+# **It merges into the corpus; it does not replace it.** The original version
+# rebuilt the corpus by `cat parts/*.jsonl > corpus`, which was right exactly
+# once -- at 6e-2, when the whole matrix was produced by one array. The corpus
+# has been widened one board at a time ever since, so `parts/` holds only the
+# most recent board and a rebuild would delete every board before it. Checked
+# on 2026-08-28: 12 orientation parts against a 180-record, 15-board corpus, so
+# a rebuild would have dropped 168 records and 14 boards. That is silent -- the
+# generated tables would simply render fewer boards, and every board still
+# present would still hold every backbone.
+#
+# Still idempotent: records are deduplicated by their exact JSON line, so
+# running it twice adds nothing. A *re-run* of a (probe, backbone) writes a new
+# timestamp and so a new line, which is kept beside the old one -- that is the
+# corpus's append-only design, and `latest_per_backbone` is what picks the
+# newest.
+#
+# REBUILD=1 restores the old behaviour, for the case it was written for: the
+# whole matrix in `parts/` and a corpus to be replaced wholesale.
 
 set -euo pipefail
 
@@ -34,10 +50,33 @@ fi
 
 # Sorted so the corpus has a stable order and its diff is readable when a single
 # probe is re-run.
-printf '%s\n' "${files[@]}" | sort | xargs cat > "$CORPUS.tmp"
-mv "$CORPUS.tmp" "$CORPUS"
+printf '%s\n' "${files[@]}" | sort | xargs cat > "$CORPUS.parts"
 
-echo "merged ${#files[@]} parts -> $CORPUS"
+if [[ -n ${REBUILD:-} ]]; then
+  # The 6e-2 behaviour, kept for the case it was written for: the whole matrix
+  # is in parts/ and the corpus is meant to be replaced.
+  echo "REBUILD=1: replacing $CORPUS with ${#files[@]} parts"
+  mv "$CORPUS.parts" "$CORPUS"
+else
+  # Existing records first, then any part line not already present. Keying on
+  # the exact line makes a second merge a no-op, while a genuine re-run -- which
+  # carries a new timestamp -- is a new line and is kept, because the corpus is
+  # append-only and latest_per_backbone is what resolves duplicates.
+  if [[ -f "$CORPUS" ]]; then
+    awk 'NR==FNR { seen[$0]=1; next } !($0 in seen)' "$CORPUS" "$CORPUS.parts" \
+      > "$CORPUS.new"
+    added=$(wc -l < "$CORPUS.new")
+    cat "$CORPUS" "$CORPUS.new" > "$CORPUS.tmp"
+    rm -f "$CORPUS.new"
+    echo "merged ${#files[@]} parts -> $CORPUS  (+${added} new records)"
+  else
+    cp "$CORPUS.parts" "$CORPUS.tmp"
+    echo "created $CORPUS from ${#files[@]} parts"
+  fi
+  mv "$CORPUS.tmp" "$CORPUS"
+  rm -f "$CORPUS.parts"
+fi
+
 wc -l < "$CORPUS" | xargs echo "records:"
 
 # Validate rather than trust. Every line must parse as a schema-readable record,
