@@ -19,7 +19,12 @@ import torch
 from PIL import Image
 
 from visbench.data.dense import DenseFolderDataset
-from visbench.data.derived import DerivedTargetDataset, ShiTomasiResponse, structure_tensor
+from visbench.data.derived import (
+    DerivedTargetDataset,
+    OrientationResponse,
+    ShiTomasiResponse,
+    structure_tensor,
+)
 
 
 def square_image(size: int = 64, lo: int = 0, hi: int = 255) -> Image.Image:
@@ -157,6 +162,78 @@ def test_describe_names_everything_that_moves_the_target():
 def test_two_generators_that_differ_have_different_tokens():
     assert ShiTomasiResponse().token() != ShiTomasiResponse(sigma=1.0).token()
     assert ShiTomasiResponse().token() == ShiTomasiResponse().token()
+
+
+# -- the orientation operator ------------------------------------------------
+
+
+def grating(size: int = 96, degrees: float = 0.0, period: float = 12.0) -> Image.Image:
+    """A sinusoidal grating whose stripes are perpendicular to ``degrees``."""
+    yy, xx = np.meshgrid(np.arange(size), np.arange(size), indexing="ij")
+    angle = np.deg2rad(degrees)
+    wave = np.sin(2 * np.pi * (xx * np.cos(angle) + yy * np.sin(angle)) / period)
+    return Image.fromarray(((wave + 1) * 127).astype(np.uint8)).convert("RGB")
+
+
+@pytest.mark.parametrize("degrees", [0.0, 30.0, 45.0, 90.0, 135.0])
+def test_orientation_recovers_a_known_grating(degrees):
+    """The load-bearing operator test: a grating at a known angle must read
+    back at that angle. The plausible mistakes — a transposed gradient, the
+    perpendicular eigenvector, a missing factor of two — all shift this."""
+    field = OrientationResponse(sigma=2.0)(grating(degrees=degrees))
+    two_theta = np.arctan2(field[1].mean().item(), field[0].mean().item())
+    estimate = np.rad2deg(0.5 * two_theta) % 180.0
+    error = min(abs(estimate - degrees), 180.0 - abs(estimate - degrees))
+    assert error < 1.0
+
+
+def test_orientation_target_is_a_unit_field_scaled_by_coherence():
+    """Channels are ``coherence * (cos 2t, sin 2t)``: the length is in [0, 1]
+    and it is ~1 on a clean grating, which is what the loss weights by."""
+    field = OrientationResponse()(grating(degrees=20.0))
+    length = field.norm(dim=0)
+    assert field.shape == (2, 96, 96)
+    assert float(length.max()) <= 1.0 + 1e-5
+    assert float(length.mean()) > 0.8
+
+
+def test_orientation_coherence_is_near_zero_on_a_flat_image():
+    """No direction is defined in a flat patch, so the target vanishes there
+    rather than pointing somewhere arbitrary."""
+    flat = Image.fromarray(np.full((48, 48), 128, dtype=np.uint8)).convert("RGB")
+    assert torch.all(OrientationResponse()(flat).norm(dim=0) < 1e-4)
+
+
+def test_orientation_is_deterministic_and_sigma_moves_it():
+    image = grating(degrees=25.0)
+    assert torch.equal(OrientationResponse()(image), OrientationResponse()(image))
+    assert not torch.equal(OrientationResponse()(image), OrientationResponse(sigma=4.0)(image))
+
+
+def test_orientation_describe_and_token():
+    described = OrientationResponse().describe()
+    assert described["target_operator"] == "structure_tensor_orientation"
+    assert described["target_sigma"] == 2.0
+    assert OrientationResponse().token() != OrientationResponse(sigma=1.0).token()
+
+
+@pytest.mark.parametrize("sigma", [0.0, -1.0])
+def test_orientation_rejects_a_bad_sigma(sigma):
+    with pytest.raises(ValueError):
+        OrientationResponse(sigma=sigma)
+
+
+def test_derived_dataset_carries_a_vector_generator(tmp_path):
+    """The dataset was scalar-only until orientation; a 2-channel target must
+    thread through __getitem__, target() and describe() unchanged."""
+    write_images(tmp_path / "images", count=3, size=80)
+    dataset = DerivedTargetDataset(root=tmp_path, image_size=32, generator=OrientationResponse())
+    image, target = dataset[0]
+    assert image.size == (32, 32)
+    assert target.shape == (2, 32, 32)
+    assert torch.equal(dataset.target(0), target)
+    assert dataset.targets().shape == (3, 2, 32, 32)
+    assert dataset.describe()["target_operator"] == "structure_tensor_orientation"
 
 
 # -- the dataset --------------------------------------------------------------

@@ -8,7 +8,8 @@ added its first entry. **Step 6d-2** added the second, and moved the
 reconstruction-derived Taskonomy domains from "refused" to "supported" by wiring
 up `mask_valid/`. The third, corner detection, is the first probe in VisBench
 whose target is **computed from the image** rather than read from disk, so it
-runs on any image folder with no download.
+runs on any image folder with no download. Gradient orientation is the fourth —
+also computed from the image, but a *direction* rather than a magnitude.
 
 ## Implemented
 
@@ -17,8 +18,9 @@ runs on any image folder with no download.
 | Edge detection | `edge.py` (`EdgeTask`) | Taskonomy `edge_texture` | `visbench_edge_regression` |
 | 2D keypoint detection | `keypoints.py` (`Keypoint2DTask`) | Taskonomy `keypoints2d` | `visbench_keypoint2d_regression` |
 | Corner detection | `corner.py` (`CornerTask`) | **any image folder** — the target is computed | `visbench_shi_tomasi_regression` |
+| Gradient orientation | `orientation.py` (`OrientationTask`) | **any image folder** — the target is computed | `visbench_structure_tensor_orientation_regression` |
 
-All three are dense magnitude regression and share
+The first three are dense magnitude regression and share
 `visbench/tasks/magnitude_base.py` (`DenseMagnitudeTask`): one channel, identity
 activation, L1 loss, scored by per-image Pearson correlation (plus RMSE and MAE).
 Quote the correlation — it is invariant to scale and offset, so a probe
@@ -29,6 +31,15 @@ They are three probes rather than one because an edge response fires along
 intensity *contours* and a keypoint response at *corners and blobs*, and a
 backbone can be good at one and weak at the other. Distinct metric keys and
 distinct `protocol` strings are what stop the numbers being pooled.
+
+**Gradient orientation is the odd one out.** Its target is a *direction*, not a
+magnitude, so it cannot use `DenseMagnitudeTask`: it predicts a 2-channel unit
+vector `(cos 2θ, sin 2θ)` (the angle is mod π, so the double angle handles the
+wrap), the loss is a coherence-weighted angular error, and the metric
+`orientation_error` is degrees of angular error, not a correlation. See
+`orientation.py`. It measures phase — per-image `|r|` with the corner and edge
+targets is under 0.09, where those two sit at 0.53 — which is exactly the gap
+the DoG-blob candidate could not fill (it landed at 0.51 with `corner`).
 
 ## Corner detection, and the target that is computed rather than read
 
@@ -137,38 +148,40 @@ them. **Check the tail before assuming this protocol transfers.**
 | Texture / reflectance | Intrinsic-image decomposition; ground truth is scarce outside synthetic data. **Taskonomy does not ship a reflectance domain**, so this is not unblocked by 6d-2. `principal_curvature` and `reshading` are present and are still refused, but no longer for want of a mask — see below. |
 | Image quality assessment | No-reference IQA against human MOS ratings. Closest in shape to mid-level similarity, which is zero-shot; IQA is not. |
 | Edge detection on BSDS500 | The correspondence metric above, as a second protocol beside the Taskonomy one rather than a replacement. |
-| Local orientation / gradient fields | Structure-tensor or HOG-style. Vector-valued, so closer in shape to surface normals than to the magnitude probes. Needs no dataset. |
 | Superpixel / texture segmentation | Grouping by local photometric similarity alone, with no depth or figure-ground reasoning. Needs no dataset. |
 | Color constancy / illuminant estimation | A per-image scalar/vector target rather than a dense one, and it needs measured illuminant ground truth. |
 | Vanishing point / line detection | Published as a Taskonomy domain, but **not in the copy on this machine** — that download carries eight domains and this is not one. |
 
-### The two that still need no dataset
+### Derived targets — what is done and what remains
 
-Corner detection was the first of these and is now implemented above;
-`visbench/data/derived.py` is the machinery it left behind, and a second derived
-target is a `ShiTomasiResponse`-shaped class plus a `DenseMagnitudeTask`
-subclass. Structure-tensor orientation and photometric superpixels remain.
+`visbench/data/derived.py` is the machinery `corner` left behind. A magnitude
+derived target is a `ShiTomasiResponse`-shaped class plus a `DenseMagnitudeTask`
+subclass; a vector one — `OrientationResponse` — needs its own small task base,
+which `orientation.py` now provides. **Photometric superpixels** is the one that
+remains.
 
-Three cautions, the first two paid for by the corner probe:
+Four cautions, the first three paid for by `corner` and `orientation`:
 
 - **Check the tail first.** Every raw corner response was spikier than
   `edge_occlusion`'s 0.46, the case that stopped ranking. A compression is not
-  optional, and which one is a measurement.
-- **Check the overlap with what already ships.** The corner target correlates
-  0.52 with the edge target — higher than the 0.147 between the two Taskonomy
-  probes. That did not disqualify it, because the rankings differ, but it is the
-  question to ask *before* building, and it costs one afternoon of correlations
-  rather than a probe run per backbone.
+  optional, and which one is a measurement. (An *angle* has no tail — the
+  orientation target needed no compression, which the pre-measurement confirmed
+  before the task was written.)
+- **Check the overlap with what already ships, before building.** It costs one
+  afternoon of correlations rather than a probe run per backbone. **DoG-blob
+  detection was rejected on exactly this**: its target correlated 0.50 with the
+  edge target and **0.51 with `corner`**, i.e. as redundant with an existing
+  probe as `corner` is with `edge`. `orientation` passed the same check with
+  `|r|` under 0.09 against both, because it measures phase.
+- **A correlated target can still rank differently** — that is what earned
+  `corner` its place despite 0.52 with edge (spread 0.1603 vs 0.1136, CLIP-B/16
+  first on edges and third on corners). It is a reason to build and measure, not
+  a reason to skip the overlap check.
 - **`protocol` must name the generator, not the family.** "Harris corners" is
   not a definition — the k parameter, window, smoothing and non-maximum
   suppression all move the target. Naming the operator is half the fix; the
   other half is that every setting travels in `dataset_params`, so two sigmas
   split into two comparability groups without anyone noticing.
-
-Orientation is the more interesting of the two remaining, because it is
-**vector-valued** — closer in shape to surface normals than to these three — so
-it cannot reuse `DenseMagnitudeTask` and would be the first derived target to
-need a base of its own.
 
 ### Why `principal_curvature` and `reshading` are still refused
 

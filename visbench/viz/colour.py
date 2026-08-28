@@ -144,6 +144,42 @@ def _normals(target: torch.Tensor) -> np.ndarray:
     return np.round(np.moveaxis(rgb, 0, -1) * 255.0).astype(np.uint8)
 
 
+def _orientation(target: torch.Tensor) -> np.ndarray:
+    """``(2, H, W)`` double-angle field as RGB: hue is orientation, value is coherence.
+
+    The two channels are ``coherence * cos 2theta`` and ``coherence * sin 2theta``
+    (see :class:`~visbench.data.derived.OrientationResponse`), so ``atan2`` of
+    them recovers ``2theta`` and the vector length is the coherence. Hue carries
+    the orientation — cyclic, like the quantity — and brightness carries how
+    well-defined it is, so a flat patch reads as black rather than as a
+    confident wrong colour. Saturation is fixed, which keeps the one free
+    channel (value) unambiguous.
+
+    HSV is converted inline rather than pulled from a colour library, matching
+    the "no lookup table, no new dependency" rule the greyscale path follows.
+    """
+    field = target.detach().to(torch.float64).cpu().numpy()[:2]
+    two_theta = np.arctan2(field[1], field[0])
+    hue = (two_theta % (2.0 * np.pi)) / (2.0 * np.pi)
+    coherence = np.clip(np.hypot(field[0], field[1]), 0.0, 1.0)
+
+    sextant = np.floor(hue * 6.0).astype(np.int64) % 6
+    frac = hue * 6.0 - np.floor(hue * 6.0)
+    p = np.zeros_like(coherence)
+    q = coherence * (1.0 - frac)
+    t = coherence * frac
+    v = coherence
+    stack = np.stack(
+        [
+            np.choose(sextant, [v, q, p, p, t, v]),
+            np.choose(sextant, [t, v, v, q, p, p]),
+            np.choose(sextant, [p, p, t, v, v, q]),
+        ],
+        axis=-1,
+    )
+    return np.round(stack * 255.0).astype(np.uint8)
+
+
 def _binary(target: torch.Tensor) -> np.ndarray:
     """Non-zero is foreground, matching ``load_mask``'s own rule.
 
@@ -213,6 +249,8 @@ def target_to_rgb(
         rgb = _greyscale(target, span)
     elif style.kind == "normals":
         rgb = _normals(target)
+    elif style.kind == "orientation":
+        rgb = _orientation(target)
     elif style.kind == "binary":
         rgb = _binary(target)
     elif style.kind == "labels":

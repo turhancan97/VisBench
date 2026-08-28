@@ -31,6 +31,7 @@ __all__ = [
     "depth_metrics",
     "match_scale_and_shift",
     "surface_normal_metrics",
+    "orientation_metrics",
     "binary_iou",
     "edge_metrics",
     "magnitude_metrics",
@@ -294,6 +295,70 @@ def surface_normal_metrics(
     metrics["rmse"] = (error.pow(2).sum(dim=(1, 2)) / num_valid).sqrt().mean().item()
     metrics["mean"] = (error.sum(dim=(1, 2)) / num_valid).mean().item()
     metrics["median"] = _masked_median(error, mask, count).mean().item()
+
+    return metrics
+
+
+def orientation_metrics(pred: torch.Tensor, target: torch.Tensor) -> MetricsDict:
+    """Coherence-weighted orientation error, in degrees, plus threshold fractions.
+
+    Inputs are ``(B, 2, H, W)`` double-angle fields — channel 0 is
+    ``coherence * cos 2theta``, channel 1 ``coherence * sin 2theta`` — so the
+    target's per-pixel length **is** the coherence in ``[0, 1]``, the same
+    "length carries validity" convention :func:`surface_normal_metrics` uses for
+    a zero-length normal. There is no hard mask: every metric here is a mean
+    weighted by coherence, so a flat isotropic pixel contributes ~0 rather than
+    being dropped. Measured on Taskonomy tiny val only 1.4% of pixels fall below
+    coherence 0.1, so this is a weighting and not a hole.
+
+    The error is computed in the **doubled** angle (an edge and its reverse are
+    the same orientation, so the field lives mod pi and its double lives mod
+    2pi) and then **halved** to report a real orientation error in
+    ``[0, 90]`` degrees — 45 is chance. ``pred`` need not be unit length: the
+    error comes from a cosine, exactly as in ``surface_normal_metrics``.
+
+    Returns ``{"orientation_error", "d1", "d2", "rmse", "median"}``. Quote
+    ``orientation_error`` (mean, lower is better); ``d1``/``d2`` are the
+    fractions within 11.25 and 22.5 degrees.
+    """
+    if target.ndim != 4 or target.shape[1] != 2:
+        raise ValueError(f"Expected (B, 2, H, W) target orientation, got {tuple(target.shape)}")
+    if pred.ndim != 4 or pred.shape[1] < 2:
+        raise ValueError(
+            f"Expected (B, C, H, W) predicted orientation with C >= 2, got {tuple(pred.shape)}"
+        )
+    if pred.shape[0] != target.shape[0] or pred.shape[2:] != target.shape[2:]:
+        raise ValueError(
+            f"Prediction {tuple(pred.shape)} and target {tuple(target.shape)} must agree on "
+            "batch and spatial dimensions."
+        )
+
+    pred = pred[:, :2].float()
+    target = target.float()
+
+    weight = target.norm(dim=1)  # (B, H, W) — the coherence
+    cosine = torch.cosine_similarity(pred, target, dim=1).clamp(min=-1.0, max=1.0)
+    # Doubled-angle error in [0, 180]; halve for a real orientation error in [0, 90].
+    error = torch.acos(cosine) * 90.0 / math.pi
+
+    total = weight.sum(dim=(1, 2)).clamp(min=1e-6)
+
+    metrics: MetricsDict = {}
+    for index, threshold in enumerate((11.25, 22.5), start=1):
+        within = ((error < threshold).float() * weight).sum(dim=(1, 2)) / total
+        metrics[f"d{index}"] = within.mean().item()
+
+    metrics["orientation_error"] = ((error * weight).sum(dim=(1, 2)) / total).mean().item()
+    metrics["rmse"] = ((error.pow(2) * weight).sum(dim=(1, 2)) / total).sqrt().mean().item()
+
+    # Weighted median: the smallest error whose cumulative coherence reaches half.
+    order = error.flatten(1).argsort(dim=1)
+    sorted_error = error.flatten(1).gather(1, order)
+    sorted_weight = weight.flatten(1).gather(1, order)
+    cumulative = sorted_weight.cumsum(dim=1)
+    half = 0.5 * cumulative[:, -1:].clamp(min=1e-6)
+    median_index = (cumulative < half).sum(dim=1).clamp(max=sorted_error.shape[1] - 1)
+    metrics["median"] = sorted_error.gather(1, median_index.unsqueeze(1)).squeeze(1).mean().item()
 
     return metrics
 

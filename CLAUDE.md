@@ -113,8 +113,8 @@ changes no number, and **v0.8.0 (2026-08-07) is the corner probe**, steps 8a and
 
 **v0.11.0 shipped on 2026-08-20.** It is steps 10d and 10e plus
 `examples/custom_backbone.py`: the corpus was **twelve backbones, 156 records**
-at that release (**168 across fourteen boards** since `scene_classification`'s
-board landed, 2026-08-28),
+at that release (**180 across fifteen boards** since `scene_classification`'s and
+then `orientation`'s boards landed, both 2026-08-28),
 the objective family is three wide, and it has a recipe control beside it —
 which refuted half of 10d's own published claim before either shipped. That
 result is the single most important thing to read before quoting a board from
@@ -164,11 +164,31 @@ claim itself no longer holds for *high-level* at twelve backbones — same file.
 
 **There is no `next` step.** The remaining work is the candidate task backlog
 further down this file — and the cheapest items there need no new dataset at
-all. **The first of those is done**: `scene_classification`, a fourteenth
-probe, is scene category on the same linear-probe path as object
+all. **Two of those are done.**
+
+**`orientation`, a fifteenth probe, shipped 2026-08-28** with its 12-backbone
+corpus board — **the corpus is now 180 records across fifteen boards**. Local
+gradient orientation, the fourth low-level task and the second computed from the
+frame — but the first whose target is a *direction*, so the first that could not
+reuse `DenseMagnitudeTask`. The target is `(cos 2θ, sin 2θ)` with its length set
+to the coherence; the metric `orientation_error` is degrees of coherence-weighted
+angular error, halved so 45 is chance. It measures phase — per-image `|r|` with
+the `corner` and `edge` *targets* is under 0.09, where those two sit at 0.53.
+**DoG-blob was the first candidate for this slot and was rejected**: its
+pre-measurement found 0.51 overlap with `corner`. The board spans 18.8°–31.2°
+(chance 45); `mae_vitb16` leads, the image-text ViTs are *last*. **Its board is
+not independent even though its target is**: it ranks backbones like
+`keypoints2d` (rho +0.95), `corner` (+0.82), `edge` (+0.79), and it tightened
+the low-level tier (+0.825 → +0.839). `orientation`/`scene_classification` at
+−0.51 is the corpus's most negative pair. See the "decisions already paid for"
+bullet, `CHANGELOG.md` and the `orientation` and tier findings in
+`CORPUS_FINDINGS.md`. MAE is now first on **six** of fifteen boards (was five).
+Board reuses `corner`'s pinned `data/corner_frames/` set.
+
+**`scene_classification`, a fourteenth probe**, is scene category on the same
+linear-probe path as object
 `classification` (Places365-standard, read with no loader code). The probe
-shipped 2026-08-27 and its **12-backbone corpus board landed 2026-08-28** — the
-corpus is now 168 records across fourteen boards. See the `CHANGELOG.md` entry,
+shipped 2026-08-27 and its **12-backbone corpus board landed 2026-08-28**. See the `CHANGELOG.md` entry,
 the "decisions already paid for" bullet on why it is a distinct probe, and the
 `scene_classification` and tier findings in `CORPUS_FINDINGS.md`. The headline:
 the scene board ranks backbones almost independently of the object board
@@ -277,11 +297,12 @@ backbones  dinov2_vits14, dinov2_vitb14, clip_vitb16, clip_vitb32,
            (+ CustomBackbone, unregistered)
 probes     classification, scene_classification, retrieval, correspondence,
            depth, surface_normal, generic_segmentation, semantic_segmentation,
-           similarity, detection, edge, keypoints2d, occlusion_edge, corner
+           similarity, detection, edge, keypoints2d, occlusion_edge, corner,
+           orientation
 heads      linear, dpt, detection
 ```
 
-The CLI exposes all fourteen probes: `visbench list`, `visbench run <probe>`,
+The CLI exposes all fifteen probes: `visbench list`, `visbench run <probe>`,
 `visbench cache stats|clear`, plus `visbench demo` (7a) and **`visbench show
 <probe>` (9a)**. A test asserts the CLI's table and `list_probes()` are the same
 set, so a probe cannot ship unreachable from a shell by accident. Since 9c
@@ -440,14 +461,16 @@ visbench/
                    splits/*.csv; subclasses DenseFolderDataset for geometry only.
                    _DOMAIN_SPECS: per-domain loader, scale, invalid convention,
                    log_transform. load_valid_mask — mask_valid/, 6d-2)
-                 derived.py (ShiTomasiResponse + DerivedTargetDataset — the
-                   target computed from the image, after the crop; 8a)
+                 derived.py (ShiTomasiResponse + OrientationResponse +
+                   DerivedTargetDataset — the target computed from the image,
+                   after the crop; 8a. OrientationResponse is a 2-ch direction)
                  base.py (BaseDataset, list_files — scandir, never a stat/entry)
   heads/         base.py (register_head/build_head), linear.py, dpt.py,
                  detection.py (DetectionHead — cls + box branches, focal prior)
   metrics/       classification, retrieval, correspondence, similarity, dense.py
                  (+ magnitude_metrics — per-image Pearson, masks NaN;
-                    edge_metrics is it under the published key)
+                    edge_metrics is it under the published key;
+                    orientation_metrics — coherence-weighted angular error, deg)
                  detection.py (box_iou, average_precision, detection_metrics —
                    VOC protocol, dataset-level, difficult ignored not dropped)
   tasks/         base.py (BaseTask)
@@ -461,7 +484,9 @@ visbench/
                  mid_level/   correspondence, depth, surface_normal,
                               generic_segmentation, similarity, occlusion_edge
                  low_level/   edge (6d-1), keypoints (Keypoint2DTask, 6d-2),
-                              corner (CornerTask, 8a — derived target)
+                              corner (CornerTask, 8a — derived target),
+                              orientation (OrientationTask — derived, a
+                              direction not a magnitude; own _activate/_loss)
   results/       schema.py (ResultRecord, SCHEMA_VERSION), writer.py
   viz/           styles.py (TargetStyle + the listed TARGET_STYLES table —
                    one row per drawable probe, style_for() raises otherwise)
@@ -479,7 +504,7 @@ visbench/
 examples/        custom_backbone (the escape hatch + the RNG note),
                  classify, retrieve, correspond, depth, normals, segment,
                  segment_semantic, similarity, detect, edges, keypoints,
-                 occlusion_edges, corners, save_probe (the local artifact),
+                 occlusion_edges, corners, orientation, save_probe (local),
                  push_probe (the Hub round trip; never uploads without --push),
                  show_panels (the viewer; no backbone without --predict-from)
 docs/            conf.py, index.md, tasks.md (the per-probe reference AND the
@@ -632,7 +657,7 @@ designed up front; extend it the same way, from a case that already runs.
   `scripts/analyse_board_correlates.py` reproduces the correlational ones.
 
   - **"Which backbone is best" is not a well-formed question against this
-    corpus.** `mae_vitb16` is first on five of the fourteen boards and last on
+    corpus.** `mae_vitb16` is first on six of the fifteen boards and last on
     three. A summary that picks a winner is discarding the result.
   - **A count over a corpus is a fact about that corpus, not about a
     backbone.** Two of MAE's counts moved without its features changing, purely
@@ -999,6 +1024,37 @@ designed up front; extend it the same way, from a case that already runs.
   than testing for it.** There is no second geometry and no resampling of the
   response — the single strongest property of this class of target, and the
   reason `DerivedTargetDataset` does not subclass `DenseFolderDataset`.
+
+- **The overlap check is a veto, and `orientation` is the probe that proves it
+  earns its keep** (2026-08-28). DoG-blob detection was the obvious next derived
+  probe — the scale-space counterpart to `corner`. Its pre-measurement (the same
+  afternoon of correlations `corner` established): tail@1% ≈ 0.084 raw, so *no
+  compression needed*, which passed. But per-image `|r|` with `edge_texture` was
+  0.50 and **with `corner` 0.51** — as redundant with an existing probe as
+  `corner` is with `edge`. Rejected without a probe run: the check exists so you
+  do not spend a per-backbone board to discover redundancy.
+
+  **Structure-tensor orientation was the alternative and it pre-measures
+  clean.** `|r|` under 0.09 with both `corner` and `edge`, because it measures
+  *phase* and no other probe does. Its target is a *direction* — the unit vector
+  `(cos 2θ, sin 2θ)`, the angle taken mod π so the double angle handles the wrap
+  — with the coherence `(λ_max−λ_min)/(λ_max+λ_min)` folded into its length. So
+  it is the first derived probe that could **not** reuse `DenseMagnitudeTask`:
+  it needs a 2-channel L2-normalising `_activate`, a coherence-weighted angular
+  `_loss`, and `orientation_metrics` (degrees, `orientation_error` halved so 45
+  is chance). Coherence is a **weight, not a mask** — only 1.4% of Taskonomy
+  tiny val pixels fall below 0.1 — folded into the target length exactly as a
+  zero-length normal marks an invalid pixel, so the loss and metric both weight
+  by `target.norm(dim=1)`. An angle has **no tail**, so the compression `corner`
+  needed is absent here; the pre-measurement confirmed that before the task was
+  written. Proved end to end on DINOv2-S: `orientation_error` 35° against the
+  45° floor on 40 training frames. The 12-backbone board is the next step and
+  reuses `corner`'s pinned `data/corner_frames/` set.
+
+  Viz: `orientation` is drawn in **colour**, not greyscale — a new `"orientation"`
+  `Kind` whose `_orientation` colouriser maps `2θ` to hue and coherence to
+  brightness (inline HSV→RGB, no new dependency), so a flat patch reads as black
+  rather than a confident wrong colour.
 
 - **A viewer that applies its own geometry is worse than no viewer** (9a). This
   is the single rule `visbench/viz/` exists to keep, and it inverts the usual
@@ -1716,7 +1772,7 @@ this is what the `similarity` probe reads), `places365_standard` (`train/`,
 classification was a dataset-swap on the existing linear-probe path** and
 shipped 2026-08-27 as the `scene_classification` probe on `places365_standard`
 (a new probe *name* rather than a flag — see the "decisions already paid for"
-bullet). Its 12-backbone corpus board is still pending. Fine-grained
+bullet). Its 12-backbone corpus board landed 2026-08-28. Fine-grained
 recognition (CUB, Flowers102, Stanford Cars/Dogs) is the same shape and still
 open.
 
@@ -1738,18 +1794,25 @@ were.
 
 **The cheapest items on the list need no dataset at all, and that is the useful
 observation.** `edge_texture` is a target Taskonomy *computed from the RGB
-frame*; Harris corners, DoG blobs, structure-tensor orientation and photometric
-superpixels are all equally derivable, deterministically, from any image folder
-already here. That makes them a target generator plus a `DenseMagnitudeTask`
-subclass — the two pieces that already exist — rather than a data acquisition
-step. If a low-level probe is wanted next, start there.
+frame*, and so are these. **`corner` (8a) and `orientation` (2026-08-28) are
+done**; **DoG blobs was rejected** for overlapping 0.51 with `corner`;
+**photometric superpixels** is the one that remains derivable from any image
+folder already here. A magnitude target is a generator plus a
+`DenseMagnitudeTask` subclass; a vector one (`orientation`) needs its own small
+task base, which `visbench/tasks/low_level/orientation.py` now provides as the
+second worked example.
 
-Two hazards to carry into any of them, both already paid for once:
+Three hazards to carry into any of them, all paid for:
 
 - **Check the tail before assuming the magnitude protocol transfers.** A corner
   response is spikier than an edge response, and `edge_occlusion` at 46% mass in
   its strongest 1% of pixels is the case where L1 and Pearson pull apart and the
-  probe stops ranking backbones. 6d-2's note has the numbers.
+  probe stops ranking backbones. (An *angle* has no tail — `orientation` needed
+  no compression, confirmed by the pre-measurement.)
+- **Check the overlap with what already ships, before building.** DoG blob was
+  vetoed on this: 0.51 with `corner`. `orientation` passed it: under 0.09 with
+  both `corner` and `edge`, because it measures phase. One afternoon of
+  correlations, not a probe run per backbone.
 - **A derived target is only as honest as its generator, and `protocol` must say
   which generator.** "Harris corners" is a family, not a definition — the
   k parameter, the window, the smoothing and the non-maximum suppression all

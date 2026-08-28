@@ -56,17 +56,18 @@ against every other and averaging within and across tiers:
 
 | | mean rho |
 | --- | --- |
-| within low-level | **+0.825** |
+| within low-level | **+0.839** |
 | within mid-level | **+0.666** |
 | within high-level | **+0.297** |
-| across tiers | +0.265 |
+| across tiers | +0.266 |
 
 Every within-tier mean now exceeds the cross-tier mean, but do not read that as
 the high-level tier cohering. It sat *below* the cross-tier line at thirteen
 boards and crossed it only when `scene_classification` (the fourteenth) was
-added — and it crossed by pulling the *cross-tier* number down, because that
-board disagrees sharply with the low-level tier (−0.40 with `keypoints2d`). The
-within-high-level mean barely moved.
+added — and it crossed by pulling the *cross-tier* number down, because the
+image-level high-level boards disagree sharply with the low-level tier (the most
+negative pair in the corpus is `orientation` / `scene_classification` at
+−0.51). The within-high-level mean barely moved.
 
 What is stable across six, nine and twelve backbones is that high-level is
 **two tight clusters that ignore each other**:
@@ -102,13 +103,23 @@ frames). `generic_segmentation`'s nearest neighbours are `surface_normal`,
 `depth` and `corner` — NYUv2 and Taskonomy. And the three probes that share
 Imagenette average +0.128, the lowest figure of any shared corpus here.
 
+The low-level tier, by contrast, is *one* cluster and `orientation` (the
+fifteenth board) tightened it, from +0.825 to +0.839. That is worth a note: the
+orientation *target* is near-independent of every other probe's per pixel — it
+is a phase, and `|r|` with the `edge` and `corner` targets is under 0.09 — yet
+its *board* ranks backbones almost exactly like `keypoints2d` (rho **+0.95**),
+`corner` (+0.82) and `edge` (+0.79). Target independence and board independence
+are different things: a backbone that is good at localised geometric structure
+is good at all of it, magnitude and phase alike, even though those are different
+quantities.
+
 Two caveats. This is n=12, so the coefficients are wide. And the tier means are
 a statement about *this corpus*: at nine backbones the high-level tier mean was
 above the cross-tier line (+0.497 against +0.340), at thirteen boards it was
-below, and at fourteen it is marginally above again — moved each time by which
-backbones and which boards are in the set, not by any board's features
-changing. The two-cluster structure is what survives all three. Reproduce or
-re-test with
+below, and at fourteen and fifteen it is marginally above again — moved each
+time by which backbones and which boards are in the set, not by any board's
+features changing. The two-cluster structure is what survives all three.
+Reproduce or re-test with
 [`scripts/analyse_board_correlates.py`](https://github.com/turhancan97/VisBench/blob/main/scripts/analyse_board_correlates.py)
 `--section agreement`.
 
@@ -554,6 +565,65 @@ and third on corners** while the two ResNets swap. See
 [the low-level README](https://github.com/turhancan97/VisBench/blob/main/visbench/tasks/low_level/README.md)
 for why the operator is Shi-Tomasi rather than Harris, and for the tail
 measurements that chose the compression.
+
+## Gradient orientation — a derived target that is a direction, not a magnitude
+
+[`examples/orientation.py`](https://github.com/turhancan97/VisBench/blob/main/examples/orientation.py).
+The fourth low-level probe and the second whose target is computed from the
+frame — but the first whose target is a *direction*: the local orientation
+structure runs, read as `2θ = atan2(2·Ixy, Ixx − Iyy)` from the same
+Gaussian-windowed structure tensor whose smaller eigenvalue is the corner
+response.
+
+```bash
+visbench run orientation --data /path/to/any/images --limit 600
+```
+
+The angle is defined **modulo π** — an edge and its reverse run the same way —
+so the target is the unit vector `(cos 2θ, sin 2θ)`, which is single-valued
+under that wrap, with its length set to the **coherence**
+`(λ_max − λ_min) / (λ_max + λ_min)`. Loss and metric both weight by that length,
+so a flat isotropic patch contributes ~0 rather than being masked out by a
+threshold nobody chose. Only 1.4% of Taskonomy tiny val pixels fall below
+coherence 0.1. The metric, `orientation_error`, is the coherence-weighted mean
+angular error in degrees, halved into `[0, 90]` (45 is chance).
+
+**It measures phase, which no other probe here does.** Per-image `|r|` with the
+`edge_texture` target is 0.07 and with `corner` 0.08, where `corner` and `edge`
+themselves sit at 0.53 — so an orientation score is close to independent
+evidence about a backbone, unlike a corner score beside an edge score. Its board
+uses the same pinned Taskonomy frames as `corner` and `edge`; `--orientation-sigma`
+travels in `dataset_params` and splits the comparability groups on its own.
+
+<!-- visbench:board task=orientation metrics=orientation_error,d1,d2 heading=3 -->
+### orientation
+
+| backbone | `orientation_error` | `d1` | `d2` |
+| --- | --- | --- | --- |
+| `mae_vitb16` | **18.8226** | **0.5819** | **0.7268** |
+| `dino_vitb16` | 21.4371 | 0.5243 | 0.6849 |
+| `sam_vitb16` | 21.7229 | 0.5231 | 0.6810 |
+| `dinov2_vits14` | 22.1313 | 0.4962 | 0.6688 |
+| `supervised_vitb16` | 24.2909 | 0.4607 | 0.6353 |
+| `dinov2_vitb14` | 24.5829 | 0.4646 | 0.6311 |
+| `convnext_base` | 28.2318 | 0.4191 | 0.5780 |
+| `clip_vitb16` | 28.2994 | 0.4097 | 0.5740 |
+| `resnet18` | 29.0002 | 0.4072 | 0.5670 |
+| `clip_vitb32` | 29.9626 | 0.3857 | 0.5491 |
+| `resnet50` | 29.9675 | 0.3958 | 0.5529 |
+| `siglip_vitb16` | 31.1589 | 0.3760 | 0.5316 |
+
+Ordered by `orientation_error`, which **disagrees with `d1`, `d2`, `median`, `rmse`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
+
+<sub>orientation on val/val, protocol=visbench_structure_tensor_orientation_regression, frozen [38bd953b]</sub>
+<!-- /visbench:board -->
+
+`orientation_error` is degrees, lower is better; chance is 45. The board spans
+18.8° to 31.2° — every backbone is well clear of chance, and the ordering is
+unlike any other low-level board: `mae_vitb16` leads (as it does across the
+low-level tier), but the image-text ViTs `siglip_vitb16` and `clip_vitb32` are
+*last*, where a semantic board puts them near the top, and DINOv2-S beats
+DINOv2-B. See `CORPUS_FINDINGS.md` for what that does to the low-level tier.
 
 ## Dense tasks
 

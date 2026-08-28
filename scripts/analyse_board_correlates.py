@@ -61,6 +61,7 @@ HEADLINE_METRICS: dict[str, str] = {
     "edge": "edge_correlation",
     "keypoints2d": "keypoint_correlation",
     "corner": "corner_correlation",
+    "orientation": "orientation_error",
     "occlusion_edge": "occlusion_edge_correlation",
 }
 
@@ -69,7 +70,7 @@ HEADLINE_METRICS: dict[str, str] = {
 #: Listed rather than inferred, for the reason ``METRIC_DIRECTIONS`` is listed:
 #: a heuristic that guessed wrong would silently invert a board and the output
 #: would read as a finding rather than a bug.
-LOWER_IS_BETTER: frozenset[str] = frozenset({"surface_normal"})
+LOWER_IS_BETTER: frozenset[str] = frozenset({"surface_normal", "orientation"})
 
 
 @dataclass(frozen=True)
@@ -146,6 +147,7 @@ SOURCE_IMAGES: dict[str, str] = {
     "keypoints2d": "Taskonomy",
     "occlusion_edge": "Taskonomy",
     "corner": "Taskonomy",
+    "orientation": "Taskonomy",
     "similarity": "NIGHTS",
 }
 

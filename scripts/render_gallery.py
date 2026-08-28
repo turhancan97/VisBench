@@ -409,6 +409,7 @@ def figures(root: Path, backbone: str, classes: list[str]) -> dict[str, list[str
         "generic_segmentation": ["generic_segmentation", "--data", scene, *rows, *size],
         "edge": ["edge", "--data", tasko, *rows, *size],
         "corner": ["corner", "--data", scene, *rows, *size],
+        "orientation": ["orientation", "--data", scene, *rows, *size],
         "correspondence": [
             "correspondence",
             "--data",

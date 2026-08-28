@@ -72,10 +72,11 @@ def test_low_level_holds_its_tasks():
     """
     import visbench.tasks.low_level as low
 
-    assert low.__all__ == ["CornerTask", "EdgeTask", "Keypoint2DTask"]
+    assert low.__all__ == ["CornerTask", "EdgeTask", "Keypoint2DTask", "OrientationTask"]
     assert low.EdgeTask.level == "low_level"
     assert low.Keypoint2DTask.level == "low_level"
     assert low.CornerTask.level == "low_level"
+    assert low.OrientationTask.level == "low_level"
 
 
 def test_the_occlusion_edge_probe_is_mid_level():

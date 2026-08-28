@@ -235,6 +235,21 @@ probe_corner() {
   run corner --data "$CORNER_FRAMES" --split val --train-split train
 }
 
+probe_orientation() {
+  # Derived like probe_corner, and staged the same way: the target is the local
+  # gradient orientation, computed from the RGB frame, so it needs the same
+  # chosen frame set for a comparable board. Reuses data/corner_frames/ -- the
+  # 600/600 Taskonomy tiny frames stage_corner_frames.py produces -- so an
+  # orientation number sits beside a corner and an edge number over the same
+  # pixels. sigma is left at its default and travels in dataset_params.
+  if [[ ! -d "$CORNER_FRAMES/val/images" ]]; then
+    echo "!!! SKIPPED orientation: no frames at $CORNER_FRAMES/val/images" >&2
+    echo "    run scripts/stage_corner_frames.py first" >&2
+    return
+  fi
+  run orientation --data "$CORNER_FRAMES" --split val --train-split train
+}
+
 probe_depth() {
   # NYUv2, not Taskonomy. probe3d's own copy, whose layout happens to be exactly
   # the <root>/<split>/{images,targets} one the CLI already expects, so these
@@ -278,6 +293,7 @@ ALL_PROBES=(
   keypoints2d
   occlusion_edge
   corner
+  orientation
 )
 
 main() {

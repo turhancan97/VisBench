@@ -86,7 +86,7 @@ them is visible in a tensor's shape or dtype:
 | --- | --- |
 | `0` is invalid | `depth`; the zero *vector* for `surface_normal` |
 | negative is invalid | both segmentations — `0` is a real class |
-| nothing is invalid | `edge`, `keypoints2d`, `corner` |
+| nothing is invalid | `edge`, `keypoints2d`, `corner`, `orientation` |
 | `NaN` is invalid | `occlusion_edge` |
 
 Magenta is used because no colouriser here can produce it: greyscale has no hue,
@@ -102,12 +102,12 @@ magnitude would render *identically* to a correct one.
 
 ## What it can draw
 
-**Every probe.** All thirteen, across four renderers — a test asserts
+**Every probe.** All fourteen, across four renderers — a test asserts
 `show_probes() == list_probes()`, so a new probe cannot ship undrawable.
 
 | renderer | probes | a row is |
 | --- | --- | --- |
-| panel grid | `depth`, `surface_normal`, `generic_segmentation`, `semantic_segmentation`, `edge`, `keypoints2d`, `occlusion_edge`, `corner` | image, target, prediction |
+| panel grid | `depth`, `surface_normal`, `generic_segmentation`, `semantic_segmentation`, `edge`, `keypoints2d`, `occlusion_edge`, `corner`, `orientation` | image, target, prediction |
 | boxes | `detection` | the crop with its boxes drawn on |
 | matches | `correspondence` | two views and the matches between them |
 | gallery | `classification`, `retrieval`, `similarity` | the decision the probe made |
@@ -174,6 +174,18 @@ Note what differs between the last three and the depth figure at the top:
 `edge`, `keypoints2d` and `corner` show **no magenta at all**, because 0 is a
 real reading for them. The same frame drawn under depth's convention would come
 out looking like a target full of holes.
+
+### Orientation
+
+`orientation` is also derived from the frame, but its target is a *direction*,
+not a magnitude — so it is drawn in colour, not greyscale: hue is the local
+gradient orientation and brightness is its coherence, so a flat patch reads as
+black rather than as a confident wrong colour.
+
+```{image} _static/gallery/orientation.png
+:alt: Gradient orientation panels; hue is orientation, brightness is coherence
+:class: visbench-figure
+```
 
 ### Boxes
 
