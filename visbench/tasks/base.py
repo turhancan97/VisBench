@@ -125,6 +125,37 @@ class BaseTask(ABC):
         """
         return None
 
+    def training_summary(self) -> dict | None:
+        """How the fit itself went, or ``None`` for a probe that trains nothing.
+
+        This is the diagnostic that separates the two readings of a low score,
+        and the library says everywhere that it is the one to check: a probe
+        that has not converged **understates** a backbone, which is a different
+        finding from a representation that genuinely does not carry the answer.
+        ``GenericSegmentationTask`` on 80 images reads 0.16 IoU at the defaults
+        and 0.87 at ``epochs=40`` on identical features — same number, opposite
+        conclusion, and ``train_loss`` is what tells them apart.
+
+        Until schema v8 every probe computed this and then dropped it on the
+        floor: it reached a log line and never the record, so a corpus of 156
+        trained runs could not answer "did this underfit?" without re-running
+        them. Found while writing up the CUB board, where the claim could be
+        made for the six backbones run by hand and not for the six run on the
+        cluster.
+
+        **An open dict, deliberately**, for the reason ``task_params`` is one:
+        every trained probe here has ``train_loss``, the classification family
+        also has ``train_top1``, and a future probe's natural diagnostic should
+        not need another schema bump. Keys are the implementer's choice; values
+        must be JSON primitives.
+
+        ``None`` rather than ``{}`` for the zero-shot probes — retrieval,
+        correspondence and similarity fit nothing, so there is no fit to
+        describe, and that is a different statement from "trained and reported
+        nothing about it". Same convention as :meth:`finetune`.
+        """
+        return None
+
     def head_spec(self) -> dict | None:
         """How to rebuild this probe's trained head, or ``None`` if it has none.
 

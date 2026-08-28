@@ -284,7 +284,50 @@ class TestDatasetParams:
         assert ResultRecord.from_dict(payload).dataset_params == {}
 
     def test_the_version_moved(self):
-        assert SCHEMA_VERSION == 7
+        assert SCHEMA_VERSION == 8
+
+
+class TestTraining:
+    """``training`` says how the *fit* went, not how the evaluation scored (v8).
+
+    The field exists because a low score has two opposite readings -- an
+    underfitting probe, which understates a backbone, or a representation that
+    genuinely does not carry the answer -- and every trained probe already
+    computed the number that tells them apart, then dropped it before the
+    record. A corpus of 156 trained runs could not answer the question.
+    """
+
+    def test_a_probe_that_trains_nothing_records_none(self):
+        """Same convention as ``finetune``: None, not an empty dict.
+
+        There is no fit to describe, which is a different statement from
+        'trained and reported nothing about it'.
+        """
+        assert make_record().training is None
+
+    def test_a_v7_record_still_reads(self):
+        """Additive-only: a file written before v8 comes back with None here."""
+        payload = make_record().to_dict()
+        payload["schema_version"] = 7
+        del payload["training"]
+        record = ResultRecord.from_dict(payload)
+        assert record.training is None
+        assert record.schema_version == 7
+
+    def test_it_round_trips(self):
+        summary = {"train_loss": 0.0001, "train_top1": 1.0}
+        record = make_record(training=summary)
+        assert ResultRecord.from_dict(record.to_dict()).training == summary
+
+    def test_it_is_not_merged_into_metrics(self):
+        """The whole point of a separate field: `metrics` is the eval split.
+
+        Merging them would put a training number in front of every leaderboard
+        code path that reads `metrics`, where the only correct thing to do with
+        it is refuse to rank it.
+        """
+        record = make_record(training={"train_loss": 0.5})
+        assert "train_loss" not in record.metrics
 
 
 class TestFinetune:

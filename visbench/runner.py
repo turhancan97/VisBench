@@ -250,6 +250,11 @@ def run(
         # A fine-tuned score is not comparable to a frozen one and this is what
         # says so in the record itself.
         finetune=task.finetune(),
+        # How the fit went, as opposed to how the evaluation scored. None for a
+        # probe that trains nothing. Read before concluding anything from a low
+        # score: an unconverged probe understates a backbone, and that is the
+        # opposite finding from a representation that does not carry the answer.
+        training=task.training_summary(),
         # Whatever the dataset described beyond the fields above — max_warp,
         # image_size, num_triplets. Taken from the dataset's own describe()
         # rather than a fixed list, so a new dataset type carries its settings

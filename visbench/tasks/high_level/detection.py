@@ -569,6 +569,23 @@ class DetectionTask(BaseTask):
             )
         return head
 
+    def training_summary(self) -> dict | None:
+        """The final epoch's mean training loss, for the record.
+
+        Detection has no training *accuracy* to report — its metric is a
+        dataset-level ranking, not a per-example decision — so the loss is the
+        whole summary. It is worth reading here in particular: this probe's mAP
+        is low **by design**, since an anchor-free single-scale head has no
+        feature pyramid, and the loss is what distinguishes that intended floor
+        from a run that failed to converge.
+
+        ``None`` before :meth:`fit`, so a record can never claim a fit that did
+        not happen.
+        """
+        if self.train_loss is None:
+            return None
+        return {"train_loss": self.train_loss}
+
     def head_spec(self) -> dict | None:
         return getattr(self, "_head_spec", None)
 

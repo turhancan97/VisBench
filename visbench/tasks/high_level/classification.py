@@ -163,6 +163,30 @@ class ClassificationTask(BaseTask):
 
     # -- serialisation -------------------------------------------------------
 
+    def training_summary(self) -> dict | None:
+        """Final training loss and top-1, for the record.
+
+        The one probe family that can report a training *accuracy* as well as a
+        loss, which is the more legible of the two: ``train_top1`` near 1.0 says
+        the head fitted everything it was given, so the gap to the validation
+        score is generalisation rather than an unconverged probe. Inherited
+        unchanged by the scene and fine-grained probes.
+
+        Measured on CUB-200-2011, where a linear map from 384-2048 dimensions to
+        200 classes reaches ``train_top1`` 1.0000 on every backbone tried,
+        including the one that comes last on the board. That is the case this
+        field exists to make checkable from the corpus instead of from a log.
+
+        ``None`` before :meth:`fit`, so a record can never claim a fit that did
+        not happen.
+        """
+        if self.train_loss is None:
+            return None
+        summary: dict = {"train_loss": self.train_loss}
+        if self.train_top1 is not None:
+            summary["train_top1"] = self.train_top1
+        return summary
+
     def head_spec(self) -> dict | None:
         """The bare ``nn.Linear`` this probe fits, not a registered dense head.
 
