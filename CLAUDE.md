@@ -113,8 +113,9 @@ changes no number, and **v0.8.0 (2026-08-07) is the corner probe**, steps 8a and
 
 **v0.11.0 shipped on 2026-08-20.** It is steps 10d and 10e plus
 `examples/custom_backbone.py`: the corpus was **twelve backbones, 156 records**
-at that release (**180 across fifteen boards** since `scene_classification`'s and
-then `orientation`'s boards landed, both 2026-08-28),
+at that release (**192 across sixteen boards** since the
+`scene_classification`, `orientation` and `fine_grained_classification`
+boards landed, all 2026-08-28),
 the objective family is three wide, and it has a recipe control beside it —
 which refuted half of 10d's own published claim before either shipped. That
 result is the single most important thing to read before quoting a board from
@@ -174,11 +175,24 @@ now share one implementation and ask three questions: basic-level, place, and
 subordinate. It is a distinct probe *name* for the same reason
 `scene_classification` is; see that bullet in "decisions already paid for",
 which the second instance confirmed edit for edit. Proved end to end on
-DINOv2-S over the whole split. **Its 12-backbone corpus board is NOT run
-yet** — the corpus is still 180 records across fifteen boards, and
-`probe_fine_grained_classification` in `scripts/build_corpus.sh` runs the whole
-official split with no `--limit`, which is what makes the board comparable to
-the published CUB literature.
+DINOv2-S over the whole split. **Its 12-backbone board landed the
+same day** — the corpus is **192 records across sixteen boards**.
+`probe_fine_grained_classification` runs the whole official split with no
+`--limit`, which is what makes the board comparable to the published CUB
+literature.
+
+**The board's headline is that it does not rank like the object board it
+subclasses.** `fine_grained_classification` correlates **+0.860 with
+`detection`** — the highest high-level pair in the corpus — and only +0.343
+with `classification`, +0.112 with `retrieval`. It is the *replication* of
+`scene_classification`'s surprise, and two independent probes showing it is
+what moves "high-level is two clusters" from a curiosity to a property. It also
+lifted the within-high tier mean more than any single board has (+0.297 →
++0.373) without making the tier coherent, which required rewriting the
+tier-coherence test: its `abs(high - across) < 0.1` band passed at 0.097, one
+board from failing for no regression, and now pins the *ordering* of the three
+tier means instead. Board spans 0.8683 (`dinov2_vitb14`) to 0.4696
+(`mae_vitb16`).
 
 **The rank check, six backbones, whole official split**: `dinov2_vitb14`
 0.8674, `dinov2_vits14` 0.8642, `clip_vitb16` 0.8050, `resnet50` 0.6938,
@@ -197,7 +211,8 @@ within-class variation this board asks about. That is a claim about six
 backbones; the full board tests it.
 
 **`orientation`, a fifteenth probe, shipped 2026-08-28** with its 12-backbone
-corpus board — **the corpus is now 180 records across fifteen boards**. Local
+corpus board — the corpus reached 180 records across fifteen boards there,
+and is **192 across sixteen** since the CUB board. Local
 gradient orientation, the fourth low-level task and the second computed from the
 frame — but the first whose target is a *direction*, so the first that could not
 reuse `DenseMagnitudeTask`. The target is `(cos 2θ, sin 2θ)` with its length set
@@ -212,7 +227,8 @@ not independent even though its target is**: it ranks backbones like
 the low-level tier (+0.825 → +0.839). `orientation`/`scene_classification` at
 −0.51 is the corpus's most negative pair. See the "decisions already paid for"
 bullet, `CHANGELOG.md` and the `orientation` and tier findings in
-`CORPUS_FINDINGS.md`. MAE is now first on **six** of fifteen boards (was five).
+`CORPUS_FINDINGS.md`. MAE is first on **six** of sixteen boards and last on
+**four** (the CUB board took its last-place count from three).
 Board reuses `corner`'s pinned `data/corner_frames/` set.
 
 **`scene_classification`, a fourteenth probe**, is scene category on the same
@@ -708,11 +724,12 @@ designed up front; extend it the same way, from a case that already runs.
   `scripts/analyse_board_correlates.py` reproduces the correlational ones.
 
   - **"Which backbone is best" is not a well-formed question against this
-    corpus.** `mae_vitb16` is first on six of the fifteen boards and last on
-    three. A summary that picks a winner is discarding the result.
+    corpus.** `mae_vitb16` is first on six of the sixteen boards and last on
+    four. A summary that picks a winner is discarding the result.
   - **A count over a corpus is a fact about that corpus, not about a
-    backbone.** Two of MAE's counts moved without its features changing, purely
-    because a column was added. Re-read counts off `LEADERBOARD.md`.
+    backbone.** Three of MAE's counts have now moved without its features
+    changing — twice because a column was added, once because a *board* was.
+    Re-read counts off `LEADERBOARD.md`.
   - **Quote an objective gap against the *recipe* gap on the same board, never
     against zero.** `sam_vitb16` and `supervised_vitb16` share architecture,
     data, labels and normalisation and differ only in training recipe; on seven
@@ -723,8 +740,14 @@ designed up front; extend it the same way, from a case that already runs.
     present it as evidence about an objective.
   - **The high-level tier is two clusters, not one** — `classification`/
     `retrieval` (image-level categorisation) and `detection`/
-    `semantic_segmentation`/`scene_classification` (localised / spatial-context
-    prediction) — that barely correlate with each other. The tier-mean-vs-
+    `semantic_segmentation`/`scene_classification`/`fine_grained_classification`
+    (localised / spatial-context prediction) — that barely correlate with each
+    other. **Two probes that are mechanically object classification with a
+    different folder both land in the *localised* cluster**, which is the
+    replication that makes this a property of the cluster rather than a fact
+    about Places365: `fine_grained_classification`'s strongest partner in the
+    whole corpus is `detection` at **+0.860**, against +0.343 with the object
+    board it subclasses. The tier-mean-vs-
     cross-tier sign has flipped both ways with corpus composition (below the
     line at 13 boards, marginally above at 14) and is noise; the two clusters
     are the stable finding. `scene_classification` is image-level classification

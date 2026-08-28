@@ -13,7 +13,7 @@ them rather than only the conclusions.
 
 **The single most important one, if you read nothing else:** "which backbone is
 best" is not a well-formed question against this corpus. `mae_vitb16` is first
-on six of the fifteen boards and last on three. A summary that picks a winner
+on six of the sixteen boards and last on four. A summary that picks a winner
 is discarding the result.
 
 Two standing cautions apply to everything below:
@@ -90,17 +90,22 @@ Two standing cautions apply to everything below:
   happens when one thing changes". Mixing them makes a board answer two
   questions, which is the same reason the schema never ranks across `finetune`.
 
-- **`mae_vitb16` is first on six of the fifteen boards and last on three, and
+- **`mae_vitb16` is first on six of the sixteen boards and last on four, and
   this is the corpus finally demonstrating what the taxonomy claims** (10b,
   2026-08-14; **counts re-read off the board at twelve backbones, 10e**; scene
-  board added 2026-08-28, `orientation` board 2026-08-28). Read
+  board added 2026-08-28, `orientation` and `fine_grained_classification`
+  boards 2026-08-28). Read
   this before quoting any board. MAE leads edge (0.4982), corner (0.6669),
   correspondence (0.3577), occlusion edges (0.3273), surface normals
   (27.52° mean) and **orientation** (18.82° error) — and comes **last** on
   classification (0.9582), retrieval
-  (0.1883) and mid-level similarity (0.6897), with semantic segmentation
+  (0.1883), mid-level similarity (0.6897) and **fine-grained recognition**
+  (0.4696), with semantic segmentation
   (0.3350) now *eleventh* rather than last, because `sam_vitb16` scores 0.3339
-  beneath it. `scene_classification`, the fourteenth board, is another semantic
+  beneath it. The sixteenth board is what took its last-place count from three
+  to four, and it is a semantic one, so the tier pattern is unchanged — but the
+  *count* moved again without MAE's features moving, which is the standing
+  warning two paragraphs down. `scene_classification`, the fourteenth board, is another semantic
   one and MAE places tenth of twelve there — same tier pattern, not a new last. It led keypoints2d too until `dino_vitb16` (0.2850) and
   `sam_vitb16` (0.2696) both passed it. **A count over a corpus is a fact about
   that corpus, not about the backbone**: both of those counts moved without
@@ -376,12 +381,12 @@ Two standing cautions apply to everything below:
   taxonomy's claim, tested as "probes within a tier agree with each other more
   than probes across tiers":
 
-  | | n=9, 13 boards | n=12, 13 boards | n=12, 14 boards | n=12, 15 boards |
-  | --- | --- | --- | --- | --- |
-  | within low_level | +0.761 | +0.825 | +0.825 | **+0.839** |
-  | within mid_level | +0.666 | +0.666 | +0.666 | **+0.666** |
-  | within high_level | +0.497 | +0.296 | +0.297 | **+0.297** |
-  | across tiers | +0.340 | +0.304 | +0.265 | **+0.266** |
+  | | n=9, 13 boards | n=12, 13 boards | n=12, 14 boards | n=12, 15 boards | n=12, 16 boards |
+  | --- | --- | --- | --- | --- | --- |
+  | within low_level | +0.761 | +0.825 | +0.825 | +0.839 | **+0.839** |
+  | within mid_level | +0.666 | +0.666 | +0.666 | +0.666 | **+0.666** |
+  | within high_level | +0.497 | +0.296 | +0.297 | +0.297 | **+0.373** |
+  | across tiers | +0.340 | +0.304 | +0.265 | +0.266 | **+0.276** |
 
   At nine backbones every within-tier mean cleared the cross-tier mean. At
   twelve it did not — high-level landed below. Adding `scene_classification` as
@@ -396,31 +401,60 @@ Two standing cautions apply to everything below:
   almost exactly like `keypoints2d` (+0.95), `corner` (+0.82) and `edge`
   (+0.79). Mid-level is identical to three decimals across all four columns.
 
+  The sixteenth board, `fine_grained_classification`, lifted the within-high
+  mean the most any single board has (+0.297 → +0.373) and left the other two
+  tiers unmoved to three decimals. That is not the high-level tier becoming
+  coherent: it is a sixth board joining the *larger* of its two clusters, which
+  raises the mean of a set that is still bimodal.
+
   So the sign of "high-level mean minus cross-tier mean" is within noise and
   has been on both sides. **The stable finding is the shape**: high-level is not
   one loose tier, it is two tight clusters that ignore each other; low-level is
-  one cluster and `orientation` did not change that.
+  one cluster and neither `orientation` nor the CUB board changed that.
 
   | pair | rho |
   | --- | --- |
+  | detection / fine_grained_classification | **+0.860** |
   | detection / semantic_segmentation | **+0.804** |
   | classification / retrieval | **+0.769** |
   | detection / scene_classification | **+0.720** |
+  | fine_grained_classification / scene_classification | +0.671 |
+  | fine_grained_classification / semantic_segmentation | +0.643 |
   | scene_classification / semantic_segmentation | +0.524 |
+  | classification / fine_grained_classification | +0.343 |
   | classification / scene_classification | +0.161 |
   | classification / detection | +0.140 |
   | classification / semantic_segmentation | +0.140 |
+  | fine_grained_classification / retrieval | +0.112 |
   | detection / retrieval | -0.035 |
   | retrieval / semantic_segmentation | -0.042 |
   | retrieval / scene_classification | -0.217 |
 
-  Image-level categorisation on one side, localised VOC prediction on the
-  other, and **nothing between them** — and `scene_classification`, image-level
-  classification by construction, sits with the *localised* cluster (+0.72 with
-  detection, −0.22 with retrieval). A place category is read from layout and
-  spatial context, which is what the VOC-dense probes reward and single-object
-  Imagenette does not; the ImageNet-1k-supervised backbones that top the object
-  board are near-bottom on both scene classification and dense VOC.
+  Image-level categorisation on one side, localised prediction on the
+  other, and **nothing between them** — and the two probes that ought to sit
+  with `classification`, because they *are* `classification` with a different
+  folder, both sit with the localised cluster instead.
+  `scene_classification` was the first (+0.72 with detection, −0.22 with
+  retrieval). **`fine_grained_classification` is the replication, and a
+  sharper one**: its strongest partner anywhere in the corpus is `detection`
+  at **+0.860** — the highest high-level pair there is, above
+  detection/semseg — while it reaches only +0.343 with the object board it
+  shares every line of its implementation with, and +0.112 with `retrieval`.
+
+  Two independent probes now show the same thing, which is what moves this from
+  a curiosity about Places365 to a property of the cluster. A place category is
+  read from layout and spatial context; a species is read from localised parts —
+  a beak, a wing bar — against a shared body plan. Both are what the
+  VOC-dense probes reward and what single-object Imagenette does not.
+  The ImageNet-1k-supervised backbones that top the object board are near-bottom
+  on scene classification, on dense VOC, **and on CUB**: all four of them
+  (`convnext_base`, `resnet50`, `supervised_vitb16`, `resnet18`) take places
+  8-11 of twelve there, above only `mae_vitb16`.
+
+  **What the mechanism is not.** It is not that these boards are simply harder,
+  and it is not shared images: `fine_grained_classification` reads CUB, which no
+  other board touches, and still lands nearest `detection` on VOC. The
+  cross-source check two bullets down covers this generally.
 
   It also explains the semseg result in the bullet below — that board's nearest
   neighbour anywhere in the corpus is `detection`, not the two semantic boards

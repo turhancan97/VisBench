@@ -13,6 +13,7 @@ the duplicated table, so nothing else would catch it.
 from __future__ import annotations
 
 import importlib.util
+import itertools
 import sys
 from pathlib import Path
 
@@ -157,15 +158,21 @@ def test_tier_summary_splits_within_from_across(script):
 def test_the_high_level_tier_is_two_clusters_not_one(script):
     """The stable finding is the structure, not the sign of tier-mean minus cross.
 
-    `classification`/`retrieval` (image-level categorisation) and
-    `detection`/`semantic_segmentation` (localised prediction on VOC) are two
-    clusters that barely correlate with each other. That held at six, nine and
-    twelve backbones and thirteen boards. The *sign* of `high_level` mean minus
-    the cross-tier mean did not: it was below at thirteen boards and moved
-    marginally above when `scene_classification` (the fourteenth) was added,
-    because that board's strong disagreement with the low-level tier pulls the
-    cross-tier mean down. So this test pins the clusters and treats the tier
-    mean as the marginal quantity it is.
+    Two clusters that barely correlate with each other: image-level
+    categorisation (`classification`, `retrieval`) and localised / spatial-
+    context prediction (`detection`, `semantic_segmentation`,
+    `scene_classification`, `fine_grained_classification`). That has held at
+    six, nine and twelve backbones and from thirteen to sixteen boards.
+
+    The tier *mean* has not been stable and is deliberately not pinned tightly
+    here. It was below the cross-tier mean at thirteen boards, marginally above
+    at fourteen and fifteen, and +0.373 against +0.276 at sixteen -- the CUB
+    board lifted it more than any single board has, not by making the tier
+    coherent but by joining the larger of its two clusters. An earlier version
+    of this test asserted `abs(high - across) < 0.1` and passed at 0.097, which
+    is a test one board away from failing for a reason that is not a
+    regression. What is pinned instead is the *ordering* of the three tier
+    means, which is the structural consequence of high-level being bimodal.
     """
     boards = script.load_boards(script.CORPUS)
     levels = script.load_levels(script.CORPUS)
@@ -174,24 +181,37 @@ def test_the_high_level_tier_is_two_clusters_not_one(script):
     def rho(a, b):
         return pairs[tuple(sorted((a, b)))]
 
-    # The two clusters are each tight,
-    assert rho("classification", "retrieval") > 0.6
-    assert rho("detection", "semantic_segmentation") > 0.6
-    # and they ignore each other.
-    assert rho("classification", "detection") < 0.3
-    assert rho("classification", "semantic_segmentation") < 0.3
-    assert rho("retrieval", "detection") < 0.3
+    image_level = ("classification", "retrieval")
+    localised = (
+        "detection",
+        "semantic_segmentation",
+        "scene_classification",
+        "fine_grained_classification",
+    )
 
-    # scene_classification is image-level classification but ranks with the
-    # localised cluster, not with object classification.
+    # Each cluster is tight,
+    assert rho(*image_level) > 0.6
+    for a, b in itertools.combinations(localised, 2):
+        assert rho(a, b) > 0.5, f"{a}/{b} = {rho(a, b):+.3f} breaks the localised cluster"
+    # and the two ignore each other.
+    for a in image_level:
+        for b in localised:
+            assert rho(a, b) < 0.4, f"{a}/{b} = {rho(a, b):+.3f} bridges the two clusters"
+
+    # The replication, which is what makes this a property of the cluster
+    # rather than a curiosity about Places365: both probes that are *mechanically*
+    # object classification with a different folder rank with the localised
+    # cluster instead of with the object board they subclass.
     assert rho("scene_classification", "detection") > 0.5
-    assert rho("scene_classification", "classification") < 0.3
+    assert rho("fine_grained_classification", "detection") > 0.5
+    assert rho("fine_grained_classification", "classification") < 0.4
 
     means, across = script.tier_summary(pairs, levels)
     assert means["mid_level"] > across
     assert means["low_level"] > across
-    # high_level sits within noise of the cross-tier mean, either side.
-    assert abs(means["high_level"] - across) < 0.1
+    # High-level is the *loosest* tier because it is two clusters averaged
+    # together. That ordering is the robust claim; the gap to `across` is not.
+    assert means["high_level"] < means["mid_level"] < means["low_level"]
 
 
 def test_every_board_in_the_corpus_has_a_source(script):

@@ -201,41 +201,26 @@ Stanford Cars and Stanford Dogs are the same shape and run the same probe under
 a different dataset fingerprint — which puts them in a different comparability
 group, so they cannot be quoted beside a CUB number.
 
-### The rank check
+**Two things to read beside any score here**, both measured rather than
+assumed, and both stated on the board itself.
 
-A probe earns its place by *ranking* backbones, not by producing a high number,
-so six were measured before it shipped. The full twelve-backbone board is a
-separate step; these are the whole official split at the default schedule.
+**The probe does not underfit**, which is worth saying because 200 classes over
+~6k training images is exactly where you would expect it to. `train top1` is
+**1.0000 on every backbone measured**. A linear map from 384–2048 dimensions to
+200 classes has the capacity to separate 5994 points, so the schedule saturates
+and the whole gap to the validation score is generalisation. A low number here
+is a property of the representation.
 
-| backbone | top-1 | top-5 | train top-1 |
-|---|---|---|---|
-| `dinov2_vitb14` | **0.8674** | 0.9734 | 1.0000 |
-| `dinov2_vits14` | 0.8642 | 0.9717 | 1.0000 |
-| `clip_vitb16` | 0.8050 | 0.9586 | 1.0000 |
-| `resnet50` | 0.6938 | 0.9135 | 1.0000 |
-| `supervised_vitb16` | 0.6617 | 0.8880 | 1.0000 |
-| `mae_vitb16` | 0.4698 | 0.7686 | 1.0000 |
+**The in-distribution confound does not carry over from the object board.**
+ImageNet-1k holds 59 bird classes, so the ImageNet-1k-supervised backbones were
+expected to be flattered here the way `convnext_base` and `supervised_vitb16`
+are flattered by Imagenette's ImageNet-1k wnids. They are not — see
+[Measured on CUB-200-2011](#measured-on-cub-200-2011), where they place 8th and
+10th of twelve. Basic-level supervision appears to discard exactly the
+within-class variation this board asks about.
 
-**A spread of 0.3976**, against an object board where the top backbones sit
-within a point of each other. That is the argument for the probe: the same
-linear head on the same features, asked a subordinate question instead of a
-basic-level one, separates backbones the saturated board cannot.
-
-**The probe does not underfit**, which is worth stating because 200 classes
-over ~6k training images is exactly where you would expect it to. `train top1`
-is **1.0000 on all six**. A linear map from 384–2048 dimensions to 200 classes
-has the capacity to separate 5994 points, so the schedule saturates and the
-whole gap to the validation score is generalisation. A low number here is a
-property of the representation.
-
-**The in-distribution confound does not carry over from the object board**, and
-this was measured rather than assumed. ImageNet-1k holds 59 bird classes, so
-the ImageNet-1k-supervised backbones were expected to be flattered here the way
-`convnext_base` and `supervised_vitb16` are flattered by Imagenette's
-ImageNet-1k wnids. They are not: `resnet50` and `supervised_vitb16` place
-**4th and 5th of six**, below both DINOv2s and CLIP. Basic-level supervision
-appears to discard exactly the within-class variation this board asks about —
-which is a claim about six backbones, and the full board is what will test it.
+The twelve-backbone board is under
+[Measured on CUB-200-2011](#measured-on-cub-200-2011).
 
 [`examples/retrieve.py`](https://github.com/turhancan97/VisBench/blob/main/examples/retrieve.py) does the zero-shot version —
 no training at all, every image queries every other by cosine similarity:
@@ -1067,6 +1052,38 @@ The object board is also **saturated** — eleven of twelve backbones score abov
 0.988 top-1, a spread of 0.04 — where this one spans 0.271 to 0.404, a spread of
 0.13. A saturated board cannot rank; this is the reason scene classification is
 a separate probe rather than a note under the object one.
+
+## Measured on CUB-200-2011
+
+`fine_grained_classification`, on the official CUB split: 5,994 training and
+5,794 validation images across 200 bird species, the whole split with no cap.
+Linear probe on pooled features, the same path and schedule as object
+`classification`.
+
+<!-- visbench:board task=fine_grained_classification metrics=top1,top5 heading=3 -->
+### fine_grained_classification
+
+| backbone | `top1` | `top5` |
+| --- | --- | --- |
+| `dinov2_vitb14` | **0.8683** | **0.9757** |
+| `dinov2_vits14` | 0.8652 | 0.9707 |
+| `clip_vitb16` | 0.8045 | 0.9591 |
+| `sam_vitb16` | 0.7927 | 0.9486 |
+| `siglip_vitb16` | 0.7839 | 0.9427 |
+| `dino_vitb16` | 0.7520 | 0.9253 |
+| `clip_vitb32` | 0.7344 | 0.9289 |
+| `convnext_base` | 0.7311 | 0.9210 |
+| `resnet50` | 0.6943 | 0.9137 |
+| `supervised_vitb16` | 0.6590 | 0.8873 |
+| `resnet18` | 0.6177 | 0.8693 |
+| `mae_vitb16` | 0.4696 | 0.7686 |
+
+Ordered by `top1`, which **disagrees with `top5`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
+
+> **Read this first.** This is *subordinate* category — 200 bird species that share a body plan — not the basic-level question the `classification` board asks, and a backbone's rank moves a long way between the two. **The in-distribution confound that shapes the object board does not carry over here**, which was measured rather than assumed: ImageNet-1k holds 59 bird classes, so the four ImageNet-1k-*supervised* backbones were expected to be flattered, and instead they take places 8, 9, 10 and 11 of twelve — `convnext_base`, `resnet50`, `supervised_vitb16`, `resnet18`, above only `mae_vitb16`. The controlled comparison says the same thing: among the four ViT-B/16 models, the supervised one is second-to-last, behind both `sam_vitb16` and `dino_vitb16`. Basic-level supervision appears to discard the within-class variation this board asks about. The probe also does **not** underfit despite 200 classes over ~6k training images — `train_top1` is 1.0000 on all six backbones it was measured on directly, including the board's last place — so the spread is generalisation and a low score is a property of the representation.
+
+<sub>fine_grained_classification on val/val, protocol=visbench_fine_grained_linear_probe, frozen [a10a2fcf]</sub>
+<!-- /visbench:board -->
 
 Every one of these examples has a `visbench run` equivalent — see
 [the command-line section of the README](https://github.com/turhancan97/VisBench/blob/main/README.md#the-command-line). They stay because an example is readable

@@ -63,13 +63,49 @@ so it stands on its own rather than assuming you have read the ones above it.
   discard the within-class variation this board asks about. `CAVEATS` now
   records the measurement rather than the prediction.
 
-  The **twelve-backbone corpus board is a separate step** and is not in this
-  entry — `scripts/build_corpus.sh` and `slurm/corpus.sbatch` both carry the
-  probe, and `probe_fine_grained_classification` runs the whole official split
-  with no `--limit`, which is what makes the board comparable to the published
-  CUB literature.
+- **The twelve-backbone board, and the replication it produced.** The corpus is
+  now **192 records across sixteen boards**, twelve backbones each, all sixteen
+  groups rankable. The board spans **0.8683** (`dinov2_vitb14`) to **0.4696**
+  (`mae_vitb16`) — a 0.40 spread, against an object board where eleven of
+  twelve sit above 0.988.
+
+  **It does not rank like the object board it subclasses.**
+  `fine_grained_classification`'s strongest partner anywhere in the corpus is
+  `detection` at **+0.860** — the highest high-level pair there is, above
+  detection/semantic_segmentation's +0.804 — while it reaches only +0.343 with
+  `classification` and +0.112 with `retrieval`.
+
+  That is the *replication* of what `scene_classification` showed in v0.12.0,
+  and the reason it matters more than the first sighting: two probes that are
+  mechanically object classification with a different folder both rank with the
+  **localised / spatial-context** cluster rather than with the object board.
+  Two independent probes move "the high-level tier is two clusters" from a
+  curiosity about Places365 to a property of the cluster. It is also not a
+  shared-image artefact — CUB is read by no other board, and it still lands
+  nearest `detection` on VOC.
+
+  **The ImageNet-1k confound prediction is now refuted at twelve backbones, not
+  six.** All four ImageNet-1k-*supervised* backbones take places **8, 9, 10 and
+  11 of twelve** — `convnext_base`, `resnet50`, `supervised_vitb16`,
+  `resnet18` — above only `mae_vitb16`. The controlled comparison says the
+  same: among the four ViT-B/16 models, the supervised one is second-to-last,
+  behind both `sam_vitb16` and `dino_vitb16`.
+
+  `mae_vitb16` is now first on six of sixteen boards and **last on four** — the
+  CUB board took its last-place count from three, which is the third time one
+  of MAE's counts has moved without its features changing.
 
 ### Changed
+
+- **The tier-coherence test now pins the ordering of the tier means, not a band
+  around one of them.** It asserted `abs(high_level - across) < 0.1` and passed
+  at **0.097** — one board away from failing for a reason that is not a
+  regression. The sixteenth board lifted the within-high mean from +0.297 to
+  +0.373 (cross-tier +0.276), the largest single-board move yet, and it did so
+  by joining the larger of high-level's two clusters rather than by making the
+  tier coherent. What is pinned instead is
+  `high_level < mid_level < low_level`, which is the structural consequence of
+  high-level being bimodal, plus every within-cluster and cross-cluster pair.
 
 - **The gallery size guard is per figure, and its total scales with the probe
   count.** It was a flat 4 MB for the whole directory, which the sixteenth
@@ -81,6 +117,30 @@ so it stands on its own rather than assuming you have read the ones above it.
   times `len(list_probes())`.
 
 ### Fixed
+
+- **`scripts/merge_corpus.sh` merged the corpus away instead of into it.** It
+  did `cat parts/*.jsonl > corpus`, which was right exactly once — at 6e-2,
+  when a single array produced the whole matrix. The corpus has been widened one
+  board at a time ever since, so `results/corpus/parts/` holds only the most
+  recent board, and a rebuild deletes every board before it.
+
+  Caught before running the CUB board by checking what it would do: 12
+  `orientation` parts against a 180-record, 15-board corpus, so merging would
+  have dropped **168 records and 14 boards** and reported success. Nothing
+  downstream would have raised — the generated tables would simply have rendered
+  fewer boards, and every board still present would still have held every
+  backbone. That is the same shape of invisible gap the sbatch array guard
+  exists for, arriving through the other half of the same mechanism.
+
+  The default is now a union: existing records first, then any part line not
+  already present, keyed on the exact JSON line. A second merge is a no-op,
+  while a genuine re-run carries a new timestamp, forms a new line, and is kept
+  beside the old one — the corpus's append-only design, with
+  `latest_per_backbone` resolving duplicates. `REBUILD=1` restores the old
+  behaviour for the workflow it was written for. The script had no tests, which
+  is why the assumption could rot across four releases; the three added run the
+  real script, because the defect was in what it did and a string-scraping test
+  would have passed against the destructive version.
 
 - **Stale probe and board counts in `README.md`, `docs/index.md`,
   `docs/show.md` and `scripts/render_gallery.py`.** The v0.12.0 release-prep
