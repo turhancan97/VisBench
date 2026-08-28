@@ -395,16 +395,29 @@ run through `tail`: it buffers, so a run that is killed part-way leaves no log,
 and the Hub then has to be queried to find out what actually shipped — which
 happened, and is recoverable only because each record names its own pair.
 
-**`0.12.0` is prepared but NOT yet published** (release-prep commit, 2026-08-28):
-`pyproject.toml`, `visbench/__init__.py`, `uv.lock`, `CITATION.cff`
-(`version` + `date-released: 2026-08-28`) and `.zenodo.json` all moved to
-0.12.0, `CHANGELOG.md`'s `[Unreleased]` became `[0.12.0]`, and the stale
-"Thirteen probes" strings in `README.md`/`docs/index.md` were corrected to
-"Fifteen". No schema change (still v7). The maintainer still has to tag, build,
-`twine upload`, cut the GitHub release and let Zenodo archive it — see the
-"Publishing needs the maintainer's credentials" paragraph and the standing
-release rules below. **Check [PyPI](https://pypi.org/project/visbench/) before
-assuming 0.12.0 is installable.**
+**`0.12.0` is fully released** (2026-08-28). On PyPI — wheel and sdist both
+(338,079 and 1,023,738 bytes, wheel sha256 `c55a63b7…`) — tagged `v0.12.0` on
+merge commit `f5afcd3`, with a GitHub release cut from that tag and archived by
+Zenodo as version DOI **`10.5281/zenodo.22146664`**, the sixth. **Verified out
+of the published wheel by import**, the standing way: `__version__` 0.12.0,
+`SCHEMA_VERSION` 7 (as shipped; `main` is at v8 since), fifteen probes, twelve
+corpus backbones, `show_probes() == list_probes()`, `correspondence` still
+`threshold_units="pixel"` with `(1, 2, 5, 10)`, and METADATA putting `datasets`
+under `datasets`/`dev`/`all`.
+
+**Tag, wheel and release all agree at `f5afcd3`** — the third release running,
+and `main` had already moved two merges past it when the release was cut, which
+is exactly the case creating a release *from the tag* exists to handle. The
+release page reports `targetCommitish: main`, which looks wrong and is not: that
+field records the default branch for a pre-existing tag, and the tag ref itself
+resolves to `f5afcd3`. Check the ref, not that field.
+
+**The concept DOI `10.5281/zenodo.21822684` is unchanged and now resolves to
+v0.12.0**, which is the whole point of quoting it rather than a version DOI —
+`README.md`, `docs/index.md` and `CITATION.cff` needed no edit. Do not paste
+`22146664` over it; `tests/test_citation.py` rejects any other Zenodo DOI in
+those files because that paste is the realistic mistake and it freezes every
+citation at one release.
 
 Package version was `0.11.0` through the last release, and it is **on PyPI,
 uploaded 2026-08-20**, wheel
