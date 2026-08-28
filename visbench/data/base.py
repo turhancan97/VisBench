@@ -191,6 +191,32 @@ class BaseDataset(ABC):
             setattr(clone, attribute, [sequence[index] for index in chosen])
         return clone
 
+    def balanced_subset(self: DatasetT, per_class: int) -> DatasetT:
+        """At most ``per_class`` items from **each** label, in index order.
+
+        The right way to shorten a *labelled* split, and the reason it is not
+        just :meth:`subset`: a labelled file list is grouped by class, so
+        ``subset(n)`` takes a prefix that is entirely class 0. A single-class
+        classification or retrieval run then scores 1.0 while measuring nothing
+        — a number that looks like a triumph and is an artefact of the slice.
+
+        Needs :meth:`labels` (to group) and :meth:`subset` (so needs
+        ``_parallel_attrs``). On an unlabelled dataset every item shares the
+        label ``None`` and this degenerates to ``subset(per_class)``.
+        """
+        if per_class < 1:
+            raise ValueError(f"balanced_subset(n) needs n >= 1, got {per_class}")
+
+        kept: list[int] = []
+        seen: dict[Any, int] = {}
+        for index, label in enumerate(self.labels()):
+            key = label if isinstance(label, (int, str, float, type(None))) else index
+            if seen.get(key, 0) >= per_class:
+                continue
+            seen[key] = seen.get(key, 0) + 1
+            kept.append(index)
+        return self.subset(kept)
+
     def describe(self) -> dict:
         """Dataset metadata (name, split, size, fingerprint) for the result record."""
         return {

@@ -336,11 +336,103 @@ def _dense_splits(
     )
 
 
-def _folder_split(args: argparse.Namespace, split: str) -> ImageFolderDataset:
-    """One labelled image folder, limited **per class** rather than by prefix."""
-    root = args.data / split if split else args.data
-    dataset = ImageFolderDataset(root, split=split or "all")
+def _folder_split(args: argparse.Namespace, split: str) -> Any:
+    """One labelled split — a folder, or a named torchvision / HF dataset.
+
+    ``--dataset torchvision:CIFAR10`` / ``--dataset hf:cifar100`` take the place
+    of ``--data <path>`` for the image-level probes. Either way ``--limit`` is
+    applied **per class** (``balanced_subset``), because a prefix of a labelled
+    set is one class and scores 1.0 while measuring nothing.
+    """
+    spec = getattr(args, "dataset", None)
+    if spec:
+        dataset: Any = resolve_named_dataset(spec, split, args)
+    else:
+        root = args.data / split if split else args.data
+        dataset = ImageFolderDataset(root, split=split or "all")
     return dataset if args.limit is None else dataset.balanced_subset(args.limit)
+
+
+def resolve_named_dataset(spec: str, split: str, args: argparse.Namespace) -> Any:
+    """Build a :class:`~visbench.data.base.BaseDataset` from a ``scheme:name`` string.
+
+    ``torchvision:CIFAR10``, ``torchvision:Country211:key=value``,
+    ``hf:cifar100``, ``hf:cifar100:name=cifar100``. Everything after the second
+    colon is ``key=value`` pairs forwarded to the underlying constructor /
+    ``load_dataset``, parsed as a Python literal where possible.
+    """
+    scheme, _, rest = spec.partition(":")
+    if not rest:
+        raise ValueError(
+            f"--dataset {spec!r}: expected 'scheme:name', e.g. 'torchvision:CIFAR10' or "
+            "'hf:cifar100'"
+        )
+    name, *pairs = rest.split(":")
+    extra = dict(_parse_kv(pair) for pair in pairs)
+
+    if scheme == "torchvision":
+        return _build_torchvision(name, split, args, extra)
+    if scheme == "hf":
+        return _build_hf(name, split, args, extra)
+    raise ValueError(f"--dataset {spec!r}: unknown scheme {scheme!r}; use 'torchvision:' or 'hf:'")
+
+
+def _parse_kv(pair: str) -> tuple[str, Any]:
+    if "=" not in pair:
+        raise ValueError(f"--dataset extra {pair!r} is not key=value")
+    key, value = pair.split("=", 1)
+    try:
+        import ast
+
+        return key, ast.literal_eval(value)
+    except (ValueError, SyntaxError):
+        return key, value
+
+
+def _build_torchvision(name: str, split: str, args: argparse.Namespace, extra: dict) -> Any:
+    import inspect
+
+    import torchvision.datasets as tv
+
+    from visbench.data.bridges import TorchvisionDataset
+
+    if not hasattr(tv, name):
+        raise ValueError(f"torchvision.datasets has no {name!r}")
+    cls = getattr(tv, name)
+    params = inspect.signature(cls).parameters
+
+    kwargs: dict[str, Any] = {}
+    if "root" in params:
+        kwargs["root"] = str(getattr(args, "dataset_root", "./data"))
+    if "download" in params:
+        kwargs["download"] = not getattr(args, "no_download", False)
+    # torchvision is not consistent: CIFAR/MNIST take train=bool, others split=str.
+    if "split" in params and "split" not in extra:
+        kwargs["split"] = split
+    elif "train" in params and "train" not in extra:
+        kwargs["train"] = split == "train"
+    kwargs.update(extra)
+
+    return TorchvisionDataset(cls(**kwargs), split=split)
+
+
+def _build_hf(name: str, split: str, args: argparse.Namespace, extra: dict) -> Any:
+    try:
+        from datasets import load_dataset
+    except ImportError as error:
+        raise ImportError(
+            "--dataset hf:... needs the 'datasets' package: pip install visbench[datasets]"
+        ) from error
+
+    from visbench.data.bridges import HuggingFaceDataset
+
+    dataset = load_dataset(name, split=split, **extra)
+    return HuggingFaceDataset(
+        dataset,
+        image_column=getattr(args, "hf_image_col", None),
+        label_column=getattr(args, "hf_label_col", None),
+        split=split,
+    )
 
 
 # -- high level --------------------------------------------------------------

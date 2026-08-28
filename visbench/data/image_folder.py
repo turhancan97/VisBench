@@ -117,33 +117,6 @@ class ImageFolderDataset(BaseDataset):
             digest.update(f"{relative}|{path.stat().st_size}|{label}".encode())
         return digest.hexdigest()[:16]
 
-    def balanced_subset(self, per_class: int) -> "ImageFolderDataset":
-        """At most ``per_class`` images from **each** class, in index order.
-
-        The right way to shorten a labelled split, and the reason this is a
-        method rather than three lines at each call site: ``subset(n)`` takes a
-        prefix, and because the file list is grouped by class, a prefix of an
-        Imagenette split is entirely class 0. A single-class classification or
-        retrieval run then scores 1.0 while measuring nothing at all — a number
-        that looks like a triumph and is an artefact of the slice.
-
-        Both examples that needed this carried their own copy with the same
-        warning attached, which is the signal that it belonged here. On an
-        unlabeled dataset every item shares the label ``None``, so this
-        degenerates to ``subset(per_class)``.
-        """
-        if per_class < 1:
-            raise ValueError(f"balanced_subset(n) needs n >= 1, got {per_class}")
-
-        kept: list[int] = []
-        seen: dict[int | None, int] = {}
-        for index, label in enumerate(self._labels):
-            if seen.get(label, 0) >= per_class:
-                continue
-            seen[label] = seen.get(label, 0) + 1
-            kept.append(index)
-        return self.subset(kept)
-
     @property
     def classes(self) -> list:
         """Sorted class names; empty when ``labeled=False``."""
