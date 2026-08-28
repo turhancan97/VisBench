@@ -46,6 +46,10 @@ timm = ["timm>=1.0,<2.0"]
 # a core install, so a user who never touches the Hub never installs a network
 # client -- and `import visbench.hub` must keep working without it.
 hub = ["huggingface_hub>=0.23,<2.0"]
+# The Hugging Face `datasets` bridge (visbench.data.HuggingFaceDataset and
+# `--dataset hf:...`). `torchvision` is already a core dependency, so its bridge
+# needs no extra; `datasets` is heavier and only some users want it.
+datasets = ["datasets>=2.14,<5.0"]
 # Building the documentation site. Deliberately NOT part of `all`: that extra is
 # the runtime-capability set, and slow.yml installs it -- pulling Sphinx into a
 # weights-downloading test run is noise. Upper bounds because a Furo release
@@ -61,12 +65,15 @@ dev = [
     # present transitively via timm, but CI installs `.[dev]` only -- so
     # relying on that would have failed there while passing locally.
     "pyyaml>=6.0,<7.0",
+    # The HuggingFace-bridge tests need `datasets` at import time; CI installs
+    # `.[dev]` only. Same optional-extra trap as pyyaml and huggingface_hub.
+    "datasets>=2.14,<5.0",
     "pytest>=7.4,<9.0",
     "pytest-cov>=4.1,<6.0",
     "ruff>=0.4,<1.0",
     "mypy>=1.8,<2.0",
 ]
-all = ["visbench[clip,timm,hub]"]
+all = ["visbench[clip,timm,hub,datasets]"]
 
 [project.urls]
 Homepage = "https://github.com/turhancan97/VisBench"

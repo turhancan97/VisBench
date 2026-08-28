@@ -26,7 +26,34 @@ _LIST_CHOICES = ("all", "backbones", "probes", "heads")
 
 def _add_run_common(parser: argparse.ArgumentParser) -> None:
     """Flags every ``run`` subcommand shares, whatever the probe."""
-    parser.add_argument("--data", type=Path, required=True, help="dataset root")
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--data", type=Path, default=None, help="dataset root (a folder layout)")
+    source.add_argument(
+        "--dataset",
+        default=None,
+        help="a named dataset instead of a folder: 'torchvision:CIFAR10', 'hf:cifar100', "
+        "'hf:cifar100:name=cifar100'. Image-level probes only "
+        "(classification, retrieval, scene_classification)",
+    )
+    parser.add_argument(
+        "--dataset-root",
+        type=Path,
+        default=Path("./data"),
+        help="where 'torchvision:' datasets are downloaded/read (default: ./data)",
+    )
+    parser.add_argument(
+        "--no-download",
+        action="store_true",
+        help="do not let a 'torchvision:' dataset download; fail if the files are absent",
+    )
+    parser.add_argument(
+        "--hf-image-col", default=None, help="'hf:' image column (default: first Image feature)"
+    )
+    parser.add_argument(
+        "--hf-label-col",
+        default=None,
+        help="'hf:' label column (default: first ClassLabel feature)",
+    )
     parser.add_argument("--backbone", default="dinov2_vits14", help="see `visbench list backbones`")
     parser.add_argument(
         "--limit",
@@ -336,8 +363,17 @@ def _command_cache(args: argparse.Namespace, out: Any) -> int:
     return 0
 
 
+_NAMED_DATASET_PROBES = frozenset({"classification", "retrieval", "scene_classification"})
+
+
 def _command_run(args: argparse.Namespace, out: Any) -> int:
     spec = spec_for(args.probe)
+    if args.dataset and args.probe not in _NAMED_DATASET_PROBES:
+        raise SystemExit(
+            f"--dataset is only wired for image-level probes "
+            f"({', '.join(sorted(_NAMED_DATASET_PROBES))}); {args.probe!r} needs --data with "
+            "its folder layout. Build the dataset in Python and call visbench.run() for now."
+        )
     splits = spec.build(args)
     probe = visbench.get_probe(args.probe, **spec.probe_kwargs(args))
 
@@ -355,7 +391,7 @@ def _command_run(args: argparse.Namespace, out: Any) -> int:
 
     if not args.quiet:
         print(f"{args.probe} on {args.backbone}", file=out)
-        print(f"  scoring: {len(splits.evaluate)} items from {args.data}", file=out)
+        print(f"  scoring: {len(splits.evaluate)} items from {args.data or args.dataset}", file=out)
         if splits.train is not None:
             print(f"  training: {len(splits.train)} items", file=out)
 

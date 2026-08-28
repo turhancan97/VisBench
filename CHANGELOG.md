@@ -11,6 +11,48 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Added
 
+- **Dataset bridges — `TorchvisionDataset` and `HuggingFaceDataset`, and a
+  `--dataset` scheme flag on the image-level probes.** A folder layout already
+  needs no code and anything else is a `BaseDataset` subclass with two methods;
+  what was missing is the short path when the data already lives in a
+  `torch.utils.data` dataset or a Hugging Face `datasets.Dataset`, which is how
+  most published benchmarks are handed out.
+
+  Both classes (in `visbench.data`) are thin adapters — the wrapped dataset
+  still yields the pixels, the backbone's `preprocess` still does the tensor
+  conversion. `torchvision` is already a core dependency; `datasets` is a new
+  `[datasets]` extra, imported lazily so `import visbench` never needs it.
+
+  **The one method a bridge must not skip is `cache_identity`.** Three of the
+  four optional `BaseDataset` methods fail loudly when omitted; that one fails
+  *silently* — return `None` and every run re-decodes every image, forever,
+  while appearing to work (the `view_identity` bug, live for a year). Both
+  bridges derive a real per-item token by leaning on one property: **the wrapped
+  dataset is immutable in index order.** A `datasets.Dataset` carries a
+  `_fingerprint` that changes on any transform, so `(fingerprint, row index)`
+  names a row exactly. A `torchvision` dataset has no such hash — the
+  `ImageFolder` family uses the file path, everything else a digest of the
+  `__repr__` plus index, which is weaker and documented on the class.
+
+  On the CLI, `classification`, `retrieval` and `scene_classification` take
+  `--dataset torchvision:CIFAR10` / `--dataset hf:cifar100:name=cifar100` in
+  place of `--data <path>` (mutually exclusive). Everything after the second
+  colon is `key=value` forwarded to the constructor / `load_dataset`.
+  `--hf-image-col` / `--hf-label-col` override the auto-detected columns;
+  `--dataset-root` / `--no-download` control a `torchvision:` download. Dense,
+  pair and triplet probes stay folder-only. Ships with
+  [`examples/custom_dataset.py`](examples/custom_dataset.py).
+
+  `balanced_subset` moved from `ImageFolderDataset` to `BaseDataset` (it only
+  needs `labels()` and `subset()`), so the bridges get per-class `--limit` for
+  free. `datasets` pulls `pyarrow` / `dill` / `xxhash` and pins `fsspec` a few
+  releases back; `uv.lock` reflects the new tree, only relevant with `[datasets]`
+  or `[all]` installed.
+
+  **This closes the library-surface backlog** — every gap a new user would reach
+  for and not find (`visbench show`, `examples/custom_backbone.py`, the dataset
+  bridges) is now filled.
+
 - **`orientation` — a fifteenth probe: local gradient orientation, the fourth
   low-level task.** Like `corner` its target is computed from the RGB frame
   (`OrientationResponse` in `visbench/data/derived.py`), so it runs on any image

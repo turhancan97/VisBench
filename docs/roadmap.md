@@ -318,38 +318,40 @@ target column at all: `depth`, `surface_normal`, `keypoints2d` and
 photograph carries, so they render `image | prediction` from a published Hub
 head and say so in the footer.
 
-### Bringing a dataset VisBench has never heard of
+### Bringing a dataset VisBench has never heard of — **done**
 
-Two tiers exist already and both work:
+Three tiers now:
 
 - **Folder layouts, no code.** `ImageFolderDataset` (class subdirectories or
   flat), `DenseFolderDataset` (`images/` + `targets/`, with `stems=` for an
   official split list), `DetectionFolderDataset` (VOC-style XML). NYUv2 joined
   the corpus with *no code change* because its layout already matched.
+- **A `torch.utils.data` dataset or a Hugging Face `datasets.Dataset`** wraps in
+  `TorchvisionDataset` / `HuggingFaceDataset` (`visbench.data`). Both are thin
+  adapters over `BaseDataset`. The image-level CLI probes take
+  `--dataset torchvision:CIFAR10` / `--dataset hf:cifar100` in place of
+  `--data <path>`; `datasets` is a `[datasets]` extra, `torchvision` is already
+  a core dependency.
 - **Anything else, by subclassing `BaseDataset`** — two abstract methods,
   `__len__` and `__getitem__`.
 
-So what is missing is narrower than "custom dataset support":
+**The trap the bridges had to avoid.** `BaseDataset` has four optional methods
+beyond the two abstract ones, and skipping them fails *silently*: `labels()`
+(supervised probes have no targets), `cache_identity()` (every run re-decodes
+every image — the memo cannot recognise the file), `fingerprint()` (records
+cannot tell your dataset from another), `describe()` (`dataset_params` comes out
+empty). `cache_identity` is the worst: return `None` and everything still works,
+just slowly, forever — the `view_identity` failure, a mechanism tested and
+correct for a year while a caller passed bare PIL images and paid a full decode
+on every "cached" run.
 
-| gap | note |
-| --- | --- |
-| No HuggingFace `datasets` bridge | Neither `datasets` nor `torchvision.datasets` is imported anywhere in the package |
-| No `torchvision.datasets` bridge | Same; both would be thin adapters over `BaseDataset` |
-| A custom dataset cannot be reached from the CLI | `--data` takes a path and a layout; there is no way to name a class |
-
-**The trap to document loudly if this is built.** `BaseDataset` has four
-optional methods beyond the two abstract ones, and skipping them fails
-*silently*: `labels()` (supervised probes have no targets), `cache_identity()`
-(every run re-decodes every image — the memo cannot recognise the file),
-`fingerprint()` (records cannot tell your dataset from another), `describe()`
-(`dataset_params` comes out empty, so two runs are indistinguishable in the
-corpus). `cache_identity` is the worst of them: return `None` and everything
-still works, just slowly, forever. That is the `view_identity` failure — a
-mechanism that existed and was tested for a year while a caller passed bare PIL
-images and paid a full decode on every "cached" run.
-
-Any bridge must therefore supply `cache_identity` and `fingerprint` from
-whatever the source offers, or say in its docstring that it cannot.
+Both bridges supply a real `cache_identity` by leaning on one property: **the
+wrapped dataset is immutable in index order.** A `datasets.Dataset` carries a
+`_fingerprint` that changes on any transform, so `(fingerprint, row index)`
+names a row's content exactly. A `torchvision` dataset has no such hash, so the
+`ImageFolder` family uses the file path and everything else a digest of the
+`__repr__` (which states root, split and download flags) plus the index — weaker,
+and documented on the class rather than hidden.
 
 ### Probing a model VisBench has never heard of
 
@@ -398,5 +400,10 @@ Ordered by cost against what they prevent, not by preference:
    what the docs promised and what was demonstrated, and measuring it turned up
    the RNG-position note above.
 2. ~~**`visbench show`**~~ — **done** in v0.9 (steps 9a-9d).
-3. **The dataset bridges** — the one that remains. Largest of the three, and
-   the folder path already covers most of what they would buy.
+3. ~~**The dataset bridges**~~ — **done.** `TorchvisionDataset` /
+   `HuggingFaceDataset` plus `--dataset torchvision:… | hf:…` on the image-level
+   probes. Dense/pair/triplet probes stay folder-only for now — an HF dataset
+   carrying a dense target is a much larger surface (per-probe target-column
+   plumbing, loader/dtype selection, the four validity conventions).
+
+**The whole library-surface backlog is now closed.**

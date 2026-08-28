@@ -207,10 +207,14 @@ prediction column, **9b added the correspondence pair renderer**, and **9c
 covered the last three** — so `visbench show` is valid on *every* probe and
 `show_probes() == list_probes()` is asserted — and **9d added the rendered
 gallery**: one generated figure per probe in the README and on the docs site. See the build table and the five
-bullets in "decisions already paid for". The two remaining library-surface items
-are the **dataset bridges** alone — `examples/custom_backbone.py` is done
-(2026-08-19). Re-confirm what is wanted before starting anything; do
-not assume either backlog's order is a plan. **The one thread that was open — why `detection`
+bullets in "decisions already paid for". **The library-surface backlog is now
+closed** (2026-08-28): the **dataset bridges** shipped —
+`TorchvisionDataset` / `HuggingFaceDataset` in `visbench.data`, plus
+`--dataset torchvision:… | hf:…` on the three image-level probes — after
+`visbench show` (9a-9d) and `examples/custom_backbone.py` (2026-08-19). The
+candidate-task backlog (photometric superpixels, fine-grained recognition,
+BSDS500 edge, optical flow) is what remains. Re-confirm what is wanted before
+starting anything; do not assume its order is a plan. **The one thread that was open — why `detection`
 alone fails to reproduce — is closed**: it is GPU non-determinism made visible
 by a discrete metric, it was never a bug, and detection reproduces to *three*
 decimals rather than four. **Settled 2026-08-14 on all six backbones**: only
@@ -464,7 +468,10 @@ visbench/
                  derived.py (ShiTomasiResponse + OrientationResponse +
                    DerivedTargetDataset — the target computed from the image,
                    after the crop; 8a. OrientationResponse is a 2-ch direction)
-                 base.py (BaseDataset, list_files — scandir, never a stat/entry)
+                 bridges.py (TorchvisionDataset + HuggingFaceDataset — wrap a
+                   torch/HF dataset; cache_identity from index-order immutability)
+                 base.py (BaseDataset, list_files — scandir, never a stat/entry;
+                   balanced_subset lives here now, not on ImageFolderDataset)
   heads/         base.py (register_head/build_head), linear.py, dpt.py,
                  detection.py (DetectionHead — cls + box branches, focal prior)
   metrics/       classification, retrieval, correspondence, similarity, dense.py
@@ -1818,14 +1825,51 @@ Three hazards to carry into any of them, all paid for:
   k parameter, the window, the smoothing and the non-maximum suppression all
   move the target. A record claiming a bare `"harris"` says less than it looks.
 
-### The library-surface backlog — three gaps that ship no new number
+### The library-surface backlog — closed 2026-08-28
 
 Added 2026-08-14, after a read of what a new user would reach for and not find.
-`docs/roadmap.md` has the public version under "Library surface"; what follows
-is what a session picking one of them needs to know. **None of these is a
-defect** — each is reachable today by writing Python, and what is missing is the
-shortest path. v0.7 is the precedent for shipping a release that changes no
-number.
+All three shipped: `visbench show` (9a-9d), `examples/custom_backbone.py`
+(2026-08-19), and the **dataset bridges** (2026-08-28, below). `docs/roadmap.md`
+has the public version. **None of these was a defect** — each was already
+reachable by writing Python; what was missing was the shortest path. v0.7 is the
+precedent for shipping a release that changes no number.
+
+**The dataset bridges, as shipped.** `TorchvisionDataset` and
+`HuggingFaceDataset` in `visbench/data/bridges.py` — thin `BaseDataset`
+adapters over a `torch.utils.data` dataset / a `datasets.Dataset`. `torchvision`
+is a core dep so its bridge imports at module scope; `datasets` is a `[datasets]`
+extra, imported lazily inside `HuggingFaceDataset.__init__` and `_build_hf`, so
+`import visbench` never needs it (and it is in `dev` too, or the bridge tests
+skip in CI — the optional-extra trap, pre-empted this time). On the CLI,
+`classification` / `retrieval` / `scene_classification` take
+`--dataset torchvision:CIFAR10` / `--dataset hf:cifar100:name=cifar100` in place
+of `--data` (a mutually-exclusive group; `resolve_named_dataset` in
+`cli/datasets.py` parses `scheme:name:key=value…`). **Image-level probes only** —
+a dense/pair/triplet probe with `--dataset` raises with a message, because an HF
+dataset carrying a dense target is a much larger surface (per-probe
+target-column plumbing, loader/dtype selection, the four validity conventions).
+
+**`cache_identity` is the method a bridge must not skip, and both get it right by
+leaning on index-order immutability.** Return `None` there and every run
+re-decodes every image forever while appearing to work — the `view_identity`
+failure. A `datasets.Dataset` carries a `_fingerprint` that changes on any
+transform, so `f"{fingerprint}|{row}"` names a row's content exactly. A
+`torchvision` dataset has no such hash: the `ImageFolder` family
+(`.samples`/`.imgs`) uses the file path + size + mtime like
+`ImageFolderDataset`, everything else a sha256 of `repr(dataset)` (which states
+root, split, download flags) + length + index. The `repr` digest is weaker —
+two different downloads with matching reprs would collide — and that is
+documented on the class, not hidden. `describe()` adds `dataset_source`
+(`"torchvision:CIFAR10"` / `"hf:<name>"`) so a bridge record lands in its own
+comparability group rather than merging with a folder board.
+
+**`balanced_subset` moved to `BaseDataset`.** It only needs `labels()` and
+`subset()`, both of which the bridges have, so the CLI's per-class `--limit`
+works on them for free. `ImageFolderDataset` lost its copy; the method is
+otherwise unchanged.
+
+The bullets below are the state *before* the bridges shipped, kept for the
+reasoning.
 
 - **There is no visualisation anywhere in the package**, and this is the one of
   the three that guards a *silently wrong number*. `results/render.py` renders
@@ -1875,15 +1919,15 @@ number.
   (`--backbone` is a registry name and a string cannot carry an `nn.Module`),
   and fine-tuning does not apply to it (DINOv2 only, by design).
 
-**Order, by cost against what each prevents**: `examples/custom_backbone.py`
-first (hours, closes a documented-but-undemonstrated gap), then `visbench show`
-(the only one guarding a silently wrong number), then the dataset bridges
-(largest, and the folder path already covers most of what they would buy).
+**All three are done, in that cost order**: `examples/custom_backbone.py`
+(hours), `visbench show` (the only one that guarded a silently wrong number),
+the dataset bridges (largest). What remains is the candidate-task backlog.
 ---
 
 ## Engineering conventions
 
-- PyTorch, Python 3.10+. Optional extras: `clip` (open_clip), `timm`, `dev`.
+- PyTorch, Python 3.10+. Optional extras: `clip` (open_clip), `timm`, `hub`,
+  `datasets` (the HuggingFace bridge), `docs`, `dev`.
   **A backbone whose extra is missing is still registered and still listed** —
   both CLIP and timm import their dependency lazily inside `__init__`, so the
   registration module imports cleanly and `_REGISTRATION_MODULES`' skip logic

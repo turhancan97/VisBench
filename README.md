@@ -229,6 +229,27 @@ runs all of this end to end and needs no dataset:
 python examples/custom_backbone.py --finetune --register
 ```
 
+### Your own dataset
+
+A folder layout needs no code (`ImageFolderDataset`, `DenseFolderDataset`,
+`DetectionFolderDataset`), and anything else is a `BaseDataset` subclass with two
+methods. When the data already lives in a `torch.utils.data` dataset or a
+Hugging Face `datasets.Dataset`, there is a bridge:
+
+```python
+from torchvision.datasets import CIFAR10
+from visbench.data import TorchvisionDataset
+
+raw = CIFAR10("./data", train=False, download=True)
+visbench.run("dinov2_vits14", "classification", TorchvisionDataset(raw, split="test"),
+             train_dataset=TorchvisionDataset(CIFAR10("./data", train=True, download=True)))
+```
+
+`HuggingFaceDataset` is the same shape and needs `pip install visbench[datasets]`.
+Both derive a real per-item `cache_identity` from the fact that the wrapped
+dataset is immutable in index order, so a cached re-run still skips the
+backbone. See [`examples/custom_dataset.py`](https://github.com/turhancan97/VisBench/blob/main/examples/custom_dataset.py).
+
 Sibling project to [vismatch](https://github.com/gmberton/vismatch) — same
 ergonomic philosophy, applied to representation probing instead of image
 matching.
@@ -242,6 +263,7 @@ wrapper over `visbench.run()` — same cache, same result records, same numbers.
 visbench demo                       # a real probe on generated data, no setup
 visbench list                       # backbones, probes and heads that exist
 visbench run retrieval --data /path/to/imagenette2 --split val
+visbench run classification --dataset torchvision:CIFAR10 --split test
 visbench show depth --data /path/to/nyuv2 --out panels.png
 visbench cache stats
 ```

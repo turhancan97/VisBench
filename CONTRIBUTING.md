@@ -14,7 +14,7 @@ crash, it is a plausible wrong answer.**
 git clone https://github.com/turhancan97/VisBench && cd VisBench
 uv sync --all-extras          # exact locked versions — what CI and the numbers used
 # or, without uv:
-pip install -e ".[dev,clip,timm,hub]"
+pip install -e ".[dev,clip,timm,hub,datasets]"
 ```
 
 Python 3.10 or newer. The floor is 3.10 because DINOv2's pinned revision uses
@@ -76,9 +76,11 @@ emitted, and was dead code for its entire life while its test passed.
 
 ### If you touch an optional extra
 
-`clip`, `timm` and `hub` are optional, and **CI installs `.[dev]` only**. A test
-that imports one of them passes locally and fails in CI. Reproduce CI's
-environment by blocking the import:
+`clip`, `timm`, `hub` and `datasets` are optional. `datasets` is also in `dev`
+(the HuggingFace-bridge tests need it at import time), but `clip`/`timm`/`hub`
+are not and **CI installs `.[dev]` only** — a test that imports one of those
+passes locally and fails in CI. Reproduce CI's environment by blocking the
+import:
 
 ```python
 # /tmp/blockhub.py
