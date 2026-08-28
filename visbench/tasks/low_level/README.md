@@ -148,7 +148,7 @@ them. **Check the tail before assuming this protocol transfers.**
 | Texture / reflectance | Intrinsic-image decomposition; ground truth is scarce outside synthetic data. **Taskonomy does not ship a reflectance domain**, so this is not unblocked by 6d-2. `principal_curvature` and `reshading` are present and are still refused, but no longer for want of a mask — see below. |
 | Image quality assessment | No-reference IQA against human MOS ratings. Closest in shape to mid-level similarity, which is zero-shot; IQA is not. |
 | Edge detection on BSDS500 | The correspondence metric above, as a second protocol beside the Taskonomy one rather than a replacement. |
-| Superpixel / texture segmentation | Grouping by local photometric similarity alone, with no depth or figure-ground reasoning. Needs no dataset. |
+| ~~Superpixel / texture segmentation~~ | **Built and rejected**, 2026-08-28. Needs no dataset, passed every pre-measurement, and scored 0.021–0.043 — see "The superpixel rejection" below. |
 | Color constancy / illuminant estimation | A per-image scalar/vector target rather than a dense one, and it needs measured illuminant ground truth. |
 | Vanishing point / line detection | Published as a Taskonomy domain, but **not in the copy on this machine** — that download carries eight domains and this is not one. |
 
@@ -157,8 +157,9 @@ them. **Check the tail before assuming this protocol transfers.**
 `visbench/data/derived.py` is the machinery `corner` left behind. A magnitude
 derived target is a `ShiTomasiResponse`-shaped class plus a `DenseMagnitudeTask`
 subclass; a vector one — `OrientationResponse` — needs its own small task base,
-which `orientation.py` now provides. **Photometric superpixels** is the one that
-remains.
+which `orientation.py` now provides. **Photometric superpixels** was the last
+candidate needing no dataset, and it was built and rejected — see below. Nothing
+remains on this list that does not need a download first.
 
 Four cautions, the first three paid for by `corner` and `orientation`:
 
@@ -182,6 +183,61 @@ Four cautions, the first three paid for by `corner` and `orientation`:
   suppression all move the target. Naming the operator is half the fix; the
   other half is that every setting travels in `dataset_params`, so two sigmas
   split into two comparability groups without anyone noticing.
+
+### The superpixel rejection — a probe that passed every gate and measured nothing
+
+Built in full on 2026-08-28 and reverted the same day. SLIC groups the frame by
+colour and position; the probe regressed the boundary map of that partition. It
+is recorded here because the *pre-measurement passed*, and the way it passed is
+the transferable part.
+
+**What it scored**, 200 frames per split, defaults, against the shipped probes
+on the same three backbones:
+
+| probe | dinov2_vits14 | clip_vitb16 | resnet50 |
+| --- | --- | --- | --- |
+| `corner` | 0.6512 | 0.6227 | 0.4923 |
+| `edge` | 0.4558 | 0.4565 | 0.3549 |
+| `occlusion_edge` | 0.2924 | 0.2558 | 0.1979 |
+| `keypoints2d` | 0.2356 | 0.2175 | 0.1792 |
+| **`superpixel`** | **0.0434** | **0.0209** | **0.0238** |
+
+Five times below the weakest probe that ships, with a spread of 0.023 in which
+ResNet-50 "beats" CLIP by 0.003. `train_loss` was *lowest* for the worst
+scorers, which says what happened: the heads learned the mean boundary density
+and nothing about where the boundaries are.
+
+**Every check in the gauntlet passed.** Tail mass 0.055, nowhere near
+`edge_occlusion`'s 0.46. Overlap with `edge_texture` 0.267 per image, well under
+the 0.52 `corner` shipped with. Cross-image `|r|` 0.044 — *below* the edge
+target's own 0.060 — so the boundaries genuinely followed the image rather than
+SLIC's seeding lattice. Two rival formulations were measured and rejected on the
+overlap rule (segment-mean residual at 0.509; log segment area degenerate,
+because SLIC equalises segment sizes by construction).
+
+**What the gauntlet does not ask, and now should.** Every existing check is
+about the *target*: its distribution, and its relationship to other targets.
+None asks whether the target is **recoverable from patch features at all**. A
+SLIC boundary is one pixel wide and, in a flat region, its position is set by
+the lattice seeding and sub-threshold colour noise — information that is not in
+a 14px patch token in principle, not merely in practice.
+
+A pooled-resolution overlap check was tried and is *not* the missing test: it
+measures whether two targets agree at coarse scale, which is a different
+question. It also produced a misleading near-veto — the boundary map reads 0.684
+against `edge` at a 16x16 grid, but the shipped `corner` target reads **0.781**
+there and ranks backbones differently anyway, so it cannot refuse anything.
+
+**The cheap missing check is an oracle:** fit the probe's own head on features
+that trivially contain the answer, or simply ask what correlation is achievable
+when the target is pooled to the feature grid and upsampled back. A target whose
+own ceiling is near zero cannot rank, and that costs one run rather than a board.
+`CorrespondenceTask.evaluate_ceiling` is the same idea already in the codebase.
+
+**What survived.** `DerivedTargetDataset` now memoises computed targets — see
+`MEMO_LIMIT`. `CachedFeatures.__getitem__` calls `dataset.target(index)` on every
+access, so a ten-epoch streaming run had been recomputing every target ten times;
+`corner` and `orientation` had been paying that quietly.
 
 ### Why `principal_curvature` and `reshading` are still refused
 

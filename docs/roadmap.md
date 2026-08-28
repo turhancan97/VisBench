@@ -170,7 +170,7 @@ before starting one of these.
 | Task | Level | Note |
 |---|---|---|
 | Local orientation / gradient fields | low | **Implemented** as `orientation` — a 2-channel `(cos 2θ, sin 2θ)` field with coherence-weighted angular error; the first derived target that could not reuse `DenseMagnitudeTask` |
-| Superpixel / texture segmentation | low | Grouping by local photometric similarity alone, no figure-ground reasoning |
+| ~~Superpixel / texture segmentation~~ | low | **Rejected after building it** — the SLIC boundary target passed every pre-measurement and then scored 0.021–0.043 correlation on three backbones, against 0.18–0.65 for every shipped low-level probe. A 1px partition boundary is not recoverable from patch features |
 | Blob detection (DoG, LoG) | low | **Rejected** — the pre-measurement found its target correlates 0.51 with `corner`, as redundant with an existing probe as `corner` is with `edge` |
 
 Three things a derived target has to establish before it is worth shipping,

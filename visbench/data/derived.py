@@ -450,6 +450,13 @@ class DerivedTargetDataset(BaseDataset):
         top = (resized.height - self.image_size) // 2
         return resized.crop((left, top, left + self.image_size, top + self.image_size))
 
+    #: How many computed targets to keep. A derived target is a pure function of
+    #: an immutable image and a frozen generator, so caching one is always safe;
+    #: what is not safe is caching an unbounded number. 2048 frames of a scalar
+    #: 224px target is ~400 MB, which is the most this should take from a run
+    #: whose *features* are the thing meant to be using the memory.
+    MEMO_LIMIT = 2048
+
     def target(self, index: int) -> torch.Tensor:
         """The target for one frame, computed from the cropped image.
 
@@ -461,8 +468,25 @@ class DerivedTargetDataset(BaseDataset):
         ``max_target``. The target is generated at the working resolution, so
         there is no second geometry and nothing to keep in step.
         """
+        memo = self.__dict__.setdefault("_target_memo", {})
+        hit = memo.get(index)
+        if hit is not None:
+            return hit
         image, target = self[index]
         del image
+        # Memoised because a *streaming* dense run calls this once per item per
+        # epoch, not once per item: `CachedFeatures.__getitem__` invokes
+        # `dataset.target` on every access, so a ten-epoch run recomputes every
+        # target ten times over. `corner` pays ~40 ms a frame for that and
+        # `orientation` similar, which is a few minutes of a board nobody had
+        # noticed; a generator an order of magnitude slower would make it the
+        # dominant cost of the run.
+        #
+        # Safe by construction rather than by convention: the generator is a
+        # frozen dataclass and the image on disk is read-only, so a memoised
+        # value cannot go stale. Only the *size* needs a bound.
+        if len(memo) < self.MEMO_LIMIT:
+            memo[index] = target
         return target
 
     def targets(self) -> torch.Tensor:

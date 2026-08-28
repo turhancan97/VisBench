@@ -354,3 +354,76 @@ def test_a_stem_named_but_absent_raises(tmp_path):
     write_images(tmp_path / "images", count=2)
     with pytest.raises(ValueError, match="absent"):
         DerivedTargetDataset(root=tmp_path, stems=["img_000", "nope"])
+
+
+# -- the target memo ---------------------------------------------------------
+#
+# A *streaming* dense run asks for each target once per epoch, not once:
+# `CachedFeatures.__getitem__` calls `dataset.target(index)` on every access, so
+# a ten-epoch run recomputed every target ten times. Both derived probes paid
+# that, and a slower generator would make it the dominant cost of a whole board.
+
+
+def test_a_repeat_call_returns_the_same_target(tmp_path):
+    write_images(tmp_path / "images", count=3, size=64)
+    dataset = DerivedTargetDataset(root=tmp_path, image_size=32)
+    assert torch.equal(dataset.target(0), dataset.target(0))
+
+
+def test_the_generator_runs_once_per_frame_not_once_per_epoch(tmp_path, monkeypatch):
+    """The point of the memo, asserted on the call count rather than a clock.
+
+    A timing assertion would be flaky on a shared machine, and this codebase
+    already has a standing rule that a wall clock is not a metric.
+    """
+    write_images(tmp_path / "images", count=3, size=64)
+    dataset = DerivedTargetDataset(root=tmp_path, image_size=32)
+
+    calls = {"n": 0}
+    original = ShiTomasiResponse.__call__
+
+    def counting(self, image):
+        calls["n"] += 1
+        return original(self, image)
+
+    monkeypatch.setattr(ShiTomasiResponse, "__call__", counting)
+    for _ in range(4):  # four "epochs"
+        for index in range(len(dataset)):
+            dataset.target(index)
+    assert calls["n"] == len(dataset), f"generator ran {calls['n']} times for 3 frames"
+
+
+def test_the_memo_is_bounded(tmp_path, monkeypatch):
+    """Unbounded, it would compete with the features for the memory that matters."""
+    write_images(tmp_path / "images", count=4, size=64)
+    dataset = DerivedTargetDataset(root=tmp_path, image_size=32)
+    monkeypatch.setattr(type(dataset), "MEMO_LIMIT", 2)
+    for index in range(len(dataset)):
+        dataset.target(index)
+    assert len(dataset.__dict__["_target_memo"]) == 2
+
+
+def test_a_frame_past_the_bound_is_still_correct(tmp_path, monkeypatch):
+    """Falling out of the memo must cost time, never correctness."""
+    write_images(tmp_path / "images", count=4, size=64)
+    dataset = DerivedTargetDataset(root=tmp_path, image_size=32)
+    monkeypatch.setattr(type(dataset), "MEMO_LIMIT", 1)
+    first = [dataset.target(i) for i in range(len(dataset))]
+    second = [dataset.target(i) for i in range(len(dataset))]
+    for a, b in zip(first, second, strict=True):
+        assert torch.equal(a, b)
+
+
+def test_the_memo_does_not_leak_between_datasets(tmp_path):
+    """Two generators over the same folder must not answer for each other.
+
+    The memo is keyed on the index alone, so it has to live on the instance --
+    a class-level dict would serve one generator's target for another's.
+    """
+    write_images(tmp_path / "images", count=2, size=64)
+    sharp = DerivedTargetDataset(root=tmp_path, image_size=32)
+    smooth = DerivedTargetDataset(
+        root=tmp_path, image_size=32, generator=ShiTomasiResponse(sigma=1.0)
+    )
+    assert not torch.equal(sharp.target(0), smooth.target(0))
+    assert not torch.equal(sharp.target(0), smooth.target(0))
