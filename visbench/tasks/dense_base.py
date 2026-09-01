@@ -1030,6 +1030,15 @@ class DenseTrainingTask(BaseTask):
 
         Notes
         -----
+        **It models a *linear* head exactly, and may understate a DPT one.**
+        ``LinearHead`` is a 1x1 convolution on the grid followed by a bilinear
+        upsample, which is literally "one value per patch, interpolated" — the
+        bottleneck this measures. A DPT head decodes progressively with
+        convolutions, so it can place structure *within* a patch from that
+        patch's content, and its true ceiling may be higher. Untested; it is the
+        open question the BSDS500 line closed on. Quote this against a linear
+        probe, which is the number VisBench reports anyway.
+
         **This is an achievable score, not a proven upper bound**, and the
         distinction from
         :meth:`~visbench.tasks.mid_level.correspondence.CorrespondenceTask.evaluate_ceiling`

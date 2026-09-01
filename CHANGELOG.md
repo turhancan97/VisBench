@@ -9,6 +9,55 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+### Refused — the BSDS500 probe
+
+Not a change to the package: no probe shipped, and this is the second entry of
+its kind after photometric superpixels. It is recorded because the *gate worked*
+— the oracle added earlier in this same release refused the probe before a
+backbone was loaded, which is what it was built to do.
+
+BSDS500's dataset and metric both ship (above). What does not is a VisBench
+probe and a leaderboard board. The oracle gate, run on the BSDS target over the
+100 val images with the published 99-level sweep:
+
+| feature grid | input on a /14 ViT | ODS | AP | R@ODS |
+|---|---|---|---|---|
+| **16x16** | **224px — every corpus backbone** | **0.4193** | 0.2430 | 0.2919 |
+| 24x24 | 336px | 0.5810 | 0.4092 | 0.4395 |
+| 32x32 | 448px | 0.6966 | 0.5447 | 0.5599 |
+| 48x48 | 672px | 0.8105 | 0.6944 | 0.6979 |
+| 64x64 | 896px | 0.8725 | 0.7842 | 0.7860 |
+
+Human agreement on this split is **0.787**, and the detectors BSDS exists to
+rank sit near 0.60 (Canny), 0.73 (gPb) and 0.79 (HED). **A linear probe's
+ceiling at 224px is therefore below the weakest classical baseline in the
+literature.** The number would be real and it could not be compared with any
+published BSDS number — and comparability with those numbers is the entire
+reason to add this dataset rather than reuse the Taskonomy `edge` probe.
+
+**This is not the superpixel case.** That target scored 0.02-0.04 against probes
+scoring 0.18-0.65 *in the same metric*. This is a ceiling in ODS while the
+shipped probes' oracle range is in Pearson correlation; the two do not compare,
+and an earlier draft of this note wrongly set 0.42 against the 0.25 that
+rejected superpixels. Nor does it say the representations lack boundary
+information — `edge` and `corner` rank backbones fine on the same 16x16 grid. It
+says a 1px human-drawn target scored at native resolution is a finer thing to
+ask of one vector per 14px patch.
+
+Two routes could reopen it, both in `visbench/tasks/low_level/README.md`:
+testing whether a **DPT head beats the pooling oracle** (the cheapest, and
+untested), or running at **32x32 or finer**, which only DINOv2 can do and which
+would buy a single-backbone board that confounds resolution with representation.
+
+### Changed
+
+- **The oracle gate is documented as modelling a *linear* head.** `LinearHead`
+  is a 1x1 convolution per patch plus a bilinear upsample, which is exactly what
+  `evaluate_oracle` computes — but a DPT head decodes progressively and could
+  place structure within a patch, so its true ceiling may be higher. Every
+  oracle number recorded in this project is quoted against a linear probe, which
+  is the number VisBench reports; the caveat is now stated rather than implied.
+
 ### Added
 
 - **BSDS500's boundary protocol: ODS, OIS and AP** (12a-2). `visbench.metrics.boundary`

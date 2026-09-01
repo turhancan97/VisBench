@@ -76,6 +76,7 @@ step is next rather than attempting the whole roadmap in one session.
 | 10e | `sam_vitb16`, a recipe control — the denominator an objective gap needs | done |
 | 12a-1 | BSDS500: the dataset, and several people's answers per image | done |
 | 12a-2 | BSDS500: ODS/OIS/AP, reproducing the published human agreement | done |
+| 12a-3 | BSDS500: the probe — **refused by the oracle gate**, line closed | n/a |
 
 **A closed step's full write-up lives in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md), not here.** That file is the archive
@@ -269,12 +270,15 @@ rejection was missing on 2026-09-01** — `scripts/oracle_ceiling.py`, calibrate
 so the four shipped magnitude targets pass at 0.53-0.83 and the rejected one
 fails at 0.25. It ships no probe and moves no number. That leaves BSDS500 edge
 and optical flow,
-**both of which need a download first** — and **BSDS500 is two thirds done**
-(12a-1 and 12a-2, 2026-09-01): `scripts/fetch_bsds500.py` + `BSDS500Dataset`,
-and `visbench.metrics.boundary` reproducing the published human ODS of 0.80 at
-**0.8030**. Only the probe remains, and its open problem is that
-`DenseTrainingTask` assumes square target maps while BSDS is scored at native
-321x481. Nothing cheap remains. Re-confirm what is wanted before
+**both of which need a download first** — and **the BSDS500 line is closed at
+two steps** (12a-1 and 12a-2, 2026-09-01): the dataset and a validated
+ODS/OIS/AP metric ship, reproducing the published human ODS of 0.80 at
+**0.8030**, and **the probe was refused by the oracle gate**. A linear probe on
+the 16x16 grid every corpus backbone produces has a ceiling of **0.4193 ODS**,
+below Canny's published 0.60, so a board could not be compared with the
+literature — which was the only reason to add BSDS rather than reuse `edge`.
+The write-up and the two routes that could reopen it are in
+`visbench/tasks/low_level/README.md`. Nothing cheap remains. Re-confirm what is wanted before
 starting anything; do not assume its order is a plan. **The one thread that was open — why `detection`
 alone fails to reproduce — is closed**: it is GPU non-determinism made visible
 by a discrete metric, it was never a bug, and detection reproduces to *three*
@@ -1276,6 +1280,21 @@ designed up front; extend it the same way, from a case that already runs.
     achievable score rather than a proven bound, and the ratio does not
     discriminate anyway: `corner` reaches 80% of its oracle and `keypoints2d`
     41%, and both rank backbones fine.
+  - **It models a *linear* head exactly and may understate a DPT one.**
+    `LinearHead` is a 1x1 convolution per patch plus a bilinear upsample, which
+    is literally what the oracle computes; a DPT head decodes progressively and
+    could place structure *within* a patch. **Untested**, and it is the open
+    question the BSDS500 line closed on — see that write-up. Every oracle number
+    recorded here is quoted against a linear probe, which is the number VisBench
+    reports anyway.
+
+  **It has now refused something** (2026-09-01). The BSDS500 probe was not built
+  because the gate put a linear probe's ceiling at **0.4193 ODS** on the 16x16
+  grid every corpus backbone produces, against published detectors at 0.60-0.79
+  and human agreement at 0.80. That cost one 60-second run instead of a
+  12-backbone board. **Do not read that 0.42 against the 0.25 that rejected
+  superpixels** — one is ODS and the other Pearson correlation, they are not
+  comparable, and an earlier draft made exactly that mistake.
 
   **A pooled-resolution overlap check is not that test, and nearly became a
   false veto.** The boundary map reads 0.267 against `edge` at full resolution

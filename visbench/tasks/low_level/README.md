@@ -178,8 +178,74 @@ Two things were measured rather than assumed:
   abandoned — the components do not stay small, one real image had a single
   component of 16,348 nodes.
 
-What remains is the probe, and its open problem is stated above: BSDS is scored
-at native 321x481 while `DenseTrainingTask` assumes square target maps.
+### Why there is no BSDS probe, and no board
+
+**The line stops at the metric, on the oracle gate's evidence.** The gate above
+asks what a probe could score *if the features contained the answer*; run on the
+BSDS target it says a linear probe on the features every corpus backbone
+produces cannot reach the published range. BSDS500 val, 100 images, the
+published 99-level sweep at `max_dist` 0.0075, the consensus map pooled to a
+square grid and bilinearly upsampled back:
+
+| feature grid | input on a /14 ViT | ODS | AP | P@ODS | R@ODS |
+|---|---|---|---|---|---|
+| **16x16** | **224px — every corpus backbone** | **0.4193** | 0.2430 | 0.7441 | 0.2919 |
+| 24x24 | 336px | 0.5810 | 0.4092 | 0.8567 | 0.4395 |
+| 32x32 | 448px | 0.6966 | 0.5447 | 0.9216 | 0.5599 |
+| 48x48 | 672px | 0.8105 | 0.6944 | 0.9664 | 0.6979 |
+| 64x64 | 896px | 0.8725 | 0.7842 | 0.9804 | 0.7860 |
+| 128x128 | — | 0.9534 | 0.9252 | 0.9885 | 0.9206 |
+
+For scale: human agreement is **0.787** on this split (0.803 on test), and the
+published detectors this benchmark exists to rank sit at roughly **0.60**
+(Canny), **0.73** (gPb) and **0.79** (HED).
+
+**So the ceiling at 224px is 0.42 — below the weakest classical baseline in the
+literature.** An actual probe would land some way under that. The number would
+be a real measurement, but it could not be compared with any published BSDS
+number, and comparability with the published numbers is the *entire* reason this
+dataset was worth adding rather than reusing the Taskonomy edge probe. A board
+whose ceiling is beneath Canny's score would invite exactly the misreading the
+`protocol` field exists to prevent.
+
+**Two things this finding is not.** It is not the superpixel case: that target
+scored 0.02-0.04 against probes scoring 0.18-0.65 *in the same metric*, whereas
+this is a ceiling in ODS and the shipped probes' oracle range is in Pearson
+correlation — the two do not compare, and an earlier draft of this section wrongly
+set 0.42 against the 0.25 that rejected superpixels. And it is not a claim that
+the representation lacks boundary information: `edge` and `corner` both rank
+backbones perfectly well on the same 16x16 grid. It is a claim about a **1px
+human-drawn target evaluated at native resolution**, which is a much finer thing
+to ask of one vector per 14px patch.
+
+The other obstacle, unchanged and now moot: BSDS is scored at native 321x481
+while `DenseTrainingTask` assumes square target maps.
+
+### If the BSDS line is picked up again
+
+Two routes, in cost order.
+
+- **Test whether a DPT head beats the pooling oracle.** The gate models a
+  *linear* head exactly — `LinearHead` is a 1x1 convolution per patch followed
+  by a bilinear upsample, which is literally what the oracle computes. A DPT
+  head decodes progressively with convolutions and can place a boundary *within*
+  a patch from that patch's content, so its true ceiling may be higher than
+  0.4193. **This is untested**, it is the cheapest thing that could reopen the
+  line, and it would also tell the gate something about itself: every oracle
+  number recorded here is quoted against a linear probe, which is the number
+  VisBench reports, but the gate's calibration table would want a DPT column if
+  this turned out to matter.
+- **Run at a finer grid, and accept what it costs.** BSDS reaches the published
+  range around 32x32, i.e. 448px on a /14 ViT. DINOv2 can do this — it
+  interpolates its position embeddings inside its own forward pass. open_clip
+  cannot interpolate at all and timm needs `dynamic_img_size`, both recorded in
+  `CLAUDE.md`, so this buys a **DINOv2-only** board. A board that cannot compare
+  backbones is not a corpus board, and it would confound resolution with
+  representation, which is the confound `results/controls/` exists to separate.
+
+What *is* shipped is a validated ODS/OIS/AP implementation that reproduces the
+published human agreement. Anyone with a real edge detector can score against
+it; it needs no probe to be useful.
 
 ### The mid-level twin
 
@@ -204,7 +270,7 @@ them. **Check the tail before assuming this protocol transfers.**
 | Optical flow | Needs image pairs and a flow head. `PairViewDataset` already expresses the pairing (see correspondence), so the flow head is the real cost. No flow dataset is assumed present. |
 | Texture / reflectance | Intrinsic-image decomposition; ground truth is scarce outside synthetic data. **Taskonomy does not ship a reflectance domain**, so this is not unblocked by 6d-2. `principal_curvature` and `reshading` are present and are still refused, but no longer for want of a mask — see below. |
 | Image quality assessment | No-reference IQA against human MOS ratings. Closest in shape to mid-level similarity, which is zero-shot; IQA is not. |
-| Edge detection on BSDS500 | The correspondence metric above, as a second protocol beside the Taskonomy one rather than a replacement. **Dataset done** — `scripts/fetch_bsds500.py` + `BSDS500Dataset`; the metric and the probe remain. See below. |
+| ~~Edge detection on BSDS500~~ | **Dataset and metric shipped; the probe was refused by the oracle gate.** `scripts/fetch_bsds500.py` + `BSDS500Dataset` + `visbench.metrics.boundary`, reproducing the published human ODS. A linear probe's ceiling at 224px is 0.4193 ODS, below Canny's published 0.60, so no board. See "Why there is no BSDS probe" below. |
 | ~~Superpixel / texture segmentation~~ | **Built and rejected**, 2026-08-28. Needs no dataset, passed every pre-measurement, and scored 0.021–0.043 — see "The superpixel rejection" below. |
 | Color constancy / illuminant estimation | A per-image scalar/vector target rather than a dense one, and it needs measured illuminant ground truth. |
 | Vanishing point / line detection | Published as a Taskonomy domain, but **not in the copy on this machine** — that download carries eight domains and this is not one. |
