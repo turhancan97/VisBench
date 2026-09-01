@@ -85,7 +85,13 @@ def test_the_control_adds_a_row_rather_than_evicting_one(control, corpus):
     for task in MEASURED:
         rows = [r for r in corpus if r.task == task]
         merged = latest_per_backbone(rows + [r for r in control if r.task == task])
-        assert len(merged) == len(rows) + 1
+        # Against the corpus's *backbone* count, not its line count. The corpus is
+        # append-only and a re-run board carries two lines per backbone -- which
+        # `latest_per_backbone` is precisely what collapses. Comparing against
+        # `len(rows)` passed only while no board had ever been re-run, and broke
+        # the first time one was (the five low-level boards, regenerated to carry
+        # `ceiling_*`). The claim being made here was never about lines.
+        assert len(merged) == len(latest_per_backbone(rows)) + 1
         assert {"dinov2_vitb14", "dinov2_vitb14_196"} <= {r.backbone for r in merged}
 
 

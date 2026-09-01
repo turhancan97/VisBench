@@ -31,6 +31,39 @@ Two standing cautions apply to everything below:
 ---
 
 
+- **Quote `orientation` to two decimals, and treat its bottom two rows as
+  tied** (2026-09-01). Re-running the five low-level boards to add their
+  ceilings gave a reproducibility measurement for free: four came back at
+  **~1e-7 relative**, and `orientation` at **1e-3** — a thousand times worse.
+
+  | probe | max relative drift over 12 backbones |
+  | --- | --- |
+  | `corner` | 3.1e-07 |
+  | `edge` | 9.4e-07 |
+  | `keypoints2d` | 1.5e-06 |
+  | `occlusion_edge` | 1.0e-05 |
+  | **`orientation`** | **1.8e-03** |
+
+  In degrees: max drift **0.0210**, median **0.0051**. The smallest adjacent gap
+  on that board is **0.0048** — `clip_vitb32` 29.9626 against `resnet50`
+  29.9675 — which is *below the median drift*. **Those two rows are not
+  separable**, and a claim that either beats the other is noise. Every other
+  adjacent gap is at least 0.0676, more than three times the worst drift, so the
+  rest of the board is solid and the published ordering did not change.
+
+  **The cause is the metric, not the probe.** Features come from cache and are
+  byte-identical and the head is seeded; what differs is float-level
+  non-determinism in training, which the other four probes also show — at 1e-7.
+  `orientation_error` is a coherence-weighted `acos` of a cosine similarity, and
+  `acos` has infinite derivative at its endpoints, the same ill-conditioning
+  `OrientationTask._loss_eps` exists to keep out of the *loss*. The metric needs
+  no gradient and so carries no such guard, and amplifies the same 1e-7 weight
+  difference into 1e-4 degrees.
+
+  This is `detection`'s lesson by a different mechanism: there a *discrete*
+  metric made non-determinism visible, here an *ill-conditioned* one amplifies
+  it. **Check a gap against the drift before reading a rank off a board.**
+
 - **Feature resolution is the strongest correlate of every dense board, and on
   the two boards where that mattered it explains under a quarter of the gap**
   (the resolution control, 2026-08-21).

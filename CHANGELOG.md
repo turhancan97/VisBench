@@ -268,11 +268,9 @@ would buy a single-backbone board that confounds resolution with representation.
   ordered by ceiling is a board ordered by feature resolution.
 
   **No published number moves and the schema is untouched** — these are keys
-  inside `metrics`, not a new field. The committed corpus predates them, so its
-  60 records for those five probes carry no `ceiling_*` and a re-run differs
-  from them by exactly those additions. That is absence, the way a pre-v8 record
-  carries no `training`, and it must not be backfilled: a value in a record no
-  run produced is worse than a missing one. Probes whose target does not average
+  inside `metrics`, not a new field. The committed corpus predated them; the
+  five boards have since been **re-run** so their records carry them — produced
+  by a run rather than backfilled, which is the distinction that matters. Probes whose target does not average
   — depth, both segmentations, surface normals — return `{}` and are unchanged
   key for key.
 
