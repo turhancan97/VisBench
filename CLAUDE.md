@@ -262,7 +262,11 @@ candidate-task backlog is what remains, and **fine-grained recognition came
 off it on 2026-08-28** (`fine_grained_classification`, CUB-200-2011).
 **Photometric superpixels was built and rejected the same day** — it scored
 0.021-0.043 after passing every pre-measurement; see the bullet below and
-`visbench/tasks/low_level/README.md`. That leaves BSDS500 edge and optical flow,
+`visbench/tasks/low_level/README.md`. **The gauntlet gained the oracle gate that
+rejection was missing on 2026-09-01** — `scripts/oracle_ceiling.py`, calibrated
+so the four shipped magnitude targets pass at 0.53-0.83 and the rejected one
+fails at 0.25. It ships no probe and moves no number. That leaves BSDS500 edge
+and optical flow,
 **both of which need a download first**: nothing cheap remains. Re-confirm what is wanted before
 starting anything; do not assume its order is a plan. **The one thread that was open — why `detection`
 alone fails to reproduce — is closed**: it is GPU non-determinism made visible
@@ -582,7 +586,9 @@ visbench/
                  detection.py (box_iou, average_precision, detection_metrics —
                    VOC protocol, dataset-level, difficult ignored not dropped)
   tasks/         base.py (BaseTask)
-                 dense_base.py (DenseTrainingTask — shared by every dense probe)
+                 dense_base.py (DenseTrainingTask — shared by every dense probe;
+                   pool_to_grid + evaluate_oracle — the recoverability gate,
+                   opted into per probe, no backbone and no fitted head)
                  magnitude_base.py (DenseMagnitudeTask — edge/keypoints2d/
                    occlusion_edge; identity activation, masked L1, correlation)
                  schedule.py (warmup_cosine/check_schedule — probe3d's schedule,
@@ -1205,15 +1211,35 @@ designed up front; extend it the same way, from a case that already runs.
   "beating" CLIP by 0.003, and `train_loss` **lowest** for the worst scorers —
   the heads learned the mean boundary density and nothing about location.
 
-  **The missing check is an oracle, and it is cheap.** Every existing gate is
-  about the target's distribution or its relation to other targets. None asks
-  what the probe could score if the features *did* contain the answer. A 1px
-  SLIC boundary in a flat region is placed by the seeding lattice and
-  sub-threshold colour noise, which is not in a 14px patch token in principle —
-  so its ceiling is near zero and no backbone can rank on it.
-  `CorrespondenceTask.evaluate_ceiling` is the same idea already in this
-  codebase. **Add an oracle run to the gauntlet before the next derived probe**;
-  it costs one run rather than a board.
+  **The missing check was an oracle, and it now ships** (2026-09-01).
+  `DenseTrainingTask.evaluate_oracle` pools the target to the feature grid,
+  upsamples it back and scores it with the probe's own metric — what a perfect
+  backbone would make available, since a dense probe sees one feature vector per
+  patch and signal finer than a patch is *absent from its input* rather than
+  merely hard to predict. No backbone, no features, no fitted head, so it costs
+  one pass over a split rather than a board.
+  `CorrespondenceTask.evaluate_ceiling` is the same idea, arrived at the same
+  way. **Run `scripts/oracle_ceiling.py` before writing the next derived
+  task**, and see the "oracle gate" section of
+  `visbench/tasks/low_level/README.md` for the numbers.
+
+  **The bar, calibrated against this rejection**, over the pinned 600 val frames
+  at a 16x16 grid: the four shipped magnitude targets score 0.53–0.83 and
+  photometric superpixels scores **0.25**. At a ResNet's 7x7 grid, 0.43–0.67
+  against 0.11. Three things about it that are not obvious:
+
+  - **A probe opts in**, `TARGET_STYLES`-style, and every other dense probe
+    raises. Pooling is the right bottleneck only for a target that averages —
+    the mean of classes 1 and 15 is class 8 — and a silently defaulting oracle
+    would return a confident number about nothing, which is worse than none for
+    a gate whose job is to stop work.
+  - **The upsample is bilinear because `LinearHead`'s is**, so the gate is never
+    more permissive than the heads it protects. Even a target built from hard
+    grid cells scores ~0.88 rather than 1.0.
+  - **It is a bar, never a denominator.** Unlike `evaluate_ceiling` it is an
+    achievable score rather than a proven bound, and the ratio does not
+    discriminate anyway: `corner` reaches 80% of its oracle and `keypoints2d`
+    41%, and both rank backbones fine.
 
   **A pooled-resolution overlap check is not that test, and nearly became a
   false veto.** The boundary map reads 0.267 against `edge` at full resolution
@@ -1666,8 +1692,8 @@ the measurement behind it, under the step named in brackets.**
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite is **1784 tests** and green on 2026-08-28, after the
-`fine_grained_classification` probe and schema v8, as
+fast suite is **1824 tests** and green on 2026-09-01, after the oracle gate
+(1784 through the `fine_grained_classification` probe and schema v8), as
 are all three lint steps and the `-W` docs build — all five run on `dgx1` via
 `sbatch`, since `.venv/bin/python` does not resolve on a `dgxh100` login shell.
 `uv lock --check` was green on 2026-08-06 and no dependency has moved since; the
@@ -2169,7 +2195,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 1784 fast tests
+pytest                                              # 1824 fast tests
 pytest -m slow                                      # 79, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/

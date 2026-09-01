@@ -83,6 +83,24 @@ Two standing cautions apply to everything below:
   `dynamic_img_size` (`Input height (256) doesn't match model (224)`), so no
   ViT-B/16 in this corpus can be given a 16x16 grid without changing the model.
 
+  **The oracle gate corroborates the mechanism without using a backbone at
+  all** (2026-09-01), which is worth having because every number above comes
+  from one. `DenseTrainingTask.evaluate_oracle` pools a target to a feature grid
+  and scores the reconstruction, so it measures how much of a *target* survives
+  a grid with no weights involved. Over the pinned 600 frames, going from a
+  16x16 grid to a ResNet's 7x7: `corner` 0.8316 → 0.6685, `keypoints2d` 0.6976 →
+  0.4728, `edge` 0.6336 → 0.4977, `occlusion_edge` 0.5301 → 0.4336. The dense
+  targets really do lose a fifth to a third of themselves to a coarse grid, and
+  that is a fact about the targets rather than about DINOv2.
+
+  It does **not** widen the control's claim. The control's point is that
+  matching the grid costs under 3% between 256 and 196 tokens; this says the
+  much larger 256-to-49 drop the corpus correlation spans has real headroom
+  behind it, which is the same "says nothing about the 49-token backbones"
+  caveat from the other side. Do not read an oracle drop as a predicted score
+  drop: it bounds what is available, not what a backbone recovers — `corner`
+  reaches 80% of its oracle and `keypoints2d` 41%.
+
   **The control is deliberately not in the corpus**, though it passes
   `comparability_key` against every board it ran on — the five records land in
   the *identical* group. The corpus answers "what does this backbone score",

@@ -33,6 +33,7 @@ from typing import Any
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 
 from visbench.cache.keys import hash_image, make_prefix_key
@@ -43,7 +44,48 @@ from visbench.tasks.schedule import check_schedule, warmup_cosine
 from visbench.types import FeatureMode, MetricsDict, Pooling
 from visbench.utils.device import resolve_device
 
-__all__ = ["DenseTrainingTask"]
+__all__ = ["DenseTrainingTask", "pool_to_grid"]
+
+
+def pool_to_grid(targets: torch.Tensor, grid_hw: tuple[int, int]) -> torch.Tensor:
+    """Area-average a ``(B, C, H, W)`` target down to a ``(B, C, gh, gw)`` grid.
+
+    The information a patch token can carry about its own patch, and nothing
+    more. :meth:`DenseTrainingTask.evaluate_oracle` upsamples the result back
+    and scores it, which is how the oracle asks whether a target survives the
+    feature grid at all.
+
+    **Invalid pixels are excluded rather than averaged in.** ``NaN`` is the
+    magnitude probes' invalid marker (the fourth validity convention in this
+    codebase), and a plain mean over a patch holding one hole would return
+    ``NaN`` for the whole patch — which would quietly shrink the population the
+    oracle is scored over relative to the population :meth:`evaluate` scores,
+    and the two numbers would stop being comparable. The mean is taken over the
+    finite pixels only; a cell with *no* finite pixel comes back ``NaN``, which
+    is the same marker its pixels carried.
+
+    Implemented as two adaptive pools rather than a reshape so that a grid which
+    does not divide the image evenly — 224 over a 15x15 grid, say — still pools
+    each cell over exactly the window the second pool counted.
+    """
+    if targets.ndim != 4:
+        raise ValueError(f"Expected (B, C, H, W) targets, got {tuple(targets.shape)}")
+    grid_h, grid_w = grid_hw
+    if grid_h < 1 or grid_w < 1:
+        raise ValueError(f"grid_hw must be positive, got {grid_hw}")
+    if grid_h > targets.shape[-2] or grid_w > targets.shape[-1]:
+        raise ValueError(
+            f"grid_hw {grid_hw} is finer than the target {tuple(targets.shape[-2:])}. "
+            "The oracle asks what survives a *coarser* grid; a finer one is not a bound."
+        )
+
+    finite = torch.isfinite(targets)
+    filled = targets.masked_fill(~finite, 0.0)
+    # Both pools average over the same adaptive windows, so their ratio is the
+    # mean over the finite pixels of each cell. An all-invalid cell is 0/0 = NaN.
+    total = F.adaptive_avg_pool2d(filled, (grid_h, grid_w))
+    weight = F.adaptive_avg_pool2d(finite.to(targets.dtype), (grid_h, grid_w))
+    return total / weight
 
 
 class _MemoryFeatures(Dataset):
@@ -750,22 +792,187 @@ class DenseTrainingTask(BaseTask):
         the whole-split number exactly, at bounded memory.
         """
         self._require_head()
+
+        def scored() -> Iterator[tuple[torch.Tensor, torch.Tensor]]:
+            for batch_features, batch_targets in self._iter_batches(features, labels):
+                assert batch_targets is not None  # targets_required defaults to True
+                predicted = self._forward(batch_features).cpu()
+                yield predicted, self._as_4d(torch.as_tensor(batch_targets).to(self.target_dtype))
+
+        return self._average_per_image(scored(), "feature set")
+
+    def _average_per_image(
+        self, batches: Iterator[tuple[torch.Tensor, torch.Tensor]], noun: str
+    ) -> MetricsDict:
+        """Weighted mean of :meth:`_batch_metrics` over ``(prediction, target)`` batches.
+
+        Because :meth:`_batch_metrics` returns per-image averages, weighting
+        each batch by its size and dividing by the total reproduces the
+        whole-split number exactly, at bounded memory.
+
+        Shared with :meth:`evaluate_oracle` deliberately. A ceiling computed by
+        a second averaging rule would be an average over a different population
+        from the score it qualifies — the mistake
+        :meth:`~visbench.tasks.mid_level.correspondence.CorrespondenceTask.evaluate_ceiling`
+        documents having made once, where restricting to a different set of
+        matches let a real run report 127% of its own ceiling.
+        """
         totals: dict[str, float] = {}
         count = 0
-
-        for batch_features, batch_targets in self._iter_batches(features, labels):
-            assert batch_targets is not None  # targets_required defaults to True
-            predicted = self._forward(batch_features).cpu()
-            targets = self._as_4d(torch.as_tensor(batch_targets).to(self.target_dtype))
-            batch_metrics = self._batch_metrics(predicted, targets)
+        for predicted, targets in batches:
             size = len(targets)
-            for name, value in batch_metrics.items():
+            for name, value in self._batch_metrics(predicted, targets).items():
                 totals[name] = totals.get(name, 0.0) + value * size
             count += size
 
         if count == 0:
-            raise ValueError("Cannot evaluate on an empty feature set")
+            raise ValueError(f"Cannot evaluate on an empty {noun}")
         return {name: total / count for name, total in totals.items()}
+
+    # -- the oracle ----------------------------------------------------------
+
+    def oracle_prediction(self, targets: torch.Tensor, grid_hw: tuple[int, int]) -> torch.Tensor:
+        """The best prediction a head reading a ``grid_hw`` feature map could emit.
+
+        A dense probe sees one feature vector per patch, so whatever the
+        backbone is, the head's output varies at grid resolution and is
+        interpolated up from there. This returns the target itself passed
+        through that bottleneck — pooled to the grid, upsampled back, and run
+        through :meth:`_activate` — which is what a *perfect* backbone would
+        make available.
+
+        **Not implemented by default, and that is the same posture as**
+        ``TARGET_STYLES`` **and** ``METRIC_DIRECTIONS``. Pooling is only the
+        right bottleneck for a target that averages: a class-index map does not
+        (the mean of classes 1 and 15 is class 8), and a bin-expectation depth
+        target is a measurement whose pooled value is a different quantity from
+        the one the head emits. A default that silently mean-pooled either would
+        produce a confident number about nothing, so a probe opts in — see
+        :meth:`_averaging_oracle`, which both opted-in probes call.
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} declares no oracle. The oracle pools the target to the "
+            "feature grid, which is only meaningful for a target that averages — see "
+            "DenseMagnitudeTask.oracle_prediction and OrientationTask.oracle_prediction. "
+            "If this target does average, implement oracle_prediction as a call to "
+            "self._averaging_oracle(targets, grid_hw)."
+        )
+
+    def _averaging_oracle(self, targets: torch.Tensor, grid_hw: tuple[int, int]) -> torch.Tensor:
+        """:meth:`oracle_prediction` for a target whose patch mean is meaningful.
+
+        Bilinear on the way back up because that is what
+        :meth:`~visbench.heads.base.BaseHead._resize` does — the oracle is
+        meant to face the same interpolation a real head does, not a kinder one.
+
+        An all-invalid cell is filled with the frame's mean before upsampling.
+        Left as ``NaN`` it would spread into the neighbouring cells' pixels,
+        which *are* scored, and turn the whole frame's metric into ``NaN``; the
+        cell's own pixels are masked out by the metric either way, so the fill
+        value only reaches pixels for which it is a neutral guess.
+        """
+        pooled = pool_to_grid(targets, grid_hw)
+        holes = ~torch.isfinite(pooled)
+        if bool(holes.any()):
+            per_frame = torch.nan_to_num(pooled).flatten(1).sum(dim=1) / (~holes).flatten(1).sum(
+                dim=1
+            ).clamp(min=1)
+            pooled = torch.where(holes, per_frame.view(-1, 1, 1, 1).expand_as(pooled), pooled)
+        upsampled = F.interpolate(
+            pooled, size=targets.shape[-2:], mode="bilinear", align_corners=False
+        )
+        return self._activate(upsampled)
+
+    @torch.no_grad()
+    def evaluate_oracle(
+        self,
+        labels: Any,
+        grid_hw: tuple[int, int] | int,
+        batch_size: int | None = None,
+    ) -> MetricsDict:
+        """What this probe could score if the features contained the answer.
+
+        Needs **no backbone, no features and no fitted head** — only the targets
+        and the grid a backbone would hand the head. That is the whole point: it
+        costs one pass over a split rather than a board, and it answers the one
+        question the rest of the derived-target gauntlet does not ask.
+
+        The gauntlet's other checks are all about the *target* — its tail, its
+        overlap with targets that already ship. None of them asks whether the
+        target is **recoverable from patch features at all**. Photometric
+        superpixels passed every one of them and then scored 0.02-0.04, because
+        a 1px SLIC boundary in a flat region is placed by the seeding lattice
+        and sub-threshold colour noise, which is not in a 14px patch token in
+        principle. Its oracle would have said so before a backbone was loaded.
+
+        Parameters
+        ----------
+        labels:
+            Targets: a stacked tensor, a sequence of per-image tensors, or any
+            dataset exposing ``__len__`` and ``target(index)`` — which
+            :class:`~visbench.data.derived.DerivedTargetDataset` and every dense
+            folder dataset do, so a candidate target can be measured straight
+            off the dataset that generates it.
+        grid_hw:
+            Feature grid the head would read, as ``(h, w)`` or a single int for
+            a square one. 16 is DINOv2 ViT-B/14 at 224px, 14 a ViT-B/16, 7 a
+            ResNet's ``layer4``. Coarser grids give lower ceilings; running two
+            says how much of a probe's spread is grid resolution rather than
+            representation.
+
+        Notes
+        -----
+        **This is an achievable score, not a proven upper bound**, and the
+        distinction from
+        :meth:`~visbench.tasks.mid_level.correspondence.CorrespondenceTask.evaluate_ceiling`
+        is worth keeping. That one takes a minimum over the candidates a match
+        could land on, so ``score <= ceiling`` holds by construction. This one
+        reconstructs the target from its patch means, which is the natural
+        near-optimal reconstruction and not provably the best one — a head could
+        in principle emit grid values that upsample closer. Read it as "a
+        competent head with perfect features scores about this", which is what
+        the gate needs, and do not report a probe's score as a percentage of it.
+        """
+        if isinstance(grid_hw, int):
+            grid_hw = (grid_hw, grid_hw)
+        size = batch_size if batch_size is not None else self.batch_size
+        if size < 1:
+            raise ValueError(f"batch_size must be >= 1, got {size}")
+
+        def scored() -> Iterator[tuple[torch.Tensor, torch.Tensor]]:
+            for batch in self._iter_target_batches(labels, size):
+                yield self.oracle_prediction(batch, grid_hw), batch
+
+        return self._average_per_image(scored(), "target set")
+
+    def _iter_target_batches(self, labels: Any, batch_size: int) -> Iterator[torch.Tensor]:
+        """Yield ``(B, C, H, W)`` target batches from a tensor, a sequence or a dataset.
+
+        A dataset is read through ``target(index)`` rather than ``__getitem__``
+        so the images are never decoded: the oracle does not need them, and on a
+        derived target decoding is most of the cost.
+        """
+        if isinstance(labels, torch.Tensor):
+            stacked = self._as_4d(labels.to(self.target_dtype))
+            for start in range(0, len(stacked), batch_size):
+                yield stacked[start : start + batch_size]
+            return
+
+        getter: Any
+        if hasattr(labels, "target") and hasattr(labels, "__len__"):
+            count, getter = len(labels), labels.target
+        elif isinstance(labels, (list, tuple)):
+            count, getter = len(labels), labels.__getitem__
+        else:
+            raise TypeError(
+                f"{self.display_name} needs {self.target_noun} as a tensor, a sequence, or a "
+                f"dataset with target(index); got {type(labels).__name__}"
+            )
+
+        for start in range(0, count, batch_size):
+            indices = range(start, min(start + batch_size, count))
+            batch = torch.stack([torch.as_tensor(getter(index)) for index in indices])
+            yield self._as_4d(batch.to(self.target_dtype))
 
     # -- provenance ----------------------------------------------------------
 

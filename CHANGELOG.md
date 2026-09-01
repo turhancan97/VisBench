@@ -9,6 +9,54 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+### Added
+
+- **The oracle gate: the gauntlet finally asks whether a target is
+  *recoverable*.** `DenseTrainingTask.evaluate_oracle` scores the target as a
+  perfect backbone would make it available — pooled to the feature grid,
+  upsampled back, measured with the probe's own metric. No backbone, no
+  features, no fitted head, so it costs one pass over a split rather than a
+  board, and it runs before the task is written rather than after.
+
+  This is the debt the photometric superpixel rejection left behind. Every
+  other check in the derived-target gauntlet is about the *target* — how heavy
+  its tail is, how much it overlaps something that already ships. None asked
+  whether a dense probe could recover it at all, and a probe sees one feature
+  vector per patch, so signal finer than a patch is absent from its input
+  rather than merely hard to predict.
+
+  **Calibrated against the rejection it was written for**, over the pinned 600
+  val frames at a 16x16 grid: the four shipped magnitude targets score
+  0.53–0.83 and photometric superpixels scores **0.25**, less than half the
+  weakest of them. At a ResNet's 7x7 grid the gap widens to 0.43–0.67 against
+  0.11. `orientation` is on the same table in its own unit, 11.02° against a
+  45° chance floor. The rejected target is reconstructed inside
+  `scripts/oracle_ceiling.py` — not in the package — so the gate keeps a known
+  negative beside its passing examples; it reproduces that candidate's
+  published pre-measurements to 0.059 tail (against 0.055) and 0.271 overlap
+  with `edge_texture` (against 0.267).
+
+  Three decisions worth knowing before extending it. **A probe opts in**:
+  `DenseMagnitudeTask` and `OrientationTask` declare `oracle_prediction` and
+  every other dense probe raises, naming the way in — mean-pooling a class-index
+  map is meaningless and a bin-expectation depth target is not the quantity its
+  head emits, so a silently defaulting oracle would return a confident number
+  about nothing. **The upsample is bilinear because `LinearHead`'s is**, which
+  keeps the gate from being more permissive than the heads it protects. And
+  **it is an achievable score, not a proven bound** — unlike
+  `CorrespondenceTask.evaluate_ceiling`, which takes a minimum over candidate
+  patch centres — so it is a bar and never a denominator: `corner` reaches 80%
+  of its oracle and `keypoints2d` 41%, and both rank backbones fine.
+
+  `evaluate` and `evaluate_oracle` now share their per-image averaging rather
+  than carrying a copy each, which is what makes the two numbers averages over
+  the same population — the mistake `evaluate_ceiling` records having made once,
+  where a run reported 127% of its own ceiling.
+
+  New: `visbench.tasks.dense_base.pool_to_grid`, `evaluate_oracle`,
+  `oracle_prediction`, `scripts/oracle_ceiling.py`, and the write-up in
+  `visbench/tasks/low_level/README.md`.
+
 ### Fixed
 
 - **A derived target was recomputed once per *epoch*, not once per frame.**
