@@ -195,6 +195,11 @@ square grid and bilinearly upsampled back:
 | 48x48 | 672px | 0.8105 | 0.6944 | 0.9664 | 0.6979 |
 | 64x64 | 896px | 0.8725 | 0.7842 | 0.9804 | 0.7860 |
 | 128x128 | — | 0.9534 | 0.9252 | 0.9885 | 0.9206 |
+| *no grid* | — | *0.9999* | *0.9897* | *1.0000* | *0.9999* |
+
+The last row is the sanity anchor and it is doing real work: scored with no
+bottleneck at all the consensus map reaches **0.9999**, so the ladder above is a
+property of the *grid* and not of this implementation failing to reach high ODS.
 
 For scale: human agreement is **0.787** on this split (0.803 on test), and the
 published detectors this benchmark exists to rank sit at roughly **0.60**

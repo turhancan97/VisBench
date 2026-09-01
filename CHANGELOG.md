@@ -27,9 +27,12 @@ probe and a leaderboard board. The oracle gate, run on the BSDS target over the
 | 32x32 | 448px | 0.6966 | 0.5447 | 0.5599 |
 | 48x48 | 672px | 0.8105 | 0.6944 | 0.6979 |
 | 64x64 | 896px | 0.8725 | 0.7842 | 0.7860 |
+| *no grid* | — | *0.9999* | *0.9897* | *0.9999* |
 
-Human agreement on this split is **0.787**, and the detectors BSDS exists to
-rank sit near 0.60 (Canny), 0.73 (gPb) and 0.79 (HED). **A linear probe's
+The last row is the sanity anchor: with no bottleneck the consensus map scores
+0.9999, so the ladder is a property of the grid rather than of the metric
+failing to reach high ODS. Human agreement on this split is **0.787**, and the
+detectors BSDS exists to rank sit near 0.60 (Canny), 0.73 (gPb) and 0.79 (HED). **A linear probe's
 ceiling at 224px is therefore below the weakest classical baseline in the
 literature.** The number would be real and it could not be compared with any
 published BSDS number — and comparability with those numbers is the entire
