@@ -9,6 +9,95 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+### Added
+
+- **The oracle gate: the gauntlet finally asks whether a target is
+  *recoverable*.** `DenseTrainingTask.evaluate_oracle` scores the target as a
+  perfect backbone would make it available — pooled to the feature grid,
+  upsampled back, measured with the probe's own metric. No backbone, no
+  features, no fitted head, so it costs one pass over a split rather than a
+  board, and it runs before the task is written rather than after.
+
+  This is the debt the photometric superpixel rejection left behind. Every
+  other check in the derived-target gauntlet is about the *target* — how heavy
+  its tail is, how much it overlaps something that already ships. None asked
+  whether a dense probe could recover it at all, and a probe sees one feature
+  vector per patch, so signal finer than a patch is absent from its input
+  rather than merely hard to predict.
+
+  **Calibrated against the rejection it was written for**, over the pinned 600
+  val frames at a 16x16 grid: the four shipped magnitude targets score
+  0.53–0.83 and photometric superpixels scores **0.25**, less than half the
+  weakest of them. At a ResNet's 7x7 grid the gap widens to 0.43–0.67 against
+  0.11. `orientation` is on the same table in its own unit, 11.02° against a
+  45° chance floor. The rejected target is reconstructed inside
+  `scripts/oracle_ceiling.py` — not in the package — so the gate keeps a known
+  negative beside its passing examples; it reproduces that candidate's
+  published pre-measurements to 0.059 tail (against 0.055) and 0.271 overlap
+  with `edge_texture` (against 0.267).
+
+  Three decisions worth knowing before extending it. **A probe opts in**:
+  `DenseMagnitudeTask` and `OrientationTask` declare `oracle_prediction` and
+  every other dense probe raises, naming the way in — mean-pooling a class-index
+  map is meaningless and a bin-expectation depth target is not the quantity its
+  head emits, so a silently defaulting oracle would return a confident number
+  about nothing. **The upsample is bilinear because `LinearHead`'s is**, which
+  keeps the gate from being more permissive than the heads it protects. And
+  **it is an achievable score, not a proven bound** — unlike
+  `CorrespondenceTask.evaluate_ceiling`, which takes a minimum over candidate
+  patch centres — so it is a bar and never a denominator: `corner` reaches 80%
+  of its oracle and `keypoints2d` 41%, and both rank backbones fine.
+
+  `evaluate` and `evaluate_oracle` now share their per-image averaging rather
+  than carrying a copy each, which is what makes the two numbers averages over
+  the same population — the mistake `evaluate_ceiling` records having made once,
+  where a run reported 127% of its own ceiling.
+
+  New: `visbench.tasks.dense_base.pool_to_grid`, `evaluate_oracle`,
+  `oracle_prediction`, `scripts/oracle_ceiling.py`, and the write-up in
+  `visbench/tasks/low_level/README.md`.
+
+- **The ceiling now travels with the score for dense probes, not only for
+  correspondence.** `edge`, `keypoints2d`, `occlusion_edge`, `corner` and
+  `orientation` emit `ceiling_*` beside their metrics through
+  `context_metrics`, so a dense number arrives with the statement of what was
+  available to it.
+
+  It matters because the ceiling varies **by backbone**, which is exactly when a
+  missing qualification misleads. Over the pinned 600 frames, on the three grids
+  the corpus backbones actually produce at 224px:
+
+  | target | 16 (ViT/14) | 14 (ViT/16) | 7 (ResNet) |
+  |---|---|---|---|
+  | `corner` | 0.8316 | 0.8053 | 0.6685 |
+  | `keypoints2d` | 0.6976 | 0.6674 | 0.4728 |
+  | `edge` | 0.6336 | 0.6106 | 0.4977 |
+  | `occlusion_edge` | 0.5301 | 0.5150 | 0.4336 |
+  | `orientation` (deg, lower better) | 11.02 | 12.18 | 18.57 |
+
+  Ranking a ViT/14 against a ResNet on `corner` without those numbers invites a
+  reader to attribute a grid difference to a representation.
+
+  **The grid comes from the features, not from a declared patch size** — read
+  off the first item the way the channel width already is, and the *finest* map
+  when several layers are requested, since a DPT head's detail is bounded by its
+  finest input. **Targets are read without touching the feature files**: a
+  streamed run keeps its targets as a callable by index, so the ceiling costs a
+  pass over the supervision rather than over the 19 GB beside it.
+
+  **Never rank, average or divide by a ceiling.** It says what was available,
+  not what the backbone recovered, and because it falls with the grid, a board
+  ordered by ceiling is a board ordered by feature resolution.
+
+  **No published number moves and the schema is untouched** — these are keys
+  inside `metrics`, not a new field. The committed corpus predates them, so its
+  60 records for those five probes carry no `ceiling_*` and a re-run differs
+  from them by exactly those additions. That is absence, the way a pre-v8 record
+  carries no `training`, and it must not be backfilled: a value in a record no
+  run produced is worse than a missing one. Probes whose target does not average
+  — depth, both segmentations, surface normals — return `{}` and are unchanged
+  key for key.
+
 ### Fixed
 
 - **A derived target was recomputed once per *epoch*, not once per frame.**

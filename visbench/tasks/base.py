@@ -110,9 +110,20 @@ class BaseTask(ABC):
         :func:`visbench.run` — and therefore the CLI — do the same, rather than
         the qualification being available only to whoever read the example.
 
-        Keys should be namespaced by the implementer (correspondence prefixes
+        **The dense probes that declare an oracle answer it too**, for the same
+        reason one step removed: their head reads one feature vector per patch,
+        so part of the target is out of reach before the backbone is chosen and
+        how much varies by backbone. See
+        :meth:`~visbench.tasks.dense_base.DenseTrainingTask.context_metrics`.
+
+        Keys should be namespaced by the implementer (both implementers prefix
         ``ceiling_``), since these land in the same flat metrics dict as the
         score and a collision would overwrite a result.
+
+        **What comes back here is never a score.** It qualifies one, so it must
+        not be ranked, averaged or used as a denominator — a ceiling falls with
+        the feature grid, and a board ordered by one would be a board ordered by
+        resolution.
         """
         return {}
 

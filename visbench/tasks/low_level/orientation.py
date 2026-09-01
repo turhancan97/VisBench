@@ -122,6 +122,23 @@ class OrientationTask(DenseTrainingTask):
         """``{"orientation_error", "d1", "d2", "rmse", "median"}``; quote the error."""
         return orientation_metrics(pred, target)
 
+    def oracle_prediction(self, targets: torch.Tensor, grid_hw: tuple[int, int]) -> torch.Tensor:
+        """The patch-mean reconstruction — and the vector average is the right one.
+
+        Averaging ``coherence * (cos 2t, sin 2t)`` over a patch is a *resultant*,
+        not a component-wise fudge: its direction is the patch's dominant
+        orientation and its length falls towards zero where the orientations
+        inside the patch disagree. Then ``_activate`` normalises, which is what
+        makes the honest part honest — a patch with no dominant direction hands
+        the metric an arbitrary unit vector, exactly as a real head would, and
+        the metric's coherence weighting is what stops that costing much.
+
+        So the oracle is not near-perfect here even though the target is smooth:
+        it measures how much orientation structure is finer than a patch, which
+        is the quantity the gate exists to expose.
+        """
+        return self._averaging_oracle(targets, grid_hw)
+
     def _task_params(self) -> dict:
         """Override the inherited ``protocol``: this is not probe3d's."""
         return {

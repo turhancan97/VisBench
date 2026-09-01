@@ -173,20 +173,30 @@ before starting one of these.
 | ~~Superpixel / texture segmentation~~ | low | **Rejected after building it** — the SLIC boundary target passed every pre-measurement and then scored 0.021–0.043 correlation on three backbones, against 0.18–0.65 for every shipped low-level probe. A 1px partition boundary is not recoverable from patch features |
 | Blob detection (DoG, LoG) | low | **Rejected** — the pre-measurement found its target correlates 0.51 with `corner`, as redundant with an existing probe as `corner` is with `edge` |
 
-Three things a derived target has to establish before it is worth shipping,
-none of which a probe run reveals on its own — all three cost real time on the
-`corner` and `orientation` probes:
+Four things a derived target has to establish before it is worth shipping, none
+of which a probe run reveals on its own. The first is what the superpixel
+rejection cost; the rest cost real time on the `corner` and `orientation`
+probes:
 
-1. **Check the response's tail** before assuming the magnitude protocol
+1. **Run the oracle gate** — `python scripts/oracle_ceiling.py --targets <yours>`
+   — which asks what the probe could score *if the features contained the
+   answer*. A dense probe sees one feature vector per patch, so signal finer
+   than a patch is absent from its input rather than merely hard to predict, and
+   a target made of it cannot rank backbones however distinctive it is. Every
+   shipped magnitude target scores 0.53–0.83 on a 16x16 grid; photometric
+   superpixels scores 0.25, and was built anyway because this check did not yet
+   exist. It needs no backbone and no fitted head, so it costs one pass over a
+   split.
+2. **Check the response's tail** before assuming the magnitude protocol
    transfers. A target with too much mass in its strongest 1% of pixels scores
    badly and ranks nothing. (An angle has no tail, so `orientation` skipped the
    compression — confirmed by the pre-measurement.)
-2. **Check the overlap with what already ships, *before building*.** Cornerness
+3. **Check the overlap with what already ships, *before building*.** Cornerness
    correlates 0.52 with `edge_texture`; DoG blob correlated 0.51 with `corner`
    and was dropped; `orientation`'s `|r|` with both is under 0.09, because it
    measures phase. This costs an afternoon of correlations, not a probe run per
    backbone.
-3. **A correlated target still earns its place if it *ranks* differently**, and
+4. **A correlated target still earns its place if it *ranks* differently**, and
    that — not the absolute score — is the criterion.
 
 Compute the target *after* the crop. There is then no second geometry and no

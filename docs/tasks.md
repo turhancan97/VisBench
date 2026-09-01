@@ -47,6 +47,37 @@ The control spans 256 to 196 tokens where the corpus correlation spans 49 to
 for the records and the full write-up; they are deliberately kept out of the
 corpus, so no table on this page contains them.
 
+### How much of a target the grid puts out of reach, before any backbone
+
+The five magnitude and orientation probes report a **ceiling** beside every
+score, as `correspondence` does. It is the target itself pooled to that run's
+feature grid and upsampled back — what a perfect backbone would make available,
+since the head reads one feature vector per patch. Measured over the pinned 600
+frames on the three grids the corpus backbones produce at 224px:
+
+| target | 16 (ViT/14) | 14 (ViT/16) | 7 (ResNet) |
+|---|---|---|---|
+| `corner` | 0.8316 | 0.8053 | 0.6685 |
+| `keypoints2d` | 0.6976 | 0.6674 | 0.4728 |
+| `edge` | 0.6336 | 0.6106 | 0.4977 |
+| `occlusion_edge` | 0.5301 | 0.5150 | 0.4336 |
+| `orientation` (deg, lower better) | 11.02 | 12.18 | 18.57 |
+
+So a ResNet is scored on `corner` against a ceiling a fifth lower than a
+DINOv2's, and reading the board without that invites attributing a grid
+difference to a representation. This is the resolution finding above arrived at
+from the other side, with no weights involved at all — it is a property of the
+targets.
+
+**Do not rank on a ceiling, average one, or divide by one.** It says what was
+available, not what the backbone recovered; because it falls with the grid, a
+board ordered by ceiling is a board ordered by resolution. The ratio does not
+behave either — `corner` reaches 80% of its ceiling and `keypoints2d` 41%, and
+both rank backbones perfectly well. (Correspondence's ceiling *is* a proven
+bound and is read as a fraction further down this page; this one is an
+achievable reconstruction, not a proven maximum.) The tables on this page come
+from a corpus that predates the ceiling, so they do not show it.
+
 ## The high-level tier is two clusters, not one
 
 The probes are grouped into high-, mid- and low-level tiers following

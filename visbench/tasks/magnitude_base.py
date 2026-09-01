@@ -142,6 +142,24 @@ class DenseMagnitudeTask(DenseTrainingTask):
         """``{correlation_key, "rmse", "mae"}``; quote the correlation."""
         return magnitude_metrics(pred, target, correlation_key=self.correlation_key)
 
+    def oracle_prediction(self, targets: torch.Tensor, grid_hw: tuple[int, int]) -> torch.Tensor:
+        """The patch-mean reconstruction — a magnitude averages, so this is meaningful.
+
+        A magnitude map is a per-pixel measurement of the same quantity
+        everywhere, so the mean over a patch is that quantity at patch scale and
+        :meth:`~visbench.tasks.dense_base.DenseTrainingTask._averaging_oracle`
+        applies unchanged. ``_activate`` being the identity means the oracle is
+        exactly the pooled-and-upsampled target.
+
+        **Run this before building a fourth magnitude probe.** It is the gate
+        photometric superpixels would have failed: its boundary map is one pixel
+        wide, so almost all of it is destroyed by the pooling, where the four
+        shipped magnitude targets survive it. See
+        :meth:`~visbench.tasks.dense_base.DenseTrainingTask.evaluate_oracle` and
+        ``scripts/oracle_ceiling.py``.
+        """
+        return self._averaging_oracle(targets, grid_hw)
+
     def _task_params(self) -> dict:
         """Override the inherited ``protocol``: none of these is probe3d's or BSDS's.
 

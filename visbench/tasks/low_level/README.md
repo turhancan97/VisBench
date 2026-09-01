@@ -161,8 +161,18 @@ which `orientation.py` now provides. **Photometric superpixels** was the last
 candidate needing no dataset, and it was built and rejected — see below. Nothing
 remains on this list that does not need a download first.
 
-Four cautions, the first three paid for by `corner` and `orientation`:
+Five cautions. The first was paid for by the superpixel rejection and the next
+three by `corner` and `orientation`; all four are checks to run **before**
+writing the task, and between them they cost one pass over a split and an
+afternoon of correlations rather than a per-backbone board.
 
+- **Run the oracle gate.** `python scripts/oracle_ceiling.py --targets <yours>`
+  — what the probe could score if the features contained the answer. The
+  shipped targets sit at 0.53–0.83 on a 16x16 grid; photometric superpixels sat
+  at 0.25 and was built anyway, because this check did not exist. See "The
+  oracle gate" above. It is last of the cheap checks and first of the ones that
+  can refuse a target outright, because a target nothing can recover cannot rank
+  backbones however distinctive it is.
 - **Check the tail first.** Every raw corner response was spikier than
   `edge_occlusion`'s 0.46, the case that stopped ranking. A compression is not
   optional, and which one is a measurement. (An *angle* has no tail — the
@@ -215,12 +225,12 @@ SLIC's seeding lattice. Two rival formulations were measured and rejected on the
 overlap rule (segment-mean residual at 0.509; log segment area degenerate,
 because SLIC equalises segment sizes by construction).
 
-**What the gauntlet does not ask, and now should.** Every existing check is
-about the *target*: its distribution, and its relationship to other targets.
-None asks whether the target is **recoverable from patch features at all**. A
-SLIC boundary is one pixel wide and, in a flat region, its position is set by
-the lattice seeding and sub-threshold colour noise — information that is not in
-a 14px patch token in principle, not merely in practice.
+**What the gauntlet did not ask, and now does.** Every check above is about the
+*target*: its distribution, and its relationship to other targets. None asked
+whether the target is **recoverable from patch features at all**. A SLIC
+boundary is one pixel wide and, in a flat region, its position is set by the
+lattice seeding and sub-threshold colour noise — information that is not in a
+14px patch token in principle, not merely in practice.
 
 A pooled-resolution overlap check was tried and is *not* the missing test: it
 measures whether two targets agree at coarse scale, which is a different
@@ -228,11 +238,89 @@ question. It also produced a misleading near-veto — the boundary map reads 0.6
 against `edge` at a 16x16 grid, but the shipped `corner` target reads **0.781**
 there and ranks backbones differently anyway, so it cannot refuse anything.
 
-**The cheap missing check is an oracle:** fit the probe's own head on features
-that trivially contain the answer, or simply ask what correlation is achievable
-when the target is pooled to the feature grid and upsampled back. A target whose
-own ceiling is near zero cannot rank, and that costs one run rather than a board.
-`CorrespondenceTask.evaluate_ceiling` is the same idea already in the codebase.
+**The missing check is the oracle gate below**, added afterwards and calibrated
+against this rejection.
+
+## The oracle gate — is the target recoverable at all?
+
+`scripts/oracle_ceiling.py`, over
+`DenseTrainingTask.evaluate_oracle`. Pool the target to the feature grid,
+upsample it back, score it with the probe's own metric: that is what a *perfect*
+backbone would make available to the head, because a dense probe sees one
+feature vector per patch and its head interpolates up from there. Signal finer
+than a patch is not merely hard to predict, it is **absent from the input**.
+
+It needs no backbone, no features and no fitted head, so it costs one pass over
+a split rather than a board — which is the whole argument for running it before
+writing the task rather than after. `CorrespondenceTask.evaluate_ceiling` is the
+same idea, arrived at for the same reason.
+
+Measured over the pinned 600 val frames at 224px, `--limit 600`:
+
+| target | verdict | 16 (ViT/14) | 14 (ViT/16) | 7 (ResNet) | best on its board |
+|---|---|---|---|---|---|
+| `corner` | ships | **0.8316** | 0.8053 | 0.6685 | 0.6669 |
+| `keypoints2d` | ships | **0.6976** | 0.6674 | 0.4728 | 0.2850 |
+| `edge` | ships | **0.6336** | 0.6106 | 0.4977 | 0.4982 |
+| `occlusion_edge` | ships | **0.5301** | 0.5150 | 0.4336 | 0.3273 |
+| `superpixel` | **rejected** | **0.2519** | 0.2133 | 0.1109 | 0.0434 |
+
+Those are the three grids the corpus backbones actually hand a head at 224px.
+The last column is read off the twelve-backbone corpus, not off the
+six-backbone tables higher up this file, and it is `mae_vitb16` in three rows of
+four. `superpixel` never had a board — 0.0434 is the best of the three
+backbones it was measured on before being dropped.
+
+`orientation` is on the same table in its own unit — 11.02° / 12.18° / 18.57°
+against a 45° chance floor and a board spanning 18.8–31.2°.
+
+**The gap between 16 and 7 is why the ceiling now travels with every score.**
+Since 2026-09-01 these five probes emit `ceiling_*` alongside their metrics
+through `context_metrics`, exactly as `correspondence` does: `corner`'s ceiling
+is 0.8316 against a ViT/14 and 0.6685 against a ResNet, so ranking the two
+without saying so invites a reader to attribute a grid difference to a
+representation. It is computed from the run's own feature grid, read off the
+features rather than from a declared patch size, and it costs a pass over the
+split's *targets* — not its features, which are the expensive half.
+
+**A ceiling is never a score.** Do not rank on one, average one, or divide by
+one: it falls with the grid, so a board ordered by ceiling is a board ordered by
+feature resolution. The committed corpus predates this and its records carry no
+`ceiling_*` key; that is absence, like a pre-v8 record carrying no `training`,
+and it must not be backfilled.
+
+**The bar.** Every target that ships sits at 0.53–0.83; the one that was built
+and thrown away sits at **0.25**, less than half the weakest of them, and at
+grid 7 it is 0.11 against their 0.43–0.67. A candidate down there should not be
+built. There is no magic constant here and there should not be — read it the way
+the tail rule is read, as a working range with a known-ruinous case beside it.
+
+**Do not turn it into a denominator.** The tempting next step is to score a
+probe as a fraction of its oracle, and it does not work: `corner` reaches 80% of
+its oracle and `keypoints2d` only 41%, yet both rank backbones perfectly well.
+The gate is the oracle's own height, not the ratio. The oracle is in any case an
+*achievable* score rather than a proven bound — it reconstructs the target from
+its patch means, which is near-optimal and not provably maximal, unlike
+`evaluate_ceiling`'s minimum over candidate patch centres.
+
+**The upsample is bilinear because `LinearHead`'s is.** A nearest upsample would
+raise every number and make the gate more permissive than the heads it protects
+— the wrong direction for a check whose job is to reject. It is why even a
+target built from hard grid cells scores about 0.88 rather than 1.0.
+
+**A probe opts in.** `DenseMagnitudeTask` and `OrientationTask` declare
+`oracle_prediction`; every other dense probe raises, naming the way to opt in.
+Pooling is only the right bottleneck for a target that averages — the mean of
+classes 1 and 15 is class 8, and a bin-expectation depth target is not the
+quantity its head emits — and a silently defaulting oracle would return a
+confident number about nothing. That is worse here than no number, because this
+gate exists to *stop* work.
+
+The rejected superpixel target is reconstructed inside the script rather than in
+the package, so the gate keeps a known negative to be calibrated against. It is
+the original: at SLIC's defaults it reproduces the published pre-measurements to
+0.059 tail (against 0.055) and 0.271 overlap with `edge_texture` (against
+0.267).
 
 **What survived.** `DerivedTargetDataset` now memoises computed targets — see
 `MEMO_LIMIT`. `CachedFeatures.__getitem__` calls `dataset.target(index)` on every
