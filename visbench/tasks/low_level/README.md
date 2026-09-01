@@ -257,21 +257,37 @@ same idea, arrived at for the same reason.
 
 Measured over the pinned 600 val frames at 224px, `--limit 600`:
 
-| target | verdict | grid 16 (ViT/14) | grid 7 (ResNet) | best on its board |
-|---|---|---|---|---|
-| `corner` | ships | **0.8316** | 0.6685 | 0.6669 |
-| `keypoints2d` | ships | **0.6976** | 0.4728 | 0.2850 |
-| `edge` | ships | **0.6336** | 0.4977 | 0.4982 |
-| `occlusion_edge` | ships | **0.5301** | 0.4336 | 0.3273 |
-| `superpixel` | **rejected** | **0.2519** | 0.1109 | 0.0434 |
+| target | verdict | 16 (ViT/14) | 14 (ViT/16) | 7 (ResNet) | best on its board |
+|---|---|---|---|---|---|
+| `corner` | ships | **0.8316** | 0.8053 | 0.6685 | 0.6669 |
+| `keypoints2d` | ships | **0.6976** | 0.6674 | 0.4728 | 0.2850 |
+| `edge` | ships | **0.6336** | 0.6106 | 0.4977 | 0.4982 |
+| `occlusion_edge` | ships | **0.5301** | 0.5150 | 0.4336 | 0.3273 |
+| `superpixel` | **rejected** | **0.2519** | 0.2133 | 0.1109 | 0.0434 |
 
+Those are the three grids the corpus backbones actually hand a head at 224px.
 The last column is read off the twelve-backbone corpus, not off the
 six-backbone tables higher up this file, and it is `mae_vitb16` in three rows of
 four. `superpixel` never had a board — 0.0434 is the best of the three
 backbones it was measured on before being dropped.
 
-`orientation` is on the same table in its own unit — 11.02° at grid 16 and
-18.57° at grid 7, against a 45° chance floor and a board spanning 18.8–31.2°.
+`orientation` is on the same table in its own unit — 11.02° / 12.18° / 18.57°
+against a 45° chance floor and a board spanning 18.8–31.2°.
+
+**The gap between 16 and 7 is why the ceiling now travels with every score.**
+Since 2026-09-01 these five probes emit `ceiling_*` alongside their metrics
+through `context_metrics`, exactly as `correspondence` does: `corner`'s ceiling
+is 0.8316 against a ViT/14 and 0.6685 against a ResNet, so ranking the two
+without saying so invites a reader to attribute a grid difference to a
+representation. It is computed from the run's own feature grid, read off the
+features rather than from a declared patch size, and it costs a pass over the
+split's *targets* — not its features, which are the expensive half.
+
+**A ceiling is never a score.** Do not rank on one, average one, or divide by
+one: it falls with the grid, so a board ordered by ceiling is a board ordered by
+feature resolution. The committed corpus predates this and its records carry no
+`ceiling_*` key; that is absence, like a pre-v8 record carrying no `training`,
+and it must not be backfilled.
 
 **The bar.** Every target that ships sits at 0.53–0.83; the one that was built
 and thrown away sits at **0.25**, less than half the weakest of them, and at

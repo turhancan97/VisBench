@@ -57,6 +57,47 @@ so it stands on its own rather than assuming you have read the ones above it.
   `oracle_prediction`, `scripts/oracle_ceiling.py`, and the write-up in
   `visbench/tasks/low_level/README.md`.
 
+- **The ceiling now travels with the score for dense probes, not only for
+  correspondence.** `edge`, `keypoints2d`, `occlusion_edge`, `corner` and
+  `orientation` emit `ceiling_*` beside their metrics through
+  `context_metrics`, so a dense number arrives with the statement of what was
+  available to it.
+
+  It matters because the ceiling varies **by backbone**, which is exactly when a
+  missing qualification misleads. Over the pinned 600 frames, on the three grids
+  the corpus backbones actually produce at 224px:
+
+  | target | 16 (ViT/14) | 14 (ViT/16) | 7 (ResNet) |
+  |---|---|---|---|
+  | `corner` | 0.8316 | 0.8053 | 0.6685 |
+  | `keypoints2d` | 0.6976 | 0.6674 | 0.4728 |
+  | `edge` | 0.6336 | 0.6106 | 0.4977 |
+  | `occlusion_edge` | 0.5301 | 0.5150 | 0.4336 |
+  | `orientation` (deg, lower better) | 11.02 | 12.18 | 18.57 |
+
+  Ranking a ViT/14 against a ResNet on `corner` without those numbers invites a
+  reader to attribute a grid difference to a representation.
+
+  **The grid comes from the features, not from a declared patch size** — read
+  off the first item the way the channel width already is, and the *finest* map
+  when several layers are requested, since a DPT head's detail is bounded by its
+  finest input. **Targets are read without touching the feature files**: a
+  streamed run keeps its targets as a callable by index, so the ceiling costs a
+  pass over the supervision rather than over the 19 GB beside it.
+
+  **Never rank, average or divide by a ceiling.** It says what was available,
+  not what the backbone recovered, and because it falls with the grid, a board
+  ordered by ceiling is a board ordered by feature resolution.
+
+  **No published number moves and the schema is untouched** — these are keys
+  inside `metrics`, not a new field. The committed corpus predates them, so its
+  60 records for those five probes carry no `ceiling_*` and a re-run differs
+  from them by exactly those additions. That is absence, the way a pre-v8 record
+  carries no `training`, and it must not be backfilled: a value in a record no
+  run produced is worse than a missing one. Probes whose target does not average
+  — depth, both segmentations, surface normals — return `{}` and are unchanged
+  key for key.
+
 ### Fixed
 
 - **A derived target was recomputed once per *epoch*, not once per frame.**

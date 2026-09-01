@@ -1005,14 +1005,35 @@ designed up front; extend it the same way, from a case that already runs.
   warped everything. 16.4 s cold against 8.2 s warm on 200 pairs, once `run()`
   used it. **A declared-but-uncalled mechanism is the same failure as the
   QuickGELU guard**: it passes its own tests forever while doing nothing.
-- **Correspondence's ceiling travels with its score, through
-  `BaseTask.context_metrics`.** A match can only land on a patch centre, so a
+- **A ceiling travels with its score, through `BaseTask.context_metrics` — for
+  correspondence and, since 2026-09-01, for every dense probe that declares an
+  oracle.** A match can only land on a patch centre, so a
   coarse grid has a hard floor on achievable precision: `ceiling_recall@5px` is
   ~0.10 on a 7x7 grid against ~0.41 on a 16x16 one. The score alone therefore
-  says the wrong thing. The hook returns `{}` for every other task;
-  correspondence prefixes `ceiling_`. `run()` refuses a context key that
-  collides with a score, since they share one flat dict. Measured on 200
+  says the wrong thing. Measured on 200
   Imagenette pairs, DINOv2-S: `recall@5px` 0.3049 against a ceiling of 0.4123.
+
+  **The dense probes have the same problem and now say so.** The head reads one
+  feature vector per patch, so part of every dense target is out of reach before
+  the backbone is chosen, and how much varies by *backbone*: `corner`'s ceiling
+  is 0.8316 on a 16x16 grid and 0.6685 on a ResNet's 7x7. Ranking those two
+  against each other silently invites a reader to attribute a grid difference to
+  a representation. `edge`, `keypoints2d`, `occlusion_edge`, `corner` and
+  `orientation` emit `ceiling_*`; every other dense probe still returns `{}`,
+  because pooling a class-index or bin-expectation target is meaningless.
+
+  Everything else is unchanged: `run()` refuses a context key that
+  collides with a score, since they share one flat dict, and both prefix
+  `ceiling_`. **Never rank or average on a ceiling** — it says what was
+  available, not what was recovered, and since it falls with the grid, ranking
+  on it would rank feature resolution directly.
+
+  **The committed corpus predates it**, so its 60 records for those five probes
+  carry no `ceiling_*` key and a re-run will differ from them by exactly those
+  additions, with no score moving. That is absence, the way a pre-v8 record
+  carries no `training` — **do not backfill it into the corpus**, which would
+  put numbers in a record that no run produced. Schema is untouched: these are
+  keys inside `metrics`, not a new field.
 - **Correspondence thresholds are in *pixels*, and normalising them by patch
   spacing is the bug v0.6.1 fixed — do not reinstate it.** Patch widths look
   like the natural unit (they are the quantisation floor) and are fine within

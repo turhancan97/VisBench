@@ -88,6 +88,31 @@ def pool_to_grid(targets: torch.Tensor, grid_hw: tuple[int, int]) -> torch.Tenso
     return total / weight
 
 
+class _TargetsOf:
+    """The targets of a :class:`~visbench.cache.CachedFeatures`, and nothing else.
+
+    `CachedFeatures` keeps its targets as a callable by index and loads a
+    feature file only when the item itself is asked for, so this reaches the
+    supervision of a streamed run without touching the features — which is what
+    lets the ceiling cost a pass over the targets rather than over the 19 GB
+    beside them. Shaped as ``__len__`` + ``target(index)`` so that
+    :meth:`DenseTrainingTask._iter_target_batches` sees the same thing a dataset
+    presents.
+    """
+
+    def __init__(self, cached: CachedFeatures) -> None:
+        if cached.targets is None:
+            raise ValueError("These features carry no targets")
+        self._cached = cached
+
+    def __len__(self) -> int:
+        return len(self._cached)
+
+    def target(self, index: int) -> Any:
+        assert self._cached.targets is not None
+        return self._cached.targets(index)
+
+
 class _MemoryFeatures(Dataset):
     """Already-stacked features, indexable like the streaming reader.
 
@@ -830,6 +855,89 @@ class DenseTrainingTask(BaseTask):
         return {name: total / count for name, total in totals.items()}
 
     # -- the oracle ----------------------------------------------------------
+
+    def context_metrics(self, features: Any, labels: Any | None = None) -> MetricsDict:
+        """:meth:`evaluate_oracle` for this run's grid, prefixed ``ceiling_``.
+
+        A dense score read without its ceiling says the wrong thing for the same
+        reason a correspondence score does: the head sees one feature vector per
+        patch, so part of every target is out of reach before the backbone is
+        chosen, and how much varies by *backbone* — a ResNet's 7x7 grid leaves
+        `corner` a ceiling of 0.67 where a ViT/14's 16x16 leaves 0.83. Ranking
+        those two against each other without saying so invites a reader to
+        attribute a grid difference to a representation.
+
+        ``{}`` for a probe that declares no oracle, which is most of them —
+        pooling is meaningful only for a target that averages, and the refusal
+        in :meth:`oracle_prediction` is deliberate. The check is on the
+        *subclass* rather than a flag, so a probe cannot claim one it has not
+        implemented.
+
+        **The ceiling is not a score and must never be ranked on.** It says what
+        was available, not what the backbone recovered — and because it falls
+        with the grid, ranking on it would rank feature resolution directly. It
+        is also not a denominator: `corner` reaches 80% of its ceiling and
+        `keypoints2d` 41%, and both rank backbones perfectly well.
+
+        Costs a pass over the split's *targets* — not its features, which are
+        the expensive half and are not read here.
+        """
+        if type(self).oracle_prediction is DenseTrainingTask.oracle_prediction:
+            return {}
+
+        targets = self._targets_only(features, labels)
+        if targets is None:
+            return {}
+
+        grid_hw = self._grid_of(self._source(features, labels))
+        return {
+            f"ceiling_{name}": value
+            for name, value in self.evaluate_oracle(targets, grid_hw).items()
+        }
+
+    def _targets_only(self, features: Any, labels: Any | None) -> Any:
+        """The run's targets, reached without loading a single feature map.
+
+        The three shapes :meth:`_source` accepts each keep the targets somewhere
+        different, and only one of them is the ``labels`` argument. Going
+        through :meth:`_source` instead would be simpler and would stream every
+        dense feature in the split off disk to throw it away — which for a
+        24k-image run is the 19 GB the streaming path exists to avoid.
+        """
+        if labels is not None:
+            return labels
+        if isinstance(features, CachedFeatures):
+            return _TargetsOf(features) if features.targets is not None else None
+        if hasattr(features, "target") and hasattr(features, "__len__"):
+            # Fine-tuning: `features` is the image dataset, which pairs its own
+            # targets by index. Reading them costs no forward pass.
+            return features
+        return None
+
+    def _grid_of(self, source: Dataset) -> tuple[int, int]:
+        """The feature grid the head reads, sampled off the first item.
+
+        Sampled the same way :meth:`_shape_of` samples the channel width, and
+        for the same reason: it is what is actually there rather than what a
+        backbone's patch size implies.
+
+        **The finest map, when several are requested.** A DPT head fuses
+        multiple depths, and detail it can carry is bounded by its *finest*
+        input, not its coarsest. Every ViT in this corpus returns one grid for
+        all of them, so this only differs for a multi-stage CNN.
+        """
+        sample_features, _ = source[0]  # type: ignore[index]
+        if self._backbone is not None:
+            with torch.no_grad():
+                sample_features = self._backbone_dense([sample_features])
+            sample_features = (
+                [layer[0] for layer in sample_features]
+                if isinstance(sample_features, list)
+                else sample_features[0]
+            )
+        maps = sample_features if isinstance(sample_features, list) else [sample_features]
+        grids = [(int(one.shape[-2]), int(one.shape[-1])) for one in maps]
+        return max(grids, key=lambda hw: hw[0] * hw[1])
 
     def oracle_prediction(self, targets: torch.Tensor, grid_hw: tuple[int, int]) -> torch.Tensor:
         """The best prediction a head reading a ``grid_hw`` feature map could emit.

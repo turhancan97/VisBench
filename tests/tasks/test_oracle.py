@@ -20,7 +20,12 @@ every pixel does not survive it at all.
 
 import pytest
 import torch
+from PIL import Image
 
+import visbench
+from visbench.cache import FeatureCache
+from visbench.cache.streaming import CachedFeatures
+from visbench.data.derived import DerivedTargetDataset, ShiTomasiResponse
 from visbench.tasks.dense_base import DenseTrainingTask, pool_to_grid
 from visbench.tasks.high_level import SemanticSegmentationTask
 from visbench.tasks.low_level import CornerTask, EdgeTask, Keypoint2DTask, OrientationTask
@@ -299,3 +304,139 @@ def test_every_dense_probe_answers_the_oracle_question_one_way_or_the_other():
     for probe in (EdgeTask(), OrientationTask(), DepthTask()):
         assert callable(probe.oracle_prediction)
         assert isinstance(probe, DenseTrainingTask)
+
+
+# -- the ceiling travelling with the score ------------------------------------
+
+
+@pytest.fixture
+def frames(tmp_path):
+    """A folder of textured images, for a derived-target run."""
+    root = tmp_path / "frames" / "images"
+    root.mkdir(parents=True)
+    generator = torch.Generator().manual_seed(0)
+    for index in range(6):
+        noise = (torch.rand(48, 48, 3, generator=generator) * 255).to(torch.uint8)
+        Image.fromarray(noise.numpy()).save(root / f"{index:02d}.png")
+    return root.parent
+
+
+@pytest.fixture
+def cache(tmp_path):
+    return FeatureCache(root=tmp_path / "cache")
+
+
+def _derived_split(root, split):
+    return DerivedTargetDataset(
+        root=root, image_dir="images", split=split, image_size=32, generator=ShiTomasiResponse()
+    )
+
+
+def test_a_dense_record_carries_its_ceiling(fake_vit, frames, cache):
+    """The point of wiring it in: the number that qualifies the score is in the record.
+
+    Until now only `correspondence` did this, and a dense score has the same
+    problem — the head sees one vector per patch, so part of the target is out
+    of reach before the backbone is chosen, and how much depends on the grid.
+    """
+    result = visbench.run(
+        fake_vit,
+        EdgeTask(epochs=1, warmup_epochs=0, batch_size=2),
+        _derived_split(frames, "val"),
+        train_dataset=_derived_split(frames, "train"),
+        cache=cache,
+    )
+    assert "ceiling_edge_correlation" in result.metrics
+    assert "edge_correlation" in result.metrics
+    assert result.metrics["ceiling_edge_correlation"] > result.metrics["edge_correlation"]
+
+
+def test_the_ceiling_matches_a_direct_call_on_the_same_grid(fake_vit, frames, cache):
+    """One computation, reachable two ways — not two that could drift apart.
+
+    The grid used is the **backbone's**, read off the features: `FakeViT`
+    resizes to its own 64px and has patch size 16, so it is 4x4 whatever the
+    dataset's `image_size` is. Deriving it from the target resolution instead
+    would give 2x2 here and a ceiling of 0.33 against the true 0.64 — a
+    qualification that understates itself, which is the wrong direction for a
+    number whose job is to stop a reader over-crediting a backbone.
+    """
+    probe = EdgeTask(epochs=1, warmup_epochs=0, batch_size=2)
+    dataset = _derived_split(frames, "val")
+    result = visbench.run(
+        fake_vit,
+        probe,
+        dataset,
+        train_dataset=_derived_split(frames, "train"),
+        cache=cache,
+    )
+    direct = probe.evaluate_oracle(dataset, (4, 4))["edge_correlation"]
+    assert result.metrics["ceiling_edge_correlation"] == pytest.approx(direct)
+    assert direct != pytest.approx(probe.evaluate_oracle(dataset, (2, 2))["edge_correlation"])
+
+
+def test_a_probe_with_no_oracle_adds_no_ceiling(fake_vit, frames, cache):
+    """`{}` rather than a raise, so wiring this in cannot break the other dense probes.
+
+    Depth, both segmentations and surface normals declare no oracle, and a run
+    of one must be unchanged by this feature — same keys, same values.
+    """
+    probe = DepthTask(epochs=1, warmup_epochs=0, batch_size=2)
+    assert probe.context_metrics(torch.rand(2, 8, 2, 2), torch.rand(2, 1, 32, 32)) == {}
+
+
+def test_the_ceiling_is_read_without_touching_the_feature_files(fake_vit, frames, cache):
+    """A streamed run must not pull 19 GB of features back off disk to score targets.
+
+    `_targets_only` is what buys that, and the failure it prevents is otherwise
+    invisible: the ceiling would be identical and the run would simply read the
+    whole split's features a second time for nothing.
+
+    So the check has to be that the features are *unreachable*, not that the
+    number is right — a test asserting the value passes just as happily when
+    every feature map has been loaded and discarded.
+
+    **Item 0 is allowed and the rest are not**, which is the honest form of the
+    rule: the grid is a property of the features and can only be read off them,
+    so one sample is necessary. A pass over the split is not. Forbidding every
+    read is the version of this test I wrote first, and it fails against a
+    correct implementation.
+    """
+    probe = EdgeTask()
+    dataset = _derived_split(frames, "val")
+    features = cache.materialise(fake_vit, dataset, targets=dataset.target)
+    assert isinstance(features, CachedFeatures)
+    assert len(features) > 1
+
+    class _OneSampleOnly(CachedFeatures):
+        def __getitem__(self, index):
+            if index != 0:
+                raise AssertionError(f"the ceiling read feature map {index}")
+            return super().__getitem__(index)
+
+    features.__class__ = _OneSampleOnly
+
+    ceiling = probe.context_metrics(features, None)
+    assert "ceiling_edge_correlation" in ceiling
+
+
+def test_the_grid_comes_from_the_features_and_not_from_a_declared_patch_size(fake_vit):
+    """Sampled off the first item, the way `_shape_of` samples the channel width."""
+    probe = EdgeTask()
+
+    class _Source:
+        def __getitem__(self, index):
+            return torch.zeros(8, 5, 5), torch.zeros(32, 32)
+
+    assert probe._grid_of(_Source()) == (5, 5)
+
+
+def test_the_finest_grid_wins_when_several_layers_are_requested():
+    """A DPT head's detail is bounded by its finest input, not its coarsest."""
+    probe = EdgeTask()
+
+    class _Multiscale:
+        def __getitem__(self, index):
+            return [torch.zeros(8, 2, 2), torch.zeros(8, 8, 8)], torch.zeros(32, 32)
+
+    assert probe._grid_of(_Multiscale()) == (8, 8)
