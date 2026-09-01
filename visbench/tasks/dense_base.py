@@ -1030,14 +1030,18 @@ class DenseTrainingTask(BaseTask):
 
         Notes
         -----
-        **It models a *linear* head exactly, and may understate a DPT one.**
+        **It models a *linear* head exactly, and a DPT head can beat it.**
         ``LinearHead`` is a 1x1 convolution on the grid followed by a bilinear
         upsample, which is literally "one value per patch, interpolated" — the
         bottleneck this measures. A DPT head decodes progressively with
         convolutions, so it can place structure *within* a patch from that
-        patch's content, and its true ceiling may be higher. Untested; it is the
-        open question the BSDS500 line closed on. Quote this against a linear
-        probe, which is the number VisBench reports anyway.
+        patch's content. **Measured** (``results/controls/dpt_head.jsonl``,
+        2026-09-01): across five probes and two backbones a DPT head reaches
+        70-104% of this number and **exceeds it outright in two of ten cases**.
+
+        So this is a bar for the head VisBench reports, not a bound on what is
+        achievable. Quote it against a linear probe, and do not describe it as a
+        ceiling a better head cannot pass — it is not.
 
         **This is an achievable score, not a proven upper bound**, and the
         distinction from

@@ -1327,13 +1327,23 @@ designed up front; extend it the same way, from a case that already runs.
     achievable score rather than a proven bound, and the ratio does not
     discriminate anyway: `corner` reaches 80% of its oracle and `keypoints2d`
     41%, and both rank backbones fine.
-  - **It models a *linear* head exactly and may understate a DPT one.**
-    `LinearHead` is a 1x1 convolution per patch plus a bilinear upsample, which
-    is literally what the oracle computes; a DPT head decodes progressively and
-    could place structure *within* a patch. **Untested**, and it is the open
-    question the BSDS500 line closed on — see that write-up. Every oracle number
-    recorded here is quoted against a linear probe, which is the number VisBench
-    reports anyway.
+  - **It models a *linear* head exactly, and a DPT head can beat it —
+    measured, 2026-09-01.** `LinearHead` is a 1x1 convolution per patch plus a
+    bilinear upsample, which is literally what the oracle computes; a DPT head
+    decodes progressively and places structure *within* a patch. Across five
+    probes x two backbones a DPT head reaches **70-104%** of the oracle and
+    **exceeds it in two of ten cases** (`results/controls/dpt_head.jsonl`). So
+    it is a bar for the head VisBench reports, **not a bound on what is
+    achievable** — do not call it a ceiling a better head cannot pass.
+
+    **It does not reopen BSDS500**: scaling that line's 0.4193 linear ceiling by
+    the best ratio observed (1.037) gives ~0.435 ODS, still below Canny's 0.60,
+    so the closure survives the correction to its premise.
+
+    **And a head is not a neutral magnifying glass.** On `occlusion_edge` the
+    DPT run *reverses* the linear board's top two. That is the demonstration
+    behind the standing rule to report the linear number when comparing
+    representations.
 
   **It has now refused something** (2026-09-01). The BSDS500 probe was not built
   because the gate put a linear probe's ceiling at **0.4193 ODS** on the 16x16

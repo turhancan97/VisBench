@@ -230,16 +230,20 @@ while `DenseTrainingTask` assumes square target maps.
 
 Two routes, in cost order.
 
-- **Test whether a DPT head beats the pooling oracle.** The gate models a
-  *linear* head exactly — `LinearHead` is a 1x1 convolution per patch followed
-  by a bilinear upsample, which is literally what the oracle computes. A DPT
-  head decodes progressively with convolutions and can place a boundary *within*
-  a patch from that patch's content, so its true ceiling may be higher than
-  0.4193. **This is untested**, it is the cheapest thing that could reopen the
-  line, and it would also tell the gate something about itself: every oracle
-  number recorded here is quoted against a linear probe, which is the number
-  VisBench reports, but the gate's calibration table would want a DPT column if
-  this turned out to matter.
+- ~~**Test whether a DPT head beats the pooling oracle.**~~ **Done, 2026-09-01,
+  and it does — but not by enough.** Across the five low-level probes on
+  `dinov2_vitb14` and `mae_vitb16`, a DPT head reaches **70-104%** of the linear
+  oracle and exceeds it outright in two of ten cases
+  (`results/controls/dpt_head.jsonl`). So the gate is a bar for the head
+  VisBench reports rather than a bound on what is achievable, and that
+  correction is now made wherever the gate is described.
+
+  **It does not reopen this line.** Scaling the 0.4193 linear ceiling by the
+  best ratio observed (1.037) gives ~0.435 ODS — still below Canny's published
+  0.60, so the argument for closing survives the correction to its premise. A
+  DPT board here would also be a *different* comparability group from every
+  published VisBench dense number, which is a second reason it would not be the
+  board this line wanted.
 - **Run at a finer grid, and accept what it costs.** BSDS reaches the published
   range around 32x32, i.e. 448px on a /14 ViT. DINOv2 can do this — it
   interpolates its position embeddings inside its own forward pass. open_clip
