@@ -9,6 +9,46 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+### Added
+
+- **`results/controls/dpt_head.jsonl`: the oracle gate is not a bound on a DPT
+  head.** Ten records — the five low-level probes on `dinov2_vitb14` and
+  `mae_vitb16` with `--head dpt --layers 2 5 8 11` — answering the question
+  0.14.0 recorded as untested.
+
+  The gate has refused two probes, and it models a **linear** head exactly:
+  `LinearHead` is a 1x1 convolution per patch plus a bilinear upsample, which is
+  literally what `evaluate_oracle` computes. A DPT head decodes progressively
+  and can place structure *within* a patch. It was worth knowing whether a gate
+  that decides whether work happens rested on an assumption.
+
+  It did. A DPT head reaches **70-104%** of the linear oracle and **exceeds it
+  outright in two of ten cases** (`corner` and `edge` on `mae_vitb16`). The gate
+  is therefore a bar for the head VisBench reports, **not a ceiling a better
+  head cannot pass**, and it is now described that way in
+  `DenseTrainingTask.evaluate_oracle`, `CLAUDE.md` and the low-level README.
+
+  **It does not reopen BSDS500.** That line closed on a linear ceiling of 0.4193
+  ODS against Canny's published 0.60; scaling by the best ratio observed (1.037)
+  gives ~0.435, still below the weakest classical baseline. The closure survives
+  the correction to its premise.
+
+  **And a head is not a neutral magnifying glass**, which is the finding nobody
+  went looking for: on `occlusion_edge` the DPT run *reverses* the linear
+  board's top two (`dinov2_vitb14` 0.4138 against `mae_vitb16` 0.3634, where the
+  linear board has MAE ahead 0.3273 to 0.3167). The other four boards keep their
+  order. That is the demonstration behind the standing rule to report the linear
+  number when comparing representations.
+
+  The ceilings in these records are bit-identical to the corpus's linear ones
+  for the same backbone, which is by construction — `evaluate_oracle` never sees
+  a head — and is asserted rather than assumed. Kept as a **control**, and
+  excluded twice over: it answers "what changes when the head changes" rather
+  than "what does this backbone score", and it changes `layers` and the head,
+  both of which are in `comparability_key`, so these records form their own
+  group and could not be listed beside the corpus anyway.
+
+
 ## [0.14.0] — 2026-09-01
 
 **The release that learned to say no.** It ships no new probe, moves no
