@@ -9,6 +9,42 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+## [0.14.0] — 2026-09-01
+
+**The release that learned to say no.** It ships no new probe, moves no
+published number, and leaves the corpus at 16 probes x 12 backbones — and that
+is the result rather than a shortfall. Two candidate probes were built or
+scoped and then **refused on measurement**, and the second was refused by a gate
+this same release added for the purpose.
+
+The gate is the substance. Every check in the derived-target gauntlet asked
+whether a candidate target is *distinctive*; none asked whether it is
+**recoverable from patch features at all** — and a dense probe sees one feature
+vector per patch, so signal finer than a patch is absent from its input rather
+than merely hard to predict. `DenseTrainingTask.evaluate_oracle` asks that
+directly, with no backbone, no features and no fitted head, so it costs one pass
+over a split instead of a twelve-backbone board. It is calibrated against a
+known negative: the four shipped magnitude targets pass at 0.53-0.83 and the
+rejected photometric-superpixel candidate fails at 0.25.
+
+It then refused something real. **BSDS500's dataset and ODS/OIS/AP metric both
+ship** — the metric written from the paper rather than the unlicensed benchmark
+code, and validated by reproducing the published human agreement, **ODS 0.8030
+against the published 0.80**. The *probe* does not ship: the gate puts a linear
+probe's ceiling at 0.4193 ODS on the 16x16 grid every corpus backbone produces,
+below Canny's published 0.60, so a board could not be compared with the
+literature — which was the only reason to add BSDS rather than reuse `edge`.
+
+Also here: every dense probe that declares an oracle now reports its **ceiling
+beside its score**, as `correspondence` already did, because the ceiling varies
+by backbone and ranking a ViT against a ResNet without it invites attributing a
+grid difference to a representation.
+
+Schema stays at **v8** and no record format changes: the ceilings are keys
+inside `metrics`, not a new field. `scipy` becomes a declared core dependency,
+which adds nothing to an install because scikit-learn already pulled it in.
+
+
 ### Refused — the BSDS500 probe
 
 Not a change to the package: no probe shipped, and this is the second entry of
@@ -3339,7 +3375,8 @@ API philosophy.
 [#2]: https://github.com/turhancan97/VisBench/issues/2
 [#4]: https://github.com/turhancan97/VisBench/issues/4
 [#3]: https://github.com/turhancan97/VisBench/issues/3
-[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/turhancan97/VisBench/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/turhancan97/VisBench/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/turhancan97/VisBench/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/turhancan97/VisBench/compare/v0.10.0...v0.11.0
