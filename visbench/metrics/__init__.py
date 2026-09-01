@@ -6,6 +6,12 @@ Every function returns a flat dict (or a scalar), matching the contract of
 :meth:`BaseTask.evaluate`.
 """
 
+from visbench.metrics.boundary import (
+    boundary_metrics,
+    correspond_pixels,
+    image_counts,
+    thin_boundaries,
+)
 from visbench.metrics.classification import top_k_accuracy
 from visbench.metrics.correspondence import (
     correspondence_recall,
@@ -28,6 +34,10 @@ from visbench.metrics.retrieval import mean_average_precision, recall_at_k
 
 __all__ = [
     "top_k_accuracy",
+    "boundary_metrics",
+    "correspond_pixels",
+    "image_counts",
+    "thin_boundaries",
     "recall_at_k",
     "mean_average_precision",
     "nn_match",

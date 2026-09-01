@@ -11,6 +11,53 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Added
 
+- **BSDS500's boundary protocol: ODS, OIS and AP** (12a-2). `visbench.metrics.boundary`
+  implements the measurement the `edge` probe deliberately does not make — how
+  many predicted boundary pixels a *person* also marked, which is a
+  correspondence question with no per-pixel form. Still no probe: this is the
+  metric, and it is validated before anything is scored with it.
+
+  **It reproduces the published human agreement.** BSDS500 quotes human ODS at
+  **0.80** on the test split, the ceiling every detector is measured against.
+  Scoring each annotator against the others, leave-one-out, this implementation
+  gives **0.8030** on test and **0.7870** on val. That is the protocol
+  reproduced rather than merely implemented, and it is the only check available
+  that self-consistent unit tests could not have passed while misunderstanding
+  what BSDS measures.
+
+  **Written from the paper, not from `bench/`.** The BSR evaluation suite,
+  `correspondPixels` and the CSA solver under it carry no licence and may not be
+  adapted here — the position `NOTICE` already takes on probe3d's CC BY-NC
+  correspondence helpers. What is reproduced is the protocol, which is public
+  (Martin, Fowlkes & Malik 2004; Arbelaez, Maire, Fowlkes & Malik 2011).
+
+  **The matching is exact, and the cheap substitute was measured before being
+  refused.** Only cardinality reaches the score, so an arbitrary
+  maximum-cardinality matching looks equivalent — precision, however, counts
+  predictions matched by *any* annotator, and different maximum-cardinality
+  matchings put different predictions in that union. Hopcroft-Karp instead of
+  minimum-cost moved precision by up to **0.013** on real images, in both
+  directions. A benchmark quoted to three decimals cannot absorb that. Greedy
+  matching is worse still: it is not even maximum-cardinality.
+
+  Getting the exact version fast enough took two decisions, both measured. The
+  admissible pairs are solved as one padded sparse assignment rather than by
+  decomposing into components and running a dense solver per component — the
+  components do not stay small, one real image had a single component of 16,348
+  nodes. And the padding goes on the **smaller** side: the matching is
+  symmetric, but one dummy column is added per row, and putting predictions in
+  the rows measured **6.5x slower** for an identical answer.
+
+  **Precision unions over annotators while recall sums over them**, which is the
+  protocol rather than an oversight, and is silent when reversed. Thinning is on
+  by default because an unthinned map is punished for its own width.
+  `boundary_metrics` reports the threshold ODS chose, since a score without its
+  operating point cannot be reproduced.
+
+  Zhang-Suen thinning is implemented here too, for the same licence reason and
+  because `scikit-image` is not a dependency.
+
+
 - **BSDS500, the dataset half of the real boundary benchmark** (12a-1).
   `scripts/fetch_bsds500.py` and `visbench.data.BSDS500Dataset` read the 500
   natural images with **every** annotator's boundary map. This is not the

@@ -153,10 +153,33 @@ square-map assumption has to be faced by the probe step.
 licence, so the ODS/OIS/AP implementation must come from the paper rather than
 from `correspondPixels` — the position `NOTICE` already takes on probe3d's
 CC BY-NC code. The fetch script enforces it by extension rather than leaving it
-to intent. **The remaining risk is that matcher**: it is a *minimum-cost*
-bipartite correspondence, and the greedy substitute most Python
-reimplementations use is a different number that may not claim
-`protocol: "bsds500"`.
+to intent. **That matcher was the remaining risk and it is now written**, in
+`visbench/metrics/boundary.py` — ODS, OIS and AP, with Zhang-Suen thinning
+because `scikit-image` is not a dependency.
+
+**It reproduces the published human agreement**, which is the check that
+matters: BSDS500 quotes human ODS at **0.80** on the test split, and scoring
+each annotator against the others leave-one-out gives **0.8030** on test and
+**0.7870** on val. Self-consistent unit tests could not have caught a
+misunderstanding of what BSDS measures; this could.
+
+Two things were measured rather than assumed:
+
+- **The cheap matcher was refused on evidence.** Only cardinality reaches the
+  score, so an arbitrary maximum-cardinality matching (Hopcroft-Karp, 725x
+  faster) looks equivalent — but precision counts predictions matched by *any*
+  annotator, and different maximum-cardinality matchings put different
+  predictions in that union. It moved precision by up to **0.013** on real
+  images, in both directions. Greedy is worse: not even maximum-cardinality.
+- **The padding goes on the smaller side.** The matching is symmetric, but the
+  solver needs one dummy column per row; predictions outnumber annotator pixels
+  at nearly every threshold, and putting them in the rows measured **6.5x
+  slower** for an identical answer. Component decomposition was tried first and
+  abandoned — the components do not stay small, one real image had a single
+  component of 16,348 nodes.
+
+What remains is the probe, and its open problem is stated above: BSDS is scored
+at native 321x481 while `DenseTrainingTask` assumes square target maps.
 
 ### The mid-level twin
 

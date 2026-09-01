@@ -75,6 +75,7 @@ step is next rather than attempting the whole roadmap in one session.
 | 10d | `dino_vitb16`: the objective family becomes three wide | done |
 | 10e | `sam_vitb16`, a recipe control — the denominator an objective gap needs | done |
 | 12a-1 | BSDS500: the dataset, and several people's answers per image | done |
+| 12a-2 | BSDS500: ODS/OIS/AP, reproducing the published human agreement | done |
 
 **A closed step's full write-up lives in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md), not here.** That file is the archive
@@ -268,9 +269,12 @@ rejection was missing on 2026-09-01** — `scripts/oracle_ceiling.py`, calibrate
 so the four shipped magnitude targets pass at 0.53-0.83 and the rejected one
 fails at 0.25. It ships no probe and moves no number. That leaves BSDS500 edge
 and optical flow,
-**both of which need a download first** — and **BSDS500's is now done** (12a-1,
-2026-09-01): `scripts/fetch_bsds500.py` + `BSDS500Dataset`, with the ODS/OIS/AP
-metric and the probe still to come. Nothing cheap remains. Re-confirm what is wanted before
+**both of which need a download first** — and **BSDS500 is two thirds done**
+(12a-1 and 12a-2, 2026-09-01): `scripts/fetch_bsds500.py` + `BSDS500Dataset`,
+and `visbench.metrics.boundary` reproducing the published human ODS of 0.80 at
+**0.8030**. Only the probe remains, and its open problem is that
+`DenseTrainingTask` assumes square target maps while BSDS is scored at native
+321x481. Nothing cheap remains. Re-confirm what is wanted before
 starting anything; do not assume its order is a plan. **The one thread that was open — why `detection`
 alone fails to reproduce — is closed**: it is GPU non-determinism made visible
 by a discrete metric, it was never a bug, and detection reproduces to *three*
@@ -585,7 +589,12 @@ visbench/
                    balanced_subset lives here now, not on ImageFolderDataset)
   heads/         base.py (register_head/build_head), linear.py, dpt.py,
                  detection.py (DetectionHead — cls + box branches, focal prior)
-  metrics/       classification, retrieval, correspondence, similarity, dense.py
+  metrics/       classification, retrieval, correspondence, similarity,
+                 boundary.py (BSDS500's ODS/OIS/AP — thin_boundaries,
+                   correspond_pixels (exact min-cost max-cardinality;
+                   sparse, pads the SMALLER side), image_counts,
+                   boundary_metrics. Reproduces published human ODS)
+                 dense.py
                  (+ magnitude_metrics — per-image Pearson, masks NaN;
                     edge_metrics is it under the published key;
                     orientation_metrics — coherence-weighted angular error, deg)
