@@ -413,6 +413,32 @@ run through `tail`: it buffers, so a run that is killed part-way leaves no log,
 and the Hub then has to be queried to find out what actually shipped — which
 happened, and is recoverable only because each record names its own pair.
 
+**`0.14.0` is prepared but NOT yet published** (release-prep commit,
+2026-09-01): `pyproject.toml`, `visbench/__init__.py`, `uv.lock`,
+`CITATION.cff` and `.zenodo.json`'s description all moved to 0.14.0, and
+`CHANGELOG.md`'s `[Unreleased]` became `[0.14.0]` with its link ref added and
+`[Unreleased]` repointed — checked both ways, every section has a ref and every
+ref a section.
+
+**Schema stays at v8 and no published number moves.** This is the release that
+ships no probe: the corpus is unchanged at 16 probes x 12 backbones, 192
+records. What it adds is the **oracle gate** (`evaluate_oracle`), the **ceiling
+travelling beside every dense score**, and **BSDS500's dataset plus a validated
+ODS/OIS/AP metric** — the metric reproducing the published human agreement at
+0.8030 against 0.80. It is also the release in which the gate *refused* a probe:
+BSDS's own, at a 0.4193 ODS ceiling on the 16x16 grid. `scipy` becomes a
+declared core dependency and adds nothing to an install.
+
+The `uv.lock` diff was verified to be the single `visbench` version line;
+anything more would mean dependencies moved too, which is a separate decision.
+
+The maintainer still has to tag, build, `twine upload`, cut the GitHub release
+and let Zenodo archive it — see the "Publishing needs the maintainer's
+credentials" paragraph and the standing release rules below. **Check
+[PyPI](https://pypi.org/project/visbench/) before assuming 0.14.0 is
+installable.** It was 11 commits and ~3,700 lines past `v0.13.0` when this was
+cut, the largest such gap the project has had.
+
 **`0.13.0` is fully released** (2026-08-28, confirmed 2026-09-01). On PyPI —
 wheel and sdist both (343,687 and 1,046,538 bytes, wheel sha256
 `049f7f77…`) — tagged `v0.13.0` on merge commit `205cb0e`, with a GitHub
