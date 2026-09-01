@@ -7,6 +7,7 @@ dense-target loader the dense tasks need.
 
 from visbench.data.base import BaseDataset
 from visbench.data.bridges import HuggingFaceDataset, TorchvisionDataset
+from visbench.data.bsds import BSDS500Dataset
 from visbench.data.dense import (
     DenseFolderDataset,
     load_depth_map,
@@ -36,6 +37,7 @@ __all__ = [
     "HomographyPairDataset",
     "PairViewDataset",
     "DenseFolderDataset",
+    "BSDS500Dataset",
     "load_depth_map",
     "load_normal_map",
     "load_mask",

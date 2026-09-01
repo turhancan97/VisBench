@@ -9,7 +9,149 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+### Refused — the BSDS500 probe
+
+Not a change to the package: no probe shipped, and this is the second entry of
+its kind after photometric superpixels. It is recorded because the *gate worked*
+— the oracle added earlier in this same release refused the probe before a
+backbone was loaded, which is what it was built to do.
+
+BSDS500's dataset and metric both ship (above). What does not is a VisBench
+probe and a leaderboard board. The oracle gate, run on the BSDS target over the
+100 val images with the published 99-level sweep:
+
+| feature grid | input on a /14 ViT | ODS | AP | R@ODS |
+|---|---|---|---|---|
+| **16x16** | **224px — every corpus backbone** | **0.4193** | 0.2430 | 0.2919 |
+| 24x24 | 336px | 0.5810 | 0.4092 | 0.4395 |
+| 32x32 | 448px | 0.6966 | 0.5447 | 0.5599 |
+| 48x48 | 672px | 0.8105 | 0.6944 | 0.6979 |
+| 64x64 | 896px | 0.8725 | 0.7842 | 0.7860 |
+| *no grid* | — | *0.9999* | *0.9897* | *0.9999* |
+
+The last row is the sanity anchor: with no bottleneck the consensus map scores
+0.9999, so the ladder is a property of the grid rather than of the metric
+failing to reach high ODS. Human agreement on this split is **0.787**, and the
+detectors BSDS exists to rank sit near 0.60 (Canny), 0.73 (gPb) and 0.79 (HED). **A linear probe's
+ceiling at 224px is therefore below the weakest classical baseline in the
+literature.** The number would be real and it could not be compared with any
+published BSDS number — and comparability with those numbers is the entire
+reason to add this dataset rather than reuse the Taskonomy `edge` probe.
+
+**This is not the superpixel case.** That target scored 0.02-0.04 against probes
+scoring 0.18-0.65 *in the same metric*. This is a ceiling in ODS while the
+shipped probes' oracle range is in Pearson correlation; the two do not compare,
+and an earlier draft of this note wrongly set 0.42 against the 0.25 that
+rejected superpixels. Nor does it say the representations lack boundary
+information — `edge` and `corner` rank backbones fine on the same 16x16 grid. It
+says a 1px human-drawn target scored at native resolution is a finer thing to
+ask of one vector per 14px patch.
+
+Two routes could reopen it, both in `visbench/tasks/low_level/README.md`:
+testing whether a **DPT head beats the pooling oracle** (the cheapest, and
+untested), or running at **32x32 or finer**, which only DINOv2 can do and which
+would buy a single-backbone board that confounds resolution with representation.
+
+### Changed
+
+- **The oracle gate is documented as modelling a *linear* head.** `LinearHead`
+  is a 1x1 convolution per patch plus a bilinear upsample, which is exactly what
+  `evaluate_oracle` computes — but a DPT head decodes progressively and could
+  place structure within a patch, so its true ceiling may be higher. Every
+  oracle number recorded in this project is quoted against a linear probe, which
+  is the number VisBench reports; the caveat is now stated rather than implied.
+
 ### Added
+
+- **BSDS500's boundary protocol: ODS, OIS and AP** (12a-2). `visbench.metrics.boundary`
+  implements the measurement the `edge` probe deliberately does not make — how
+  many predicted boundary pixels a *person* also marked, which is a
+  correspondence question with no per-pixel form. Still no probe: this is the
+  metric, and it is validated before anything is scored with it.
+
+  **It reproduces the published human agreement.** BSDS500 quotes human ODS at
+  **0.80** on the test split, the ceiling every detector is measured against.
+  Scoring each annotator against the others, leave-one-out, this implementation
+  gives **0.8030** on test and **0.7870** on val. That is the protocol
+  reproduced rather than merely implemented, and it is the only check available
+  that self-consistent unit tests could not have passed while misunderstanding
+  what BSDS measures.
+
+  **Written from the paper, not from `bench/`.** The BSR evaluation suite,
+  `correspondPixels` and the CSA solver under it carry no licence and may not be
+  adapted here — the position `NOTICE` already takes on probe3d's CC BY-NC
+  correspondence helpers. What is reproduced is the protocol, which is public
+  (Martin, Fowlkes & Malik 2004; Arbelaez, Maire, Fowlkes & Malik 2011).
+
+  **The matching is exact, and the cheap substitute was measured before being
+  refused.** Only cardinality reaches the score, so an arbitrary
+  maximum-cardinality matching looks equivalent — precision, however, counts
+  predictions matched by *any* annotator, and different maximum-cardinality
+  matchings put different predictions in that union. Hopcroft-Karp instead of
+  minimum-cost moved precision by up to **0.013** on real images, in both
+  directions. A benchmark quoted to three decimals cannot absorb that. Greedy
+  matching is worse still: it is not even maximum-cardinality.
+
+  Getting the exact version fast enough took two decisions, both measured. The
+  admissible pairs are solved as one padded sparse assignment rather than by
+  decomposing into components and running a dense solver per component — the
+  components do not stay small, one real image had a single component of 16,348
+  nodes. And the padding goes on the **smaller** side: the matching is
+  symmetric, but one dummy column is added per row, and putting predictions in
+  the rows measured **6.5x slower** for an identical answer.
+
+  **Precision unions over annotators while recall sums over them**, which is the
+  protocol rather than an oversight, and is silent when reversed. Thinning is on
+  by default because an unthinned map is punished for its own width.
+  `boundary_metrics` reports the threshold ODS chose, since a score without its
+  operating point cannot be reproduced.
+
+  Zhang-Suen thinning is implemented here too, for the same licence reason and
+  because `scikit-image` is not a dependency.
+
+
+- **BSDS500, the dataset half of the real boundary benchmark** (12a-1).
+  `scripts/fetch_bsds500.py` and `visbench.data.BSDS500Dataset` read the 500
+  natural images with **every** annotator's boundary map. This is not the
+  existing `edge` probe with different files: that is dense magnitude regression
+  on Taskonomy scored by Pearson correlation, and BSDS scores ODS/OIS/AP by
+  matching predicted boundary pixels to human ones. The metric and the probe are
+  the two steps that follow.
+
+  Three measured properties of the data decided the design, checked over all 500
+  images rather than assumed:
+
+  - **Two orientations and nothing else** — 348 images are 481x321 and 152 are
+    321x481 — so native-resolution batching is a grouping problem, not an
+    arbitrary-size one. `group_by_orientation()` is the helper.
+  - **The annotator count varies**, 4 to 9 with 5 the mode, so the annotation
+    stack is ragged *across* images and no fixed `A` is promised anywhere.
+  - **The annotators disagree a lot.** Per image the densest marks a median of
+    **1.92x** as many boundary pixels as the sparsest, and 4.70x at the 95th
+    percentile. That spread is why the protocol credits a prediction matching
+    *any* annotator, and why the dataset will not hand back one "true" boundary
+    map: `target()` returns the annotator mean as a training convenience and
+    says in its own docstring that the scoring ground truth is
+    `annotations()`.
+
+  **Nothing resizes or crops, and that is the one place this dataset breaks the
+  house rule.** Every other dense dataset here centre-crops to 224 square,
+  because a VisBench number only has to be comparable with other VisBench
+  numbers. A BSDS number exists to be comparable with the *published* ones,
+  which are scored at native resolution, so a resize would forfeit the only
+  reason to add the dataset. There is no `image_size` argument.
+
+  **`bench/` and `grouping/` are deliberately not fetched.** Neither the BSR
+  package nor the mirror licenses them, so the ODS/OIS/AP implementation must
+  come from the paper rather than from `correspondPixels` — the position
+  `NOTICE` already takes on probe3d's CC BY-NC code, now recorded there for this
+  too. The fetch script enforces it by extension rather than leaving it to
+  intent, and the mirror is pinned to a commit whose extracted bytes were
+  verified identical to the branch tip.
+
+  `scipy` becomes a declared core dependency: BSDS ships its annotations as
+  MATLAB v7 `.mat`, and although scikit-learn already pulled scipy in, a package
+  that imports a module directly should say so. It adds nothing to an install.
 
 - **The oracle gate: the gauntlet finally asks whether a target is
   *recoverable*.** `DenseTrainingTask.evaluate_oracle` scores the target as a

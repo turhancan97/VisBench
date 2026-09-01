@@ -102,6 +102,17 @@ This is a multi-month roadmap, built one reviewed step at a time.
       one implementation; a new probe *name* rather than a dataset flag, for the
       reason `scene_classification` is. The twelve-backbone board is the next
       step
+- [x] **backlog: the oracle gate** — the derived-target gauntlet asks whether a
+      candidate target is *distinctive*; it never asked whether it is
+      *recoverable* from patch features. `evaluate_oracle` asks that with no
+      backbone and no fitted head, calibrated so the four shipped magnitude
+      targets pass at 0.53-0.83 and the rejected superpixel candidate fails at
+      0.25
+- [x] **12a-1, 12a-2: BSDS500** — the dataset with every annotator's boundary
+      map, and an ODS/OIS/AP implementation written from the paper that
+      reproduces the published human agreement (0.8030 against 0.80). **The
+      probe was refused by the oracle gate** and the line is closed at two
+      steps; see the note under "Already partly answered"
 
 ## Roadmap
 
@@ -241,7 +252,21 @@ Worth naming so they are not re-scoped from scratch:
 - **Edge / contour detection** is implemented (v0.4) as dense magnitude
   regression on Taskonomy. What is missing is **BSDS500's** ODS/OIS/AP boundary
   protocol, which is a bipartite matching after non-maximum suppression and a
-  step of its own — not a dataset swap.
+  step of its own — not a dataset swap. **The dataset and the metric both ship**
+  (`scripts/fetch_bsds500.py`, `visbench.data.BSDS500Dataset`,
+  `visbench.metrics.boundary`), and the metric reproduces BSDS500's published
+  human agreement — ODS 0.8030 against the published 0.80.
+
+  **There is deliberately no BSDS probe.** The oracle gate puts a linear
+  probe's ceiling at **0.4193 ODS** on the 16x16 feature grid every corpus
+  backbone produces at 224px, against published detectors at 0.60-0.79. A board
+  whose ceiling sits below the weakest classical baseline could not be compared
+  with the literature, which is the only reason to add this dataset rather than
+  reuse the Taskonomy edge probe. **Possible future work**: test whether a DPT
+  head beats the pooling oracle — the gate models a linear head exactly and may
+  understate a progressive decoder — or run at 32x32 or finer, which only
+  DINOv2 can do. Both are written up in
+  `visbench/tasks/low_level/README.md`.
 - **Occlusion-edge detection** (v0.5) already covers the depth-discontinuity
   half of contour detection, at mid level.
 - **Corner detection** is implemented (v0.8) as Shi-Tomasi cornerness computed

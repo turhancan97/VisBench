@@ -124,6 +124,134 @@ worth it if borrowed exactly — see `NOTICE`, and the depth probe's 256-bin
 expectation, which a from-memory reconstruction would have turned into scalar
 regression. Adding BSDS properly is a step of its own.
 
+**That step has started, and its first third is done.**
+`scripts/fetch_bsds500.py` and `visbench.data.BSDS500Dataset` read the 500
+images with *every* annotator's boundary map. Three things about that data decided the design, all
+measured over all 500 rather than assumed:
+
+- **Two orientations and nothing else** — 348 images are 481x321 and 152 are
+  321x481 — so native-resolution batching is a grouping problem, not an
+  arbitrary-size one.
+- **The annotator count varies**, 4 to 9, mode 5. The stack is ragged *across*
+  images, so no fixed `A` is promised anywhere.
+- **The annotators disagree a lot**: per image the densest marks a median of
+  **1.92x** as many boundary pixels as the sparsest, 4.70x at the 95th
+  percentile. That spread is why the protocol credits a prediction matching
+  *any* annotator, and why the dataset refuses to hand back one "true" boundary
+  map. `target()` returns the mean as a training convenience and says in its own
+  docstring that it is not the scoring ground truth.
+
+**Nothing resizes or crops**, which is the one place this dataset breaks the
+house rule. Every other dense dataset here centre-crops to 224 square because a
+VisBench number only has to be comparable with other VisBench numbers; a BSDS
+number exists to be comparable with the *published* ones, which are scored at
+native resolution. There is no `image_size` argument and adding one would
+forfeit the only reason to add the dataset. It also means `DenseTrainingTask`'s
+square-map assumption has to be faced by the probe step.
+
+**`bench/` and `grouping/` are deliberately not fetched.** Neither carries a
+licence, so the ODS/OIS/AP implementation must come from the paper rather than
+from `correspondPixels` — the position `NOTICE` already takes on probe3d's
+CC BY-NC code. The fetch script enforces it by extension rather than leaving it
+to intent. **That matcher was the remaining risk and it is now written**, in
+`visbench/metrics/boundary.py` — ODS, OIS and AP, with Zhang-Suen thinning
+because `scikit-image` is not a dependency.
+
+**It reproduces the published human agreement**, which is the check that
+matters: BSDS500 quotes human ODS at **0.80** on the test split, and scoring
+each annotator against the others leave-one-out gives **0.8030** on test and
+**0.7870** on val. Self-consistent unit tests could not have caught a
+misunderstanding of what BSDS measures; this could.
+
+Two things were measured rather than assumed:
+
+- **The cheap matcher was refused on evidence.** Only cardinality reaches the
+  score, so an arbitrary maximum-cardinality matching (Hopcroft-Karp, 725x
+  faster) looks equivalent — but precision counts predictions matched by *any*
+  annotator, and different maximum-cardinality matchings put different
+  predictions in that union. It moved precision by up to **0.013** on real
+  images, in both directions. Greedy is worse: not even maximum-cardinality.
+- **The padding goes on the smaller side.** The matching is symmetric, but the
+  solver needs one dummy column per row; predictions outnumber annotator pixels
+  at nearly every threshold, and putting them in the rows measured **6.5x
+  slower** for an identical answer. Component decomposition was tried first and
+  abandoned — the components do not stay small, one real image had a single
+  component of 16,348 nodes.
+
+### Why there is no BSDS probe, and no board
+
+**The line stops at the metric, on the oracle gate's evidence.** The gate above
+asks what a probe could score *if the features contained the answer*; run on the
+BSDS target it says a linear probe on the features every corpus backbone
+produces cannot reach the published range. BSDS500 val, 100 images, the
+published 99-level sweep at `max_dist` 0.0075, the consensus map pooled to a
+square grid and bilinearly upsampled back:
+
+| feature grid | input on a /14 ViT | ODS | AP | P@ODS | R@ODS |
+|---|---|---|---|---|---|
+| **16x16** | **224px — every corpus backbone** | **0.4193** | 0.2430 | 0.7441 | 0.2919 |
+| 24x24 | 336px | 0.5810 | 0.4092 | 0.8567 | 0.4395 |
+| 32x32 | 448px | 0.6966 | 0.5447 | 0.9216 | 0.5599 |
+| 48x48 | 672px | 0.8105 | 0.6944 | 0.9664 | 0.6979 |
+| 64x64 | 896px | 0.8725 | 0.7842 | 0.9804 | 0.7860 |
+| 128x128 | — | 0.9534 | 0.9252 | 0.9885 | 0.9206 |
+| *no grid* | — | *0.9999* | *0.9897* | *1.0000* | *0.9999* |
+
+The last row is the sanity anchor and it is doing real work: scored with no
+bottleneck at all the consensus map reaches **0.9999**, so the ladder above is a
+property of the *grid* and not of this implementation failing to reach high ODS.
+
+For scale: human agreement is **0.787** on this split (0.803 on test), and the
+published detectors this benchmark exists to rank sit at roughly **0.60**
+(Canny), **0.73** (gPb) and **0.79** (HED).
+
+**So the ceiling at 224px is 0.42 — below the weakest classical baseline in the
+literature.** An actual probe would land some way under that. The number would
+be a real measurement, but it could not be compared with any published BSDS
+number, and comparability with the published numbers is the *entire* reason this
+dataset was worth adding rather than reusing the Taskonomy edge probe. A board
+whose ceiling is beneath Canny's score would invite exactly the misreading the
+`protocol` field exists to prevent.
+
+**Two things this finding is not.** It is not the superpixel case: that target
+scored 0.02-0.04 against probes scoring 0.18-0.65 *in the same metric*, whereas
+this is a ceiling in ODS and the shipped probes' oracle range is in Pearson
+correlation — the two do not compare, and an earlier draft of this section wrongly
+set 0.42 against the 0.25 that rejected superpixels. And it is not a claim that
+the representation lacks boundary information: `edge` and `corner` both rank
+backbones perfectly well on the same 16x16 grid. It is a claim about a **1px
+human-drawn target evaluated at native resolution**, which is a much finer thing
+to ask of one vector per 14px patch.
+
+The other obstacle, unchanged and now moot: BSDS is scored at native 321x481
+while `DenseTrainingTask` assumes square target maps.
+
+### If the BSDS line is picked up again
+
+Two routes, in cost order.
+
+- **Test whether a DPT head beats the pooling oracle.** The gate models a
+  *linear* head exactly — `LinearHead` is a 1x1 convolution per patch followed
+  by a bilinear upsample, which is literally what the oracle computes. A DPT
+  head decodes progressively with convolutions and can place a boundary *within*
+  a patch from that patch's content, so its true ceiling may be higher than
+  0.4193. **This is untested**, it is the cheapest thing that could reopen the
+  line, and it would also tell the gate something about itself: every oracle
+  number recorded here is quoted against a linear probe, which is the number
+  VisBench reports, but the gate's calibration table would want a DPT column if
+  this turned out to matter.
+- **Run at a finer grid, and accept what it costs.** BSDS reaches the published
+  range around 32x32, i.e. 448px on a /14 ViT. DINOv2 can do this — it
+  interpolates its position embeddings inside its own forward pass. open_clip
+  cannot interpolate at all and timm needs `dynamic_img_size`, both recorded in
+  `CLAUDE.md`, so this buys a **DINOv2-only** board. A board that cannot compare
+  backbones is not a corpus board, and it would confound resolution with
+  representation, which is the confound `results/controls/` exists to separate.
+
+What *is* shipped is a validated ODS/OIS/AP implementation that reproduces the
+published human agreement. Anyone with a real edge detector can score against
+it; it needs no probe to be useful.
+
 ### The mid-level twin
 
 `visbench/tasks/mid_level/occlusion_edge.py` (`OcclusionEdgeTask`) shares every
@@ -147,7 +275,7 @@ them. **Check the tail before assuming this protocol transfers.**
 | Optical flow | Needs image pairs and a flow head. `PairViewDataset` already expresses the pairing (see correspondence), so the flow head is the real cost. No flow dataset is assumed present. |
 | Texture / reflectance | Intrinsic-image decomposition; ground truth is scarce outside synthetic data. **Taskonomy does not ship a reflectance domain**, so this is not unblocked by 6d-2. `principal_curvature` and `reshading` are present and are still refused, but no longer for want of a mask — see below. |
 | Image quality assessment | No-reference IQA against human MOS ratings. Closest in shape to mid-level similarity, which is zero-shot; IQA is not. |
-| Edge detection on BSDS500 | The correspondence metric above, as a second protocol beside the Taskonomy one rather than a replacement. |
+| ~~Edge detection on BSDS500~~ | **Dataset and metric shipped; the probe was refused by the oracle gate.** `scripts/fetch_bsds500.py` + `BSDS500Dataset` + `visbench.metrics.boundary`, reproducing the published human ODS. A linear probe's ceiling at 224px is 0.4193 ODS, below Canny's published 0.60, so no board. See "Why there is no BSDS probe" below. |
 | ~~Superpixel / texture segmentation~~ | **Built and rejected**, 2026-08-28. Needs no dataset, passed every pre-measurement, and scored 0.021–0.043 — see "The superpixel rejection" below. |
 | Color constancy / illuminant estimation | A per-image scalar/vector target rather than a dense one, and it needs measured illuminant ground truth. |
 | Vanishing point / line detection | Published as a Taskonomy domain, but **not in the copy on this machine** — that download carries eight domains and this is not one. |

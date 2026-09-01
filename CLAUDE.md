@@ -74,6 +74,9 @@ step is next rather than attempting the whole roadmap in one session.
 | 11a | The gallery on real photographs, licence-checked | done |
 | 10d | `dino_vitb16`: the objective family becomes three wide | done |
 | 10e | `sam_vitb16`, a recipe control — the denominator an objective gap needs | done |
+| 12a-1 | BSDS500: the dataset, and several people's answers per image | done |
+| 12a-2 | BSDS500: ODS/OIS/AP, reproducing the published human agreement | done |
+| 12a-3 | BSDS500: the probe — **refused by the oracle gate**, line closed | n/a |
 
 **A closed step's full write-up lives in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md), not here.** That file is the archive
@@ -267,7 +270,15 @@ rejection was missing on 2026-09-01** — `scripts/oracle_ceiling.py`, calibrate
 so the four shipped magnitude targets pass at 0.53-0.83 and the rejected one
 fails at 0.25. It ships no probe and moves no number. That leaves BSDS500 edge
 and optical flow,
-**both of which need a download first**: nothing cheap remains. Re-confirm what is wanted before
+**both of which need a download first** — and **the BSDS500 line is closed at
+two steps** (12a-1 and 12a-2, 2026-09-01): the dataset and a validated
+ODS/OIS/AP metric ship, reproducing the published human ODS of 0.80 at
+**0.8030**, and **the probe was refused by the oracle gate**. A linear probe on
+the 16x16 grid every corpus backbone produces has a ceiling of **0.4193 ODS**,
+below Canny's published 0.60, so a board could not be compared with the
+literature — which was the only reason to add BSDS rather than reuse `edge`.
+The write-up and the two routes that could reopen it are in
+`visbench/tasks/low_level/README.md`. Nothing cheap remains. Re-confirm what is wanted before
 starting anything; do not assume its order is a plan. **The one thread that was open — why `detection`
 alone fails to reproduce — is closed**: it is GPU non-determinism made visible
 by a discrete metric, it was never a bug, and detection reproduces to *three*
@@ -575,11 +586,19 @@ visbench/
                    after the crop; 8a. OrientationResponse is a 2-ch direction)
                  bridges.py (TorchvisionDataset + HuggingFaceDataset — wrap a
                    torch/HF dataset; cache_identity from index-order immutability)
+                 bsds.py (BSDS500Dataset — every annotator's boundary map, 4-9
+                   per image; native resolution, NO resize or crop; target() is
+                   the consensus mean and is NOT the scoring ground truth)
                  base.py (BaseDataset, list_files — scandir, never a stat/entry;
                    balanced_subset lives here now, not on ImageFolderDataset)
   heads/         base.py (register_head/build_head), linear.py, dpt.py,
                  detection.py (DetectionHead — cls + box branches, focal prior)
-  metrics/       classification, retrieval, correspondence, similarity, dense.py
+  metrics/       classification, retrieval, correspondence, similarity,
+                 boundary.py (BSDS500's ODS/OIS/AP — thin_boundaries,
+                   correspond_pixels (exact min-cost max-cardinality;
+                   sparse, pads the SMALLER side), image_counts,
+                   boundary_metrics. Reproduces published human ODS)
+                 dense.py
                  (+ magnitude_metrics — per-image Pearson, masks NaN;
                     edge_metrics is it under the published key;
                     orientation_metrics — coherence-weighted angular error, deg)
@@ -1261,6 +1280,21 @@ designed up front; extend it the same way, from a case that already runs.
     achievable score rather than a proven bound, and the ratio does not
     discriminate anyway: `corner` reaches 80% of its oracle and `keypoints2d`
     41%, and both rank backbones fine.
+  - **It models a *linear* head exactly and may understate a DPT one.**
+    `LinearHead` is a 1x1 convolution per patch plus a bilinear upsample, which
+    is literally what the oracle computes; a DPT head decodes progressively and
+    could place structure *within* a patch. **Untested**, and it is the open
+    question the BSDS500 line closed on — see that write-up. Every oracle number
+    recorded here is quoted against a linear probe, which is the number VisBench
+    reports anyway.
+
+  **It has now refused something** (2026-09-01). The BSDS500 probe was not built
+  because the gate put a linear probe's ceiling at **0.4193 ODS** on the 16x16
+  grid every corpus backbone produces, against published detectors at 0.60-0.79
+  and human agreement at 0.80. That cost one 60-second run instead of a
+  12-backbone board. **Do not read that 0.42 against the 0.25 that rejected
+  superpixels** — one is ODS and the other Pearson correlation, they are not
+  comparable, and an earlier draft made exactly that mistake.
 
   **A pooled-resolution overlap check is not that test, and nearly became a
   false veto.** The boundary map reads 0.267 against `edge` at full resolution
@@ -2038,7 +2072,12 @@ loader code, which is a different cost class from a folder swap.
 
 **Verified absent, both levels:** any optical-flow set (Sintel, KITTI,
 FlyingChairs), NYUv2, any intrinsic-image set (IIW, SAW, MIT intrinsic).
-`bsds300` is still the MAF density-estimation benchmark, not BSDS500 — see 6d-1.
+`bsds300` is still the MAF density-estimation benchmark, not BSDS500 (its
+`bsds300.hdf5` sits beside `gas` and `hepmass`) — see 6d-1. **BSDS500 itself is
+no longer absent**: Berkeley is unreachable from this machine (`www2.eecs`
+times out, the old host 403s) while the network is otherwise fine, so
+`scripts/fetch_bsds500.py` reads the `BIDS/BSDS500` GitHub mirror at a pinned
+commit into gitignored `data/bsds500/`.
 `davis` exists but holds two sequences of derived output (`dpt/`,
 `epipolar_error*`), not the DAVIS annotations, so it is not a video-segmentation
 benchmark.
