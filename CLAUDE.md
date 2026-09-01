@@ -398,26 +398,30 @@ run through `tail`: it buffers, so a run that is killed part-way leaves no log,
 and the Hub then has to be queried to find out what actually shipped — which
 happened, and is recoverable only because each record names its own pair.
 
-**`0.13.0` is prepared but NOT yet published** (release-prep commit,
-2026-08-28): `pyproject.toml`, `visbench/__init__.py`, `uv.lock`,
-`CITATION.cff` and `.zenodo.json`'s description ("Fifteen probes" → "Sixteen",
-with fine-grained added to the list) all moved to 0.13.0, and `CHANGELOG.md`'s
-`[Unreleased]` became `[0.13.0]`. **Schema moves to v8** — the one release since
-v0.6.0 that changes it, and the reason not to sit on this one: 0.12.0 reads up
-to v7 and *refuses* a v8 record outright, so a schema version that is not
-installable is one nobody else can read. Verified against the published 0.12.0
-wheel rather than assumed.
+**`0.13.0` is fully released** (2026-08-28, confirmed 2026-09-01). On PyPI —
+wheel and sdist both (343,687 and 1,046,538 bytes, wheel sha256
+`049f7f77…`) — tagged `v0.13.0` on merge commit `205cb0e`, with a GitHub
+release cut from that tag (published 2026-08-28T15:37:48Z) and archived by
+Zenodo as version DOI **`10.5281/zenodo.22147201`**, the seventh. **Verified
+out of the published wheel by import**, the standing way: `__version__`
+0.13.0, `SCHEMA_VERSION` 8, sixteen probes, twelve corpus backbones (plus the
+`dinov2_vitb14_196` resolution control), `show_probes() == list_probes()`,
+`correspondence` still `threshold_units="pixel"` with `(1, 2, 5, 10)`.
 
 The release-prep also fixed something 0.12.0's prep missed: `CHANGELOG.md`'s
 link refs at the bottom had **no `[0.12.0]` entry at all** and `[Unreleased]`
 still compared from `v0.11.0`. Every section now has a matching ref, checked
 both ways.
 
-The maintainer still has to tag, build, `twine upload`, cut the GitHub release
-and let Zenodo archive it — see the "Publishing needs the maintainer's
-credentials" paragraph and the standing release rules below. **Check
-[PyPI](https://pypi.org/project/visbench/) before assuming 0.13.0 is
-installable.**
+**`main` had already moved one merge past the tag when this was checked** —
+the `superpixel-probe` PR (`d2075ca`, PR #78, the rejected photometric
+superpixel probe) landed after `v0.13.0` was tagged and released, adding no
+new probe or corpus record. The tag, wheel and release still agree with each
+other exactly; only `main` is ahead, which is the benign gap the standing
+rules below warn drifts silently into the *next* release if not watched.
+**The concept DOI `10.5281/zenodo.21822684` is unchanged and now resolves to
+v0.13.0** — no edit needed in `README.md`, `docs/index.md` or
+`CITATION.cff`.
 
 **`0.12.0` is fully released** (2026-08-28). On PyPI — wheel and sdist both
 (338,079 and 1,023,738 bytes, wheel sha256 `c55a63b7…`) — tagged `v0.12.0` on
