@@ -75,8 +75,11 @@ board ordered by ceiling is a board ordered by resolution. The ratio does not
 behave either — `corner` reaches 80% of its ceiling and `keypoints2d` 41%, and
 both rank backbones perfectly well. (Correspondence's ceiling *is* a proven
 bound and is read as a fraction further down this page; this one is an
-achievable reconstruction, not a proven maximum.) The tables on this page come
-from a corpus that predates the ceiling, so they do not show it.
+achievable reconstruction, not a proven maximum.) **The five low-level boards
+below now carry their ceilings as columns**, the way the correspondence board
+already did — never bolded, because "best ceiling" is not a thing to win. Note
+the column is really a property of the *grid*: the two DINOv2s share a value and
+so do the ViT/16s.
 
 ## The high-level tier is two clusters, not one
 
@@ -439,20 +442,20 @@ Taskonomy's splits are **disjoint by building** — 25 rooms train, 4 validate,
 <!-- visbench:board task=edge metrics=edge_correlation,rmse,mae heading=3 -->
 ### edge
 
-| backbone | `edge_correlation` | `rmse` | `mae` |
-| --- | --- | --- | --- |
-| `mae_vitb16` | **0.4982** | **0.9150** | **0.4687** |
-| `dino_vitb16` | 0.4817 | 0.9150 | 0.4789 |
-| `sam_vitb16` | 0.4734 | 0.9286 | 0.4784 |
-| `clip_vitb16` | 0.4565 | 0.9340 | 0.4882 |
-| `dinov2_vits14` | 0.4558 | 0.9226 | 0.5028 |
-| `dinov2_vitb14` | 0.4481 | 0.9265 | 0.4972 |
-| `supervised_vitb16` | 0.4420 | 0.9366 | 0.5086 |
-| `clip_vitb32` | 0.3834 | 0.9656 | 0.5080 |
-| `siglip_vitb16` | 0.3639 | 0.9785 | 0.5169 |
-| `resnet50` | 0.3549 | 0.9770 | 0.5056 |
-| `convnext_base` | 0.3485 | 0.9671 | 0.5224 |
-| `resnet18` | 0.3430 | 0.9797 | 0.5153 |
+| backbone | `edge_correlation` | `rmse` | `mae` | `ceiling_edge_correlation` | `ceiling_mae` | `ceiling_rmse` |
+| --- | --- | --- | --- | --- | --- | --- |
+| `mae_vitb16` | **0.4982** | **0.9150** | **0.4687** | 0.6106 | 0.4560 | 0.7906 |
+| `dino_vitb16` | 0.4817 | 0.9150 | 0.4789 | 0.6106 | 0.4560 | 0.7906 |
+| `sam_vitb16` | 0.4734 | 0.9286 | 0.4784 | 0.6106 | 0.4560 | 0.7906 |
+| `clip_vitb16` | 0.4565 | 0.9340 | 0.4882 | 0.6106 | 0.4560 | 0.7906 |
+| `dinov2_vits14` | 0.4558 | 0.9226 | 0.5028 | 0.6336 | 0.4418 | 0.7727 |
+| `dinov2_vitb14` | 0.4481 | 0.9265 | 0.4972 | 0.6336 | 0.4418 | 0.7727 |
+| `supervised_vitb16` | 0.4420 | 0.9366 | 0.5086 | 0.6106 | 0.4560 | 0.7906 |
+| `clip_vitb32` | 0.3834 | 0.9656 | 0.5080 | 0.4977 | 0.5175 | 0.8630 |
+| `siglip_vitb16` | 0.3639 | 0.9785 | 0.5169 | 0.6106 | 0.4560 | 0.7906 |
+| `resnet50` | 0.3549 | 0.9770 | 0.5056 | 0.4977 | 0.5175 | 0.8630 |
+| `convnext_base` | 0.3485 | 0.9671 | 0.5224 | 0.4977 | 0.5175 | 0.8630 |
+| `resnet18` | 0.3430 | 0.9797 | 0.5153 | 0.4977 | 0.5175 | 0.8630 |
 
 Ordered by `edge_correlation`, which **disagrees with `mae`, `rmse`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
 
@@ -503,20 +506,20 @@ so they render as two boards rather than one row each:
 <!-- visbench:board task=keypoints2d metrics=keypoint_correlation,mae,rmse heading=3 -->
 ### keypoints2d
 
-| backbone | `keypoint_correlation` | `mae` | `rmse` |
-| --- | --- | --- | --- |
-| `dino_vitb16` | **0.2850** | 1.0827 | **2.5143** |
-| `sam_vitb16` | 0.2696 | 1.1117 | 2.5589 |
-| `mae_vitb16` | 0.2626 | **1.0533** | 2.5342 |
-| `supervised_vitb16` | 0.2573 | 1.1242 | 2.5468 |
-| `dinov2_vits14` | 0.2356 | 1.1281 | 2.5472 |
-| `dinov2_vitb14` | 0.2248 | 1.1294 | 2.5541 |
-| `convnext_base` | 0.2187 | 1.1690 | 2.5633 |
-| `clip_vitb16` | 0.2175 | 1.1533 | 2.5770 |
-| `clip_vitb32` | 0.1933 | 1.1474 | 2.5891 |
-| `resnet50` | 0.1792 | 1.2374 | 2.6163 |
-| `resnet18` | 0.1659 | 1.2579 | 2.6282 |
-| `siglip_vitb16` | 0.1577 | 1.1789 | 2.6072 |
+| backbone | `keypoint_correlation` | `mae` | `rmse` | `ceiling_keypoint_correlation` | `ceiling_mae` | `ceiling_rmse` |
+| --- | --- | --- | --- | --- | --- | --- |
+| `dino_vitb16` | **0.2850** | 1.0827 | **2.5143** | 0.6674 | 0.9238 | 1.9161 |
+| `sam_vitb16` | 0.2696 | 1.1117 | 2.5589 | 0.6674 | 0.9238 | 1.9161 |
+| `mae_vitb16` | 0.2626 | **1.0533** | 2.5342 | 0.6674 | 0.9238 | 1.9161 |
+| `supervised_vitb16` | 0.2573 | 1.1242 | 2.5468 | 0.6674 | 0.9238 | 1.9161 |
+| `dinov2_vits14` | 0.2356 | 1.1281 | 2.5472 | 0.6976 | 0.8873 | 1.8452 |
+| `dinov2_vitb14` | 0.2248 | 1.1294 | 2.5541 | 0.6976 | 0.8873 | 1.8452 |
+| `convnext_base` | 0.2187 | 1.1690 | 2.5633 | 0.4728 | 1.0934 | 2.2552 |
+| `clip_vitb16` | 0.2175 | 1.1533 | 2.5770 | 0.6674 | 0.9238 | 1.9161 |
+| `clip_vitb32` | 0.1933 | 1.1474 | 2.5891 | 0.4728 | 1.0934 | 2.2552 |
+| `resnet50` | 0.1792 | 1.2374 | 2.6163 | 0.4728 | 1.0934 | 2.2552 |
+| `resnet18` | 0.1659 | 1.2579 | 2.6282 | 0.4728 | 1.0934 | 2.2552 |
+| `siglip_vitb16` | 0.1577 | 1.1789 | 2.6072 | 0.6674 | 0.9238 | 1.9161 |
 
 Ordered by `keypoint_correlation`, which **disagrees with `mae`, `rmse`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
 
@@ -526,20 +529,20 @@ Ordered by `keypoint_correlation`, which **disagrees with `mae`, `rmse`** — th
 <!-- visbench:board task=occlusion_edge metrics=occlusion_edge_correlation,mae,rmse heading=3 -->
 ### occlusion_edge
 
-| backbone | `occlusion_edge_correlation` | `mae` | `rmse` |
-| --- | --- | --- | --- |
-| `mae_vitb16` | **0.3273** | **0.1904** | **0.4261** |
-| `dinov2_vitb14` | 0.3167 | 0.2061 | 0.4315 |
-| `dino_vitb16` | 0.2928 | 0.2025 | 0.4338 |
-| `dinov2_vits14` | 0.2924 | 0.2205 | 0.4373 |
-| `sam_vitb16` | 0.2680 | 0.2108 | 0.4391 |
-| `clip_vitb16` | 0.2558 | 0.2149 | 0.4415 |
-| `siglip_vitb16` | 0.2254 | 0.2205 | 0.4423 |
-| `clip_vitb32` | 0.2174 | 0.2203 | 0.4440 |
-| `supervised_vitb16` | 0.1996 | 0.2435 | 0.4540 |
-| `resnet50` | 0.1979 | 0.2294 | 0.4502 |
-| `resnet18` | 0.1745 | 0.2418 | 0.4578 |
-| `convnext_base` | 0.1741 | 0.2533 | 0.4704 |
+| backbone | `occlusion_edge_correlation` | `mae` | `rmse` | `ceiling_mae` | `ceiling_occlusion_edge_correlation` | `ceiling_rmse` |
+| --- | --- | --- | --- | --- | --- | --- |
+| `mae_vitb16` | **0.3273** | **0.1904** | **0.4261** | 0.1555 | 0.5150 | 0.3797 |
+| `dinov2_vitb14` | 0.3167 | 0.2061 | 0.4315 | 0.1512 | 0.5301 | 0.3755 |
+| `dino_vitb16` | 0.2928 | 0.2025 | 0.4338 | 0.1555 | 0.5150 | 0.3797 |
+| `dinov2_vits14` | 0.2924 | 0.2205 | 0.4373 | 0.1512 | 0.5301 | 0.3755 |
+| `sam_vitb16` | 0.2680 | 0.2108 | 0.4391 | 0.1555 | 0.5150 | 0.3797 |
+| `clip_vitb16` | 0.2558 | 0.2149 | 0.4415 | 0.1555 | 0.5150 | 0.3797 |
+| `siglip_vitb16` | 0.2254 | 0.2205 | 0.4423 | 0.1555 | 0.5150 | 0.3797 |
+| `clip_vitb32` | 0.2174 | 0.2203 | 0.4440 | 0.1811 | 0.4336 | 0.3994 |
+| `supervised_vitb16` | 0.1996 | 0.2435 | 0.4540 | 0.1555 | 0.5150 | 0.3797 |
+| `resnet50` | 0.1979 | 0.2294 | 0.4502 | 0.1811 | 0.4336 | 0.3994 |
+| `resnet18` | 0.1745 | 0.2418 | 0.4578 | 0.1811 | 0.4336 | 0.3994 |
+| `convnext_base` | 0.1741 | 0.2533 | 0.4704 | 0.1811 | 0.4336 | 0.3994 |
 
 Ordered by `occlusion_edge_correlation`, which **disagrees with `mae`, `rmse`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
 
@@ -598,20 +601,20 @@ thereby comparable — check the fields.
 <!-- visbench:board task=corner metrics=corner_correlation,mae,rmse heading=3 -->
 ### corner
 
-| backbone | `corner_correlation` | `mae` | `rmse` |
-| --- | --- | --- | --- |
-| `mae_vitb16` | **0.6669** | **0.4187** | 0.6979 |
-| `dino_vitb16` | 0.6657 | 0.4268 | **0.6837** |
-| `dinov2_vitb14` | 0.6526 | 0.4402 | 0.6899 |
-| `dinov2_vits14` | 0.6512 | 0.4510 | 0.6919 |
-| `sam_vitb16` | 0.6454 | 0.4305 | 0.7198 |
-| `clip_vitb16` | 0.6227 | 0.4508 | 0.7229 |
-| `supervised_vitb16` | 0.6204 | 0.4710 | 0.7291 |
-| `siglip_vitb16` | 0.5383 | 0.4866 | 0.7846 |
-| `clip_vitb32` | 0.5367 | 0.4829 | 0.7825 |
-| `convnext_base` | 0.5129 | 0.4852 | 0.7833 |
-| `resnet18` | 0.5014 | 0.4706 | 0.8085 |
-| `resnet50` | 0.4923 | 0.4661 | 0.8033 |
+| backbone | `corner_correlation` | `mae` | `rmse` | `ceiling_corner_correlation` | `ceiling_mae` | `ceiling_rmse` |
+| --- | --- | --- | --- | --- | --- | --- |
+| `mae_vitb16` | **0.6669** | **0.4187** | 0.6979 | 0.8053 | 0.3078 | 0.5258 |
+| `dino_vitb16` | 0.6657 | 0.4268 | **0.6837** | 0.8053 | 0.3078 | 0.5258 |
+| `dinov2_vitb14` | 0.6526 | 0.4402 | 0.6899 | 0.8316 | 0.2849 | 0.4940 |
+| `dinov2_vits14` | 0.6512 | 0.4510 | 0.6919 | 0.8316 | 0.2849 | 0.4940 |
+| `sam_vitb16` | 0.6454 | 0.4305 | 0.7198 | 0.8053 | 0.3078 | 0.5258 |
+| `clip_vitb16` | 0.6227 | 0.4508 | 0.7229 | 0.8053 | 0.3078 | 0.5258 |
+| `supervised_vitb16` | 0.6204 | 0.4710 | 0.7291 | 0.8053 | 0.3078 | 0.5258 |
+| `siglip_vitb16` | 0.5383 | 0.4866 | 0.7846 | 0.8053 | 0.3078 | 0.5258 |
+| `clip_vitb32` | 0.5367 | 0.4829 | 0.7825 | 0.6685 | 0.4150 | 0.6579 |
+| `convnext_base` | 0.5129 | 0.4852 | 0.7833 | 0.6685 | 0.4150 | 0.6579 |
+| `resnet18` | 0.5014 | 0.4706 | 0.8085 | 0.6685 | 0.4150 | 0.6579 |
+| `resnet50` | 0.4923 | 0.4661 | 0.8033 | 0.6685 | 0.4150 | 0.6579 |
 
 Ordered by `corner_correlation`, which **disagrees with `mae`, `rmse`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
 
@@ -679,20 +682,20 @@ travels in `dataset_params` and splits the comparability groups on its own.
 <!-- visbench:board task=orientation metrics=orientation_error,d1,d2 heading=3 -->
 ### orientation
 
-| backbone | `orientation_error` | `d1` | `d2` |
-| --- | --- | --- | --- |
-| `mae_vitb16` | **18.8226** | **0.5819** | **0.7268** |
-| `dino_vitb16` | 21.4371 | 0.5243 | 0.6849 |
-| `sam_vitb16` | 21.7229 | 0.5231 | 0.6810 |
-| `dinov2_vits14` | 22.1313 | 0.4962 | 0.6688 |
-| `supervised_vitb16` | 24.2909 | 0.4607 | 0.6353 |
-| `dinov2_vitb14` | 24.5829 | 0.4646 | 0.6311 |
-| `convnext_base` | 28.2318 | 0.4191 | 0.5780 |
-| `clip_vitb16` | 28.2994 | 0.4097 | 0.5740 |
-| `resnet18` | 29.0002 | 0.4072 | 0.5670 |
-| `clip_vitb32` | 29.9626 | 0.3857 | 0.5491 |
-| `resnet50` | 29.9675 | 0.3958 | 0.5529 |
-| `siglip_vitb16` | 31.1589 | 0.3760 | 0.5316 |
+| backbone | `orientation_error` | `d1` | `d2` | `ceiling_d1` | `ceiling_d2` | `ceiling_orientation_error` |
+| --- | --- | --- | --- | --- | --- | --- |
+| `mae_vitb16` | **18.8206** | **0.5820** | **0.7268** | 0.7047 | 0.8450 | 12.1822 |
+| `dino_vitb16` | 21.4352 | 0.5244 | 0.6850 | 0.7047 | 0.8450 | 12.1822 |
+| `sam_vitb16` | 21.7203 | 0.5231 | 0.6811 | 0.7047 | 0.8450 | 12.1822 |
+| `dinov2_vits14` | 22.1286 | 0.4962 | 0.6688 | 0.7321 | 0.8652 | 11.0211 |
+| `supervised_vitb16` | 24.2851 | 0.4608 | 0.6355 | 0.7047 | 0.8450 | 12.1822 |
+| `dinov2_vitb14` | 24.5740 | 0.4646 | 0.6312 | 0.7321 | 0.8652 | 11.0211 |
+| `convnext_base` | 28.2284 | 0.4194 | 0.5780 | 0.5699 | 0.7348 | 18.5669 |
+| `clip_vitb16` | 28.2988 | 0.4097 | 0.5740 | 0.7047 | 0.8450 | 12.1822 |
+| `resnet18` | 28.9932 | 0.4074 | 0.5672 | 0.5699 | 0.7348 | 18.5669 |
+| `clip_vitb32` | 29.9416 | 0.3859 | 0.5494 | 0.5699 | 0.7348 | 18.5669 |
+| `resnet50` | 29.9725 | 0.3956 | 0.5526 | 0.5699 | 0.7348 | 18.5669 |
+| `siglip_vitb16` | 31.1453 | 0.3759 | 0.5317 | 0.7047 | 0.8450 | 12.1822 |
 
 Ordered by `orientation_error`, which **disagrees with `d1`, `d2`, `median`, `rmse`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
 

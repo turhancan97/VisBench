@@ -413,9 +413,10 @@ split's *targets* — not its features, which are the expensive half.
 
 **A ceiling is never a score.** Do not rank on one, average one, or divide by
 one: it falls with the grid, so a board ordered by ceiling is a board ordered by
-feature resolution. The committed corpus predates this and its records carry no
-`ceiling_*` key; that is absence, like a pre-v8 record carrying no `training`,
-and it must not be backfilled.
+feature resolution. **The committed corpus now carries them**: the five boards
+were re-run on 2026-09-01 so their records hold `ceiling_*` (and, since those
+records predated schema v8, a `training` block too). They were *regenerated*,
+not backfilled — every value in a record was produced by a run.
 
 **The bar.** Every target that ships sits at 0.53–0.83; the one that was built
 and thrown away sits at **0.25**, less than half the weakest of them, and at

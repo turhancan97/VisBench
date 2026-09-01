@@ -179,7 +179,9 @@ subordinate. It is a distinct probe *name* for the same reason
 `scene_classification` is; see that bullet in "decisions already paid for",
 which the second instance confirmed edit for edit. Proved end to end on
 DINOv2-S over the whole split. **Its 12-backbone board landed the
-same day** — the corpus is **192 records across sixteen boards**.
+same day** — the corpus is **192 records across sixteen boards** (252 lines
+since the five low-level boards were re-run to carry ceilings; still 12
+backbones a board once `latest_per_backbone` has picked).
 `probe_fine_grained_classification` runs the whole official split with no
 `--limit`, which is what makes the board comparable to the published CUB
 literature.
@@ -1086,12 +1088,18 @@ designed up front; extend it the same way, from a case that already runs.
   available, not what was recovered, and since it falls with the grid, ranking
   on it would rank feature resolution directly.
 
-  **The committed corpus predates it**, so its 60 records for those five probes
-  carry no `ceiling_*` key and a re-run will differ from them by exactly those
-  additions, with no score moving. That is absence, the way a pre-v8 record
-  carries no `training` — **do not backfill it into the corpus**, which would
-  put numbers in a record that no run produced. Schema is untouched: these are
-  keys inside `metrics`, not a new field.
+  **The corpus carries them since 2026-09-01.** The five boards were re-run —
+  60 records, every value produced by a run rather than backfilled, which is the
+  distinction that matters: a number in a record no run produced would be a
+  fabrication however easy it is to compute. The old lines stay (the corpus is
+  append-only) and `latest_per_backbone` picks the new ones, so the file is 252
+  lines for 16 boards x 12 backbones. Those records also gained the schema-v8
+  `training` block, because they predated it. Schema is untouched by the
+  ceilings themselves: they are keys inside `metrics`, not a new field.
+
+  **Four of the five boards reproduced to ~1e-7 relative; `orientation` did
+  not.** See its entry in [`CORPUS_FINDINGS.md`](CORPUS_FINDINGS.md) — its
+  metric is ill-conditioned and two of its rows are not separable.
 - **Correspondence thresholds are in *pixels*, and normalising them by patch
   spacing is the bug v0.6.1 fixed — do not reinstate it.** Patch widths look
   like the natural unit (they are the quantisation floor) and are fine within
