@@ -11,6 +11,49 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Added
 
+- **BSDS500, the dataset half of the real boundary benchmark** (12a-1).
+  `scripts/fetch_bsds500.py` and `visbench.data.BSDS500Dataset` read the 500
+  natural images with **every** annotator's boundary map. This is not the
+  existing `edge` probe with different files: that is dense magnitude regression
+  on Taskonomy scored by Pearson correlation, and BSDS scores ODS/OIS/AP by
+  matching predicted boundary pixels to human ones. The metric and the probe are
+  the two steps that follow.
+
+  Three measured properties of the data decided the design, checked over all 500
+  images rather than assumed:
+
+  - **Two orientations and nothing else** — 348 images are 481x321 and 152 are
+    321x481 — so native-resolution batching is a grouping problem, not an
+    arbitrary-size one. `group_by_orientation()` is the helper.
+  - **The annotator count varies**, 4 to 9 with 5 the mode, so the annotation
+    stack is ragged *across* images and no fixed `A` is promised anywhere.
+  - **The annotators disagree a lot.** Per image the densest marks a median of
+    **1.92x** as many boundary pixels as the sparsest, and 4.70x at the 95th
+    percentile. That spread is why the protocol credits a prediction matching
+    *any* annotator, and why the dataset will not hand back one "true" boundary
+    map: `target()` returns the annotator mean as a training convenience and
+    says in its own docstring that the scoring ground truth is
+    `annotations()`.
+
+  **Nothing resizes or crops, and that is the one place this dataset breaks the
+  house rule.** Every other dense dataset here centre-crops to 224 square,
+  because a VisBench number only has to be comparable with other VisBench
+  numbers. A BSDS number exists to be comparable with the *published* ones,
+  which are scored at native resolution, so a resize would forfeit the only
+  reason to add the dataset. There is no `image_size` argument.
+
+  **`bench/` and `grouping/` are deliberately not fetched.** Neither the BSR
+  package nor the mirror licenses them, so the ODS/OIS/AP implementation must
+  come from the paper rather than from `correspondPixels` — the position
+  `NOTICE` already takes on probe3d's CC BY-NC code, now recorded there for this
+  too. The fetch script enforces it by extension rather than leaving it to
+  intent, and the mirror is pinned to a commit whose extracted bytes were
+  verified identical to the branch tip.
+
+  `scipy` becomes a declared core dependency: BSDS ships its annotations as
+  MATLAB v7 `.mat`, and although scikit-learn already pulled scipy in, a package
+  that imports a module directly should say so. It adds nothing to an install.
+
 - **The oracle gate: the gauntlet finally asks whether a target is
   *recoverable*.** `DenseTrainingTask.evaluate_oracle` scores the target as a
   perfect backbone would make it available — pooled to the feature grid,

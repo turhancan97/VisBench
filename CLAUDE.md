@@ -74,6 +74,7 @@ step is next rather than attempting the whole roadmap in one session.
 | 11a | The gallery on real photographs, licence-checked | done |
 | 10d | `dino_vitb16`: the objective family becomes three wide | done |
 | 10e | `sam_vitb16`, a recipe control — the denominator an objective gap needs | done |
+| 12a-1 | BSDS500: the dataset, and several people's answers per image | done |
 
 **A closed step's full write-up lives in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md), not here.** That file is the archive
@@ -267,7 +268,9 @@ rejection was missing on 2026-09-01** — `scripts/oracle_ceiling.py`, calibrate
 so the four shipped magnitude targets pass at 0.53-0.83 and the rejected one
 fails at 0.25. It ships no probe and moves no number. That leaves BSDS500 edge
 and optical flow,
-**both of which need a download first**: nothing cheap remains. Re-confirm what is wanted before
+**both of which need a download first** — and **BSDS500's is now done** (12a-1,
+2026-09-01): `scripts/fetch_bsds500.py` + `BSDS500Dataset`, with the ODS/OIS/AP
+metric and the probe still to come. Nothing cheap remains. Re-confirm what is wanted before
 starting anything; do not assume its order is a plan. **The one thread that was open — why `detection`
 alone fails to reproduce — is closed**: it is GPU non-determinism made visible
 by a discrete metric, it was never a bug, and detection reproduces to *three*
@@ -575,6 +578,9 @@ visbench/
                    after the crop; 8a. OrientationResponse is a 2-ch direction)
                  bridges.py (TorchvisionDataset + HuggingFaceDataset — wrap a
                    torch/HF dataset; cache_identity from index-order immutability)
+                 bsds.py (BSDS500Dataset — every annotator's boundary map, 4-9
+                   per image; native resolution, NO resize or crop; target() is
+                   the consensus mean and is NOT the scoring ground truth)
                  base.py (BaseDataset, list_files — scandir, never a stat/entry;
                    balanced_subset lives here now, not on ImageFolderDataset)
   heads/         base.py (register_head/build_head), linear.py, dpt.py,
@@ -2038,7 +2044,12 @@ loader code, which is a different cost class from a folder swap.
 
 **Verified absent, both levels:** any optical-flow set (Sintel, KITTI,
 FlyingChairs), NYUv2, any intrinsic-image set (IIW, SAW, MIT intrinsic).
-`bsds300` is still the MAF density-estimation benchmark, not BSDS500 — see 6d-1.
+`bsds300` is still the MAF density-estimation benchmark, not BSDS500 (its
+`bsds300.hdf5` sits beside `gas` and `hepmass`) — see 6d-1. **BSDS500 itself is
+no longer absent**: Berkeley is unreachable from this machine (`www2.eecs`
+times out, the old host 403s) while the network is otherwise fine, so
+`scripts/fetch_bsds500.py` reads the `BIDS/BSDS500` GitHub mirror at a pinned
+commit into gitignored `data/bsds500/`.
 `davis` exists but holds two sequences of derived output (`dpt/`,
 `epipolar_error*`), not the DAVIS annotations, so it is not a video-segmentation
 benchmark.

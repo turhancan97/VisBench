@@ -124,6 +124,40 @@ worth it if borrowed exactly — see `NOTICE`, and the depth probe's 256-bin
 expectation, which a from-memory reconstruction would have turned into scalar
 regression. Adding BSDS properly is a step of its own.
 
+**That step has started, and its first third is done.**
+`scripts/fetch_bsds500.py` and `visbench.data.BSDS500Dataset` read the 500
+images with *every* annotator's boundary map. Three things about that data decided the design, all
+measured over all 500 rather than assumed:
+
+- **Two orientations and nothing else** — 348 images are 481x321 and 152 are
+  321x481 — so native-resolution batching is a grouping problem, not an
+  arbitrary-size one.
+- **The annotator count varies**, 4 to 9, mode 5. The stack is ragged *across*
+  images, so no fixed `A` is promised anywhere.
+- **The annotators disagree a lot**: per image the densest marks a median of
+  **1.92x** as many boundary pixels as the sparsest, 4.70x at the 95th
+  percentile. That spread is why the protocol credits a prediction matching
+  *any* annotator, and why the dataset refuses to hand back one "true" boundary
+  map. `target()` returns the mean as a training convenience and says in its own
+  docstring that it is not the scoring ground truth.
+
+**Nothing resizes or crops**, which is the one place this dataset breaks the
+house rule. Every other dense dataset here centre-crops to 224 square because a
+VisBench number only has to be comparable with other VisBench numbers; a BSDS
+number exists to be comparable with the *published* ones, which are scored at
+native resolution. There is no `image_size` argument and adding one would
+forfeit the only reason to add the dataset. It also means `DenseTrainingTask`'s
+square-map assumption has to be faced by the probe step.
+
+**`bench/` and `grouping/` are deliberately not fetched.** Neither carries a
+licence, so the ODS/OIS/AP implementation must come from the paper rather than
+from `correspondPixels` — the position `NOTICE` already takes on probe3d's
+CC BY-NC code. The fetch script enforces it by extension rather than leaving it
+to intent. **The remaining risk is that matcher**: it is a *minimum-cost*
+bipartite correspondence, and the greedy substitute most Python
+reimplementations use is a different number that may not claim
+`protocol: "bsds500"`.
+
 ### The mid-level twin
 
 `visbench/tasks/mid_level/occlusion_edge.py` (`OcclusionEdgeTask`) shares every
@@ -147,7 +181,7 @@ them. **Check the tail before assuming this protocol transfers.**
 | Optical flow | Needs image pairs and a flow head. `PairViewDataset` already expresses the pairing (see correspondence), so the flow head is the real cost. No flow dataset is assumed present. |
 | Texture / reflectance | Intrinsic-image decomposition; ground truth is scarce outside synthetic data. **Taskonomy does not ship a reflectance domain**, so this is not unblocked by 6d-2. `principal_curvature` and `reshading` are present and are still refused, but no longer for want of a mask — see below. |
 | Image quality assessment | No-reference IQA against human MOS ratings. Closest in shape to mid-level similarity, which is zero-shot; IQA is not. |
-| Edge detection on BSDS500 | The correspondence metric above, as a second protocol beside the Taskonomy one rather than a replacement. |
+| Edge detection on BSDS500 | The correspondence metric above, as a second protocol beside the Taskonomy one rather than a replacement. **Dataset done** — `scripts/fetch_bsds500.py` + `BSDS500Dataset`; the metric and the probe remain. See below. |
 | ~~Superpixel / texture segmentation~~ | **Built and rejected**, 2026-08-28. Needs no dataset, passed every pre-measurement, and scored 0.021–0.043 — see "The superpixel rejection" below. |
 | Color constancy / illuminant estimation | A per-image scalar/vector target rather than a dense one, and it needs measured illuminant ground truth. |
 | Vanishing point / line detection | Published as a Taskonomy domain, but **not in the copy on this machine** — that download carries eight domains and this is not one. |

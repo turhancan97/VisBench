@@ -241,7 +241,10 @@ Worth naming so they are not re-scoped from scratch:
 - **Edge / contour detection** is implemented (v0.4) as dense magnitude
   regression on Taskonomy. What is missing is **BSDS500's** ODS/OIS/AP boundary
   protocol, which is a bipartite matching after non-maximum suppression and a
-  step of its own — not a dataset swap.
+  step of its own — not a dataset swap. **The dataset half is done**:
+  `scripts/fetch_bsds500.py` and `visbench.data.BSDS500Dataset` read the 500
+  images with every annotator's boundary map, at native resolution. The metric
+  and the probe are the remaining two steps.
 - **Occlusion-edge detection** (v0.5) already covers the depth-discontinuity
   half of contour detection, at mid level.
 - **Corner detection** is implemented (v0.8) as Shi-Tomasi cornerness computed

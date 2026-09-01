@@ -85,6 +85,21 @@ are provided for:
   https://dreamsim-nights.github.io
 - Pascal VOC 2012 — semantic segmentation labels, read via
   `DenseFolderDataset` and `load_label_map`.
+- BSDS500 (Arbelaez, Maire, Fowlkes & Malik, *Contour Detection and
+  Hierarchical Image Segmentation*, IEEE TPAMI 33(5), 2011) — natural images
+  with several people's boundary annotations each, read by
+  `visbench/data/bsds.py`. Fetched by `scripts/fetch_bsds500.py` into a
+  gitignored directory; nothing from it is committed here.
+
+  IMPORTANT — the BSR package ships more than data, and the rest is not
+  vendored. `bench/` (the MATLAB boundary-benchmark suite, including
+  `correspondPixels`) and `grouping/` (the gPb contour detector) carry **no
+  licence** in the distribution or in the GitHub mirror the fetch script reads.
+  VisBench therefore extracts `BSDS500/data/` only, and implements the ODS/OIS/AP
+  protocol **from the paper's published description rather than by adapting that
+  code** — the same position taken above for probe3d's CC BY-NC correspondence
+  helpers, and for the same reason. The fetch script enforces it rather than
+  leaving it to intent.
 
 ## Model weights
 
