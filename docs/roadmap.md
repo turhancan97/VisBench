@@ -100,8 +100,10 @@ This is a multi-month roadmap, built one reviewed step at a time.
 - [x] **backlog: `fine_grained_classification`** — subordinate category on the
       same linear-probe path (CUB-200-2011), the third distinct question on that
       one implementation; a new probe *name* rather than a dataset flag, for the
-      reason `scene_classification` is. The twelve-backbone board is the next
-      step
+      reason `scene_classification` is. Its twelve-backbone board landed the same
+      day and *replicates* `scene_classification`'s surprise: it correlates
+      +0.860 with `detection` and only +0.343 with the object board it
+      subclasses
 - [x] **backlog: the oracle gate** — the derived-target gauntlet asks whether a
       candidate target is *distinctive*; it never asked whether it is
       *recoverable* from patch features. `evaluate_oracle` asks that with no
@@ -113,6 +115,17 @@ This is a multi-month roadmap, built one reviewed step at a time.
       reproduces the published human agreement (0.8030 against 0.80). **The
       probe was refused by the oracle gate** and the line is closed at two
       steps; see the note under "Already partly answered"
+- [x] **the corpus carries its ceilings** — the five low-level boards re-run so
+      every record emits `ceiling_*` beside its score and the schema-v8
+      `training` block, 60 records, each value produced by a run rather than
+      backfilled. Four boards reproduced to ~1e-7 relative; `orientation` did
+      not, and its metric is recorded as ill-conditioned
+- [x] **the oracle gate is a bar, not a bound** — `results/controls/dpt_head.jsonl`
+      measures what a DPT head reaches against the linear oracle the gate
+      computes: **70-104%**, exceeding it outright in two of ten cases. The gate
+      models a linear head exactly, so it is a bar for the head VisBench
+      reports. It does not reopen BSDS500, and on `occlusion_edge` the DPT run
+      *reverses* the linear board's top two
 
 ## Roadmap
 
@@ -156,7 +169,34 @@ refuted half of its own family's published claim on arrival. It also ships
 `examples/custom_backbone.py`, the escape hatch that had been documented and
 never demonstrated.
 
+**v0.12** — two more probes *(done)*: `scene_classification` on Places365 and
+`orientation`, the first derived target that is a *direction* rather than a
+magnitude and so the first that could not reuse `DenseMagnitudeTask`. Fifteen
+probes against twelve backbones, 180 records. It also closes the
+library-surface backlog with the `torchvision` / Hugging Face dataset bridges.
+
+**v0.13** — a sixteenth probe *(done)*: `fine_grained_classification` on
+CUB-200-2011, the third distinct question asked by one linear-probe
+implementation, which **replicates** v0.12's most surprising result rather than
+merely adding to it. Sixteen probes against twelve backbones, 192 records.
+Schema moves to **v8** — additively, so no published number changes — because a
+trained run had been discarding the one diagnostic that separates an
+underfitting probe from a weak representation.
+
+**v0.14** — the release that learned to say no *(done)*. It ships no probe and
+moves no number. Two candidates were built or scoped and then **refused on
+measurement**, the second by the **oracle gate** this release adds: it asks
+what a probe could score if the features contained the answer, needing no
+backbone and no fitted head. BSDS500's dataset and a validated ODS/OIS/AP
+metric ship — reproducing the published human agreement at 0.8030 against 0.80
+— and its probe does not, at a 0.4193 ODS ceiling against Canny's published
+0.60. Every dense probe that declares an oracle now reports a ceiling beside
+its score.
+
 **Next** — there is no committed next step. What follows is a candidate pool.
+The cheap end of it is exhausted: superpixels was built and rejected, DoG-blob
+rejected on overlap, BSDS500 refused by the gate, and optical flow and NYUv2
+are not on this machine.
 
 ## Future directions
 
@@ -219,8 +259,8 @@ dense probe has to test for.
 | Task | Level | Note |
 |---|---|---|
 | Instance segmentation | high | The category-labelled counterpart to the existing binary segmentation; COCO-style polygon annotations |
-| ~~Fine-grained recognition (CUB-200-2011)~~ | high | **Done** — `fine_grained_classification`, a distinct probe on the linear-probe path. Subordinate categories where the object board asks a basic-level question, which is why the object board is saturated and this one is not. The corpus board is pending. |
-| ~~Scene classification (Places365)~~ | high | **Done** — `scene_classification`, a distinct probe on the linear-probe path. Ships with a rank check; the full corpus board is pending. |
+| ~~Fine-grained recognition (CUB-200-2011)~~ | high | **Done** — `fine_grained_classification`, a distinct probe on the linear-probe path, with its twelve-backbone board. Subordinate categories where the object board asks a basic-level question, which is why the object board is saturated and this one spans 0.87 to 0.47 |
+| ~~Scene classification (Places365)~~ | high | **Done** — `scene_classification`, a distinct probe on the linear-probe path, with its twelve-backbone board. Ranks backbones almost independently of the object board (Spearman +0.16) |
 | Relative depth ordering | mid | A ranking-only weakening of the existing depth probe — different protocol, same targets |
 | Intrinsic image decomposition (albedo vs shading) | mid | Classic Marr-style separation of appearance from geometry and lighting. Ground truth is scarce outside synthetic data |
 | Room / scene layout estimation | mid | Floor–wall–ceiling boundaries |
@@ -262,10 +302,18 @@ Worth naming so they are not re-scoped from scratch:
   backbone produces at 224px, against published detectors at 0.60-0.79. A board
   whose ceiling sits below the weakest classical baseline could not be compared
   with the literature, which is the only reason to add this dataset rather than
-  reuse the Taskonomy edge probe. **Possible future work**: test whether a DPT
-  head beats the pooling oracle — the gate models a linear head exactly and may
-  understate a progressive decoder — or run at 32x32 or finer, which only
-  DINOv2 can do. Both are written up in
+  reuse the Taskonomy edge probe.
+
+  **The first of the two routes that could have reopened it has been measured,
+  and it does not.** The gate models a linear head exactly, so a progressive
+  decoder was the obvious way it might understate what is achievable — and it
+  does: `results/controls/dpt_head.jsonl` puts a DPT head at 70-104% of the
+  linear oracle across five probes and two backbones, exceeding it outright in
+  two of ten cases. But scaling 0.4193 by the best ratio observed (1.037) gives
+  ~0.435 ODS, still below the weakest classical baseline, so **the closure
+  survives the correction to its premise.** The remaining route is to run at
+  32x32 tokens or finer, which only DINOv2 can do — and a board only DINOv2 can
+  appear on ranks nothing. Both are written up in
   `visbench/tasks/low_level/README.md`.
 - **Occlusion-edge detection** (v0.5) already covers the depth-discontinuity
   half of contour detection, at mid level.
