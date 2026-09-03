@@ -9,7 +9,56 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+
+## [0.15.0] — 2026-09-03
+
+**The release that measures its own gate.** 0.14.0 shipped the oracle gate and
+two things about it were left unproven: the committed corpus predated the
+ceilings, so no published record carried one, and the gate was described as a
+bound on what a dense probe can reach when it had only ever been checked
+against a linear head. Both are now measured. No probe is added, the corpus
+stays at 16 probes × 12 backbones, and **every published ordering is
+unchanged** — but one board turns out to have two rows that are not separable,
+and the word "ceiling" turns out to have been too strong.
+
 ### Added
+
+- **The corpus carries its ceilings.** The five low-level boards — `edge`,
+  `keypoints2d`, `occlusion_edge`, `corner`, `orientation` — were **re-run**, 60
+  records, one job per backbone, so every value is produced by a run rather than
+  backfilled. That distinction is the whole point: a ceiling is computable from
+  the target and the grid alone, so backfilling would have been easy and would
+  have put numbers in records no run produced. The corpus is append-only and
+  `latest_per_backbone` picks the newest, so the file is **252 lines for the
+  same 16 boards × 12 backbones**. Those records also gained the schema-v8
+  `training` block, because they predated that too. The generated tables gain
+  ceiling columns on those five boards and needed no renderer change —
+  `render_board` already keeps context columns through a `metrics=` narrowing
+  and never bolds them, built that way for `correspondence`. Read them knowing
+  the ceiling is a property of the **grid**, so the two DINOv2s share a value
+  and so do the ViT/16s.
+
+  **The re-run doubles as a reproducibility measurement, and it found
+  something.** Four boards came back at ~1e-7 relative — `corner` 3.1e-07,
+  `edge` 9.4e-07, `keypoints2d` 1.5e-06, `occlusion_edge` 1.0e-05.
+  `orientation` came back at **1.8e-03**, a thousand times worse: max drift
+  0.0210°, median 0.0051°. The smallest adjacent gap on that board is 0.0048° —
+  `clip_vitb32` 29.9626 against `resnet50` 29.9675 — which is *below* the median
+  drift, so **those two rows are not separable and a claim that either beats the
+  other is noise.** Every other adjacent gap is at least 0.0676, more than three
+  times the worst drift, so the rest of the board is solid and all five
+  published orderings hold.
+
+  **The cause is the metric, not the probe.** Features come from cache and are
+  byte-identical, and the head is seeded; what differs is float-level
+  non-determinism in training, which the other four probes show at 1e-7 too.
+  `orientation_error` is a coherence-weighted `acos` of a cosine similarity, and
+  `acos` has infinite derivative at its endpoints — the same ill-conditioning
+  `OrientationTask._loss_eps` exists to keep out of the loss. The metric needs no
+  gradient and carries no such guard, so it amplifies a 1e-7 weight difference
+  into 1e-4 degrees. That is `detection`'s lesson by a different mechanism:
+  there a *discrete* metric made non-determinism visible, here an
+  *ill-conditioned* one amplifies it.
 
 - **`results/controls/dpt_head.jsonl`: the oracle gate is not a bound on a DPT
   head.** Ten records — the five low-level probes on `dinov2_vitb14` and
@@ -47,6 +96,38 @@ so it stands on its own rather than assuming you have read the ones above it.
   than "what does this backbone score", and it changes `layers` and the head,
   both of which are in `comparability_key`, so these records form their own
   group and could not be listed beside the corpus anyway.
+
+### Changed
+
+- **`CLAUDE.md` is back under the 150k-character budget it is loaded under**, at
+  134k from 151k, for the second time in this project's life. Nothing was
+  deleted: the per-release upload records for 0.11.0-0.14.0 and the v0.1/v0.2
+  scope sections moved to `ENGINEERING_LOG.md`, board write-ups that
+  `CORPUS_FINDINGS.md` already carried in full were collapsed to what each probe
+  *is*, and the pre-bridge library-surface bullets now point at
+  `docs/roadmap.md`. **Both overruns were retrospective narrative rather than
+  rules**, and the budget note now says so, so the next session that crosses the
+  limit knows where to look first.
+- **`docs/roadmap.md` says what shipped.** It claimed the `scene_classification`
+  and `fine_grained_classification` corpus boards were "pending" and the latter's
+  board was "the next step" — both landed 2026-08-28 — its version list stopped
+  at v0.11, and its BSDS500 note still listed the DPT question as future work
+  after this release answered it. The build-order checklist gains rows for both
+  entries above. This is the "update the docs in the same commit as the code"
+  rule failing on the doc that records the plan, which is where it failed for
+  10c/11a as well.
+
+### Fixed
+
+- **`test_the_control_adds_a_row_rather_than_evicting_one` asserted something
+  that was only true while no board had ever been re-run.** It compared
+  `len(merged)` against the corpus's raw *lines* for a task plus one, and an
+  append-only corpus carries two lines per backbone once one board has been
+  re-run. The claim was never about lines, so it compares against
+  `len(latest_per_backbone(rows)) + 1` now. The primary protection is unaffected
+  and stronger either way: `latest_per_backbone` **raises** when one name
+  arrives under two `backbone_key`s, which is what actually catches the eviction
+  the test is named for.
 
 
 ## [0.14.0] — 2026-09-01
@@ -308,9 +389,10 @@ would buy a single-backbone board that confounds resolution with representation.
   ordered by ceiling is a board ordered by feature resolution.
 
   **No published number moves and the schema is untouched** — these are keys
-  inside `metrics`, not a new field. The committed corpus predated them; the
-  five boards have since been **re-run** so their records carry them — produced
-  by a run rather than backfilled, which is the distinction that matters. Probes whose target does not average
+  inside `metrics`, not a new field. The committed corpus predated them, so no
+  record shipped in *this* release carries one; the five boards were re-run in
+  **0.15.0** — produced by a run rather than backfilled, which is the
+  distinction that matters. Probes whose target does not average
   — depth, both segmentations, surface normals — return `{}` and are unchanged
   key for key.
 
@@ -3413,7 +3495,8 @@ API philosophy.
 [#2]: https://github.com/turhancan97/VisBench/issues/2
 [#4]: https://github.com/turhancan97/VisBench/issues/4
 [#3]: https://github.com/turhancan97/VisBench/issues/3
-[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/turhancan97/VisBench/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/turhancan97/VisBench/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/turhancan97/VisBench/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/turhancan97/VisBench/compare/v0.11.0...v0.12.0
