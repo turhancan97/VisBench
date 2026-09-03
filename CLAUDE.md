@@ -88,9 +88,15 @@ several of those decisions look wrong until you read the numbers.
 **When you finish a step, its narrative goes to `CHANGELOG.md`, its derivation
 to `ENGINEERING_LOG.md`, and anything about *what a board means* to
 [`CORPUS_FINDINGS.md`](CORPUS_FINDINGS.md); add at most a few lines here.**
-This file is loaded into every session's context whole, so it has a budget: it
-passed the 150k-character limit at 203k on 2026-08-20 and was split three ways
-to get back under it. **Read `CORPUS_FINDINGS.md` before quoting any board** —
+This file is loaded into every session's context whole, so it has a budget, and
+it has now been over that budget **twice**: 203k on 2026-08-20, split three ways
+to get back under it, and 151k on 2026-09-03, trimmed to 134k by moving the
+per-release upload records and the v0.1/v0.2 scope to `ENGINEERING_LOG.md` and
+collapsing board write-ups that `CORPUS_FINDINGS.md` already carried in full.
+**Both times the growth was retrospective narrative, not rules** — so when it
+next crosses, look for a closed step's write-up or a per-release paragraph
+before touching "decisions already paid for", which is 70k of the file and is
+what the file is for. **Read `CORPUS_FINDINGS.md` before quoting any board** —
 this file keeps only the claims, and several of them corrected an earlier
 published reading.
 
@@ -114,144 +120,71 @@ upside down** — see step 6f — v0.7.0 is the contributor-facing release that
 changes no number, and **v0.8.0 (2026-08-07) is the corner probe**, steps 8a and
 8b together.
 
-**v0.11.0 shipped on 2026-08-20.** It is steps 10d and 10e plus
-`examples/custom_backbone.py`: the corpus was **twelve backbones, 156 records**
-at that release (**192 across sixteen boards** since the
-`scene_classification`, `orientation` and `fine_grained_classification`
-boards landed, all 2026-08-28),
-the objective family is three wide, and it has a recipe control beside it —
-which refuted half of 10d's own published claim before either shipped. That
-result is the single most important thing to read before quoting a board from
-this corpus — see the `sam_vitb16` and `dino_vitb16` entries in
-[`CORPUS_FINDINGS.md`](CORPUS_FINDINGS.md). It is on PyPI, tagged, released on GitHub, archived by
-Zenodo and verified out of the wheel by import — see the release paragraph
-further down.
+**v0.9.0 through v0.14.0 are all shipped**, and each one's narrative is in
+`CHANGELOG.md`, its derivation in [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md)
+and its upload record in that file's "Release history": v0.9.0 was
+`visbench show` (9a-9d) plus the Hub work below; v0.10.0 was three timm
+backbones, a supervised ViT-B/16 and the gallery on real photographs (10a-10c,
+11a); v0.11.0 was `dino_vitb16`, the `sam_vitb16` recipe control and
+`examples/custom_backbone.py` (10d, 10e); v0.12.0-v0.13.0 were the
+`scene_classification`, `orientation` and `fine_grained_classification` probes
+and their boards; v0.14.0 is the oracle gate. **The corpus is 192 records
+across sixteen boards**, twelve backbones a board.
 
-The release commit also corrected the published counts 10d and 10e moved and
-nobody re-counted: MAE is first on **five** boards and last on **three**, not
-six and four — it lost keypoints2d to `dino_vitb16` and `sam_vitb16`, and
-`sam_vitb16`'s 0.3339 semseg put it below MAE's 0.3350. The generated tables
-were right the whole time; only the prose around them was stale, which is the
-half no test reads.
+Two standing consequences of that history, both of which have already cost a
+published claim:
 
-**v0.10.0 shipped on 2026-08-19.** It is steps 10a-10c and 11a: four
-backbones, 52 new corpus records, and the gallery on real photographs. It is on
-PyPI, tagged, released on GitHub, archived by Zenodo and verified out of the
-wheel by import — see the release paragraph further down.
-`docs/roadmap.md`'s build-order checklist also
-gained the 10c and 11a rows it was missing — it had stopped at 10b while
-`CHANGELOG.md` and this file both covered them, which is the standing "update
-the docs in the same commit as the code" rule failing on the doc that records
-the plan.
-
-**v0.9.0 shipped on 2026-08-14**: four steps of `visbench show` (9a-9d) plus
-the Hub work below, no new probe and no moved number. It is on PyPI, tagged,
-released on GitHub and verified out of the wheel by import — see the release
-paragraph further down. Before it,
-**since v0.8.0 shipped the work had been distribution rather than
-measurement** (PR #42, merged 2026-08-07): the Hub integration gained a runnable
-example and a reference page, `visbench run --push-to` publishes the head it
-just trained, and twenty trained heads are now public in a collection — see the
-`--push-to` paragraph below for all three, and for the seeding bug that
-publishing them uncovered. **v0.8.0 is verified out of the published wheel by
-import**, which it was not when v0.8.0's own section was written. No number
-moved and no version was bumped, so PyPI is still 0.8.0.
-
-**10a and 10b are both done (2026-08-14) and the corpus is now 13 probes x 9
-backbones, 117 records.** `convnext_base`, `mae_vitb16` and `siglip_vitb16` are
-measured, not merely registered. The merge was **purely additive** — 39 lines
-added, none removed — so no number published before 10b moved. **The headline
-result is that the three tiers finally separate**: see the `mae_vitb16` entry
-in [`CORPUS_FINDINGS.md`](CORPUS_FINDINGS.md), which is the single most
-important thing to read before quoting any board from this corpus. (The tier
-claim itself no longer holds for *high-level* at twelve backbones — same file.)
+- **Read a count off `LEADERBOARD.md`, never out of prose.** Every count that
+  has gone stale in this project went stale by being carried forward through a
+  release that added a column or a board. The generated tables have always been
+  right; only the prose around them drifts, which is the half no test reads.
+- **Before quoting any board, read
+  [`CORPUS_FINDINGS.md`](CORPUS_FINDINGS.md)** — in particular the
+  `sam_vitb16`, `dino_vitb16` and `mae_vitb16` entries. 10e's recipe control
+  refuted half of 10d's own published claim before either shipped, and the
+  three-tier separation 10b announced no longer holds for *high-level*.
 
 **There is no `next` step.** The remaining work is the candidate task backlog
 further down this file — and the cheapest items there need no new dataset at
 all. **Two of those are done.**
 
-**`fine_grained_classification`, a sixteenth probe, shipped 2026-08-28.**
-Subordinate category on the same linear-probe path as object `classification`
-and `scene_classification` — **CUB-200-2011**, the official 5994/5794 split,
-read with no loader code from `vision/CUB-200/images_train_test/`. Three probes
-now share one implementation and ask three questions: basic-level, place, and
-subordinate. It is a distinct probe *name* for the same reason
-`scene_classification` is; see that bullet in "decisions already paid for",
-which the second instance confirmed edit for edit. Proved end to end on
-DINOv2-S over the whole split. **Its 12-backbone board landed the
-same day** — the corpus is **192 records across sixteen boards** (252 lines
-since the five low-level boards were re-run to carry ceilings; still 12
-backbones a board once `latest_per_backbone` has picked).
-`probe_fine_grained_classification` runs the whole official split with no
-`--limit`, which is what makes the board comparable to the published CUB
-literature.
+**Three probes shipped after v0.11.0 and each has a 12-backbone board**, all
+2026-08-28 unless stated. Their board readings are in
+[`CORPUS_FINDINGS.md`](CORPUS_FINDINGS.md) and their per-probe reference in
+`docs/tasks.md`; what matters here is what each one *is*:
 
-**The board's headline is that it does not rank like the object board it
-subclasses.** `fine_grained_classification` correlates **+0.860 with
-`detection`** — the highest high-level pair in the corpus — and only +0.343
-with `classification`, +0.112 with `retrieval`. It is the *replication* of
-`scene_classification`'s surprise, and two independent probes showing it is
-what moves "high-level is two clusters" from a curiosity to a property. It also
-lifted the within-high tier mean more than any single board has (+0.297 →
-+0.373) without making the tier coherent, which required rewriting the
-tier-coherence test: its `abs(high - across) < 0.1` band passed at 0.097, one
-board from failing for no regression, and now pins the *ordering* of the three
-tier means instead. Board spans 0.8683 (`dinov2_vitb14`) to 0.4696
-(`mae_vitb16`).
+- **`scene_classification`** (14th, probe 2026-08-27) — scene category on the
+  same linear-probe path as object `classification`, on `places365_standard`,
+  read with no loader code.
+- **`orientation`** (15th) — local gradient orientation, the fourth low-level
+  task and the second computed from the frame, but the first whose target is a
+  *direction*, so the first that could not reuse `DenseMagnitudeTask`. Target is
+  `(cos 2θ, sin 2θ)` with its length set to the coherence; `orientation_error`
+  is degrees of coherence-weighted angular error, halved so 45 is chance. It
+  reuses `corner`'s pinned `data/corner_frames/` set. **DoG-blob was the first
+  candidate for this slot and was rejected** at 0.51 overlap with `corner`.
+- **`fine_grained_classification`** (16th) — subordinate category on the same
+  path again, on **CUB-200-2011**, the official 5994/5794 split read from
+  `vision/CUB-200/images_train_test/`. `probe_fine_grained_classification` runs
+  the whole official split with no `--limit`, which is what makes the board
+  comparable to the published CUB literature.
 
-**The rank check, six backbones, whole official split**: `dinov2_vitb14`
-0.8674, `dinov2_vits14` 0.8642, `clip_vitb16` 0.8050, `resnet50` 0.6938,
-`supervised_vitb16` 0.6617, `mae_vitb16` 0.4698 — a spread of **0.3976** where
-the object board's leaders sit within a point of each other. **Two written-down
-expectations were tested and one was wrong, which is why both are now recorded
-as measurements in `CAVEATS`.** It does *not* underfit — `train_top1` is
-1.0000 on all six, since a linear map from 384-2048 dims to 200 classes
-separates 5994 points — so the whole spread is generalisation and a weak number
-is a property of the representation. And **the ImageNet-bird confound does not
-carry over**: ImageNet-1k holds 59 bird classes and the two ImageNet-1k
-supervised backbones were expected to be flattered as they are by Imagenette's
-wnids, but `resnet50` and `supervised_vitb16` place **4th and 5th of six**,
-below both DINOv2s and CLIP. Basic-level supervision appears to discard the
-within-class variation this board asks about. That is a claim about six
-backbones; the full board tests it.
+Three probes now share one implementation and ask three questions — basic-level,
+place, and subordinate — and each is a distinct probe *name* for the reason in
+"decisions already paid for", which the second and third instances confirmed
+edit for edit.
 
-**`orientation`, a fifteenth probe, shipped 2026-08-28** with its 12-backbone
-corpus board — the corpus reached 180 records across fifteen boards there,
-and is **192 across sixteen** since the CUB board. Local
-gradient orientation, the fourth low-level task and the second computed from the
-frame — but the first whose target is a *direction*, so the first that could not
-reuse `DenseMagnitudeTask`. The target is `(cos 2θ, sin 2θ)` with its length set
-to the coherence; the metric `orientation_error` is degrees of coherence-weighted
-angular error, halved so 45 is chance. It measures phase — per-image `|r|` with
-the `corner` and `edge` *targets* is under 0.09, where those two sit at 0.53.
-**DoG-blob was the first candidate for this slot and was rejected**: its
-pre-measurement found 0.51 overlap with `corner`. The board spans 18.8°–31.2°
-(chance 45); `mae_vitb16` leads, the image-text ViTs are *last*. **Its board is
-not independent even though its target is**: it ranks backbones like
-`keypoints2d` (rho +0.95), `corner` (+0.82), `edge` (+0.79), and it tightened
-the low-level tier (+0.825 → +0.839). `orientation`/`scene_classification` at
-−0.51 is the corpus's most negative pair. See the "decisions already paid for"
-bullet, `CHANGELOG.md` and the `orientation` and tier findings in
-`CORPUS_FINDINGS.md`. MAE is first on **six** of sixteen boards and last on
-**four** (the CUB board took its last-place count from three).
-Board reuses `corner`'s pinned `data/corner_frames/` set.
+**Two findings from those boards are load-bearing enough to state here**, both
+expanded in `CORPUS_FINDINGS.md`: the two image-level classification probes
+rank with the *localised* cluster (`detection`, `semantic_segmentation`) rather
+than with the object board they subclass — `fine_grained_classification`
+correlates **+0.860 with `detection`** against +0.343 with `classification` —
+and `orientation`'s board is **not** independent even though its target is,
+ranking like `keypoints2d` (rho +0.95), `corner` (+0.82) and `edge` (+0.79).
 
-**`scene_classification`, a fourteenth probe**, is scene category on the same
-linear-probe path as object
-`classification` (Places365-standard, read with no loader code). The probe
-shipped 2026-08-27 and its **12-backbone corpus board landed 2026-08-28**. See the `CHANGELOG.md` entry,
-the "decisions already paid for" bullet on why it is a distinct probe, and the
-`scene_classification` and tier findings in `CORPUS_FINDINGS.md`. The headline:
-the scene board ranks backbones almost independently of the object board
-(Spearman +0.16) — image-text ViTs lead, the ImageNet-1k-supervised CNNs that
-top the saturated object board fall to 9th/11th, and `scene_classification`
-correlates with the `detection`/`semantic_segmentation` cluster (+0.72/+0.52),
-not with object `classification` (+0.16). Adding it also flipped the high-level
-tier-mean back above the cross-tier line — which is why that finding now reads
-"two clusters, sign is noise".
 
-**There is now a second backlog beside it**, the library-surface one, which
-ships no new number the way v0.7 did; it is in the same part of this file and in
+**There is a second backlog beside the candidate-task one**, the
+library-surface one, which ships no new number the way v0.7 did; it is in the same part of this file and in
 `docs/roadmap.md`. **Its first item is done as of 2026-08-14**: step 9a shipped
 `visbench show`, the panel viewer, plus `visbench run --save-probe` to feed its
 prediction column, **9b added the correspondence pair renderer**, and **9c
@@ -415,36 +348,12 @@ run through `tail`: it buffers, so a run that is killed part-way leaves no log,
 and the Hub then has to be queried to find out what actually shipped — which
 happened, and is recoverable only because each record names its own pair.
 
-**`0.14.0` is fully released** (2026-09-01). On PyPI — wheel and sdist both
-(368,805 and 1,106,178 bytes, wheel sha256 `6b1d7258…`) — tagged `v0.14.0` on
-merge commit `aea8f1e`, with a GitHub release cut from that tag (published
-2026-09-01T18:58:26Z) and archived by Zenodo as version DOI
-**`10.5281/zenodo.22237026`**, the eighth. **Verified out of the published wheel
-by import**, the standing way: `__version__` 0.14.0, `SCHEMA_VERSION` 8,
-`ARTIFACT_VERSION` 1, sixteen probes, thirteen backbones (twelve corpus columns
-plus the `dinov2_vitb14_196` control), `show_probes() == list_probes()`,
-`correspondence` still `threshold_units="pixel"` with `(1, 2, 5, 10)`. This
-release's *own* content was read back through that import too — the boundary
-metric, `BSDS500Dataset`, `evaluate_oracle`, and the oracle's opt-in refusal
-raising for `DepthTask`.
-
-**Tag, wheel, release and `main` all agree at `aea8f1e`, and the digest was
-checked on both sides of the upload.** The artifact was built and
-`twine check`ed locally before publishing, and PyPI now serves a wheel with the
-identical sha256 and byte count — so nothing was rebuilt or substituted in
-between. `main` is **0 commits ahead of the tag**, the first release with no gap
-at all. Tagging before building is what buys this; keep the order.
-
-The release page reports `targetCommitish: main`, which looks wrong and is not —
-that field records the default branch for a pre-existing tag, and the tag ref
-itself resolves to `aea8f1e`. Check the ref, not that field.
-
-**The concept DOI `10.5281/zenodo.21822684` is unchanged and now resolves to
-v0.14.0** — no edit needed in `README.md`, `docs/index.md` or `CITATION.cff`,
-and `22237026` appears in none of them. That is the point of quoting the concept
-DOI rather than a version DOI; `tests/test_citation.py` rejects any other Zenodo
-DOI in those files because pasting one over it is the realistic mistake and it
-freezes every citation at one release.
+**The current release is `0.14.0`** (2026-09-01), and every release from
+v0.6.0 onward is recorded paragraph by paragraph in
+[`ENGINEERING_LOG.md`](ENGINEERING_LOG.md) under "Release history" — byte
+counts, wheel digests, which commit the tag resolves to, and what each
+`__version__`/`SCHEMA_VERSION` import read back. Read it there rather than
+carrying it here; only the standing rules below stay in this file.
 
 **What 0.14.0 is**: the release that ships no probe. The corpus is unchanged at
 16 probes x 12 backbones, 192 records, and schema stays at v8. What it adds is
@@ -454,79 +363,11 @@ agreement at 0.8030 against 0.80 — and it is the release in which the gate
 *refused* a probe, BSDS's own, at a 0.4193 ODS ceiling. `scipy` became a
 declared core dependency.
 
-**`0.13.0` is fully released** (2026-08-28, confirmed 2026-09-01). On PyPI —
-wheel and sdist both (343,687 and 1,046,538 bytes, wheel sha256
-`049f7f77…`) — tagged `v0.13.0` on merge commit `205cb0e`, with a GitHub
-release cut from that tag (published 2026-08-28T15:37:48Z) and archived by
-Zenodo as version DOI **`10.5281/zenodo.22147201`**, the seventh. **Verified
-out of the published wheel by import**, the standing way: `__version__`
-0.13.0, `SCHEMA_VERSION` 8, sixteen probes, twelve corpus backbones (plus the
-`dinov2_vitb14_196` resolution control), `show_probes() == list_probes()`,
-`correspondence` still `threshold_units="pixel"` with `(1, 2, 5, 10)`.
-
-The release-prep also fixed something 0.12.0's prep missed: `CHANGELOG.md`'s
-link refs at the bottom had **no `[0.12.0]` entry at all** and `[Unreleased]`
-still compared from `v0.11.0`. Every section now has a matching ref, checked
-both ways.
-
-**`main` had already moved one merge past the tag when this was checked** —
-the `superpixel-probe` PR (`d2075ca`, PR #78, the rejected photometric
-superpixel probe) landed after `v0.13.0` was tagged and released, adding no
-new probe or corpus record. The tag, wheel and release still agree with each
-other exactly; only `main` is ahead, which is the benign gap the standing
-rules below warn drifts silently into the *next* release if not watched.
-**The concept DOI `10.5281/zenodo.21822684` is unchanged and now resolves to
-v0.13.0** — no edit needed in `README.md`, `docs/index.md` or
-`CITATION.cff`.
-
-**`0.12.0` is fully released** (2026-08-28). On PyPI — wheel and sdist both
-(338,079 and 1,023,738 bytes, wheel sha256 `c55a63b7…`) — tagged `v0.12.0` on
-merge commit `f5afcd3`, with a GitHub release cut from that tag and archived by
-Zenodo as version DOI **`10.5281/zenodo.22146664`**, the sixth. **Verified out
-of the published wheel by import**, the standing way: `__version__` 0.12.0,
-`SCHEMA_VERSION` 7 (as shipped; `main` is at v8 since), fifteen probes, twelve
-corpus backbones, `show_probes() == list_probes()`, `correspondence` still
-`threshold_units="pixel"` with `(1, 2, 5, 10)`, and METADATA putting `datasets`
-under `datasets`/`dev`/`all`.
-
-**Tag, wheel and release all agree at `f5afcd3`** — the third release running,
-and `main` had already moved two merges past it when the release was cut, which
-is exactly the case creating a release *from the tag* exists to handle. The
-release page reports `targetCommitish: main`, which looks wrong and is not: that
-field records the default branch for a pre-existing tag, and the tag ref itself
-resolves to `f5afcd3`. Check the ref, not that field.
-
-**The concept DOI `10.5281/zenodo.21822684` is unchanged and now resolves to
-v0.12.0**, which is the whole point of quoting it rather than a version DOI —
-`README.md`, `docs/index.md` and `CITATION.cff` needed no edit. Do not paste
-`22146664` over it; `tests/test_citation.py` rejects any other Zenodo DOI in
-those files because that paste is the realistic mistake and it freezes every
-citation at one release.
-
-Package version was `0.11.0` through the last release, and it is **on PyPI,
-uploaded 2026-08-20**, wheel
-and sdist both (321,900 and 860,881 bytes), tagged `v0.11.0` on merge commit
-`1f0908e`, with a GitHub release created from that tag. **Verified the standing
-way**: the wheel downloaded from the JSON API, its SHA256 checked against
-PyPI's digest (`0c7f3ec1…`), extracted, put *first* on `sys.path` and
-**imported**, with an assert on `visbench.__file__` so the editable checkout
-could not answer in its place. It reports `__version__ = "0.11.0"`,
-`SCHEMA_VERSION = 7`, `ARTIFACT_VERSION = 1`, thirteen probes, **twelve**
-backbones with `dino_vitb16` and `sam_vitb16` among them, and
-`show_probes() == list_probes()` read back through the import. Also confirmed
-through it: `get_probe("correspondence")` reports `threshold_units="pixel"` and
-`(1, 2, 5, 10)`, so v0.6.1's fix survives a sixth release, and METADATA puts
-`huggingface-hub` only under `hub` and `all`.
-
-**`main`, the tag and the wheel all agree exactly** — all three at `1f0908e`,
-the second release running. The artifact was also verified *before* upload and
-its digest is identical to what PyPI now serves, so nothing was rebuilt or
-substituted in between. Tagging before building is what buys this; keep the
-order.
-
-**Zenodo archived it as version DOI `10.5281/zenodo.22027316`**, the fifth
-under the concept DOI, which is unchanged and remains the only one quoted
-anywhere.
+**The concept DOI is `10.5281/zenodo.21822684`**, unchanged across all eight
+version DOIs and now resolving to v0.14.0. That is the point of quoting it
+rather than a version DOI; `tests/test_citation.py` rejects any other Zenodo
+DOI in `README.md`, `docs/index.md` and `CITATION.cff`, because pasting one
+over it is the realistic mistake and it freezes every citation at one release.
 
 
 **Releasing — the standing rules, learned across v0.6.0 through v0.11.0.** The
@@ -2004,80 +1845,15 @@ mask work — see `visbench/tasks/low_level/README.md`.
 
 ---
 
-## v0.1 — prove the abstraction — **COMPLETE**
+## v0.1 and v0.2 — **both COMPLETE**
 
-Kept for the record; the boundaries below applied to v0.1 only and no longer
-constrain new work. Dense-prediction training loops are v0.2 scope and exist.
+Their scope, their hard boundaries and the numbers each task was proved on are
+in [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md) under "v0.1 and v0.2". Nothing
+there constrains new work: v0.1's "no fine-tuning, no dense-prediction training
+loops" boundary was lifted by v0.2, and every task, backbone and head those two
+releases listed exists and is tested. The rules they established that *do* still
+constrain new work were lifted into "decisions already paid for" above.
 
-**Hard boundary (v0.1 only): no fine-tuning, no dense-prediction training
-loops. Every v0.1 task either needs no training (zero-shot) or trains a linear
-layer on cached features.**
-
-- **Backbones**: DINOv2 (ViT-S/B) and CLIP (OpenCLIP ViT-B) only. No
-  ResNet/timm, no custom-backbone support yet — that's v0.2.
-- **Tasks**:
-  - High-level image classification — linear probe on cached pooled features.
-  - High-level image retrieval — zero-shot, cosine similarity over cached
-    pooled features (CLS default for ViT backbones).
-  - Mid-level geometric correspondence — zero-shot, dense feature matching
-    (conceptually reusing matching logic familiar from vismatch (https://github.com/gmberton/vismatch), applied to
-    raw backbone features instead of dedicated matcher networks).
-- **Required infrastructure before any task code**: reviewed folder skeleton
-  → `BaseBackbone` with dual pooled+dense output → feature cache → `BaseTask`
-  abstraction → structured JSON result logging (see below), from the very
-  first task, not retrofitted later.
-- **Explicitly deferred**: CLI, custom backbones, ResNet/timm, multi-layer
-  extraction, any dense-prediction task, fine-tuning.
-
----
-
-## v0.2 — dense mid-level tasks + broader backbone support — **COMPLETE**
-
-- [x] ResNet/timm backbones and user-supplied custom-backbone support
-      (arbitrary `nn.Module` + preprocessing function).
-- [x] **Pluggable task heads**, never hardcoded to one architecture: `linear`
-      and `dpt` ship, `register_head` is the extension point. A head declares
-      which feature modes it consumes and rejects a mismatch at construction.
-      `DPTHead` refuses a single feature map rather than duplicating it.
-- [x] Multi-layer feature extraction, now that the single-layer path is proven.
-- [x] Depth estimation, surface normal estimation — probe3d's protocols used
-      directly rather than re-deriving metrics.
-- [x] **Generic (binary) object segmentation** — `GenericSegmentationTask`,
-      sigmoid + masked BCE + `binary_iou` (foreground IoU, Dice, pixel
-      accuracy). `load_mask` reads 0/1 or 0/255 as "non-zero is foreground" and
-      never rescales; `ignore_index=` maps a dataset's ignore value to -1.
-      `DenseFolderDataset` needed no change, but **do not pass `max_target` for
-      a mask** — it would erase the foreground class.
-- [x] **High-level semantic (multi-class) segmentation** —
-      `SemanticSegmentationTask`, cross-entropy over class indices with a
-      logit-passthrough `_activate`, reporting mIoU both ways plus pixel and
-      mean class accuracy. `num_classes` is required, since a wrong one does
-      not raise. The base gained `target_dtype` (the class-index target is the
-      one that is not a float measurement) and `DenseFolderDataset` gained
-      `stems=` for official split lists. `load_label_map` reads palette PNGs
-      without conversion. Proved on Pascal VOC 2012 val at 224px with a linear
-      head and the default schedule: DINOv2-S/14 **0.732 mIoU**, DINOv2-B/14
-      **0.753** — the ordering you would hope for, which is itself a check that
-      the probe measures something.
-- [x] **Mid-level image similarity** — `MidLevelSimilarityTask`, zero-shot 2AFC
-      over pooled features, kept separate from high-level retrieval as the
-      task-categorization note requires. Proved on NIGHTS (1,824-triplet test
-      split): DINOv2-S/14 **0.870**, DINOv2-B/14 0.858, CLIP-B/16 0.828,
-      ResNet50 0.827.
-- [x] **The CLI** — `visbench list`, `visbench run <probe>`,
-      `visbench cache stats|clear`, a thin wrapper over `visbench.run()` with a
-      `ProbeSpec` table supplying the dataset construction `run()` cannot know.
-      Every probe is a subcommand with only its own flags. Proved on real data
-      against the numbers the Python API already produced: NIGHTS similarity
-      **0.8701** (identical to 5i's) and VOC val semantic segmentation
-      **0.733 mIoU** against 5h's 0.732.
-- [x] **`run()` covers correspondence.** The open question from v0.1 —
-      how pairwise extraction is expressed — is answered by `uses_pairs` plus
-      `PairViewDataset`: flatten to `2N` single images, regroup by index, leave
-      the cache alone. `--stems` was added alongside so a dense probe can take
-      an official split list, without which the CLI could not run VOC at all.
-
----
 
 ## Backlogs — what could come next
 
@@ -2217,60 +1993,14 @@ comparability group rather than merging with a folder board.
 works on them for free. `ImageFolderDataset` lost its copy; the method is
 otherwise unchanged.
 
-The bullets below are the state *before* the bridges shipped, kept for the
-reasoning.
-
-- **There is no visualisation anywhere in the package**, and this is the one of
-  the three that guards a *silently wrong number*. `results/render.py` renders
-  markdown tables; the only image-drawing code is `demo.py`, which generates
-  synthetic inputs rather than displaying anything. Every probe already has
-  `predict()`, and `SemanticSegmentationTask.predict_labels()` even documents
-  its return as "for saving or visualising" — so the material exists and the
-  viewer does not.
-
-  **The argument is this codebase's own bug history.** Correspondence's
-  `recall@1px = 0.003` misalignment and VOC's palette PNGs read through
-  `convert("L")` (classes `[0, 1, 15, 255]` becoming `[0, 38, 147, 220]`) were
-  both found by reading code, and both are obvious in one rendered frame. A
-  dense target drifting from its image is the most common silent failure here.
-
-  Sketch: `visbench show`, reusing the `ProbeSpec` dataset flags, writing
-  image/target/prediction panels to a file. Two open decisions — whether it
-  loads a saved artifact from `visbench/hub/` or trains one, and whether PIL
-  alone suffices rather than adding `matplotlib` to the core install (it
-  probably does, and that matters more than layout quality). **The hazard is a
-  second geometry**: a viewer that applies its own resize or colour-map is
-  exactly what `DenseFolderDataset` exists to prevent. Display what the dataset
-  yielded.
-
-- **Custom datasets work in two tiers already, so the real gap is narrower than
-  it sounds.** Folder layouts need no code at all (NYUv2 joined the corpus with
-  none), and anything else is a `BaseDataset` subclass with two abstract
-  methods. What is absent is a `datasets`/`torchvision.datasets` bridge —
-  neither is imported anywhere in the package — and any way to name a dataset
-  class from the CLI, where `--data` takes a path and a layout.
-
-  **If a bridge is built, `cache_identity` is the thing it must not skip.** The
-  four optional `BaseDataset` methods all fail silently when omitted, and that
-  one fails *invisibly*: return `None` and every run re-decodes every image,
-  forever, while appearing to work. That is the `view_identity` failure exactly
-  — tested and correct for a year while a caller passed bare PIL images and paid
-  a full decode on every "cached" run.
-
-- **`CustomBackbone` is the best-supported of the three and mostly needs
-  showing, not building.** Its docstring already names the case, `hash_weights`
-  keys the cache on the parameters so a fine-tuned checkpoint cannot collide
-  with its parent, and `register_backbone` is a top-level export. But it appears
-  in the README and in `tests/backbones/test_custom.py` and **nowhere in
-  `examples/`**, while all thirteen probes have one — against a standing rule
-  that the fake backbones cannot show a training-dynamics problem, so a
-  capability wants a real run behind it. It is also unreachable from the CLI
-  (`--backbone` is a registry name and a string cannot carry an `nn.Module`),
-  and fine-tuning does not apply to it (DINOv2 only, by design).
-
-**All three are done, in that cost order**: `examples/custom_backbone.py`
+**All three shipped in that cost order**: `examples/custom_backbone.py`
 (hours), `visbench show` (the only one that guarded a silently wrong number),
-the dataset bridges (largest). What remains is the candidate-task backlog.
+the dataset bridges (largest). The pre-bridge reasoning for each — why a viewer
+was the one that guarded a wrong number, what the two tiers of custom-dataset
+support already covered, and why `CustomBackbone` needed showing rather than
+building — is in `docs/roadmap.md` under "Library surface". What remains is the
+candidate-task backlog.
+
 ---
 
 ## Engineering conventions

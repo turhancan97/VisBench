@@ -1218,12 +1218,130 @@ predicts — DINOv2 > CLIP-16 > the 7x7 grids, matching all eight dense probes.
 Moved out of `CLAUDE.md` on 2026-08-20 with the v0.3 step write-ups, and for
 the same reason: every session was carrying five releases of upload detail.
 The rules these releases *established* are in `CLAUDE.md` under "Releasing";
-what follows is the record of each one, newest first. The current release is
-still described in `CLAUDE.md` — only the superseded ones are here.
+what follows is the record of each one, newest first — **including the current
+release**, since 2026-09-03. `CLAUDE.md` names the version and the concept DOI
+and points here for everything else.
 
 **Publishing needs the maintainer's credentials and is theirs to run.** Never
 attempt it, and do not assume a tag means a release went out; check
 [PyPI](https://pypi.org/project/visbench/) if it matters.
+
+The four most recent entries were lifted out of `CLAUDE.md` on 2026-09-03,
+when that file passed the 150k-character limit it is loaded under for the second
+time. Nothing was rewritten; each paragraph is as its release recorded it.
+
+**`0.14.0` is fully released** (2026-09-01). On PyPI — wheel and sdist both
+(368,805 and 1,106,178 bytes, wheel sha256 `6b1d7258…`) — tagged `v0.14.0` on
+merge commit `aea8f1e`, with a GitHub release cut from that tag (published
+2026-09-01T18:58:26Z) and archived by Zenodo as version DOI
+**`10.5281/zenodo.22237026`**, the eighth. **Verified out of the published wheel
+by import**, the standing way: `__version__` 0.14.0, `SCHEMA_VERSION` 8,
+`ARTIFACT_VERSION` 1, sixteen probes, thirteen backbones (twelve corpus columns
+plus the `dinov2_vitb14_196` control), `show_probes() == list_probes()`,
+`correspondence` still `threshold_units="pixel"` with `(1, 2, 5, 10)`. This
+release's *own* content was read back through that import too — the boundary
+metric, `BSDS500Dataset`, `evaluate_oracle`, and the oracle's opt-in refusal
+raising for `DepthTask`.
+
+**Tag, wheel, release and `main` all agree at `aea8f1e`, and the digest was
+checked on both sides of the upload.** The artifact was built and
+`twine check`ed locally before publishing, and PyPI now serves a wheel with the
+identical sha256 and byte count — so nothing was rebuilt or substituted in
+between. `main` is **0 commits ahead of the tag**, the first release with no gap
+at all. Tagging before building is what buys this; keep the order.
+
+The release page reports `targetCommitish: main`, which looks wrong and is not —
+that field records the default branch for a pre-existing tag, and the tag ref
+itself resolves to `aea8f1e`. Check the ref, not that field.
+
+**The concept DOI `10.5281/zenodo.21822684` is unchanged and now resolves to
+v0.14.0** — no edit needed in `README.md`, `docs/index.md` or `CITATION.cff`,
+and `22237026` appears in none of them. That is the point of quoting the concept
+DOI rather than a version DOI; `tests/test_citation.py` rejects any other Zenodo
+DOI in those files because pasting one over it is the realistic mistake and it
+freezes every citation at one release.
+
+**What 0.14.0 is**: the release that ships no probe. The corpus is unchanged at
+16 probes x 12 backbones, 192 records, and schema stays at v8. What it adds is
+the **oracle gate**, the **ceiling beside every dense score**, and **BSDS500's
+dataset plus a validated ODS/OIS/AP metric** reproducing the published human
+agreement at 0.8030 against 0.80 — and it is the release in which the gate
+*refused* a probe, BSDS's own, at a 0.4193 ODS ceiling. `scipy` became a
+declared core dependency.
+
+**`0.13.0` is fully released** (2026-08-28, confirmed 2026-09-01). On PyPI —
+wheel and sdist both (343,687 and 1,046,538 bytes, wheel sha256
+`049f7f77…`) — tagged `v0.13.0` on merge commit `205cb0e`, with a GitHub
+release cut from that tag (published 2026-08-28T15:37:48Z) and archived by
+Zenodo as version DOI **`10.5281/zenodo.22147201`**, the seventh. **Verified
+out of the published wheel by import**, the standing way: `__version__`
+0.13.0, `SCHEMA_VERSION` 8, sixteen probes, twelve corpus backbones (plus the
+`dinov2_vitb14_196` resolution control), `show_probes() == list_probes()`,
+`correspondence` still `threshold_units="pixel"` with `(1, 2, 5, 10)`.
+
+The release-prep also fixed something 0.12.0's prep missed: `CHANGELOG.md`'s
+link refs at the bottom had **no `[0.12.0]` entry at all** and `[Unreleased]`
+still compared from `v0.11.0`. Every section now has a matching ref, checked
+both ways.
+
+**`main` had already moved one merge past the tag when this was checked** —
+the `superpixel-probe` PR (`d2075ca`, PR #78, the rejected photometric
+superpixel probe) landed after `v0.13.0` was tagged and released, adding no
+new probe or corpus record. The tag, wheel and release still agree with each
+other exactly; only `main` is ahead, which is the benign gap the standing
+rules below warn drifts silently into the *next* release if not watched.
+**The concept DOI `10.5281/zenodo.21822684` is unchanged and now resolves to
+v0.13.0** — no edit needed in `README.md`, `docs/index.md` or
+`CITATION.cff`.
+
+**`0.12.0` is fully released** (2026-08-28). On PyPI — wheel and sdist both
+(338,079 and 1,023,738 bytes, wheel sha256 `c55a63b7…`) — tagged `v0.12.0` on
+merge commit `f5afcd3`, with a GitHub release cut from that tag and archived by
+Zenodo as version DOI **`10.5281/zenodo.22146664`**, the sixth. **Verified out
+of the published wheel by import**, the standing way: `__version__` 0.12.0,
+`SCHEMA_VERSION` 7 (as shipped; `main` is at v8 since), fifteen probes, twelve
+corpus backbones, `show_probes() == list_probes()`, `correspondence` still
+`threshold_units="pixel"` with `(1, 2, 5, 10)`, and METADATA putting `datasets`
+under `datasets`/`dev`/`all`.
+
+**Tag, wheel and release all agree at `f5afcd3`** — the third release running,
+and `main` had already moved two merges past it when the release was cut, which
+is exactly the case creating a release *from the tag* exists to handle. The
+release page reports `targetCommitish: main`, which looks wrong and is not: that
+field records the default branch for a pre-existing tag, and the tag ref itself
+resolves to `f5afcd3`. Check the ref, not that field.
+
+**The concept DOI `10.5281/zenodo.21822684` is unchanged and now resolves to
+v0.12.0**, which is the whole point of quoting it rather than a version DOI —
+`README.md`, `docs/index.md` and `CITATION.cff` needed no edit. Do not paste
+`22146664` over it; `tests/test_citation.py` rejects any other Zenodo DOI in
+those files because that paste is the realistic mistake and it freezes every
+citation at one release.
+
+Package version was `0.11.0` through the last release, and it is **on PyPI,
+uploaded 2026-08-20**, wheel
+and sdist both (321,900 and 860,881 bytes), tagged `v0.11.0` on merge commit
+`1f0908e`, with a GitHub release created from that tag. **Verified the standing
+way**: the wheel downloaded from the JSON API, its SHA256 checked against
+PyPI's digest (`0c7f3ec1…`), extracted, put *first* on `sys.path` and
+**imported**, with an assert on `visbench.__file__` so the editable checkout
+could not answer in its place. It reports `__version__ = "0.11.0"`,
+`SCHEMA_VERSION = 7`, `ARTIFACT_VERSION = 1`, thirteen probes, **twelve**
+backbones with `dino_vitb16` and `sam_vitb16` among them, and
+`show_probes() == list_probes()` read back through the import. Also confirmed
+through it: `get_probe("correspondence")` reports `threshold_units="pixel"` and
+`(1, 2, 5, 10)`, so v0.6.1's fix survives a sixth release, and METADATA puts
+`huggingface-hub` only under `hub` and `all`.
+
+**`main`, the tag and the wheel all agree exactly** — all three at `1f0908e`,
+the second release running. The artifact was also verified *before* upload and
+its digest is identical to what PyPI now serves, so nothing was rebuilt or
+substituted in between. Tagging before building is what buys this; keep the
+order.
+
+**Zenodo archived it as version DOI `10.5281/zenodo.22027316`**, the fifth
+under the concept DOI, which is unchanged and remains the only one quoted
+anywhere.
 
 **v0.10.0**, the release before v0.11.0:
 
@@ -1339,3 +1457,83 @@ changed default: so the published wheel was put on `sys.path` and imported, and
 `recall@5px`, with `"patch"` still accepted. **When a release's content is a
 default value, read it back through an import, not out of the source text** —
 source inspection cannot rule out a runtime override.
+
+## v0.1 and v0.2 — the completed scope, as those releases recorded it
+
+Lifted out of `CLAUDE.md` on 2026-09-03, when that file passed the
+150k-character limit for the second time. Both releases are complete and their
+boundaries no longer constrain new work; the rules they established that still
+do are in `CLAUDE.md` under "decisions already paid for".
+
+### v0.1 — prove the abstraction — **COMPLETE**
+
+Kept for the record; the boundaries below applied to v0.1 only and no longer
+constrain new work. Dense-prediction training loops are v0.2 scope and exist.
+
+**Hard boundary (v0.1 only): no fine-tuning, no dense-prediction training
+loops. Every v0.1 task either needs no training (zero-shot) or trains a linear
+layer on cached features.**
+
+- **Backbones**: DINOv2 (ViT-S/B) and CLIP (OpenCLIP ViT-B) only. No
+  ResNet/timm, no custom-backbone support yet — that's v0.2.
+- **Tasks**:
+  - High-level image classification — linear probe on cached pooled features.
+  - High-level image retrieval — zero-shot, cosine similarity over cached
+    pooled features (CLS default for ViT backbones).
+  - Mid-level geometric correspondence — zero-shot, dense feature matching
+    (conceptually reusing matching logic familiar from vismatch (https://github.com/gmberton/vismatch), applied to
+    raw backbone features instead of dedicated matcher networks).
+- **Required infrastructure before any task code**: reviewed folder skeleton
+  → `BaseBackbone` with dual pooled+dense output → feature cache → `BaseTask`
+  abstraction → structured JSON result logging (see below), from the very
+  first task, not retrofitted later.
+- **Explicitly deferred**: CLI, custom backbones, ResNet/timm, multi-layer
+  extraction, any dense-prediction task, fine-tuning.
+
+---
+
+### v0.2 — dense mid-level tasks + broader backbone support — **COMPLETE**
+
+- [x] ResNet/timm backbones and user-supplied custom-backbone support
+      (arbitrary `nn.Module` + preprocessing function).
+- [x] **Pluggable task heads**, never hardcoded to one architecture: `linear`
+      and `dpt` ship, `register_head` is the extension point. A head declares
+      which feature modes it consumes and rejects a mismatch at construction.
+      `DPTHead` refuses a single feature map rather than duplicating it.
+- [x] Multi-layer feature extraction, now that the single-layer path is proven.
+- [x] Depth estimation, surface normal estimation — probe3d's protocols used
+      directly rather than re-deriving metrics.
+- [x] **Generic (binary) object segmentation** — `GenericSegmentationTask`,
+      sigmoid + masked BCE + `binary_iou` (foreground IoU, Dice, pixel
+      accuracy). `load_mask` reads 0/1 or 0/255 as "non-zero is foreground" and
+      never rescales; `ignore_index=` maps a dataset's ignore value to -1.
+      `DenseFolderDataset` needed no change, but **do not pass `max_target` for
+      a mask** — it would erase the foreground class.
+- [x] **High-level semantic (multi-class) segmentation** —
+      `SemanticSegmentationTask`, cross-entropy over class indices with a
+      logit-passthrough `_activate`, reporting mIoU both ways plus pixel and
+      mean class accuracy. `num_classes` is required, since a wrong one does
+      not raise. The base gained `target_dtype` (the class-index target is the
+      one that is not a float measurement) and `DenseFolderDataset` gained
+      `stems=` for official split lists. `load_label_map` reads palette PNGs
+      without conversion. Proved on Pascal VOC 2012 val at 224px with a linear
+      head and the default schedule: DINOv2-S/14 **0.732 mIoU**, DINOv2-B/14
+      **0.753** — the ordering you would hope for, which is itself a check that
+      the probe measures something.
+- [x] **Mid-level image similarity** — `MidLevelSimilarityTask`, zero-shot 2AFC
+      over pooled features, kept separate from high-level retrieval as the
+      task-categorization note requires. Proved on NIGHTS (1,824-triplet test
+      split): DINOv2-S/14 **0.870**, DINOv2-B/14 0.858, CLIP-B/16 0.828,
+      ResNet50 0.827.
+- [x] **The CLI** — `visbench list`, `visbench run <probe>`,
+      `visbench cache stats|clear`, a thin wrapper over `visbench.run()` with a
+      `ProbeSpec` table supplying the dataset construction `run()` cannot know.
+      Every probe is a subcommand with only its own flags. Proved on real data
+      against the numbers the Python API already produced: NIGHTS similarity
+      **0.8701** (identical to 5i's) and VOC val semantic segmentation
+      **0.733 mIoU** against 5h's 0.732.
+- [x] **`run()` covers correspondence.** The open question from v0.1 —
+      how pairwise extraction is expressed — is answered by `uses_pairs` plus
+      `PairViewDataset`: flatten to `2N` single images, regroup by index, leave
+      the cache alone. `--stems` was added alongside so a dense probe can take
+      an official split list, without which the CLI could not run VOC at all.
