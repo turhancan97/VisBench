@@ -348,7 +348,17 @@ run through `tail`: it buffers, so a run that is killed part-way leaves no log,
 and the Hub then has to be queried to find out what actually shipped — which
 happened, and is recoverable only because each record names its own pair.
 
-**The current release is `0.14.0`** (2026-09-01), and every release from
+**`0.15.0` is prepared but not published** (2026-09-03). The version is bumped
+in `pyproject.toml`, `visbench/__init__.py`, `uv.lock` and `CITATION.cff`, and
+`CHANGELOG.md` has its section — but **publishing needs the maintainer's
+credentials and is theirs to run**, so until the tag, the wheel and the Zenodo
+archive exist, `0.14.0` is what is installable. Do not record it as released
+here until it has been verified out of the published wheel by import, the
+standing way. What it contains: the corpus re-run so its records carry
+`ceiling_*`, and the DPT control that turned the oracle gate from a claimed
+bound into a measured bar. No probe, and every published ordering unchanged.
+
+**The last published release is `0.14.0`** (2026-09-01), and every release from
 v0.6.0 onward is recorded paragraph by paragraph in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md) under "Release history" — byte
 counts, wheel digests, which commit the tag resolves to, and what each
@@ -1645,9 +1655,10 @@ the measurement behind it, under the step named in brackets.**
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite is **1824 tests** and green on 2026-09-01, after the oracle gate
-(1784 through the `fine_grained_classification` probe and schema v8), as
-are all three lint steps and the `-W` docs build — all five run on `dgx1` via
+fast suite is **1879 tests** (7 skipped) and green on 2026-09-03, at the
+0.15.0 release prep (1824 at the oracle gate, 1784 through the
+`fine_grained_classification` probe and schema v8), as
+are all three lint steps, mypy, `uv lock --check` and the `-W` docs build — all five run on `dgx1` via
 `sbatch`, since `.venv/bin/python` does not resolve on a `dgxh100` login shell.
 `uv lock --check` was green on 2026-08-06 and no dependency has moved since; the
 90 slow tests were green on `main` on 2026-08-14 (up from 79: 10a's timm
@@ -2042,7 +2053,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 1824 fast tests
+pytest                                              # 1879 fast tests
 pytest -m slow                                      # 79, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/
