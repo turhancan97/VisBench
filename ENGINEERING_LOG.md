@@ -1230,6 +1230,46 @@ The four most recent entries were lifted out of `CLAUDE.md` on 2026-09-03,
 when that file passed the 150k-character limit it is loaded under for the second
 time. Nothing was rewritten; each paragraph is as its release recorded it.
 
+**`0.15.0` is fully released** (2026-09-03). On PyPI — wheel and sdist both
+(369,030 and 1,119,784 bytes, wheel sha256 `74e56ac9…`, sdist `021872a7…`) —
+tagged `v0.15.0`, **annotated**, on merge commit `f8e2ae5`, with a GitHub
+release cut from that tag (published 2026-09-03T15:40:56Z) and archived by
+Zenodo as version DOI **`10.5281/zenodo.22283870`**, the ninth. **Verified out
+of the published wheel by import**, the standing way: `__version__` 0.15.0,
+`SCHEMA_VERSION` 8, `ARTIFACT_VERSION` 1, sixteen probes, thirteen backbones
+(twelve corpus columns plus the `dinov2_vitb14_196` control), three heads,
+`show_probes() == list_probes()`, `correspondence` still
+`threshold_units="pixel"` with `(1, 2, 5, 10)`, and METADATA putting `datasets`
+under `datasets` and `huggingface-hub` under `hub`.
+
+This release's *own* content was read back through that import too, not out of
+the source text: `DenseTrainingTask.evaluate_oracle` is present and its
+docstring now says **bar** and names **DPT**, which is the correction 0.15.0
+exists to publish. `visbench.metrics.boundary` and `BSDS500Dataset` import.
+
+**Tag, wheel, release and `main` all agree at `f8e2ae5`** — the second release
+running with no gap at all, and the digest PyPI serves is the one the tagged
+commit builds. Tagging before building is what buys this; keep the order.
+
+**The tag is annotated**, deliberately: `v0.12.0` is the only lightweight tag
+in this project's history, which is why `gh api .../git/tags/{sha}` 404s on it.
+`git tag -a`, always. The release page reports `targetCommitish: main`, which
+looks wrong and is not — check the tag ref, which resolves through the tag
+object to `f8e2ae5`.
+
+**The concept DOI `10.5281/zenodo.21822684` is unchanged and now resolves to
+v0.15.0** (`https://zenodo.org/records/22283870`), so `README.md`,
+`docs/index.md` and `CITATION.cff` needed no edit and `22283870` appears in
+none of them — asserted, not assumed, by grep and by
+`tests/test_citation.py`.
+
+**One thing this verification got wrong on the first attempt, worth keeping**:
+the import check reached for `show_probes` in `visbench.cli.main`, where it
+does not live — it is in `visbench.viz.styles`. The check *failed loudly*,
+which is the right outcome, but a verification script that imports from a
+guessed path can only ever fail; **read the symbol's home before writing the
+check**, or a real regression and a wrong import look identical.
+
 **`0.14.0` is fully released** (2026-09-01). On PyPI — wheel and sdist both
 (368,805 and 1,106,178 bytes, wheel sha256 `6b1d7258…`) — tagged `v0.14.0` on
 merge commit `aea8f1e`, with a GitHub release cut from that tag (published

@@ -348,45 +348,57 @@ run through `tail`: it buffers, so a run that is killed part-way leaves no log,
 and the Hub then has to be queried to find out what actually shipped — which
 happened, and is recoverable only because each record names its own pair.
 
-**`0.15.0` is prepared but not published** (2026-09-03). The version is bumped
-in `pyproject.toml`, `visbench/__init__.py`, `uv.lock` and `CITATION.cff`, and
-`CHANGELOG.md` has its section — but **publishing needs the maintainer's
-credentials and is theirs to run**, so until the tag, the wheel and the Zenodo
-archive exist, `0.14.0` is what is installable. Do not record it as released
-here until it has been verified out of the published wheel by import, the
-standing way. What it contains: the corpus re-run so its records carry
-`ceiling_*`, and the DPT control that turned the oracle gate from a claimed
-bound into a measured bar. No probe, and every published ordering unchanged.
+**`0.15.0` is fully released** (2026-09-03) — on PyPI, tagged `v0.15.0`
+(annotated) on merge commit `f8e2ae5`, released on GitHub from that tag,
+archived by Zenodo as version DOI `10.5281/zenodo.22283870`, the ninth, and
+**verified out of the published wheel by import**. Tag, wheel, release and
+`main` all agree at `f8e2ae5`, with no gap at all. The full record — byte
+counts, digests, what the import read back — is in
+[`ENGINEERING_LOG.md`](ENGINEERING_LOG.md) under "Release history".
 
-**The last published release is `0.14.0`** (2026-09-01), and every release from
-v0.6.0 onward is recorded paragraph by paragraph in
+**What 0.15.0 is**: the release that measures its own gate. No probe, the
+corpus still 16 probes x 12 backbones, schema still v8, **every published
+ordering unchanged**. It publishes two corrections to 0.14.0's own claims: the
+five low-level boards were **re-run** so their records carry `ceiling_*`
+produced by a run rather than backfilled (252 lines for the same 16 x 12, since
+the corpus is append-only), and `results/controls/dpt_head.jsonl` shows a DPT
+head reaching **70-104%** of the linear oracle and exceeding it in two of ten
+cases — so the gate is a **bar for the head VisBench reports, not a ceiling a
+better head cannot pass**. The re-run also found that `orientation`'s two
+middle rows are **not separable**: its metric is ill-conditioned and drifts
+1.8e-03 where the other four boards drift 1e-7.
+
+Every release from v0.6.0 onward is recorded paragraph by paragraph in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md) under "Release history" — byte
 counts, wheel digests, which commit the tag resolves to, and what each
 `__version__`/`SCHEMA_VERSION` import read back. Read it there rather than
 carrying it here; only the standing rules below stay in this file.
 
-**What 0.14.0 is**: the release that ships no probe. The corpus is unchanged at
-16 probes x 12 backbones, 192 records, and schema stays at v8. What it adds is
-the **oracle gate**, the **ceiling beside every dense score**, and **BSDS500's
-dataset plus a validated ODS/OIS/AP metric** reproducing the published human
-agreement at 0.8030 against 0.80 — and it is the release in which the gate
-*refused* a probe, BSDS's own, at a 0.4193 ODS ceiling. `scipy` became a
-declared core dependency.
-
-**The concept DOI is `10.5281/zenodo.21822684`**, unchanged across all eight
-version DOIs and now resolving to v0.14.0. That is the point of quoting it
+**The concept DOI is `10.5281/zenodo.21822684`**, unchanged across all nine
+version DOIs and now resolving to v0.15.0. That is the point of quoting it
 rather than a version DOI; `tests/test_citation.py` rejects any other Zenodo
 DOI in `README.md`, `docs/index.md` and `CITATION.cff`, because pasting one
 over it is the realistic mistake and it freezes every citation at one release.
 
 
-**Releasing — the standing rules, learned across v0.6.0 through v0.11.0.** The
+**Releasing — the standing rules, learned across v0.6.0 through v0.15.0.** The
 release-by-release detail is in [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md),
 under "Release history"; what recurs is:
 
 - **Tag before building**, so the artifact is built from the tagged commit.
-  v0.10.0 was the first release whose tag and wheel agree exactly and v0.11.0
-  the second, which is what that order buys.
+  v0.10.0 was the first release whose tag and wheel agree exactly, and v0.14.0
+  and v0.15.0 are the two with no gap at all, which is what that order buys.
+- **`git tag -a`, annotated.** `v0.12.0` is the only lightweight tag in this
+  project's history and it is the reason `gh api .../git/tags/{sha}` 404s on
+  it: there is no tag *object* to fetch, only a ref. Nothing about the release
+  breaks, and one API call you will reach for during verification stops
+  working.
+- **When a verification check imports a symbol, read where that symbol lives
+  first.** v0.15.0's wheel check reached for `show_probes` in
+  `visbench.cli.main`; it is in `visbench.viz.styles`. It failed loudly, which
+  is the right outcome — but a check that imports from a guessed path can only
+  ever fail, and a real regression and a wrong import look identical in the
+  traceback.
 - **Never move a tag to close a gap.** A PyPI version can never be re-uploaded
   and a Zenodo archive is permanent, so a moved tag would disagree with both.
   Three releases up to v0.10.0 had `main` one docs-only commit ahead of the
@@ -1656,7 +1668,7 @@ the measurement behind it, under the step named in brackets.**
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
 fast suite is **1879 tests** (7 skipped) and green on 2026-09-03, at the
-0.15.0 release prep (1824 at the oracle gate, 1784 through the
+0.15.0 release (1824 at the oracle gate, 1784 through the
 `fine_grained_classification` probe and schema v8), as
 are all three lint steps, mypy, `uv lock --check` and the `-W` docs build — all five run on `dgx1` via
 `sbatch`, since `.venv/bin/python` does not resolve on a `dgxh100` login shell.
