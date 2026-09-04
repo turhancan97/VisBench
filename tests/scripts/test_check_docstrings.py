@@ -107,6 +107,30 @@ def test_the_indent_is_what_makes_it_work(module):
     assert module.findings(heading), "nested, it must be a finding"
 
 
+def test_it_does_not_claim_to_catch_sphinx_transforms(module):
+    """The boundary, pinned — because I asserted past it twice in one session.
+
+    The docs build failed on smartquotes' "malformed string literal (missing
+    closing quote)" from a docstring that opened a quote and closed it on the
+    next line. That comes from `SphinxSmartQuotes`, which this script does not
+    run, so the script cannot see it: first I claimed Sphinx reports it at INFO
+    (it is a WARNING and `-W` failed on it), then I claimed reporting
+    unclassified output would catch it (it never reaches the warning stream).
+
+    So this asserts the *limit* rather than the capability, and requires the
+    module docstring to say so. A guard that overstates its coverage is worse
+    than one with a documented hole: the hole gets checked elsewhere, the
+    overstatement does not.
+    """
+    unclosed = 'Prose citing (a source, "Some Title\nacross a line break").\n'
+    assert module.findings(unclosed) == [], (
+        "if this now reports, the script gained coverage it did not have -- "
+        "update MISSES in the module docstring rather than deleting this test"
+    )
+    assert "MISSES" in module.__doc__
+    assert "smartquotes" in module.__doc__
+
+
 def test_it_drops_sphinx_only_roles_whole(module):
     """A message is several lines, so the unit filtered has to be the message.
 

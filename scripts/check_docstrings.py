@@ -31,9 +31,22 @@ it would otherwise be found a workflow later by someone else. This is the same
 reasoning as the standing rule that a guard against a silently wrong number
 belongs in the fast suite.
 
-**It is not a substitute for the docs build.** It sees one docstring at a time,
-so it cannot catch a duplicated ``automodule``, an orphan page, or a broken
-toctree -- only defects inside a docstring.
+**It is not a substitute for the docs build**, and the boundary is sharper than
+"it sees one docstring at a time".
+
+MISSES -- two classes it cannot reach:
+
+- **Anything about the site rather than a docstring** -- a duplicated
+  ``automodule``, an orphan page, a broken toctree.
+- **Anything Sphinx's own transforms produce.** The docs build failed on
+  smartquotes' "malformed string literal (missing closing quote)" in
+  ``apply_feature_mode``, from a docstring that opened a quote and closed it on
+  the next line. That comes from ``SphinxSmartQuotes``, which this script does
+  not run -- verified, rather than assumed: neither plain docutils nor
+  ``smart_quotes=True`` reproduces it. An earlier version of this file asserted
+  the opposite twice, first that Sphinx reports it at INFO (it is a WARNING) and
+  then that keeping unclassified output would catch it (it does not reach the
+  warning stream at all). **Run the docs build; this only shortens the loop.**
 """
 
 from __future__ import annotations
@@ -129,16 +142,11 @@ def _real_messages(lines: list[str]) -> list[str]:
         if not head.strip() or NOISE.search(head):
             continue
         if not MESSAGE.match(head):
-            # Chatter printed by docutils directly rather than reported through
-            # its reporter, so it carries no severity and no location. Kept as a
-            # finding anyway, with a synthetic severity, because the one this
-            # package produced was NOT harmless: smartquotes' "malformed string
-            # literal (missing closing quote)", on a docstring that opened a
-            # quote and closed it on the next line. A comment here previously
-            # claimed Sphinx reports it at INFO and -W ignores it. Sphinx
-            # reports it as a WARNING and -W failed the build on it -- so
-            # dropping unclassified output was the script letting through the
-            # only defect it could not see.
+            # Output with no severity line and no location. Reported rather than
+            # dropped, because a checker that silently discards what it cannot
+            # classify is deciding where it should be asking -- but see
+            # `MISSES` in the module docstring: this branch does NOT catch the
+            # one such defect this package actually shipped.
             kept.append(f"(unclassified) {head.strip()}")
             continue
         kept.append("\n    ".join(part for part in group if part.strip()))
