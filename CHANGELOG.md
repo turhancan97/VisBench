@@ -11,6 +11,81 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Added
 
+- **Relative depth ordering: built, measured, and rejected as a probe — kept as
+  a control.** The third rejection in this project and **the first for failing
+  to *rank* rather than for failing to be recoverable.**
+
+  `RelativeDepthTask` reads NYUv2's depth maps and asks only which of two
+  sampled points is nearer: a unitless score per pixel, Chen et al.'s pairwise
+  ranking loss (NeurIPS 2016, arXiv:1604.03901), ordinal accuracy over 2000
+  pairs an image. Neither scale nor shift is supervised or scored.
+
+  **It cleared the oracle gate comfortably** — a patch-mean oracle orders 94.0%
+  of pairs correctly at 16x16 and 89.5% at a ResNet's 7x7, against the 0.25 that
+  rejected photometric superpixels. **And it reproduced the `depth` board
+  exactly**: Spearman **+1.000** over five backbones, 0.0943 of spread against
+  0.2456, and `dinov2_vits14` against `mae_vitb16` at **0.0007** where `depth`
+  separates them by 0.0707. A readout that cannot separate two backbones the
+  shipped one separates by a hundredfold has not earned a board — 6d-2's
+  occlusion-edge test, applied to a readout instead of a target.
+
+  **What is kept, and why it is worth keeping.** The rejection is a finding
+  about a board that *does* ship: discarding every metric quantity leaves
+  `depth`'s ranking unchanged, so that board ranks **ordering plus feature
+  resolution** and reports it in metres. That sharpens the resolution control
+  (tokens correlate +0.818 with `depth`) rather than contradicting it. Not a
+  defect either — `depth` reproduces probe3d's protocol, which is the only
+  reason its numbers compare to anything. Five records in
+  `results/controls/relative_depth.jsonl`; the write-up is in
+  `results/controls/README.md` and the claim in `CORPUS_FINDINGS.md`.
+
+  **The class stays unregistered, and that is load-bearing.** A registered
+  probe is pinned by test to carry a corpus board, a CLI row, a `TARGET_STYLES`
+  entry and a committed gallery figure; this earned none of the four, so
+  registering it would either break those tests or be "fixed" by granting a
+  board it did not earn. `tests/tasks/test_relative_depth.py` asserts its
+  absence from the registry, the CLI and both corpus scripts.
+
+- **The gauntlet's missing check: measure the floor, not only the ceiling.**
+  `scripts/premeasure_ordering.py`, and a sixth caution in
+  `visbench/tasks/low_level/README.md`.
+
+  `evaluate_oracle` asks what a probe could score if the features contained the
+  answer. **Nothing asked what a trivial answer already scores**, and a
+  candidate needs room between the two. Relative depth is what that cost: "the
+  lower point in the image is nearer" scores **65.2%** with no features at all,
+  because indoor depth increases with height in the frame. The usable band was
+  therefore 0.7056 to 0.8627 — **0.157 wide** — the five backbones' own ceilings
+  differed by 0.055 of it, and the three strongest then sat at 86-90% of what
+  was left. `corner` ranks backbones fine at a comparable 0.83 ceiling *because
+  its trivial floor is near zero*. **A ceiling of 0.9 above a floor of 0.7 is a
+  worse probe than a ceiling of 0.6 above a floor of 0.**
+
+  Two further things the pre-measurement established, both counter-intuitive:
+
+  - **A minimum depth-ratio threshold makes the task easier, not harder.** The
+    intuition is that restricting to pairs far apart in depth avoids
+    saturation; measured, it raises the shortcut faster than the ceiling and
+    *narrows* the band (at ratio >= 2.0, 83.7% against 99.9%). The widest band
+    is at no threshold, so pairs are sampled unrestricted.
+  - **It costs one pass over a split's targets** — no backbone, no features, no
+    fitted head — which is what makes it a gate rather than an experiment.
+
+- **`visbench/metrics/dense.py` gains `ordinal_metrics`**, which reports the
+  score **and** the shortcut baseline beside it. `ordinal_vertical` is in
+  `DIAGNOSTIC_METRICS`, so `metric_direction` **refuses** it: it is what an
+  image-coordinate prior scores on the same pairs and says nothing about a
+  backbone. Ranking on it would order runs by how floor-dominated their frames
+  were.
+
+- **`scripts/render_gallery.py --only PROBE`**, with a test. Adding one figure
+  otherwise re-encodes all sixteen, so the committed bytes change where the
+  picture did not and the diff hides which figure the change was for. An
+  unknown name returns 1 rather than silently writing nothing — the failure
+  would otherwise surface later as a *missing figure* rather than as the typo
+  that caused it.
+
+
 - **The DPT-head control, widened from two backbones to the whole corpus.**
   `results/controls/dpt_head.jsonl` now holds the five low-level probes against
   the **nine** twelve-block ViTs, and `results/controls/dpt_head_cnn.jsonl`
@@ -99,6 +174,15 @@ so it stands on its own rather than assuming you have read the ones above it.
 - **`.gitignore`** ignores `results/controls/parts/`, the array's per-task
   output, for the same reason it ignores `results/corpus/parts/`.
 
+### Fixed
+
+- **`ceiling_ordinal_vertical` was emitted and was meaningless.** The base
+  `context_metrics` prefixes `ceiling_` onto every key the oracle's metrics
+  returned, which is right when they are all scores. One of these is not: the
+  shortcut baseline does not depend on the prediction, so the "ceiling" came out
+  bit-identical to the value it claimed to bound. Found by reading a run's
+  output rather than by a test, which is the argument for proving a probe end to
+  end on real data before believing it.
 
 ## [0.15.0] — 2026-09-03
 

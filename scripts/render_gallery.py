@@ -583,6 +583,18 @@ def main() -> int:
         action="store_true",
         help="omit the four Hub-backed figures (they need network and the [hub] extra)",
     )
+    parser.add_argument(
+        "--only",
+        nargs="+",
+        default=None,
+        metavar="PROBE",
+        help=(
+            "render just these probes. Exists so adding one figure does not "
+            "rewrite the other fifteen: re-rendering is a fresh encode, so the "
+            "committed bytes would change even where the picture did not, and "
+            "the diff would then hide which figure the change was actually for."
+        ),
+    )
     args = parser.parse_args()
 
     frames = load_frames()
@@ -595,12 +607,18 @@ def main() -> int:
     scratch.mkdir(parents=True, exist_ok=True)
     build_dataset(scratch, scenes, classes, frames)
 
+    def wanted(probe: str) -> bool:
+        return args.only is None or probe in args.only
+
     failed = []
-    print("  detection                -> detection.png")
-    if _detection_figure(scratch, args.out / "detection.png", classes) != 0:
-        failed.append("detection")
+    if wanted("detection"):
+        print("  detection                -> detection.png")
+        if _detection_figure(scratch, args.out / "detection.png", classes) != 0:
+            failed.append("detection")
 
     for probe, argv in figures(scratch, args.backbone, classes).items():
+        if not wanted(probe):
+            continue
         destination = args.out / f"{probe}.png"
         print(f"  {probe:24s} -> {destination.name}")
         # In process, not a subprocess: `main` returns an exit code rather than
@@ -617,6 +635,8 @@ def main() -> int:
 
     if not args.skip_predictions:
         for probe in PREDICTED:
+            if not wanted(probe):
+                continue
             destination = args.out / f"{probe}.png"
             print(f"  {probe:24s} -> {destination.name}  (Hub prediction)")
             try:
@@ -628,6 +648,13 @@ def main() -> int:
 
     if args.keep is None:
         shutil.rmtree(scratch, ignore_errors=True)
+
+    if args.only is not None:
+        known = {"detection", *figures(scratch, args.backbone, classes), *PREDICTED}
+        unknown = sorted(set(args.only) - known)
+        if unknown:
+            print(f"\nNo such probe: {', '.join(unknown)}", file=sys.stderr)
+            return 1
 
     if failed:
         print(f"\nFAILED: {', '.join(failed)}", file=sys.stderr)

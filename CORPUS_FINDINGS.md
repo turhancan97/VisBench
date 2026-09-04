@@ -141,6 +141,47 @@ Two standing cautions apply to everything below:
   happens when one thing changes". Mixing them makes a board answer two
   questions, which is the same reason the schema never ranks across `finetune`.
 
+- **The `depth` board is not ranking backbones by metric accuracy — discarding
+  scale entirely leaves the ranking unchanged** (the relative-depth control,
+  2026-09-04).
+  [`results/controls/relative_depth.jsonl`](results/controls/relative_depth.jsonl)
+  is the measurement; `results/controls/README.md` is the write-up.
+
+  A readout that predicts a *unitless score* per pixel and is scored only by
+  how often a sampled point pair is **ordered** correctly — no scale, no shift,
+  neither supervised nor scored — was run on the same NYUv2 frames, crop and
+  validity rule `probe_depth` reads.
+
+  | backbone | ordinal | `depth` d1 |
+  | --- | --- | --- |
+  | `dinov2_vitb14` | 0.8466 | 0.7851 |
+  | `dinov2_vits14` | 0.8407 | 0.7652 |
+  | `mae_vitb16` | 0.8400 | 0.6945 |
+  | `clip_vitb16` | 0.7757 | 0.6321 |
+  | `resnet50` | 0.7523 | 0.5395 |
+
+  **Spearman between the two readouts is +1.000.** So whatever separates these
+  five on the depth board survives the removal of every metric quantity: the
+  board is ranking them by **ordering plus feature resolution**, and its delta
+  accuracies report that in metres rather than being about metres.
+
+  That sharpens the resolution control rather than contradicting it (tokens
+  correlate +0.818 with `depth`): the part of the depth ordering that is *not*
+  resolution is ordinal, not metric.
+
+  **This is not "the depth board is wrong."** It reproduces probe3d's published
+  protocol, which is the only reason its numbers compare to anything, and
+  metric depth is the question that protocol asks. The claim is about what the
+  *ranking* is sensitive to, which is a different thing.
+
+  **The control exists because the probe was rejected.** Identical ordering at
+  38% of the spread (0.0943 against 0.2456), with `dinov2_vits14` and
+  `mae_vitb16` landing **0.0007** apart where `depth` separates them by 0.0707.
+  A readout that cannot separate two backbones the shipped one separates by a
+  hundredfold has not earned a board. **n=5**, and the four shared `depth`
+  numbers re-ran to ~1e-6 of the corpus, so the comparison is against published
+  values.
+
 - **The dense boards understate a CNN by more than they understate a ViT, and
   the reason is which stage a linear head reads rather than anything about the
   representation** (the DPT control, widened 2026-09-04).

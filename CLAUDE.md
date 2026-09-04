@@ -146,7 +146,18 @@ published claim:
 
 **There is no `next` step.** The remaining work is the candidate task backlog
 further down this file — and the cheapest items there need no new dataset at
-all. **Two of those are done.**
+all. **Two of those are done, and a third was built and rejected.**
+
+**Relative depth ordering was the last cheap candidate and it did not earn a
+board** (2026-09-04). It is the third rejection and **the first for failing to
+*rank* rather than for failing to be recoverable**: it cleared the oracle gate
+comfortably (94.0%) and then reproduced the `depth` board's ordering at
+Spearman **+1.000**, at 38% of its spread, with two backbones 0.0007 apart that
+`depth` separates by 0.0707. `RelativeDepthTask` is kept **unregistered** and
+its five records are a control, because the rejection is a finding about a
+board that ships — see `CORPUS_FINDINGS.md`. The transferable lesson is the new
+gauntlet rule in "decisions already paid for": **the oracle gate measures a
+ceiling and nothing measured the floor.**
 
 **Three probes shipped after v0.11.0 and each has a 12-backbone board**, all
 2026-08-28 unless stated. Their board readings are in
@@ -740,6 +751,12 @@ designed up front; extend it the same way, from a case that already runs.
     it led — 21% of the `generic_segmentation` gap and 7% of the `depth` one.
     On the other three boards DINOv2-B never led, so there was nothing to
     explain. **Check who leads a board before explaining their lead.**
+  - **The `depth` board is not ranking by metric accuracy.** A readout that
+    discards scale and shift entirely — never supervising or scoring them —
+    reproduces its ranking at Spearman **+1.000** over five backbones, so the
+    board ranks *ordering plus feature resolution* and reports it in metres.
+    Not a defect: it reproduces probe3d's protocol, which is why its numbers
+    compare to anything. See the relative-depth control.
   - **A control is rankable and still must not be listed beside the corpus.**
     `results/controls/` holds records that pass `comparability_key` against
     their board and answer a different question from it — the corpus says what
@@ -1190,6 +1207,22 @@ designed up front; extend it the same way, from a case that already runs.
     achievable score rather than a proven bound, and the ratio does not
     discriminate anyway: `corner` reaches 80% of its oracle and `keypoints2d`
     41%, and both rank backbones fine.
+  - **It measures a candidate's ceiling and nothing measured its floor, which
+    is the gap relative depth ordering cost** (2026-09-04). A probe needs room
+    between the cheapest shortcut a head could learn and what a perfect
+    backbone could reach, and the gate only ever checked the top. Relative
+    depth **cleared the gate at a 94.0% oracle and was rejected anyway**:
+    "the lower point in the image is nearer" scores **65.2%** with no features
+    at all, so the usable band was 0.157 wide, the five backbones' own ceilings
+    differed by 0.055 of it, and the three strongest landed **0.0007** apart —
+    Spearman **+1.000** with the `depth` board it subclassed, at 38% of its
+    spread. `corner` ranks fine at a comparable 0.83 ceiling *because its
+    trivial floor is near zero*. **A ceiling of 0.9 above a floor of 0.7 is a
+    worse probe than a ceiling of 0.6 above a floor of 0.** Name the cheapest
+    shortcut — an image coordinate, a per-image constant, the dataset mean —
+    and measure it on the samples the metric will use;
+    `scripts/premeasure_ordering.py` is the worked example, and it costs one
+    pass over a split.
   - **It models a *linear* head exactly, and exactly one backbone's DPT head
     beats it — measured on two backbones 2026-09-01, widened to the whole
     corpus 2026-09-04.** `LinearHead` is a 1x1 convolution per patch plus a
@@ -1698,9 +1731,10 @@ the measurement behind it, under the step named in brackets.**
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite is **1888 tests** (8 skipped) and green on 2026-09-04, after the
-DPT control was widened (1879 at the 0.15.0 release, 1824 at the oracle gate,
-1784 through the `fine_grained_classification` probe and schema v8), as
+fast suite is **1920 tests** (8 skipped) and green on 2026-09-04, after the
+relative-depth rejection (1888 after the DPT control was widened, 1879 at the
+0.15.0 release, 1824 at the oracle gate, 1784 through the
+`fine_grained_classification` probe and schema v8), as
 are all three lint steps, mypy and the `-W` docs build — all five run on `dgx1` via
 `sbatch`, since `.venv/bin/python` does not resolve on a `dgxh100` login shell.
 `uv lock --check` was green on 2026-08-06 and no dependency has moved since; the
@@ -2096,7 +2130,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 1888 fast tests
+pytest                                              # 1920 fast tests
 pytest -m slow                                      # 79, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/
