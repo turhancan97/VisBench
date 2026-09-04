@@ -1,5 +1,14 @@
 # VisBench
 
+The name is **Vis**(ion) **Bench**(mark), and both halves are a scope
+commitment worth keeping in view when deciding what belongs here. *Vis*: the
+subject is a vision backbone's features — a text tower is only ever a means of
+building the visual one, which is why zero-shot open-vocabulary classification
+sits in the backlog rather than the corpus (it cannot rank a backbone without
+one). *Bench*: the deliverable is a **comparable** number, not a score — which
+is what `comparability_key`, the `protocol` field, the resolved `pooling` and
+`layers`, and the refusal to rank across `finetune` all exist to protect.
+
 Unified library for probing vision backbones (DINOv2, CLIP, custom) across
 high-level, mid-level, and eventually low-level computer vision tasks, through
 a `get_backbone()` / `get_probe()` API. Sibling project to vismatch (image
