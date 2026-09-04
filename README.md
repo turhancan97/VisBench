@@ -128,6 +128,14 @@ mypy visbench/ examples/ --ignore-missing-imports
 
 ## What it is
 
+The name is literal: **Vis**(ion) **Bench**(mark). Both halves are a scope
+commitment. *Vis* — the subject is a vision backbone's features, not a
+multimodal or language model's behaviour; a text tower is only ever used to
+build the visual one. *Bench* — the output is a **comparable** number rather
+than a score: every run writes a record saying which backbone, dataset,
+pooling, layers and protocol produced it, and explicit rules decide which
+records may be ranked against each other at all.
+
 VisBench answers one question with as little ceremony as possible: *what does
 this vision backbone actually encode?*
 

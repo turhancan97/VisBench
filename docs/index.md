@@ -3,6 +3,12 @@
 **Probe any vision backbone across high-, mid- and low-level computer vision
 tasks.**
 
+The name is literal: **Vis**(ion) **Bench**(mark). Both halves are a scope
+commitment. *Vis* — the subject is a vision backbone's features, not a
+multimodal or language model's behaviour. *Bench* — the output is a
+**comparable** number rather than a score: every run writes a record of what
+produced it, and explicit rules decide which records may be ranked together.
+
 VisBench answers one question with as little ceremony as possible: *what does
 this vision backbone actually encode?* Sixteen probes, three backbone families,
 one `run()` call, and a result record that says exactly how every number was
