@@ -536,7 +536,8 @@ them at the point of use in the code:
 | | |
 | --- | --- |
 | **The documentation site** | <https://turhancan97.github.io/VisBench/> |
-| Every probe, its data layout and its measured numbers | [docs/tasks.md](https://github.com/turhancan97/VisBench/blob/main/docs/tasks.md) |
+| Every probe, its data layout and its measured numbers | [docs/probes/overview.md](https://github.com/turhancan97/VisBench/blob/main/docs/probes/overview.md) |
+| Every class, function and attribute, from the docstrings | [docs/api/index.md](https://github.com/turhancan97/VisBench/blob/main/docs/api/index.md) |
 | Looking at what a probe saw, and what it predicted | [docs/show.md](https://github.com/turhancan97/VisBench/blob/main/docs/show.md) |
 | Sixteen probes against twelve backbones, ranked | [LEADERBOARD.md](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md) |
 | How it was built, and what might come next | [docs/roadmap.md](https://github.com/turhancan97/VisBench/blob/main/docs/roadmap.md) |

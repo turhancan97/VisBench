@@ -153,7 +153,7 @@ show a training-dynamics problem, and one has already been found that way.
    Captions are drawn with PIL's built-in bitmap font, which has no glyph for an
    em dash or an ellipsis — **keep them ASCII**, which a test enforces.
 6. Add an `examples/` script and a row in
-   [`docs/tasks.md`](docs/tasks.md).
+   [`docs/probes/`](docs/probes/overview.md).
 
 **Do not claim another paper's protocol unless you implemented it.** The
 `protocol` field exists so a reader knows what a number is comparable to. If you
@@ -168,7 +168,8 @@ separate two backbones. A probe scoring 0.088 with a small-versus-base gap of
 ## Numbers, tables and the corpus
 
 `results/corpus/visbench.jsonl` is a committed set of result records.
-`LEADERBOARD.md` and the tables in `docs/tasks.md` are **generated from it**:
+`LEADERBOARD.md` and the board on each page under `docs/probes/` are
+**generated from it**:
 
 ```bash
 scripts/render_tables.py            # regenerate

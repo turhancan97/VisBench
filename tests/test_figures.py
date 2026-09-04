@@ -13,9 +13,10 @@ import pytest
 
 import visbench
 
-GALLERY = Path(__file__).resolve().parent.parent / "docs" / "_static" / "gallery"
-SHOW_DOC = Path(__file__).resolve().parent.parent / "docs" / "show.md"
-README = Path(__file__).resolve().parent.parent / "README.md"
+ROOT = Path(__file__).resolve().parent.parent
+GALLERY = ROOT / "docs" / "_static" / "gallery"
+DOCS = ROOT / "docs"
+README = ROOT / "README.md"
 
 #: Where the README points, which must be the repository's own raw host. The
 #: README is package metadata rendered by PyPI, so a relative path there would
@@ -37,21 +38,39 @@ def test_the_gallery_holds_nothing_else():
         assert path.stem in visbench.list_probes(), path
 
 
+def _docs_pages() -> dict[Path, str]:
+    """Every markdown page in the Sphinx tree, by path."""
+    return {path: path.read_text() for path in sorted(DOCS.rglob("*.md"))}
+
+
 @pytest.mark.parametrize("probe", sorted(visbench.list_probes()))
-def test_the_docs_page_shows_each_one(probe):
-    assert f"_static/gallery/{probe}.png" in SHOW_DOC.read_text()
+def test_some_docs_page_shows_each_one(probe):
+    """The figure must appear *on the site*, not in one particular file.
+
+    This pinned `docs/show.md` by name until the probe reference was split into
+    a page each, and each figure moved onto the page of the probe it draws --
+    which is where a reader wants it. The property was never "in show.md"; it
+    was "a reader who reaches this probe sees what it looks like".
+    """
+    needle = f"_static/gallery/{probe}.png"
+    showing = [path.name for path, body in _docs_pages().items() if needle in body]
+    assert showing, f"no docs page shows {needle}"
 
 
-def test_the_docs_page_uses_relative_paths():
+def test_no_docs_page_reaches_outside_the_tree_for_a_figure():
     """Sphinx cannot follow a path that escapes its source tree.
 
     `../assets/...` is valid markdown, renders locally, and breaks the built
     site without a warning -- MyST does not report it, so `-W` would not catch
     it either. Keeping the figures under `docs/_static` is what avoids it.
+
+    The second half is a separate failure: a docs page fetching its own figures
+    from `raw.githubusercontent.com` would render, and would break offline and
+    on a fork.
     """
-    body = SHOW_DOC.read_text()
-    assert "../assets" not in body
-    assert f"]({RAW}" not in body, "the docs site should not fetch its own figures over the network"
+    for path, body in _docs_pages().items():
+        assert "../assets" not in body, path
+        assert f"]({RAW}" not in body, f"{path} fetches its own figures over the network"
 
 
 def test_the_readme_points_at_the_raw_host():

@@ -45,7 +45,8 @@ not measuring the signal.
 
 | | |
 | --- | --- |
-| Every probe, the data it expects, and what it has measured | [The probes](tasks.md) |
+| Every probe, the data it expects, and what it has measured | [The probes](probes/overview.md) |
+| Every class, function and attribute, from the docstrings | [API reference](api/index.md) |
 | Drawing a probe's images beside their targets | [Looking](show.md) |
 | Sharing a trained probe, and what travels with it | [The Hub](hub.md) |
 | How it was built, and what might come next | [Roadmap](roadmap.md) |
@@ -83,9 +84,9 @@ every number, which is what makes it reproducible — against that release.
 
 ```{toctree}
 :hidden:
-:caption: The probes
+:caption: Probes
 
-tasks
+probes/overview
 ```
 
 ```{toctree}
