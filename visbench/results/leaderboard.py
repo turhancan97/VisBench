@@ -87,6 +87,10 @@ METRIC_DIRECTIONS: dict[str, Direction] = {
     "median": "lower",
     # gradient orientation (low-level) — degrees of angular error
     "orientation_error": "lower",
+    # relative depth — the fraction of point pairs ordered correctly.
+    # `ordinal_vertical` is deliberately NOT here: it is a baseline, so it goes
+    # in DIAGNOSTIC_METRICS below and `metric_direction` refuses it.
+    "ordinal_accuracy": "higher",
     # dense regression, shared by depth, normals and the magnitude probes
     "rmse": "lower",
     "mae": "lower",
@@ -148,6 +152,13 @@ DIAGNOSTIC_METRICS: frozenset[str] = frozenset(
         # on these and worse on mAP.
         "detections_per_image",
         "num_matches",
+        # What "the lower point in the image is nearer" scores on relative
+        # depth's own pairs. It needs no features at all and reaches 65% on
+        # NYUv2, because indoor depth increases with height in the frame -- so
+        # it is the number that says whether an ordinal accuracy beat anything.
+        # Ranking on it would order runs by how floor-dominated their frames
+        # were.
+        "ordinal_vertical",
     }
 )
 

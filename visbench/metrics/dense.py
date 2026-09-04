@@ -29,6 +29,7 @@ from visbench.types import MetricsDict
 
 __all__ = [
     "depth_metrics",
+    "ordinal_metrics",
     "match_scale_and_shift",
     "surface_normal_metrics",
     "orientation_metrics",
@@ -730,4 +731,105 @@ def semantic_metrics(pred: torch.Tensor, target: torch.Tensor, num_classes: int)
     return {
         "miou_per_image": sum(ious) / count,
         "pixel_acc": sum(accuracies) / count,
+    }
+
+
+def ordinal_metrics(
+    pred: torch.Tensor,
+    target: torch.Tensor,
+    pairs_per_image: int = 2000,
+    seed: int = 0,
+) -> MetricsDict:
+    """Ordinal depth accuracy: how often a pair of points is ordered correctly.
+
+    Scores a *relative* depth probe, which predicts a unitless score per pixel
+    rather than metres. Every monotone transform of that score is the same
+    answer, so nothing here compares magnitudes -- only the sign of a
+    difference, which is the whole point of the protocol.
+
+    The ranking formulation follows Chen et al., "Single-Image Depth Perception
+    in the Wild" (NeurIPS 2016, arXiv:1604.03901), whose loss and ordinal
+    evaluation this reproduces on sampled pairs. It is **not** that paper's
+    WHDR: WHDR is computed on human-annotated pairs from DIW and weights by
+    annotator agreement, neither of which exists for NYUv2. So a record must
+    claim ``visbench_relative_depth`` and never DIW's protocol -- the whole
+    value of that field is that it says what a number is comparable to.
+
+    Parameters
+    ----------
+    pred, target:
+        ``(B, H, W)`` or ``(B, 1, H, W)``. ``target`` is metric depth; a pixel
+        is invalid where it is <= 0, the depth convention.
+    pairs_per_image:
+        Point pairs sampled per image. 2000 puts the per-image standard error
+        near 1%, well under the gaps this board has to resolve.
+    seed:
+        Pairs are drawn from a generator seeded per *image index*, so the same
+        image is always scored on the same pairs and a re-run reproduces. A
+        shared generator would make an image's score depend on how many images
+        preceded it in the batch.
+
+    Notes
+    -----
+    **Two numbers, and reading the first without the second overstates it.**
+
+    - ``ordinal_accuracy`` is the score.
+    - ``ordinal_vertical`` is what "the lower point in the image is nearer"
+      scores on the *same pairs* -- a baseline that needs no features at all.
+
+    Measured on 120 NYUv2 test frames at 224px, the vertical prior alone scores
+    **65.2%** against a chance 50%, because indoor depth increases with height
+    in the frame. A probe reporting 0.70 is barely beating an image-coordinate
+    shortcut, which the accuracy alone does not say. It is a **diagnostic,
+    never a score**, in the sense ``error_coherence`` is: it says nothing about
+    a backbone.
+
+    **Do not add a minimum depth-ratio threshold to make the task harder.** It
+    makes it *easier* and narrows the band: at ratio >= 2.0 the vertical prior
+    reaches 83.7% against a patch-grid oracle of 99.9%, where unrestricted
+    pairs leave 65.2% against 94.0%. The widest gap between shortcut and
+    ceiling is at no threshold at all, which is the opposite of the intuition.
+    """
+    pred, target = _as_maps(pred, target)
+    if pairs_per_image < 1:
+        raise ValueError(f"pairs_per_image must be >= 1, got {pairs_per_image}")
+
+    correct = torch.zeros(pred.shape[0])
+    vertical = torch.zeros(pred.shape[0])
+    counted = torch.zeros(pred.shape[0])
+
+    for index in range(pred.shape[0]):
+        gt = target[index].float()
+        valid = torch.nonzero(gt > 0, as_tuple=False)
+        if valid.shape[0] < 2:
+            continue
+        # Seeded per image, not per batch -- see `seed` above.
+        generator = torch.Generator().manual_seed(seed + index)
+        pick = torch.randint(0, valid.shape[0], (pairs_per_image, 2), generator=generator)
+        a, b = valid[pick[:, 0]], valid[pick[:, 1]]
+        depth_a, depth_b = gt[a[:, 0], a[:, 1]], gt[b[:, 0], b[:, 1]]
+        keep = depth_a != depth_b
+        if not bool(keep.any()):
+            continue
+
+        nearer = depth_a < depth_b
+        score_a = pred[index].float()[a[:, 0], a[:, 1]]
+        score_b = pred[index].float()[b[:, 0], b[:, 1]]
+        # A ranking probe is free to be monotone-decreasing in depth, so the
+        # sign convention is fixed by the loss, not chosen here: a lower score
+        # means nearer, matching `relative_depth_loss`.
+        predicted = score_a < score_b
+        # "Lower in the image is nearer": row index a > row index b.
+        lower = a[:, 0] > b[:, 0]
+
+        correct[index] = (predicted == nearer)[keep].float().sum()
+        vertical[index] = (lower == nearer)[keep].float().sum()
+        counted[index] = keep.float().sum()
+
+    scored = counted > 0
+    if not bool(scored.any()):
+        return {"ordinal_accuracy": 0.0, "ordinal_vertical": 0.0}
+    return {
+        "ordinal_accuracy": float((correct[scored] / counted[scored]).mean()),
+        "ordinal_vertical": float((vertical[scored] / counted[scored]).mean()),
     }

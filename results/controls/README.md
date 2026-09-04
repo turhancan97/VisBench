@@ -179,6 +179,89 @@ correction to its premise. See `visbench/tasks/low_level/README.md`.
 corpus would make those five tasks unrenderable, since `board_for` refuses a
 task with more than one group.
 
+## `relative_depth.jsonl` — is the `depth` board measuring metric accuracy?
+
+Five records: `RelativeDepthTask` on the whole NYUv2 split, the same frames,
+crop and validity rule `probe_depth` reads, differing **only** in the readout.
+`depth` predicts metres and is scored by delta accuracy; this predicts a
+unitless score and is scored by how often a sampled point pair is *ordered*
+correctly, so neither scale nor shift is supervised or scored.
+
+`scripts/build_relative_depth_control.sh` runs it. The task is deliberately
+**not registered**, so it cannot acquire a corpus board, a CLI row, a
+`TARGET_STYLES` entry or a gallery figure by accident.
+
+**It began as a candidate probe and was rejected on this measurement.** That
+rejection is the finding.
+
+| backbone | ordinal | its ceiling | band position | `depth` d1 |
+| --- | --- | --- | --- | --- |
+| `dinov2_vitb14` | 0.8466 | 0.8627 | 89.8% | 0.7851 |
+| `dinov2_vits14` | 0.8407 | 0.8627 | 86.0% | 0.7652 |
+| `mae_vitb16` | 0.8400 | 0.8583 | 88.0% | 0.6945 |
+| `clip_vitb16` | 0.7757 | 0.8583 | 45.9% | 0.6321 |
+| `resnet50` | 0.7523 | 0.8074 | 45.9% | 0.5395 |
+
+**Spearman between the two readouts is +1.000.** Identical ordering, 0.0943 of
+spread against `depth`'s 0.2456, and a smallest adjacent gap of **0.0007** --
+`dinov2_vits14` against `mae_vitb16`, which `depth` separates by 0.0707. A
+readout that cannot separate two backbones the shipped one separates by a
+hundredfold has not earned a board; that is 6d-2's occlusion-edge test applied
+to a readout rather than a target.
+
+### What it says about a board that does ship
+
+**`depth` is not ranking backbones by metric accuracy.** Discarding scale and
+shift entirely -- never supervising them, never scoring them -- leaves the
+ranking unchanged. Whatever separates these five on the depth board survives
+the removal of every metric quantity, so it is *ordering plus feature
+resolution*, and the delta accuracies are reporting it in metres rather than
+being about metres.
+
+That is consistent with what the resolution control already found (tokens
+correlate +0.818 with `depth`) and sharpens it: the part of the depth board
+that is not resolution is ordinal, not metric.
+
+**Do not read this as "the depth board is wrong".** It reproduces probe3d's
+published protocol, which is the only reason its numbers are comparable to
+anything, and metric depth is the question that protocol asks. The finding is
+about what the *ranking* is sensitive to, which is a different claim.
+
+### Why the candidate failed, and the check that was missing
+
+The oracle gate passed comfortably -- a patch-mean oracle orders 94.0% of pairs
+correctly at 16x16 and 89.5% at a ResNet's 7x7, so unlike photometric
+superpixels the signal survives the bottleneck a dense probe reads through.
+
+What killed it is the other end. **"The lower point in the image is nearer"
+scores 65.2%** with no features at all, because indoor depth increases with
+height in the frame. So the usable band on the shipped runs is 0.7056 to 0.8627
+-- **0.157 wide** -- and the five backbones' own ceilings already differ by
+0.055 of it. A third of the room is grid size before a representation is
+consulted, and the three strongest backbones then sit at 86-90% of what is
+left, 0.0007 apart.
+
+`corner` ranks backbones perfectly well at a comparable 0.83 ceiling, because
+its trivial floor is near zero. **The gauntlet measured every candidate's
+ceiling and never measured its floor.** That check now exists -- see the
+gauntlet section of `visbench/tasks/low_level/README.md` -- and this is the
+rejection that added it.
+
+### Two things worth keeping about how it was measured
+
+**A minimum depth-ratio threshold makes the task easier, not harder**, which is
+the opposite of the intuition that prompted trying it. At ratio >= 2.0 the
+vertical shortcut reaches 83.7% against a 99.9% ceiling; unrestricted pairs
+leave 65.2% against 94.0%. The widest band is at no threshold at all, so pairs
+are sampled unrestricted. `scripts/premeasure_ordering.py` reproduces the
+sweep, and it costs one pass over a split -- no backbone and no fitted head.
+
+**`depth` re-ran to ~1e-6 of the corpus** on all four shared backbones while
+this was measured, and the `dinov2_vitb14` ordinal number reproduced to four
+decimals across two different entry points (the CLI and `visbench.run()`
+through `scripts/run_relative_depth.py`). So the comparison above is against
+published numbers rather than against a re-run that might have drifted.
+
 ## `resolution.jsonl` — is DINOv2's dense lead its grid?
 
 Five dense boards for `dinov2_vitb14_196`: the same weights, the same hub ref,

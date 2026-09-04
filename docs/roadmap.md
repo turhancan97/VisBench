@@ -120,6 +120,13 @@ This is a multi-month roadmap, built one reviewed step at a time.
       `training` block, 60 records, each value produced by a run rather than
       backfilled. Four boards reproduced to ~1e-7 relative; `orientation` did
       not, and its metric is recorded as ill-conditioned
+- [x] **relative depth ordering, built and rejected** — the third rejection and
+      the first for failing to *rank* rather than to be recoverable. It also
+      added the gauntlet check that was missing: the oracle gate measures a
+      candidate's **ceiling** and nothing measured its **floor**, and an
+      image-coordinate shortcut took 65.2% of this one's 0.157-wide band before
+      a representation was consulted. `scripts/premeasure_ordering.py` is the
+      worked example
 - [x] **the oracle gate is a bar, not a bound** — `results/controls/dpt_head.jsonl`
       measures what a DPT head reaches against the linear oracle the gate
       computes. The gate models a linear head exactly, so it is a bar for the
@@ -268,7 +275,7 @@ dense probe has to test for.
 | Instance segmentation | high | The category-labelled counterpart to the existing binary segmentation; COCO-style polygon annotations |
 | ~~Fine-grained recognition (CUB-200-2011)~~ | high | **Done** — `fine_grained_classification`, a distinct probe on the linear-probe path, with its twelve-backbone board. Subordinate categories where the object board asks a basic-level question, which is why the object board is saturated and this one spans 0.87 to 0.47 |
 | ~~Scene classification (Places365)~~ | high | **Done** — `scene_classification`, a distinct probe on the linear-probe path, with its twelve-backbone board. Ranks backbones almost independently of the object board (Spearman +0.16) |
-| Relative depth ordering | mid | A ranking-only weakening of the existing depth probe — different protocol, same targets |
+| ~~Relative depth ordering~~ | mid | **Built and rejected** — it cleared the oracle gate at a 94.0% ceiling and then reproduced the `depth` board's ordering at Spearman **+1.000** over five backbones, at 38% of its spread, with two backbones 0.0007 apart that `depth` separates by 0.0707. Kept as a control, because the rejection is a finding about `depth`: discarding scale leaves its ranking unchanged. See `results/controls/README.md` |
 | Intrinsic image decomposition (albedo vs shading) | mid | Classic Marr-style separation of appearance from geometry and lighting. Ground truth is scarce outside synthetic data |
 | Room / scene layout estimation | mid | Floor–wall–ceiling boundaries |
 | Vanishing point / line detection | low | Published as a Taskonomy domain |

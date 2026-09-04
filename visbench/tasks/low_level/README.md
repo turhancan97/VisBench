@@ -303,10 +303,11 @@ which `orientation.py` now provides. **Photometric superpixels** was the last
 candidate needing no dataset, and it was built and rejected — see below. Nothing
 remains on this list that does not need a download first.
 
-Five cautions. The first was paid for by the superpixel rejection and the next
-three by `corner` and `orientation`; all four are checks to run **before**
-writing the task, and between them they cost one pass over a split and an
-afternoon of correlations rather than a per-backbone board.
+Six cautions. The first was paid for by the superpixel rejection, the second by
+the relative-depth one, and the next three by `corner` and `orientation`; all
+five are checks to run **before** writing the task, and between them they cost
+one pass over a split and an afternoon of correlations rather than a
+per-backbone board.
 
 - **Run the oracle gate.** `python scripts/oracle_ceiling.py --targets <yours>`
   — what the probe could score if the features contained the answer. The
@@ -315,6 +316,20 @@ afternoon of correlations rather than a per-backbone board.
   oracle gate" above. It is last of the cheap checks and first of the ones that
   can refuse a target outright, because a target nothing can recover cannot rank
   backbones however distinctive it is.
+- **Measure the floor as well as the ceiling.** The oracle says what a perfect
+  backbone could reach; **nothing said what a trivial one already reaches**, and
+  a candidate needs room between the two. **Relative depth ordering is what that
+  cost** (`results/controls/relative_depth.jsonl`): it cleared the gate at a
+  94.0% oracle and was rejected anyway, because "the lower point in the image is
+  nearer" scores **65.2%** with no features at all. The usable band was 0.157
+  wide, the backbones' own ceilings differed by 0.055 of it, and the three
+  strongest then landed 0.0007 apart — Spearman +1.000 with the `depth` board it
+  subclassed, at 38% of its spread. `corner` ranks fine at a comparable 0.83
+  ceiling *because its trivial floor is near zero*. So: name the cheapest
+  shortcut a head could learn — an image coordinate, a per-image constant, the
+  dataset mean — and measure it on the same samples the metric will use. A
+  ceiling of 0.9 above a floor of 0.7 is a worse probe than a ceiling of 0.6
+  above a floor of 0.
 - **Check the tail first.** Every raw corner response was spikier than
   `edge_occlusion`'s 0.46, the case that stopped ranking. A compression is not
   optional, and which one is a measurement. (An *angle* has no tail — the
@@ -335,6 +350,44 @@ afternoon of correlations rather than a per-backbone board.
   suppression all move the target. Naming the operator is half the fix; the
   other half is that every setting travels in `dataset_params`, so two sigmas
   split into two comparability groups without anyone noticing.
+
+### The relative-depth rejection — a probe that cleared the gate and ranked nothing new
+
+The third rejection, and the first for failing to **rank** rather than for
+failing to be recoverable. It is mid-level rather than low-level and is recorded
+here because the lesson belongs to the gauntlet, which lives in this file.
+
+`RelativeDepthTask` reads NYUv2's depth maps and asks only which of two sampled
+points is nearer, so no metric quantity is supervised or scored. Chen et al.'s
+ranking loss (NeurIPS 2016, arXiv:1604.03901), a unitless score per pixel, and
+ordinal accuracy over 2000 pairs an image.
+
+**It cleared the oracle gate comfortably**: a patch-mean oracle orders 94.0% of
+pairs correctly at 16x16 and 89.5% at a ResNet's 7x7, against the 0.25 that
+rejected superpixels. The signal is not destroyed by the bottleneck.
+
+**And it ranked identically to the board it subclassed.** Over five backbones
+on the whole split, Spearman with `depth`'s d1 is **+1.000**, the spread is
+0.0943 against 0.2456, and `dinov2_vits14` and `mae_vitb16` land **0.0007**
+apart where `depth` separates them by 0.0707.
+
+The cause is the band, not the ceiling: the vertical shortcut takes 0.7056 of
+it for free and the five ceilings differ by 0.055 of the remaining 0.157, so a
+third of the room is grid size before a representation is consulted. That is
+the "measure the floor" caution above, which this rejection added.
+
+**What was kept.** The class, unregistered, and its five records as a control —
+because the rejection is a finding about a board that *does* ship: `depth`'s
+ranking survives the removal of every metric quantity, so it is ranking
+ordering plus resolution rather than metric accuracy. See
+`results/controls/README.md`. Also kept: `scripts/premeasure_ordering.py`, and
+the `--only` flag on `scripts/render_gallery.py` that adding one figure needed.
+
+**What was not.** The registration, the CLI row, the `TARGET_STYLES` entry, the
+`HEADLINE_METRICS` and `CAVEATS` rows, both corpus-script probe arrays, and the
+gallery figure — every obligation a registered probe carries, reverted, because
+a registered probe is pinned by test to have all of them and this one earned
+none.
 
 ### The superpixel rejection — a probe that passed every gate and measured nothing
 
