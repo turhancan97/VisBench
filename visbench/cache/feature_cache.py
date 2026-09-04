@@ -137,9 +137,11 @@ class _Plan:
 def _chunks(items: Iterable, size: int) -> Iterator[list]:
     """Yield lists of at most ``size`` items, pulling from ``items`` lazily.
 
-    Distinct from :func:`visbench.utils.device.batched`, which slices a
-    ``Sequence`` and therefore needs the whole thing in memory first. Here the
-    point is precisely that it never is.
+    Lazily, which is the whole point: the obvious alternative slices a
+    ``Sequence`` and therefore needs the whole thing in memory first, and a
+    dense extraction is precisely the case where it is not. (An earlier version
+    of this note pointed at ``visbench.utils.device.batched`` for the contrast;
+    no such function has ever existed here.)
     """
     if size < 1:
         raise ValueError(f"batch_size must be >= 1, got {size}")

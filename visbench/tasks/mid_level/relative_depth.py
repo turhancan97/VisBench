@@ -7,8 +7,7 @@ against the board it subclasses, and **rejected on that measurement** -- the
 third rejection in this project and the first for failing to *rank* rather than
 for failing to be recoverable.
 
-WHY IT IS NOT A PROBE
-=====================
+**Why it is not a probe**
 
 Over the four backbones both readouts ran on the whole NYUv2 split:
 
@@ -28,8 +27,7 @@ A probe that cannot separate two backbones the existing one separates by a
 hundredfold is measuring less than what already ships. That is 6d-2's
 occlusion-edge test applied to a readout instead of a target.
 
-WHAT IT IS INSTEAD, AND WHY THAT IS WORTH KEEPING
-=================================================
+**What it is instead, and why that is worth keeping**
 
 The rejection is itself a finding **about the published `depth` board**: a
 readout that discards scale entirely reproduces the metric ranking exactly, so
@@ -44,8 +42,7 @@ registered probe is pinned by test to have a corpus board, a CLI row, a
 of the four. Construct it directly -- ``RelativeDepthTask()`` -- the way
 ``CustomBackbone`` is used.
 
-WHAT THE PRE-MEASUREMENT SAID, AND THE ONE THING IT UNDER-WEIGHTED
-==================================================================
+**What the pre-measurement said, and the one thing it under-weighted**
 
 Reproduced by ``scripts/premeasure_ordering.py``, on 120 NYUv2 test frames at
 224px. It cleared the oracle gate comfortably and still should not have been

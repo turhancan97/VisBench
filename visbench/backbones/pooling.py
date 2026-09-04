@@ -90,13 +90,17 @@ def apply_feature_mode(
 
     Returns
     -------
-    ``dense_only``
-        ``(B, C, H, W)``.
-    ``dense_cls_broadcast``
-        ``(B, C + C_cls, H, W)`` — CLS repeated at every location.
-    ``dense_plus_cls``
-        ``((B, C, H, W), (B, C_cls))`` — kept separate; the head decides how to
-        fuse them. No prior-art implementation to follow; design deliberately.
+    torch.Tensor or tuple[torch.Tensor, torch.Tensor or None]
+        What the shape is depends on ``mode``:
+
+        ``dense_only``
+            ``(B, C, H, W)``.
+        ``dense_cls_broadcast``
+            ``(B, C + C_cls, H, W)`` — CLS repeated at every location.
+        ``dense_plus_cls``
+            ``((B, C, H, W), (B, C_cls))`` — kept separate; the head decides how
+            to fuse them. No prior-art implementation to follow; design
+            deliberately.
 
     All three modes work from v0.1 so the interface never has to change, but
     ``dense_only`` is the only one any v0.1 task requests; the other two exist

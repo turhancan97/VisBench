@@ -469,6 +469,8 @@ def rank(
         If any record lacks ``metric``. Skipping those would quietly rank a
         subset and present it as the whole comparison.
 
+    Notes
+    -----
     Ties keep their input order, since :func:`sorted` is stable — two backbones
     that genuinely tie should not be given an ordering by accident.
     """

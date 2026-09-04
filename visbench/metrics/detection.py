@@ -147,11 +147,13 @@ def average_precision(
 
     Returns
     -------
-    The AP, or ``None`` when the class has **no non-difficult objects anywhere
-    in the split**. That is undefined rather than zero: recall has no
-    denominator, and scoring it 0 would drag a mAP down in proportion to how
-    many classes the split happens not to contain. :func:`detection_metrics`
-    excludes those classes and reports how many it scored.
+    float or None
+        The AP, or ``None`` when the class has **no non-difficult objects
+        anywhere in the split**. That is undefined rather than zero: recall has
+        no denominator, and scoring it 0 would drag a mAP down in proportion to
+        how many classes the split happens not to contain.
+        :func:`detection_metrics` excludes those classes and reports how many it
+        scored.
 
     Notes
     -----

@@ -418,7 +418,7 @@ class TimmBackbone(BaseBackbone):
 
         ``return_prefix_tokens`` is timm's name for what open_clip calls
         ``output_extra_tokens``; the two APIs differ, which is why this cannot
-        simply reuse :class:`~visbench.backbones.clip.CLIPBackbone`'s call.
+        simply reuse :class:`~visbench.backbones.clip.CLIP`'s call.
 
         **``norm=True`` is load-bearing.** ``forward_intermediates`` returns raw
         block outputs, so the final LayerNorm has not been applied — patch-token

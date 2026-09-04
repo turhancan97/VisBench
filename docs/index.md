@@ -108,3 +108,10 @@ hub
 
 roadmap
 ```
+
+```{toctree}
+:hidden:
+:caption: API
+
+api/index
+```

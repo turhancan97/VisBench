@@ -499,7 +499,7 @@ def magnitude_metrics(
     It is also the loud choice: a ``NaN`` that reaches an unmasked loss makes
     the loss ``NaN`` on the first step, where a fabricated 0 would train
     quietly and merely score badly. Both this function and
-    :meth:`~visbench.tasks.low_level.magnitude.DenseMagnitudeTask._loss` mask
+    :meth:`~visbench.tasks.magnitude_base.DenseMagnitudeTask._loss` mask
     on ``isfinite``, so the two agree about which pixels exist — which they
     must, or the probe is optimised against pixels it is not scored on.
 

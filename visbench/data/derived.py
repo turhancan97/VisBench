@@ -266,7 +266,7 @@ class OrientationResponse:
     **No compression, unlike the corner target.** Orientation is an angle, so
     there is no heavy tail to tame: the raw structure-tensor readout at
     ``sigma=2.0`` recovers a synthetic grating's orientation to under a degree
-    and its overlap with ``edge_texture`` and ``corner`` is |r| < 0.09 — it
+    and its overlap with ``edge_texture`` and ``corner`` is ``|r|`` < 0.09 — it
     measures phase, which no other probe here does.
 
     Parameters
