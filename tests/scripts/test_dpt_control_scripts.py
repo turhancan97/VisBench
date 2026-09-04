@@ -122,9 +122,7 @@ def test_both_groups_cover_every_corpus_backbone(build_text, sbatch_text):
     what the control has to cover.
     """
     corpus = {
-        json.loads(line)["backbone"]
-        for line in CORPUS.read_text().splitlines()
-        if line.strip()
+        json.loads(line)["backbone"] for line in CORPUS.read_text().splitlines() if line.strip()
     }
     # `dinov2_vitb14_196` lives in results/controls/, so it is not in here --
     # asserted rather than filtered, since a resolution control appearing in the
