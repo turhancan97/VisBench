@@ -129,13 +129,17 @@ def _real_messages(lines: list[str]) -> list[str]:
         if not head.strip() or NOISE.search(head):
             continue
         if not MESSAGE.match(head):
-            # Unclassified chatter, printed by docutils rather than reported
-            # through its reporter, so it carries no severity and no location.
-            # The only one this package produces is smartquotes' "malformed
-            # string literal (missing closing quote)" on a docstring that opens
-            # a quote and closes it on the next line. Sphinx reports the same
-            # thing at INFO, which -W does not act on, so it is genuinely not a
-            # finding -- but it is dropped here by rule rather than by accident.
+            # Chatter printed by docutils directly rather than reported through
+            # its reporter, so it carries no severity and no location. Kept as a
+            # finding anyway, with a synthetic severity, because the one this
+            # package produced was NOT harmless: smartquotes' "malformed string
+            # literal (missing closing quote)", on a docstring that opened a
+            # quote and closed it on the next line. A comment here previously
+            # claimed Sphinx reports it at INFO and -W ignores it. Sphinx
+            # reports it as a WARNING and -W failed the build on it -- so
+            # dropping unclassified output was the script letting through the
+            # only defect it could not see.
+            kept.append(f"(unclassified) {head.strip()}")
             continue
         kept.append("\n    ".join(part for part in group if part.strip()))
     return kept

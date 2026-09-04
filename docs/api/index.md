@@ -19,5 +19,18 @@ version added, which Taskonomy domains were measured rather than assumed.
 ```{toctree}
 :maxdepth: 2
 
+core
+backbones
 tasks
+tasks-high-level
+tasks-mid-level
+tasks-low-level
+data
+heads
+metrics
+cache
+viz
+hub
+results
+utils
 ```

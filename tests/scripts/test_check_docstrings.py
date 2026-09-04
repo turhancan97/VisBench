@@ -31,9 +31,7 @@ def test_every_docstring_parses_as_nested_content():
     runs `render_tables.py --check`: the thing being tested is the script's
     exit code, which is what a workflow would act on.
     """
-    result = subprocess.run(
-        [sys.executable, str(SCRIPT)], capture_output=True, text=True, cwd=ROOT
-    )
+    result = subprocess.run([sys.executable, str(SCRIPT)], capture_output=True, text=True, cwd=ROOT)
     assert result.returncode == 0, (
         "A docstring would warn in the -W docs build.\n"
         "Run scripts/check_docstrings.py for the locations.\n"

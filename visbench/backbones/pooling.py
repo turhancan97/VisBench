@@ -104,8 +104,8 @@ def apply_feature_mode(
 
     All three modes work from v0.1 so the interface never has to change, but
     ``dense_only`` is the only one any v0.1 task requests; the other two exist
-    for the dense-prediction heads landing in v0.2 (CLAUDE.md, "Dense-task
-    feature modes").
+    for the dense-prediction heads landing in v0.2 (CLAUDE.md,
+    ``Dense-task feature modes``).
     """
     if mode == FeatureMode.DENSE_ONLY:
         return dense
