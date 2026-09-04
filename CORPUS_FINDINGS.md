@@ -141,6 +141,43 @@ Two standing cautions apply to everything below:
   happens when one thing changes". Mixing them makes a board answer two
   questions, which is the same reason the schema never ranks across `finetune`.
 
+- **The dense boards understate a CNN by more than they understate a ViT, and
+  the reason is which stage a linear head reads rather than anything about the
+  representation** (the DPT control, widened 2026-09-04).
+  [`results/controls/dpt_head_cnn.jsonl`](results/controls/dpt_head_cnn.jsonl)
+  is the measurement; `results/controls/README.md` is the write-up.
+
+  Every dense board in the corpus is a linear head on a backbone's **last**
+  feature map. For a ViT that is the whole story — all twelve blocks share one
+  grid, so nothing finer was computed and discarded. For a CNN it is not: a
+  ResNet's stage-1 map is **56x56** and exists in the same forward pass as the
+  7x7 stage-4 map the board reads.
+
+  Handing a DPT head all four stages instead is worth far more to a CNN than
+  four blocks are worth to a ViT:
+
+  | | DPT gain over the linear score |
+  | --- | --- |
+  | nine ViTs, `2 5 8 11` | 1.08x - 1.31x |
+  | three CNNs, own last four stages | **1.17x - 2.80x** |
+
+  `keypoints2d` on `resnet18` goes 0.1659 to 0.4648. That is not a claim that
+  CNN features are better than the board says in some absolute sense — the
+  board's protocol is the published one and every backbone is read the same way.
+  It is a claim about **what a cross-architecture dense comparison is
+  measuring**: for a ViT the linear number is close to all the spatial detail
+  the backbone has, and for a CNN it is a deliberate discard.
+
+  **Do not "fix" this by giving the boards a DPT head.** Three of the five CNN
+  boards change leader under one, and two *invert* (`convnext_base` first to
+  last on `corner` and `orientation`, rho -1.000), so a DPT board would be a
+  different ranking rather than a better-resolved one — and it would be a
+  different comparability group from every published VisBench number. The point
+  is the caveat, not a replacement protocol.
+
+  **n=3 CNNs**, so two of those rho values are one swap each, and the gains are
+  the more solid half of this finding.
+
 - **`mae_vitb16` is first on six of the sixteen boards and last on four, and
   this is the corpus finally demonstrating what the taxonomy claims** (10b,
   2026-08-14; **counts re-read off the board at twelve backbones, 10e**; scene

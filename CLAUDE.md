@@ -1190,23 +1190,54 @@ designed up front; extend it the same way, from a case that already runs.
     achievable score rather than a proven bound, and the ratio does not
     discriminate anyway: `corner` reaches 80% of its oracle and `keypoints2d`
     41%, and both rank backbones fine.
-  - **It models a *linear* head exactly, and a DPT head can beat it —
-    measured, 2026-09-01.** `LinearHead` is a 1x1 convolution per patch plus a
+  - **It models a *linear* head exactly, and exactly one backbone's DPT head
+    beats it — measured on two backbones 2026-09-01, widened to the whole
+    corpus 2026-09-04.** `LinearHead` is a 1x1 convolution per patch plus a
     bilinear upsample, which is literally what the oracle computes; a DPT head
-    decodes progressively and places structure *within* a patch. Across five
-    probes x two backbones a DPT head reaches **70-104%** of the oracle and
-    **exceeds it in two of ten cases** (`results/controls/dpt_head.jsonl`). So
-    it is a bar for the head VisBench reports, **not a bound on what is
-    achievable** — do not call it a ceiling a better head cannot pass.
+    decodes progressively and places structure *within* a patch. Across the
+    five probes and the **nine twelve-block ViTs**, a DPT head reaches
+    **54-104%** of the oracle (median 83%) and exceeds it in **2 of 45 cells**
+    — both `mae_vitb16`, on `edge` and `corner`
+    (`results/controls/dpt_head.jsonl`). **Not one of the other eight ViTs
+    exceeds it anywhere.**
+
+    So it is a bar for the head VisBench reports, **not a bound on what is
+    achievable** — do not call it a ceiling a better head cannot pass. But
+    **do not read the 104% as a property of decoders either**: it is one row,
+    and MAE is the only one trained by masked *pixel* reconstruction. The
+    two-backbone version of this control read as the general claim, which is
+    the mistake widening it caught.
 
     **It does not reopen BSDS500**: scaling that line's 0.4193 linear ceiling by
-    the best ratio observed (1.037) gives ~0.435 ODS, still below Canny's 0.60,
-    so the closure survives the correction to its premise.
+    the best ratio observed anywhere (1.038) gives ~0.435 ODS, still below
+    Canny's 0.60, so the closure survives the correction to its premise.
 
-    **And a head is not a neutral magnifying glass.** On `occlusion_edge` the
-    DPT run *reverses* the linear board's top two. That is the demonstration
-    behind the standing rule to report the linear number when comparing
-    representations.
+    **A CNN's DPT run is a different experiment and has its own file**
+    (`dpt_head_cnn.jsonl`). `_grid_of` takes the *finest* requested map — right,
+    since a DPT head is bounded by its finest input — so a ResNet reading stages
+    1-4 gets a **56x56** oracle where its linear run reading `layer4` got 7x7
+    (`edge`: 0.8727 against 0.4977). The head and the bottleneck both moved, the
+    two fractions are not two readings of one scale, and only the DPT/linear
+    *gain* is comparable. A ViT's blocks share one grid, so its two ceilings are
+    bit-identical — which is what makes the ViT group the clean control and the
+    one the gate's claim is stated over.
+
+    **And a head is not a neutral magnifying glass**, which is now a counted
+    effect rather than one anecdote. Two of five ViT boards change leader
+    (`occlusion_edge` *and* `keypoints2d` — the second invisible at n=2, since
+    `dino_vitb16` was absent), and **24 of 174 separable pairs reorder**. On the
+    three CNNs, **three of five boards change leader and two invert outright**
+    (rho -1.000 on `corner` and `orientation`, `convnext_base` going from first
+    to last). That is the demonstration behind the standing rule to report the
+    linear number when comparing representations.
+
+    **A DPT head is an order of magnitude less reproducible than a linear one**,
+    measured by this control on itself: re-running its original ten cells three
+    days later moved them **2e-4 to 3.3e-3** relative, where the linear boards
+    reproduce at ~1e-7. **Quote a DPT number to three decimals**, and count a
+    reordering only over pairs both boards separate by more than their own
+    drift — a raw discordant-pair count over these boards includes coin flips.
+    Every `ceiling_*` reproduced bit-identically, which is by construction.
 
   **It has now refused something** (2026-09-01). The BSDS500 probe was not built
   because the gate put a linear probe's ceiling at **0.4193 ODS** on the 16x16
@@ -1667,10 +1698,10 @@ the measurement behind it, under the step named in brackets.**
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite is **1879 tests** (7 skipped) and green on 2026-09-03, at the
-0.15.0 release (1824 at the oracle gate, 1784 through the
-`fine_grained_classification` probe and schema v8), as
-are all three lint steps, mypy, `uv lock --check` and the `-W` docs build — all five run on `dgx1` via
+fast suite is **1888 tests** (8 skipped) and green on 2026-09-04, after the
+DPT control was widened (1879 at the 0.15.0 release, 1824 at the oracle gate,
+1784 through the `fine_grained_classification` probe and schema v8), as
+are all three lint steps, mypy and the `-W` docs build — all five run on `dgx1` via
 `sbatch`, since `.venv/bin/python` does not resolve on a `dgxh100` login shell.
 `uv lock --check` was green on 2026-08-06 and no dependency has moved since; the
 90 slow tests were green on `main` on 2026-08-14 (up from 79: 10a's timm
@@ -2065,7 +2096,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 1879 fast tests
+pytest                                              # 1888 fast tests
 pytest -m slow                                      # 79, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/
