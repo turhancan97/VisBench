@@ -1030,18 +1030,35 @@ class DenseTrainingTask(BaseTask):
 
         Notes
         -----
-        **It models a *linear* head exactly, and a DPT head can beat it.**
-        ``LinearHead`` is a 1x1 convolution on the grid followed by a bilinear
-        upsample, which is literally "one value per patch, interpolated" — the
-        bottleneck this measures. A DPT head decodes progressively with
-        convolutions, so it can place structure *within* a patch from that
-        patch's content. **Measured** (``results/controls/dpt_head.jsonl``,
-        2026-09-01): across five probes and two backbones a DPT head reaches
-        70-104% of this number and **exceeds it outright in two of ten cases**.
+        **It models a *linear* head exactly, and one backbone's DPT head beats
+        it.** ``LinearHead`` is a 1x1 convolution on the grid followed by a
+        bilinear upsample, which is literally "one value per patch,
+        interpolated" — the bottleneck this measures. A DPT head decodes
+        progressively with convolutions, so it can place structure *within* a
+        patch from that patch's content.
 
-        So this is a bar for the head VisBench reports, not a bound on what is
-        achievable. Quote it against a linear probe, and do not describe it as a
-        ceiling a better head cannot pass — it is not.
+        **Measured** (``results/controls/dpt_head.jsonl``, widened 2026-09-04):
+        across the five probes and the **nine** twelve-block ViTs in the corpus,
+        a DPT head reaches **54-104%** of this number (median 83%) and exceeds
+        it in **2 of 45 cells** — both of them ``mae_vitb16``, on ``edge`` and
+        ``corner``. Not one of the other eight ViTs exceeds it anywhere.
+
+        So this is a bar for the head VisBench reports rather than a bound on
+        what is achievable — but the exception is narrow and looks
+        backbone-specific rather than head-specific. MAE is the one row trained
+        by masked *pixel* reconstruction, which is a plausible reason for
+        sub-patch structure to survive in its features. Quote the gate against a
+        linear probe; do not call it a ceiling no head can pass, and do not read
+        the 104% as a general property of decoders. The first two records of
+        this control, on two backbones, read as though it were.
+
+        **A multi-stage CNN is a different case and its control is separate**
+        (``dpt_head_cnn.jsonl``). ``_grid_of`` takes the *finest* requested map,
+        so a DPT run over a ResNet's stages 1-4 is bounded by 56x56 where the
+        linear run reading ``layer4`` is bounded by 7x7 — the head and the
+        bottleneck both moved, and the two ceilings are not comparable. A ViT's
+        blocks all share one grid, so its two ceilings are bit-identical and
+        only the head moved. That is why the gate's claim is stated over ViTs.
 
         **This is an achievable score, not a proven upper bound**, and the
         distinction from

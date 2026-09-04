@@ -122,10 +122,17 @@ This is a multi-month roadmap, built one reviewed step at a time.
       not, and its metric is recorded as ill-conditioned
 - [x] **the oracle gate is a bar, not a bound** — `results/controls/dpt_head.jsonl`
       measures what a DPT head reaches against the linear oracle the gate
-      computes: **70-104%**, exceeding it outright in two of ten cases. The gate
-      models a linear head exactly, so it is a bar for the head VisBench
-      reports. It does not reopen BSDS500, and on `occlusion_edge` the DPT run
-      *reverses* the linear board's top two
+      computes. The gate models a linear head exactly, so it is a bar for the
+      head VisBench reports rather than a bound on what is achievable
+- [x] **the DPT control, widened to the whole corpus** — nine ViTs in
+      `dpt_head.jsonl` and three CNNs in `dpt_head_cnn.jsonl`, two
+      comparability groups answering two questions. The gate bounds **eight of
+      nine ViTs**: only `mae_vitb16` exceeds it, twice in 45 cells, so the
+      exception is backbone-specific rather than a property of decoders. Two
+      ViT boards change leader and 24 of 174 separable pairs reorder; on the
+      CNNs, where a DPT run changes the bottleneck as well as the head, three
+      of five boards change leader and two invert outright. It still does not
+      reopen BSDS500
 
 ## Roadmap
 
@@ -307,11 +314,11 @@ Worth naming so they are not re-scoped from scratch:
   **The first of the two routes that could have reopened it has been measured,
   and it does not.** The gate models a linear head exactly, so a progressive
   decoder was the obvious way it might understate what is achievable — and it
-  does: `results/controls/dpt_head.jsonl` puts a DPT head at 70-104% of the
-  linear oracle across five probes and two backbones, exceeding it outright in
-  two of ten cases. But scaling 0.4193 by the best ratio observed (1.037) gives
-  ~0.435 ODS, still below the weakest classical baseline, so **the closure
-  survives the correction to its premise.** The remaining route is to run at
+  does: `results/controls/dpt_head.jsonl` puts a DPT head at 54-104% of the
+  linear oracle across five probes and **nine** ViTs, exceeding it in 2 of 45
+  cells — both `mae_vitb16`. But scaling 0.4193 by the best ratio observed
+  anywhere (1.038) gives ~0.435 ODS, still below the weakest classical
+  baseline, so **the closure survives the correction to its premise.** The remaining route is to run at
   32x32 tokens or finer, which only DINOv2 can do — and a board only DINOv2 can
   appear on ranks nothing. Both are written up in
   `visbench/tasks/low_level/README.md`.

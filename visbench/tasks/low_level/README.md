@@ -230,20 +230,30 @@ while `DenseTrainingTask` assumes square target maps.
 
 Two routes, in cost order.
 
-- ~~**Test whether a DPT head beats the pooling oracle.**~~ **Done, 2026-09-01,
-  and it does — but not by enough.** Across the five low-level probes on
-  `dinov2_vitb14` and `mae_vitb16`, a DPT head reaches **70-104%** of the linear
-  oracle and exceeds it outright in two of ten cases
-  (`results/controls/dpt_head.jsonl`). So the gate is a bar for the head
-  VisBench reports rather than a bound on what is achievable, and that
-  correction is now made wherever the gate is described.
+- ~~**Test whether a DPT head beats the pooling oracle.**~~ **Done, and
+  widened 2026-09-04 to the whole corpus. It does beat it — but only one
+  backbone does, and not by enough.** Across the five low-level probes and the
+  **nine** twelve-block ViTs, a DPT head reaches **54-104%** of the linear
+  oracle (median 83%) and exceeds it in **2 of 45 cells**, both `mae_vitb16`
+  (`results/controls/dpt_head.jsonl`). Not one of the other eight ViTs exceeds
+  it anywhere. So the gate is a bar for the head VisBench reports rather than a
+  bound on what is achievable, and that correction is made wherever the gate is
+  described — but the exception looks specific to the one row trained by masked
+  *pixel* reconstruction rather than general to decoders.
 
   **It does not reopen this line.** Scaling the 0.4193 linear ceiling by the
-  best ratio observed (1.037) gives ~0.435 ODS — still below Canny's published
-  0.60, so the argument for closing survives the correction to its premise. A
-  DPT board here would also be a *different* comparability group from every
-  published VisBench dense number, which is a second reason it would not be the
-  board this line wanted.
+  best ratio observed anywhere in that group (1.038) gives ~0.435 ODS — still
+  below Canny's published 0.60, so the argument for closing survives the
+  correction to its premise. A DPT board here would also be a *different*
+  comparability group from every published VisBench dense number, which is a
+  second reason it would not be the board this line wanted.
+
+  **The CNN half of that control cannot be read as licence either**
+  (`dpt_head_cnn.jsonl`). Its DPT gains are much larger — up to 2.80x — but
+  `_grid_of` takes the *finest* requested map, so a ResNet's DPT run is bounded
+  by a 56x56 oracle rather than the 7x7 one its linear number was measured
+  against. The bottleneck moved with the head, which is the opposite of what
+  this route needed to establish, and nothing there exceeded its own oracle.
 - **Run at a finer grid, and accept what it costs.** BSDS reaches the published
   range around 32x32, i.e. 448px on a /14 ViT. DINOv2 can do this — it
   interpolates its position embeddings inside its own forward pass. open_clip

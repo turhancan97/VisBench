@@ -9,6 +9,96 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+### Added
+
+- **The DPT-head control, widened from two backbones to the whole corpus.**
+  `results/controls/dpt_head.jsonl` now holds the five low-level probes against
+  the **nine** twelve-block ViTs, and `results/controls/dpt_head_cnn.jsonl`
+  holds them against the **three CNNs** — two comparability groups, because
+  `layers` is in `comparability_key` and because they answer two different
+  questions. 0.15.0 shipped this control at n=2 and three of its published
+  claims did not survive the widening.
+
+  **The gate bounds eight of the nine ViTs.** A DPT head reaches **54-104%** of
+  the linear oracle (median 83%, against a published 70-104%) and exceeds it in
+  **2 of 45 cells** — both `mae_vitb16`, on `edge` and `corner`. Not one of the
+  other eight exceeds it anywhere. So the correction 0.15.0 made stands — the
+  gate is a bar for the head VisBench reports, not a bound on what is
+  achievable — but **the exception is backbone-specific, not a property of
+  decoders**, which is how the two-backbone version read. MAE is the one row
+  trained by masked *pixel* reconstruction, and it is 8 points clear of the next
+  backbone on this measure.
+
+  **"A head is not a neutral magnifying glass" is now a counted effect.** Two
+  of five ViT boards change leader, not one: `occlusion_edge` as published, and
+  **`keypoints2d`** (`dino_vitb16` → `mae_vitb16`), which two backbones could
+  not see because `dino_vitb16` was absent. So 0.15.0's "the other four boards
+  keep their order" was wrong. Across all five boards **24 of 174 separable
+  pairs reorder (14%)**.
+
+  **A DPT head is an order of magnitude less reproducible than a linear one**,
+  measured by this control on itself. Re-running the original ten cells three
+  days later moved them **2e-4 to 3.3e-3** relative, where 0.15.0's linear
+  re-run reproduced at ~1e-7 on four of five boards. Every `ceiling_*`
+  reproduced bit-identically, which is by construction. Two consequences:
+  **quote a DPT number to three decimals**, the concession `detection` already
+  carries for a different reason; and count a reordering only over pairs *both*
+  boards separate by more than their own drift, since every ViT board here has
+  adjacent pairs closer than that (6 of 180 pairs are not decidable).
+
+  **A CNN's DPT run changes the bottleneck as well as the head**, which is why
+  it is a separate file rather than three more rows. `_grid_of` takes the
+  *finest* requested map — correct, since a DPT head is bounded by its finest
+  input — so a ResNet reading stages 1-4 gets a **56x56** oracle where its
+  linear run reading `layer4` got 7x7 (`edge`: 0.8727 against 0.4977). The two
+  fractions are therefore not two readings of one scale and only the DPT/linear
+  *gain* is comparable. A ViT's blocks share one grid, so its two ceilings are
+  bit-identical — which is what makes the ViT group the clean control.
+
+  **The CNN gains are much larger, and that is a caveat on the corpus's dense
+  boards**: 1.17-2.80x against 1.08-1.31x for the ViTs, with `keypoints2d` on
+  `resnet18` going 0.1659 to 0.4648. A linear probe on a CNN reads only the
+  final 7x7 stage while the 56x56 stage-1 map was computed and discarded; a ViT
+  has nothing equivalent to discard. **Three of five CNN boards change leader
+  and two invert outright** (rho -1.000 on `corner` and `orientation`, with
+  `convnext_base` going first to last), so a DPT board would be a different
+  ranking rather than a better-resolved one. n=3, so those rho values are one
+  swap each. Written up in `CORPUS_FINDINGS.md`.
+
+  **It still does not reopen BSDS500.** Scaling that line's 0.4193 linear
+  ceiling by the best ratio observed anywhere (1.038, up from 1.037) gives
+  ~0.435 ODS, still below the weakest classical baseline.
+
+- **`scripts/build_dpt_control.sh`, `slurm/dpt_control.sbatch`,
+  `scripts/merge_controls.sh` and `scripts/analyse_dpt_control.py` — the
+  control is reproducible now.** The first ten records were produced by typed
+  commands that were never committed, which is 8a's failure exactly (six
+  published corner figures whose records did not survive) recurring on the
+  newest control two releases after the step meant to have ended it. The flags
+  live in one file, the array carries the corpus array's count-and-endpoint
+  guard, the merge merges rather than rebuilds, and
+  `tests/scripts/test_dpt_control_scripts.py` pins the two probe lists equal to
+  each other, the layer specs to what the real models expose, and the control's
+  dataset flags equal to `build_corpus.sh`'s — only the head may differ.
+
+  **The layer spec is per backbone, which a pre-check caught before an array
+  burned on it.** `num_layers` counts what timm's `feature_info` exposes and
+  that is not uniform: a ResNet has **5** entries (stem at index 0) and
+  ConvNeXt has **4**, so `1 2 3 4` is a ResNet's last four stages and is *out
+  of range* on ConvNeXt. Each CNN reads its own last four stages instead.
+  Levelling them to one spec was the alternative and is worse: `0 1 2 3` on a
+  ResNet drops `layer4`, so a DPT head that never saw the final stage would be
+  compared against a linear head that read only that stage.
+
+### Changed
+
+- **`DenseTrainingTask.evaluate_oracle`'s docstring** carried the n=2 claim as
+  though it were general. It now states the nine-ViT numbers, says the
+  exception is one backbone, and records that a multi-stage CNN's DPT run moves
+  the bottleneck too.
+- **`.gitignore`** ignores `results/controls/parts/`, the array's per-task
+  output, for the same reason it ignores `results/corpus/parts/`.
+
 
 ## [0.15.0] — 2026-09-03
 

@@ -52,3 +52,7 @@ checkpoints/
 # record twice.
 logs/
 results/corpus/parts/
+# The DPT control array writes the same way, for the same NFS reason, and
+# scripts/merge_controls.sh is the other half of it. results/controls/*.jsonl
+# is the deliverable.
+results/controls/parts/
