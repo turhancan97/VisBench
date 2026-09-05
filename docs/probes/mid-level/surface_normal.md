@@ -10,7 +10,7 @@ borrow a protocol at all.
 ```{figure} /_static/gallery/surface_normal.png
 :alt: surface_normal — image, target and prediction
 
-What `visbench show surface_normal` draws. {doc}`How to read it </show>`.
+What `visbench show surface_normal` draws. {doc}`How to read it </guides/visualising>`.
 ```
 
 ## Things that will bite

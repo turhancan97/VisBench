@@ -13,8 +13,7 @@ on each probe page from the same corpus.
 
 ## Read this before quoting any of it
 
-The full evidence for each is in
-[`CORPUS_FINDINGS.md`](https://github.com/turhancan97/VisBench/blob/main/CORPUS_FINDINGS.md).
+The full rules are in {doc}`how to read a board </guides/reading-a-board>`.
 The three that most often go wrong:
 
 **"Which backbone is best" is not a well-formed question against this corpus.**

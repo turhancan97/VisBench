@@ -10,7 +10,7 @@ backbone's rank moves between the two — and it does, almost independently
 ```{figure} /_static/gallery/scene_classification.png
 :alt: scene_classification — image, target and prediction
 
-What `visbench show scene_classification` draws. {doc}`How to read it </show>`.
+What `visbench show scene_classification` draws. {doc}`How to read it </guides/visualising>`.
 ```
 
 `scene_classification` is the same linear probe on a different question: the

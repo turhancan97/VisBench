@@ -9,7 +9,7 @@ level. It reaches only 41% of its own oracle where `corner` reaches 80%.
 ```{figure} /_static/gallery/keypoints2d.png
 :alt: keypoints2d — image, target and prediction
 
-What `visbench show keypoints2d` draws. {doc}`How to read it </show>`.
+What `visbench show keypoints2d` draws. {doc}`How to read it </guides/visualising>`.
 ```
 
 Two more probes share the edge probe's implementation and differ only in what

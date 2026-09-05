@@ -8,7 +8,7 @@ here. Read the section below before quoting it.
 ```{figure} /_static/gallery/semantic_segmentation.png
 :alt: semantic_segmentation — image, target and prediction
 
-What `visbench show semantic_segmentation` draws. {doc}`How to read it </show>`.
+What `visbench show semantic_segmentation` draws. {doc}`How to read it </guides/visualising>`.
 ```
 
 ## Its board

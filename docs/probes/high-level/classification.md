@@ -9,7 +9,7 @@ rather than the winner.
 ```{figure} /_static/gallery/classification.png
 :alt: classification — image, target and prediction
 
-What `visbench show classification` draws. {doc}`How to read it </show>`.
+What `visbench show classification` draws. {doc}`How to read it </guides/visualising>`.
 ```
 
 The two probes that need only a labelled image folder.

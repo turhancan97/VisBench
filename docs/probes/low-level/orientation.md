@@ -10,7 +10,7 @@ does.
 ```{figure} /_static/gallery/orientation.png
 :alt: orientation — image, target and prediction
 
-What `visbench show orientation` draws. {doc}`How to read it </show>`.
+What `visbench show orientation` draws. {doc}`How to read it </guides/visualising>`.
 ```
 
 [`examples/orientation.py`](https://github.com/turhancan97/VisBench/blob/main/examples/orientation.py).

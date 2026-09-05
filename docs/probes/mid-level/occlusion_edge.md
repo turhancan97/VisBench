@@ -10,7 +10,7 @@ needs scene geometry, recovering an intensity one does not.
 ```{figure} /_static/gallery/occlusion_edge.png
 :alt: occlusion_edge — image, target and prediction
 
-What `visbench show occlusion_edge` draws. {doc}`How to read it </show>`.
+What `visbench show occlusion_edge` draws. {doc}`How to read it </guides/visualising>`.
 ```
 
 ## Its board

@@ -9,7 +9,7 @@ surprise rather than merely adding to it.
 ```{figure} /_static/gallery/fine_grained_classification.png
 :alt: fine_grained_classification — image, target and prediction
 
-What `visbench show fine_grained_classification` draws. {doc}`How to read it </show>`.
+What `visbench show fine_grained_classification` draws. {doc}`How to read it </guides/visualising>`.
 ```
 
 `fine_grained_classification` is the same linear probe again, and the third

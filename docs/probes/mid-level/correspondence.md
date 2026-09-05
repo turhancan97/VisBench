@@ -8,7 +8,7 @@ first, so the ground-truth correspondence is exact by construction.
 ```{figure} /_static/gallery/correspondence.png
 :alt: correspondence — image, target and prediction
 
-What `visbench show correspondence` draws. {doc}`How to read it </show>`.
+What `visbench show correspondence` draws. {doc}`How to read it </guides/visualising>`.
 ```
 
 ## Its board

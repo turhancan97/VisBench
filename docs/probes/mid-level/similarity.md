@@ -10,7 +10,7 @@ says.
 ```{figure} /_static/gallery/similarity.png
 :alt: similarity — image, target and prediction
 
-What `visbench show similarity` draws. {doc}`How to read it </show>`.
+What `visbench show similarity` draws. {doc}`How to read it </guides/visualising>`.
 ```
 
 [`examples/similarity.py`](https://github.com/turhancan97/VisBench/blob/main/examples/similarity.py) asks whether the backbone

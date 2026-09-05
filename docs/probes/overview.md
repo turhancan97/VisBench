@@ -1,14 +1,13 @@
 # The probes
 
 Sixteen probes across three levels. Every one of them is reachable the same
-three ways — `visbench.run()`, the
+three ways — {doc}`visbench.run() </getting-started/quickstart>`, the
 `visbench run` CLI, and an `examples/` script — and every one writes a record
 saying exactly what produced its number.
 
 Each probe page states what it measures, the data layout it expects, its
-`protocol` string, and its twelve-backbone board. **Read
-{doc}`the leaderboard page </probes/leaderboard>` first if you intend to quote
-one.**
+`protocol` string, and its twelve-backbone board. **Read {doc}`how to read a board </guides/reading-a-board>` first if you
+intend to quote one.**
 
 ## High level — semantic and category understanding
 

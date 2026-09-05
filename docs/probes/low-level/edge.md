@@ -9,7 +9,7 @@ correspondence metric this does not implement.
 ```{figure} /_static/gallery/edge.png
 :alt: edge — image, target and prediction
 
-What `visbench show edge` draws. {doc}`How to read it </show>`.
+What `visbench show edge` draws. {doc}`How to read it </guides/visualising>`.
 ```
 
 [`examples/edges.py`](https://github.com/turhancan97/VisBench/blob/main/examples/edges.py) is the first

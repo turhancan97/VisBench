@@ -9,7 +9,7 @@ labelled image folder and nothing else.
 ```{figure} /_static/gallery/retrieval.png
 :alt: retrieval — image, target and prediction
 
-What `visbench show retrieval` draws. {doc}`How to read it </show>`.
+What `visbench show retrieval` draws. {doc}`How to read it </guides/visualising>`.
 ```
 
 ## Its board

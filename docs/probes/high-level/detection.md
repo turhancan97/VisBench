@@ -9,7 +9,7 @@ not a detector benchmark.
 ```{figure} /_static/gallery/detection.png
 :alt: detection — image, target and prediction
 
-What `visbench show detection` draws. {doc}`How to read it </show>`.
+What `visbench show detection` draws. {doc}`How to read it </guides/visualising>`.
 ```
 
 [`examples/detect.py`](https://github.com/turhancan97/VisBench/blob/main/examples/detect.py) trains an **anchor-free,

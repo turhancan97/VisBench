@@ -10,7 +10,7 @@ revealed on its own.
 ```{figure} /_static/gallery/corner.png
 :alt: corner — image, target and prediction
 
-What `visbench show corner` draws. {doc}`How to read it </show>`.
+What `visbench show corner` draws. {doc}`How to read it </guides/visualising>`.
 ```
 
 [`examples/corners.py`](https://github.com/turhancan97/VisBench/blob/main/examples/corners.py)

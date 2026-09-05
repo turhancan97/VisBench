@@ -11,7 +11,7 @@ difference is a property of the target, not of the data or the protocol.
 ```{figure} /_static/gallery/generic_segmentation.png
 :alt: generic_segmentation — image, target and prediction
 
-What `visbench show generic_segmentation` draws. {doc}`How to read it </show>`.
+What `visbench show generic_segmentation` draws. {doc}`How to read it </guides/visualising>`.
 ```
 
 ## Things that will bite

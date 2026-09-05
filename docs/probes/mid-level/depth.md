@@ -16,7 +16,7 @@ to anything. See `results/controls/relative_depth.jsonl`.
 ```{figure} /_static/gallery/depth.png
 :alt: depth — image, target and prediction
 
-What `visbench show depth` draws. {doc}`How to read it </show>`.
+What `visbench show depth` draws. {doc}`How to read it </guides/visualising>`.
 ```
 
 ## Data layout

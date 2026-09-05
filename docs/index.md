@@ -47,8 +47,8 @@ not measuring the signal.
 | --- | --- |
 | Every probe, the data it expects, and what it has measured | [The probes](probes/overview.md) |
 | Every class, function and attribute, from the docstrings | [API reference](api/index.md) |
-| Drawing a probe's images beside their targets | [Looking](show.md) |
-| Sharing a trained probe, and what travels with it | [The Hub](hub.md) |
+| Drawing a probe's images beside their targets | [Looking](guides/visualising.md) |
+| Sharing a trained probe, and what travels with it | [The Hub](guides/sharing.md) |
 | How it was built, and what might come next | [Roadmap](roadmap.md) |
 | Sixteen probes against twelve backbones, ranked | [LEADERBOARD.md](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md) |
 | Setting up, the checks, and how to add a probe | [CONTRIBUTING.md](https://github.com/turhancan97/VisBench/blob/main/CONTRIBUTING.md) |
@@ -84,23 +84,30 @@ every number, which is what makes it reproducible — against that release.
 
 ```{toctree}
 :hidden:
+:caption: Getting started
+
+getting-started/installation
+getting-started/quickstart
+getting-started/cli
+```
+
+```{toctree}
+:hidden:
+:caption: Guides
+
+guides/backbones
+guides/datasets
+guides/dense-probes
+guides/visualising
+guides/sharing
+guides/reading-a-board
+```
+
+```{toctree}
+:hidden:
 :caption: Probes
 
 probes/overview
-```
-
-```{toctree}
-:hidden:
-:caption: Looking
-
-show
-```
-
-```{toctree}
-:hidden:
-:caption: Sharing
-
-hub
 ```
 
 ```{toctree}
