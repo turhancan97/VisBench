@@ -76,11 +76,11 @@ emitted, and was dead code for its entire life while its test passed.
 
 ### If you touch an optional extra
 
-`clip`, `timm`, `hub` and `datasets` are optional. `datasets` is also in `dev`
-(the HuggingFace-bridge tests need it at import time), but `clip`/`timm`/`hub`
-are not and **CI installs `.[dev]` only** — a test that imports one of those
-passes locally and fails in CI. Reproduce CI's environment by blocking the
-import:
+`clip`, `timm`, `hub`, `datasets` and `docs` are optional. `datasets` and
+`sphinx` are also in `dev` (the HuggingFace-bridge tests and the docstring guard
+need them at import time), but `clip`/`timm`/`hub` are not and **CI installs
+`.[dev]` only** — a test that imports one of those passes locally and fails in
+CI. Reproduce CI's environment by blocking the import:
 
 ```python
 # /tmp/blockhub.py
@@ -98,7 +98,15 @@ PYTHONPATH=/tmp pytest -p blockhub
 ```
 
 Inject a stub module rather than skipping the test — a skip leaves the code path
-untested in exactly the install most people have.
+untested in exactly the install most people have. If the test cannot work
+without the package (a guard that genuinely needs `docutils`, say), **add the
+package to `dev`** rather than skipping: a guard that disappears in the
+environment CI uses is the "only tested under `slow`" failure with a new label.
+
+**Running the docs build does not cover this.** That build installs
+`.[all,docs]`; the test job does not. A fast test that imports `sphinx` can pass
+every local check, including the `-W` build, and still be red on the pull
+request — which has happened.
 
 ## What a change needs
 
@@ -153,7 +161,7 @@ show a training-dynamics problem, and one has already been found that way.
    Captions are drawn with PIL's built-in bitmap font, which has no glyph for an
    em dash or an ellipsis — **keep them ASCII**, which a test enforces.
 6. Add an `examples/` script and a row in
-   [`docs/tasks.md`](docs/tasks.md).
+   [`docs/probes/`](docs/probes/overview.md).
 
 **Do not claim another paper's protocol unless you implemented it.** The
 `protocol` field exists so a reader knows what a number is comparable to. If you
@@ -168,7 +176,8 @@ separate two backbones. A probe scoring 0.088 with a small-versus-base gap of
 ## Numbers, tables and the corpus
 
 `results/corpus/visbench.jsonl` is a committed set of result records.
-`LEADERBOARD.md` and the tables in `docs/tasks.md` are **generated from it**:
+`LEADERBOARD.md` and the board on each page under `docs/probes/` are
+**generated from it**:
 
 ```bash
 scripts/render_tables.py            # regenerate

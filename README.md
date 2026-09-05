@@ -20,41 +20,11 @@
 
 ---
 
-> **Status: v0.12.0.** Three backbone families (DINOv2, CLIP, timm CNNs and
-> ViTs) and **sixteen** probes run end-to-end across all three levels — high,
-> mid and low — including eight trained dense probes and an anchor-free
-> detection probe, from Python or from the `visbench` command line.
->
-> **v0.11 is where the corpus gets its controls.** The record corpus is fifteen
-> probes against **twelve** backbones, and MAE ViT-B/16 comes first on six of
-> those boards and last on three — so "which backbone is best" is not a
-> well-formed question against it. Three of the twelve share an architecture and
-> a pretraining set and differ *only* in training objective, which is what lets
-> a gap be attributed to anything at all. A fourth differs from one of them only
-> in training **recipe**, and that is the one that supplies the denominator:
-> quote an objective gap against the recipe gap on the same board, not against
-> zero. On semantic segmentation the recipe gap is the larger of the two.
->
-> **v0.10 separated the three levels** — `TimmBackbone` learned to read a ViT's
-> own structure, which added ConvNeXt-B, MAE and SigLIP-GAP in one change, and
-> the documentation gallery moved to real photographs under a per-image licence
-> check.
->
-> **v0.9 makes every probe *visible*.** `visbench show` draws what a probe saw
-> beside what it predicted, for all sixteen, and each renderer states the
-> diagnostic its own history calls for as a figure rather than leaving it to
-> the eye. It adds no probe and changes no measurement. **v0.8** added `corner`,
-> the first probe whose target VisBench computes rather than downloads; **v0.7**
-> made the project approachable (`visbench demo`, the documentation site, a
-> contributor guide, a DOI); **v0.6** is the leaderboard release — a committed
-> record corpus, the comparability rules that decide what may be ranked
-> together, generated tables, and probe heads you can save, publish and reload.
-> v0.5 added 2D keypoint and occlusion-edge detection; v0.4 filled the
-> low-level tier with edge detection; v0.3 added opt-in fine-tuning of the last
-> N blocks — a *different measurement* from a frozen probe, kept apart in the
-> record rather than averaged with it. See
-> [LEADERBOARD.md](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md)
-> and [the roadmap](https://github.com/turhancan97/VisBench/blob/main/docs/roadmap.md).
+> **Status: v0.15.0.** Sixteen probes across high, mid and low level, thirteen
+> backbones from three families, and a committed corpus of **192 records** —
+> every one of them reproducible from the flags in its own record. The full
+> documentation, including a generated API reference, is at
+> **[https://turhancan97.github.io/VisBench](https://turhancan97.github.io/VisBench/)**.
 
 ## Try it in thirty seconds
 
@@ -96,35 +66,17 @@ the signal. That slide into chance is the demo's actual point.
 ## Install
 
 ```bash
-pip install visbench                    # core: DINOv2, every task, the CLI
+pip install visbench                    # core: DINOv2, every probe, the CLI
 pip install 'visbench[clip,timm]'       # + CLIP and timm backbones
 pip install 'visbench[hub]'             # + push/pull probes to Hugging Face
 ```
 
-`clip` and `timm` are optional extras. A backbone whose extra is missing stays
-listed — `visbench list backbones` marks it — and constructing one tells you
-which extra to install rather than pretending the name does not exist.
+A backbone whose extra is missing stays **listed** — `visbench list backbones`
+marks it — and constructing one tells you which extra to install rather than
+pretending the name does not exist.
 
-`hub` is needed only to *transfer* a probe. Saving one to a local file and
-loading it back works in a core install.
-
-Development:
-
-```bash
-git clone https://github.com/turhancan97/VisBench && cd VisBench
-uv sync --all-extras            # exact locked versions — what the numbers below used
-# or
-pip install -e ".[dev,clip,timm]"
-pytest              # fast tests, no weights downloaded
-pytest -m slow      # also runs the real DINOv2 and CLIP checkpoints
-
-# The three gating lint steps, exactly as CI runs them. Run them verbatim —
-# mypy in particular reads [tool.mypy] from pyproject.toml, so invoking it
-# with different flags checks something CI does not.
-ruff check visbench/ tests/ conftest.py examples/
-ruff format --check visbench/ tests/ conftest.py examples/
-mypy visbench/ examples/ --ignore-missing-imports
-```
+Full instructions, including a source install and what each extra buys:
+[installation](https://turhancan97.github.io/VisBench/getting-started/installation.html).
 
 ## What it is
 
@@ -139,7 +91,6 @@ records may be ranked against each other at all.
 VisBench answers one question with as little ceremony as possible: *what does
 this vision backbone actually encode?*
 
-Working today — folder to scored, logged metrics, on any image folder laid out
 as `root/<class_name>/<image>`:
 
 ```python
@@ -158,216 +109,37 @@ result.record     # the ResultRecord that says exactly how they were produced
 
 `run()` resolves pooling, extracts through the cache, fits the probe if it
 trains, evaluates, and appends the record. The pieces are public if you want
-them separately:
+them separately — see
+[the quickstart](https://turhancan97.github.io/VisBench/getting-started/quickstart.html).
 
-```python
-from visbench.cache import FeatureCache
-
-backbone = visbench.get_backbone("dinov2_vitb14")      # frozen, eval mode
-probe    = visbench.get_probe("retrieval")             # zero-shot
-features = FeatureCache().extract_dataset(
-    backbone, dataset, pooling=probe.pooling, keep="pooled"
-)                                                      # one forward pass per image
-probe.evaluate(features, dataset.labels())
-```
-
-Re-running is cheap. On Imagenette (13,394 images, DINOv2 ViT-S, one V100):
-
-| | cold | cached |
-|---|---|---|
-| wall time | 208 s | **26 s** |
-| on-disk cache | 107 MB | — |
-| val top1 | 0.9939 | 0.9939 |
-
-A cached image is resolved from its file identity and never decoded, and
-`keep="pooled"` also stops dense features being written — storing them for a
-task that never reads them cost 5 GB instead of 107 MB. Results go to JSONL
-through `visbench.results.ResultWriter`, under one schema from the first
-record.
-
-Trained probes take the same call with a training split. A train/test split is
-just two datasets, so each half carries its own fingerprint:
-
-```python
-result = visbench.run(
-    "dinov2_vitb14", "classification", val_dataset, train_dataset=train_dataset
-)
-result.metrics             # {"top1": ..., "top5": ...}
-result.probe.train_top1    # 0.99 — if this is low, the probe underfitted,
-                           # not the backbone. Raise `lr` or `epochs`.
-```
-
-Passing `train_dataset` to a zero-shot task raises rather than being ignored:
-silently dropping it would leave the caller's intent and the result
-disagreeing.
-
-The linear probe trains with AdamW on cached features, so its hyperparameters
-are part of the reported number and travel with it in the record's
-`task_params`.
-
-### Your own model
-
-Any `nn.Module` works, without adding anything to this package:
-
-```python
-from torchvision.models import convnext_tiny, ConvNeXt_Tiny_Weights
-
-weights = ConvNeXt_Tiny_Weights.IMAGENET1K_V1
-backbone = visbench.CustomBackbone(
-    convnext_tiny(weights=weights).features,
-    preprocess=weights.transforms(),
-    name="convnext_tiny",
-)
-visbench.run(backbone, "retrieval", dataset)
-```
-
-The grid comes from the module's output shape, `embed_dim` from the first
-forward pass, and the cache key from a hash of the weights — so a fine-tuned
-checkpoint never reuses its parent's cached features. Where the output shape is
-genuinely ambiguous VisBench raises rather than guesses; pass `patch_size=`,
-`has_cls_token=` or a `feature_fn=` to say what it cannot infer.
-
-To give a custom backbone a registry name, subclass `BaseBackbone` and apply
-`@visbench.register_backbone("my_model")` — the same path the built-ins use.
-
-[`examples/custom_backbone.py`](https://github.com/turhancan97/VisBench/blob/main/examples/custom_backbone.py)
-runs all of this end to end and needs no dataset:
-
-```bash
-python examples/custom_backbone.py --finetune --register
-```
-
-### Your own dataset
-
-A folder layout needs no code (`ImageFolderDataset`, `DenseFolderDataset`,
-`DetectionFolderDataset`), and anything else is a `BaseDataset` subclass with two
-methods. When the data already lives in a `torch.utils.data` dataset or a
-Hugging Face `datasets.Dataset`, there is a bridge:
-
-```python
-from torchvision.datasets import CIFAR10
-from visbench.data import TorchvisionDataset
-
-raw = CIFAR10("./data", train=False, download=True)
-visbench.run("dinov2_vits14", "classification", TorchvisionDataset(raw, split="test"),
-             train_dataset=TorchvisionDataset(CIFAR10("./data", train=True, download=True)))
-```
-
-`HuggingFaceDataset` is the same shape and needs `pip install visbench[datasets]`.
-Both derive a real per-item `cache_identity` from the fact that the wrapped
-dataset is immutable in index order, so a cached re-run still skips the
-backbone. See [`examples/custom_dataset.py`](https://github.com/turhancan97/VisBench/blob/main/examples/custom_dataset.py).
-
-Sibling project to [vismatch](https://github.com/gmberton/vismatch) — same
-ergonomic philosophy, applied to representation probing instead of image
-matching.
-
-## The command line
-
-Installing the package puts a `visbench` command on your path. It is a thin
-wrapper over `visbench.run()` — same cache, same result records, same numbers.
+Installing the package also puts a `visbench` command on your path, a thin
+wrapper over the same call:
 
 ```bash
 visbench demo                       # a real probe on generated data, no setup
 visbench list                       # backbones, probes and heads that exist
 visbench run retrieval --data /path/to/imagenette2 --split val
-visbench run classification --dataset torchvision:CIFAR10 --split test
 visbench show depth --data /path/to/nyuv2 --out panels.png
-visbench cache stats
 ```
 
-Each probe is its own subcommand, because they do not take the same data.
-`visbench run depth --help` shows the folder layout depth expects and only
-depth's flags:
+Each probe is its own subcommand, because they do not take the same data —
+[the CLI reference](https://turhancan97.github.io/VisBench/getting-started/cli.html).
 
-```bash
-# mid-level geometry, zero-shot, no annotation needed
-visbench run correspondence --data /path/to/images --split val --limit 200
+## Look before you measure
 
-# a dense probe: <data>/<split>/{images,masks}, paired by filename stem
-visbench run generic_segmentation --data /path/to/data --epochs 40 --lr 5e-3
-
-# an official split list instead of split directories — how real benchmarks
-# express one. Passing --stems makes --data the dataset root itself.
-visbench run semantic_segmentation --data VOCdevkit/VOC2012 \
-    --image-dir JPEGImages --target-dir SegmentationClass \
-    --stems ImageSets/Segmentation/val.txt \
-    --train-stems ImageSets/Segmentation/train.txt \
-    --num-classes 21 --backbone dinov2_vits14
-
-# detection reads the same way, from ImageSets/Main
-visbench run detection --data VOCdevkit/VOC2012 \
-    --stems ImageSets/Main/val.txt \
-    --train-stems ImageSets/Main/train.txt \
-    --backbone dinov2_vits14
-```
-
-That last one reports `miou 0.733` on VOC val, against the 0.732 the Python API
-records for the same backbone — which is the check that matters for a wrapper.
-
-### Looking before you measure
-
-`visbench show` writes a grid of image / target / prediction panels to a file.
-It measures nothing — it exists because a dense target that has drifted from its
-image fails *silently*: the probe trains, and the number merely comes out
-mediocre, which reads as a hard task rather than a bug.
-
-```bash
-# no backbone, no cache, no GPU — just the data the probe would see
-visbench show semantic_segmentation --data VOCdevkit/VOC2012 \
-    --stems ImageSets/Segmentation/val.txt --num-classes 21 --out voc.png
-
-# add a prediction column from a head you trained earlier
-visbench run corner --data ./frames --save-probe heads/corner.pt
-visbench show corner --data ./frames --predict-from heads/corner.pt --out corner.png
-```
-
-```bash
-# correspondence draws both views and the matches between them
-visbench show correspondence --data ./images --backbone dinov2_vits14 --out matches.png
-```
+`visbench show <probe>` draws what a probe saw beside what it predicted. It
+measures nothing — it exists because a dense target that has drifted from its
+image fails **silently**: the probe trains, and the number merely comes out
+mediocre. Two of the most expensive bugs in this project were exactly that, and
+both are obvious in one frame.
 
 ![Depth panels: image, target, and magenta where there is no ground truth](https://raw.githubusercontent.com/turhancan97/VisBench/main/docs/_static/gallery/depth.png)
 
-![Correspondence: two views with the matches between them, and a coherence figure](https://raw.githubusercontent.com/turhancan97/VisBench/main/docs/_static/gallery/correspondence.png)
+![Correspondence: two views with the matches between them](https://raw.githubusercontent.com/turhancan97/VisBench/main/docs/_static/gallery/correspondence.png)
 
-![A contact sheet of frames and their class labels](https://raw.githubusercontent.com/turhancan97/VisBench/main/docs/_static/gallery/classification.png)
-
-![A contact sheet of frames and their scene labels](https://raw.githubusercontent.com/turhancan97/VisBench/main/docs/_static/gallery/scene_classification.png)
-
-**Every probe can be drawn** — all sixteen, across four renderers, and a test
-asserts `show_probes() == list_probes()` so a new one cannot ship undrawable.
-Dense targets get an `image | target | prediction` grid, detection gets boxes,
-correspondence gets match lines, and the probes with no spatial target
-(`classification`, `scene_classification`, `retrieval`, `similarity`) get a view
-of the *decision* they made — a contact sheet, a query and its neighbours, a
-triplet with the human vote marked.
-
-Each renderer states its own diagnostic as a figure rather than leaving it to
-the eye: invalid pixels in magenta per each probe's own convention (there are
-four, none visible in a tensor's shape); **coherence**, which separates a broken
-geometry from a weak backbone; **class balance**, which catches a split
-collapsed to one class scoring 1.0; and the **vote balance** that reveals a
-mis-read CSV column.
-
-Every figure above is a real photograph run through the real command by
-[`scripts/render_gallery.py`](https://github.com/turhancan97/VisBench/blob/main/scripts/render_gallery.py).
-The frames are CC BY 2.0 from [Open Images](https://storage.googleapis.com/openimages/web/index.html),
-licence-checked at fetch time and
-[credited](https://github.com/turhancan97/VisBench/blob/main/assets/gallery_frames/CREDITS.md);
-the datasets the probes are actually scored on cannot be republished, which is
-why they are not what you see. Boxes and masks are Open Images' own annotations;
-the four probes needing sensor geometry show a *prediction* from a published
-head instead of an invented target, and say so on the figure. See
-[all sixteen](https://turhancan97.github.io/VisBench/show.html), or
-[the guide](https://github.com/turhancan97/VisBench/blob/main/docs/show.md).
-
-Two flags worth knowing. `--batch-size` is the *extraction* batch;
-`--train-batch-size` is the head's, and they are separate because they are
-different numbers with the same name. `--limit` shortens a split correctly for
-whatever kind of split it is — per class on a labelled folder, by triplet for
-similarity, by stem for a dense split — rather than taking a prefix, which on a
-class-grouped folder would leave you evaluating one class and scoring 1.0.
+Every probe is drawable, and every figure here is a real photograph run through
+the real command — see [looking at a probe](https://turhancan97.github.io/VisBench/guides/visualising.html) for all
+sixteen and how to read them.
 
 ## Task levels
 
@@ -405,119 +177,40 @@ signature and return shape despite completely different internals.
 `(image_hash, backbone_name, layer, pooling)`. Every task reads through it, so
 the backbone forward pass runs at most once per image per backbone.
 
-## Pretrained probes — use one without training
+## Documentation
 
-Trained heads for the DINOv2 backbones are published on the Hugging Face Hub, so
-you can score your own images without fitting anything:
-
-```python
-import visbench
-from visbench.hub import load_probe_from_hub
-
-backbone = visbench.get_backbone("dinov2_vits14")
-probe = load_probe_from_hub("turhancan97/visbench-depth-dinov2_vits14", backbone=backbone)
-scores = probe.evaluate(features, targets)
-```
-
-**[Browse the collection →](https://huggingface.co/collections/turhancan97/visbench-probes-6a7618f2f7f4c23e9d4e5fe8)**
-— twenty heads, ten probes against DINOv2-S/14 and DINOv2-B/14, trained by the
-same commands that produced [the record
-corpus](https://github.com/turhancan97/VisBench/blob/main/results/corpus/visbench.jsonl).
-
-One repository per (probe, backbone) pair, because a head fitted on one backbone
-is refused against any other — see below for why that refusal matters. The three
-zero-shot probes (retrieval, correspondence, similarity) are not published:
-they train nothing, so the backbone alone reproduces them.
-
-## Sharing a trained probe
-
-A probe head is small — 17 KB for a linear classifier — so the cheapest way to
-let someone check your number is to hand them the probe rather than the recipe.
-
-```python
-from visbench.hub import save_probe, load_probe
-
-save_probe(probe, "checkpoints/voc.pt", backbone=backbone)
-probe = load_probe("checkpoints/voc.pt", backbone=backbone)
-```
-
-With `pip install 'visbench[hub]'`, the same thing over the network. Pushing
-creates a **private** repository unless you ask otherwise, and writes a model
-card alongside the weights:
-
-```python
-from visbench.hub import push_probe, load_probe_from_hub
-
-push_probe(probe, "you/dinov2-vits14-voc", backbone=backbone, metrics=scores)
-probe = load_probe_from_hub("you/dinov2-vits14-voc", backbone=backbone)
-```
-
-**A head only works with the backbone it was fitted on, and getting that wrong
-is silent.** Loading a head trained on DINOv2-S CLS tokens against *mean-pooled*
-tokens from the same backbone gives the right shapes and a plausible number —
-measured on Imagenette, **0.9540 against 0.9830**. Nothing about the tensors
-says anything is wrong, so `load_probe` checks the backbone weights, the
-pooling, the feature mode and the layers, and refuses a mismatch. Pass
-`strict=False` if you are deliberately testing transfer; it warns rather than
-raising, and the number is then comparable with nothing.
-
-Downloaded probes are read with `torch.load(weights_only=True)`, so fetching one
-from a stranger's repository cannot execute code.
-
-The command line publishes what it just trained, so a run and its artifact
-cannot come from different settings:
-
-```bash
-visbench run depth --data ... --push-to you/visbench-depth-dinov2_vits14 --public
-```
-
-See [`examples/save_probe.py`](https://github.com/turhancan97/VisBench/blob/main/examples/save_probe.py),
-which demonstrates the mismatch on purpose,
-[`examples/push_probe.py`](https://github.com/turhancan97/VisBench/blob/main/examples/push_probe.py)
-for the Hub round trip, and [the Hub guide](https://turhancan97.github.io/VisBench/hub.html)
-for the full reference.
+| | |
+| --- | --- |
+| Install, first run, the CLI | [Getting started](https://turhancan97.github.io/VisBench/getting-started/installation.html) |
+| Backbones, datasets, dense probes, sharing | [Guides](https://turhancan97.github.io/VisBench/guides/backbones.html) |
+| Every probe, its data layout and its board | [The probes](https://turhancan97.github.io/VisBench/probes/overview.html) |
+| **How to read a board before quoting one** | [Reading a board](https://turhancan97.github.io/VisBench/guides/reading-a-board.html) |
+| Every class, function and attribute | [API reference](https://turhancan97.github.io/VisBench/api/index.html) |
+| Sixteen probes against twelve backbones | [LEADERBOARD.md](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md) |
+| What each board means, and what it does not | [CORPUS_FINDINGS.md](https://github.com/turhancan97/VisBench/blob/main/CORPUS_FINDINGS.md) |
+| Setting up, the checks, adding a probe | [CONTRIBUTING.md](https://github.com/turhancan97/VisBench/blob/main/CONTRIBUTING.md) |
+| How it was built, and what might come next | [docs/roadmap.md](https://github.com/turhancan97/VisBench/blob/main/docs/roadmap.md) |
+| What changed, release by release | [CHANGELOG.md](https://github.com/turhancan97/VisBench/blob/main/CHANGELOG.md) |
+| The reference, page by page | [docs/probes/overview.md](https://github.com/turhancan97/VisBench/blob/main/docs/probes/overview.md), [docs/api/index.md](https://github.com/turhancan97/VisBench/blob/main/docs/api/index.md) |
 
 ## Reproducibility
 
 **Sixteen probes against twelve backbones, as records:
-[LEADERBOARD.md](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md).**
-Every board there — and every measured table below — is generated from
-[`results/corpus/visbench.jsonl`](https://github.com/turhancan97/VisBench/blob/main/results/corpus/visbench.jsonl),
-the committed corpus, by
-[`scripts/render_tables.py`](https://github.com/turhancan97/VisBench/blob/main/scripts/render_tables.py).
-A test in the fast suite fails if any of them drifts from the records, so a
-published number and the run behind it cannot disagree.
+[LEADERBOARD.md](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md).** Every board is generated from
+[`results/corpus/visbench.jsonl`](https://github.com/turhancan97/VisBench/blob/main/results/corpus/visbench.jsonl), the
+committed corpus, by [`scripts/render_tables.py`](https://github.com/turhancan97/VisBench/blob/main/scripts/render_tables.py).
+A test in the fast suite fails if any of them drifts, so a published number and
+the run behind it cannot disagree.
 
 Every run logs a structured JSON record — backbone, weights key, task, dataset,
-pooling, feature mode, metrics, seed, timestamp — under one schema from v0.1,
-so leaderboard tooling never needs a retrofit. A trained run also records how
-its **fit** went (`train_loss`, and `train_top1` where the probe has one), which
-is what tells an underfitting probe apart from a weak representation — opposite
-readings of the same low score. Dependencies are pinned in
-[`uv.lock`](https://github.com/turhancan97/VisBench/blob/main/uv.lock) — exact versions and hashes for every platform, covering
-the `clip` and `dev` extras too — and CI fails if it drifts from
-`pyproject.toml`. The ranges in `pyproject.toml` carry upper bounds so that a
-minor dependency release cannot quietly move reported numbers even when
-installing without the lock:
+pooling, feature mode, metrics, seed, timestamp — under one **additive-only**
+schema, so leaderboard tooling never needs a retrofit. Dependencies are pinned
+in [`uv.lock`](https://github.com/turhancan97/VisBench/blob/main/uv.lock), and CI fails if it drifts from `pyproject.toml`.
 
-```bash
-uv sync --all-extras     # exact locked versions
-pip install -e ".[dev,clip]"   # ranges, for day-to-day work
-```
-
-Backbone weights are pinned the same way. DINOv2 loads from a fixed upstream
-commit rather than the default branch, and that ref is part of the cache key —
-so bumping it invalidates every stale entry instead of silently serving
-features from the old weights. Pass `checkpoint=` to load local weights; the
-cache key then carries a hash of that file instead. CLIP's cache key carries
-its pretrained tag, since `openai` and `laion2b` are different models behind
-one name.
-
-CLIP returns the **pre-projection** CLS token by default, not the 512-d
-image-text embedding. The projection is trained to discard whatever does not
-help match a caption, which is exactly what a mid-level probe measures, and
-DINOv2 has no equivalent head to compare against. `use_projection=True` gets
-the projected vector, under its own cache key.
+**Before quoting any board**, read
+[how to read one](https://turhancan97.github.io/VisBench/guides/reading-a-board.html). The short version: "which
+backbone is best" is not a well-formed question against this corpus —
+`mae_vitb16` is first on six of the sixteen boards and last on four.
 
 ## Prior art
 
@@ -530,21 +223,6 @@ them at the point of use in the code:
   (Chen, Marks & Cheng) — the task categorization used throughout.
 - **[vismatch](https://github.com/gmberton/vismatch)** (Berton) — API
   philosophy, and the matching logic mirrored in the correspondence task.
-
-## Where to go next
-
-| | |
-| --- | --- |
-| **The documentation site** | <https://turhancan97.github.io/VisBench/> |
-| Every probe, its data layout and its measured numbers | [docs/tasks.md](https://github.com/turhancan97/VisBench/blob/main/docs/tasks.md) |
-| Looking at what a probe saw, and what it predicted | [docs/show.md](https://github.com/turhancan97/VisBench/blob/main/docs/show.md) |
-| Sixteen probes against twelve backbones, ranked | [LEADERBOARD.md](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md) |
-| How it was built, and what might come next | [docs/roadmap.md](https://github.com/turhancan97/VisBench/blob/main/docs/roadmap.md) |
-| What changed in each release | [CHANGELOG.md](https://github.com/turhancan97/VisBench/blob/main/CHANGELOG.md) |
-| Borrowed evaluation protocols and their licences | [NOTICE](https://github.com/turhancan97/VisBench/blob/main/NOTICE) |
-| Setting up, the checks, and how to add a probe | [CONTRIBUTING.md](https://github.com/turhancan97/VisBench/blob/main/CONTRIBUTING.md) |
-
-Questions and bug reports: [open an issue](https://github.com/turhancan97/VisBench/issues).
 
 ## Citing VisBench
 

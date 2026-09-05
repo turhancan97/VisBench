@@ -167,6 +167,46 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Changed
 
+- **The documentation site is restructured, and the README is an arrival path
+  again.** The published site was four sections that each wrapped one long page
+  under a caption a newcomer could not decode — *The probes* (1,125 lines),
+  *Looking*, *Sharing*, *Project*. It is now **Getting started → Guides →
+  Probes → API reference → Project**, 44 pages, with the docs canonical and the
+  README trimmed from 586 lines to 263.
+
+  **The API reference is the half that did not exist at all.** `conf.py` had
+  enabled autodoc, autosummary, napoleon and viewcode since 0.7.0, and its own
+  comments referred to a `docs/api/` directory and "~25 prose pages" — neither
+  of which was ever written. So ~5,198 lines of numpydoc, 371 cross-references
+  and 462 `#:` attribute comments had been maintained for six steps and
+  rendered nowhere. There are now 15 pages covering **84 of 87 modules**
+  (`visbench.cli*` is deferred: `SPECS` has a 5,496-character repr).
+
+  **The probe reference is sixteen pages instead of one**, each carrying that
+  probe's gallery figure beside its generated board — and three probes
+  (`depth`, `surface_normal`, `generic_segmentation`) have a page and a board
+  on the site for the first time. They had never had a section in `tasks.md`,
+  so splitting it could not produce one; their boards had been in
+  `LEADERBOARD.md` the whole time. `render_tables.py` derives its file list
+  from `list_probes()` rather than a literal, so a new probe cannot ship with a
+  page the regeneration does not know about.
+
+  **Six guides and three getting-started pages**, of which two are new writing
+  rather than moved prose, both because the rule they carry existed only in a
+  docstring or in `CLAUDE.md`: `guides/datasets.md` tabulates the four optional
+  `BaseDataset` methods against what silently happens when each is omitted, and
+  `guides/reading-a-board.md` distils `CORPUS_FINDINGS.md` — leading with
+  "which backbone is best" not being a well-formed question against this
+  corpus.
+
+  Nine source files had **real docstring defects** that had never been rendered:
+  two malformed simple tables, a `#:` block whose `History/-----` reached
+  docutils as a section title (a SEVERE, fatal under `-W`), three numpydoc
+  `Returns`/`Raises` sections whose free prose had no type line — so napoleon
+  read the prose *as* the type and mangled it into bullets — an `__init__`
+  missing from `BaseHead` so `nn.Module`'s docstring leaked into the page, and
+  three dead cross-references. None of these ever produced a warning.
+
 - **`DenseTrainingTask.evaluate_oracle`'s docstring** carried the n=2 claim as
   though it were general. It now states the nine-ViT numbers, says the
   exception is one backbone, and records that a multi-stage CNN's DPT run moves
@@ -175,6 +215,31 @@ so it stands on its own rather than assuming you have read the ones above it.
   output, for the same reason it ignores `results/corpus/parts/`.
 
 ### Fixed
+
+- **The pooling-mismatch number was published three different ways.** It is the
+  one measured number in this project that has no generated table — a single
+  6e-4 measurement, quoted by hand in the CLI help, an example, two docs pages
+  and both archives. The README said `0.9540/0.9830`, `docs/hub.md` said
+  `0.9620/0.9895` and `docs/show.md` said `0.9620/0.9820`. The record in
+  `ENGINEERING_LOG.md` is **0.9620 against 0.9820**, and a Hub-card test had
+  been pinning `0.9820` all along; two of the three published values were
+  wrong and nothing failed. `tests/test_docs_numbers.py` now reads the pair out
+  of the engineering log — deliberately not out of its own source, which would
+  be a fourth place for it to drift — and fails any file that disagrees.
+
+- **The issue-template "The probes and their measured numbers" link 404'd**
+  once `docs/tasks.md` was split. It points at the documentation site now.
+
+- **The docstring guard needed Sphinx and CI does not install it** — the
+  optional-extra trap for the third time, and the first to reach a pull
+  request: seven red tests on both Pythons after all six local checks were
+  green, because `sphinx`/`docutils` are in the `docs` extra and the test job
+  installs `.[dev]` only. **Running the `-W` docs build does not cover this**;
+  that build installs `.[all,docs]` and the test job does not, which is exactly
+  why it felt covered. `sphinx` is a declared `dev` dependency now rather than
+  a `pytest.importorskip` — a guard that vanishes in the environment gating
+  every pull request is the "only tested under `slow`" failure with a new
+  label. `CONTRIBUTING.md`'s blocker recipe names the wider list.
 
 - **`ceiling_ordinal_vertical` was emitted and was meaningless.** The base
   `context_metrics` prefixes `ceiling_` onto every key the oracle's metrics

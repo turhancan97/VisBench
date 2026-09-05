@@ -14,43 +14,50 @@ this vision backbone actually encode?* Sixteen probes, three backbone families,
 one `run()` call, and a result record that says exactly how every number was
 produced.
 
-## Try it in thirty seconds
+::::{grid} 1 1 2 2
+:gutter: 3
 
-No dataset, no configuration, no large download:
+:::{grid-item-card} {octicon}`rocket;1.2em` Getting started
+:link: getting-started/quickstart
+:link-type: doc
 
-```bash
-pip install visbench
-visbench demo
-```
+`pip install visbench && visbench demo` runs a real probe on a real pretrained
+backbone in thirty seconds, with no dataset and no configuration.
++++
+Installation · Quickstart · The command line
+:::
 
-```text
-drawing 20 images per class for 4 shapes...
-loading resnet18 (torchvision, ~45 MB on first run)...
-running the classification probe...
+:::{grid-item-card} {octicon}`beaker;1.2em` The probes
+:link: probes/overview
+:link-type: doc
 
-  top1         0.8125
+Sixteen probes across three levels. Each page states what it measures, the data
+it expects, its `protocol` string, and its twelve-backbone board.
++++
+High level · Mid level · Low level · Leaderboard
+:::
 
-  chance is 0.25 — the shapes differ in outline only.
-```
+:::{grid-item-card} {octicon}`book;1.2em` Guides
+:link: guides/backbones
+:link-type: doc
 
-That is a real probe on a real pretrained backbone, through the same code path
-every other run uses. The images are generated: four shapes with colour, size,
-position and rotation randomised, so only geometry identifies a class.
+The parts you compose yourself — a custom backbone, your own dataset, a new
+dense probe — and the rules each one silently depends on.
++++
+Backbones · Datasets · Dense probes · Reading a board
+:::
 
-The number is deliberately not 1.0. Turn the difficulty up and watch it fall
-toward chance — a probe whose score does not move when you destroy the signal is
-not measuring the signal.
+:::{grid-item-card} {octicon}`code;1.2em` API reference
+:link: api/index
+:link-type: doc
 
-## Where to start
+Every public class, function and attribute, generated from the docstrings, with
+a link to the source beside each one.
++++
+84 modules across 15 pages
+:::
 
-| | |
-| --- | --- |
-| Every probe, the data it expects, and what it has measured | [The probes](tasks.md) |
-| Drawing a probe's images beside their targets | [Looking](show.md) |
-| Sharing a trained probe, and what travels with it | [The Hub](hub.md) |
-| How it was built, and what might come next | [Roadmap](roadmap.md) |
-| Sixteen probes against twelve backbones, ranked | [LEADERBOARD.md](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md) |
-| Setting up, the checks, and how to add a probe | [CONTRIBUTING.md](https://github.com/turhancan97/VisBench/blob/main/CONTRIBUTING.md) |
+::::
 
 ## What makes it different
 
@@ -69,6 +76,16 @@ record under one additive-only schema, and the comparability rules decide which
 records may be ranked together at all — because the failure this library guards
 against is not a crash, it is a plausible wrong answer.
 
+## Elsewhere in the repository
+
+| | |
+| --- | --- |
+| Sixteen probes against twelve backbones, ranked | [LEADERBOARD.md](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md) |
+| What each board means, and the readings it corrected | [CORPUS_FINDINGS.md](https://github.com/turhancan97/VisBench/blob/main/CORPUS_FINDINGS.md) |
+| Setting up, the checks, and how to add a probe | [CONTRIBUTING.md](https://github.com/turhancan97/VisBench/blob/main/CONTRIBUTING.md) |
+| What each step measured, rejected and decided | [ENGINEERING_LOG.md](https://github.com/turhancan97/VisBench/blob/main/ENGINEERING_LOG.md) |
+| How it was built, and what might come next | {doc}`Roadmap <roadmap>` |
+
 ## Citing VisBench
 
 If VisBench contributed to work you are publishing, please cite it — GitHub's
@@ -83,23 +100,30 @@ every number, which is what makes it reproducible — against that release.
 
 ```{toctree}
 :hidden:
-:caption: The probes
+:caption: Getting started
 
-tasks
+getting-started/installation
+getting-started/quickstart
+getting-started/cli
 ```
 
 ```{toctree}
 :hidden:
-:caption: Looking
+:caption: Guides
 
-show
+guides/backbones
+guides/datasets
+guides/dense-probes
+guides/visualising
+guides/sharing
+guides/reading-a-board
 ```
 
 ```{toctree}
 :hidden:
-:caption: Sharing
+:caption: Probes
 
-hub
+probes/overview
 ```
 
 ```{toctree}
@@ -107,4 +131,11 @@ hub
 :caption: Project
 
 roadmap
+```
+
+```{toctree}
+:hidden:
+:caption: API
+
+api/index
 ```

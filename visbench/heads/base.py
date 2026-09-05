@@ -85,6 +85,22 @@ class BaseHead(nn.Module, ABC):
     #: that says yes cannot be fed a single layer — see :class:`DPTHead`.
     multiscale: bool = False
 
+    def __init__(self) -> None:
+        """A head is an ordinary trainable :class:`torch.nn.Module`.
+
+        Defined only so that it carries a docstring. ``autoclass_content =
+        "both"`` appends ``__init__``'s documentation to the class's, and
+        Sphinx filters exactly one inherited default — :meth:`object.__init__`
+        — so without this the rendered page ends with *"Initialize internal
+        Module state, shared by both nn.Module and ScriptModule"*, inherited
+        from :class:`torch.nn.Module`. Turning off
+        ``autodoc_inherit_docstrings`` would fix it and cost far more: sixteen
+        probe classes rely on inheriting :class:`BaseTask`'s method
+        documentation, and an un-inherited method is dropped from its page
+        entirely rather than merely left undocumented.
+        """
+        super().__init__()
+
     @abstractmethod
     def forward(self, features) -> torch.Tensor:
         """Produce the task output from backbone features.

@@ -65,6 +65,10 @@ docs = [
     "furo>=2024.1,<2026.0",
     "myst-parser>=3.0,<5.0",
     "sphinx-copybutton>=0.5,<1.0",
+    # The landing page's card grid. Upper-bounded for the same reason as Furo:
+    # `sphinx-design` ships its own CSS, so a major release restyling a card
+    # would change the published page without a commit here.
+    "sphinx-design>=0.6,<1.0",
 ]
 dev = [
     # The issue-template test parses .github/ISSUE_TEMPLATE/*.yml. PyYAML is
@@ -74,6 +78,14 @@ dev = [
     # The HuggingFace-bridge tests need `datasets` at import time; CI installs
     # `.[dev]` only. Same optional-extra trap as pyyaml and huggingface_hub.
     "datasets>=2.14,<5.0",
+    # `scripts/check_docstrings.py` runs each docstring through napoleon and
+    # docutils, and its tests are in the FAST suite deliberately -- it exists to
+    # stop a docstring breaking the -W docs build a day later, so skipping it
+    # when Sphinx is absent would make CI never run the guard at all. Same
+    # bound as the `docs` extra; docutils arrives with it. The optional-extra
+    # trap, hit a third time: this passed locally and failed on CI, because CI
+    # installs `.[dev]` only.
+    "sphinx>=7.3,<9.0",
     "pytest>=7.4,<9.0",
     "pytest-cov>=4.1,<6.0",
     "ruff>=0.4,<1.0",

@@ -13,8 +13,8 @@ __all__ = ["ResultRecord", "SCHEMA_VERSION", "utc_timestamp"]
 
 #: Bumped whenever the record shape changes, so consumers can migrate.
 #:
-#: History
-#: -------
+#: **History**
+#:
 #: 1. Initial schema.
 #: 2. Added ``dataset_size`` and ``dataset_fingerprint``. Without them, two
 #:    runs over different folders that happen to share a name produced records

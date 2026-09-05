@@ -8,7 +8,7 @@ measures nothing, and records nothing.
 visbench show depth --data /path/to/nyuv2 --out panels.png
 ```
 
-```{image} _static/gallery/depth.png
+```{image} /_static/gallery/depth.png
 :alt: Depth panels: image, target, with magenta marking pixels that have no depth return
 :class: visbench-figure
 ```
@@ -135,37 +135,37 @@ have not seen.
 Depth is above. The other seven differ only in how the target is coloured and
 what counts as invalid.
 
-```{image} _static/gallery/surface_normal.png
+```{image} /_static/gallery/surface_normal.png
 :alt: Surface normal panels, RGB by the (n+1)/2 convention
 :class: visbench-figure
 ```
 
-```{image} _static/gallery/semantic_segmentation.png
+```{image} /_static/gallery/semantic_segmentation.png
 :alt: Semantic segmentation panels in VOC's palette
 :class: visbench-figure
 ```
 
-```{image} _static/gallery/generic_segmentation.png
+```{image} /_static/gallery/generic_segmentation.png
 :alt: Binary segmentation panels, white foreground
 :class: visbench-figure
 ```
 
-```{image} _static/gallery/occlusion_edge.png
+```{image} /_static/gallery/occlusion_edge.png
 :alt: Occlusion edge panels, NaN holes drawn magenta
 :class: visbench-figure
 ```
 
-```{image} _static/gallery/edge.png
+```{image} /_static/gallery/edge.png
 :alt: Edge magnitude panels
 :class: visbench-figure
 ```
 
-```{image} _static/gallery/keypoints2d.png
+```{image} /_static/gallery/keypoints2d.png
 :alt: 2D keypoint response panels
 :class: visbench-figure
 ```
 
-```{image} _static/gallery/corner.png
+```{image} /_static/gallery/corner.png
 :alt: Corner response panels, the target computed from the image
 :class: visbench-figure
 ```
@@ -182,7 +182,7 @@ not a magnitude — so it is drawn in colour, not greyscale: hue is the local
 gradient orientation and brightness is its coherence, so a flat patch reads as
 black rather than as a confident wrong colour.
 
-```{image} _static/gallery/orientation.png
+```{image} /_static/gallery/orientation.png
 :alt: Gradient orientation panels; hue is orientation, brightness is coherence
 :class: visbench-figure
 ```
@@ -193,7 +193,7 @@ Drawn straight onto the crop, in the post-transform pixel coordinates the
 dataset returns — so a box that had missed its rescale would sit visibly off its
 object rather than merely scoring badly.
 
-```{image} _static/gallery/detection.png
+```{image} /_static/gallery/detection.png
 :alt: Detection: ground-truth boxes drawn on the crop the probe saw
 :class: visbench-figure
 ```
@@ -206,7 +206,7 @@ visbench show correspondence --data /path/to/images --split val \
 ```
 
 
-```{image} _static/gallery/correspondence.png
+```{image} /_static/gallery/correspondence.png
 :alt: Correspondence: two views with matches, and the coherence figure
 :class: visbench-figure
 ```
@@ -252,7 +252,7 @@ visbench show classification --data ./imagenette --split val --frames 12 --out c
 ```
 
 
-```{image} _static/gallery/classification.png
+```{image} /_static/gallery/classification.png
 :alt: A contact sheet of frames and their class labels
 :class: visbench-figure
 ```
@@ -285,7 +285,7 @@ one it becomes an error analysis: the caption reads `predicted != actual`.
 visbench show scene_classification --data ./places365 --split val --frames 12 --out scene.png
 ```
 
-```{image} _static/gallery/scene_classification.png
+```{image} /_static/gallery/scene_classification.png
 :alt: A contact sheet of frames and their scene labels
 :class: visbench-figure
 ```
@@ -303,7 +303,7 @@ visbench show fine_grained_classification --data ./CUB-200/images_train_test \
     --split val --frames 12 --out cub.png
 ```
 
-```{image} _static/gallery/fine_grained_classification.png
+```{image} /_static/gallery/fine_grained_classification.png
 :alt: A contact sheet of frames and their labels, four per class
 :class: visbench-figure
 ```
@@ -329,7 +329,7 @@ visbench show retrieval --data ./imagenette --split val \
 ```
 
 
-```{image} _static/gallery/retrieval.png
+```{image} /_static/gallery/retrieval.png
 :alt: Each query with its nearest neighbours, green where the class matches
 :class: visbench-figure
 ```
@@ -351,7 +351,7 @@ visbench show similarity --data ./nights --frames 4 --out sim.png
 ```
 
 
-```{image} _static/gallery/similarity.png
+```{image} /_static/gallery/similarity.png
 :alt: Reference and two candidates, with the human vote marked
 :class: visbench-figure
 ```
@@ -391,7 +391,7 @@ visbench show corner --data ./frames --backbone dinov2_vits14 \
 The artifact is loaded through {func}`visbench.hub.load_probe`, so the backbone
 it was fitted on is **checked, not assumed** — a head fed the wrong pooling from
 the same backbone scores 0.9620 against 0.9820 without raising. See
-[sharing probes](hub.md) for what that check covers.
+[sharing probes](sharing.md) for what that check covers.
 
 ## From Python
 

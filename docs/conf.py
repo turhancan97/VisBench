@@ -39,10 +39,12 @@ extensions = [
     "sphinx.ext.githubpages",
     "myst_parser",
     "sphinx_copybutton",
+    "sphinx_design",
 ]
 
-# Deliberately absent: sphinx.ext.autosectionlabel. With 74 modules and ~25
-# prose pages it produces duplicate-label warnings, and `-W` turns those fatal.
+# Deliberately absent: sphinx.ext.autosectionlabel. Across 87 modules and 44
+# pages it produces duplicate-label warnings, and `-W` turns those fatal --
+# the sixteen probe pages alone share a "Data layout" heading.
 
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
@@ -87,14 +89,33 @@ autosummary_generate = False
 
 napoleon_google_docstring = False
 napoleon_numpy_docstring = True
+
+# `Keys` is not one of napoleon's own sections, so `FeatureDict`'s `Keys/----`
+# block reaches docutils verbatim -- as an RST section title, which is illegal
+# in the nested parse autodoc inserts a docstring into, and a SEVERE that -W
+# turns fatal. `params_style` matches the block's shape exactly: a key name,
+# then indented prose.
+napoleon_custom_sections = [("Keys", "params_style")]
 napoleon_use_rtype = False
 napoleon_preprocess_types = True
 
 # -- Cross-references -------------------------------------------------------
 #
-# `default_role` is deliberately NOT set to "py:obj". There are ~355
-# single-backtick spans in the package, most of them prose rather than object
-# names, and every one would become a cross-reference attempt.
+# `default_role` is "literal", and deliberately NOT "py:obj". The objection to
+# py:obj stands: it *resolves*, so every single-backtick span in the package
+# would become a cross-reference attempt. `literal` produces a literal node --
+# no domain lookup, no missing-reference event, no nitpicky interaction, so no
+# warning is reachable.
+#
+# Counted before setting it: 36 single-backtick spans survive in docstrings and
+# `#:` comments, and every one is an identifier (`global_pool`, `depth`,
+# `TARGET_STYLES`, ...). Not one is prose. Left unset they parse as
+# `title_reference` and render as italics, which is wrong for all 36.
+#
+# The scope is reST only. In MyST a single backtick is already a code span and
+# roles need `{role}`x``, so the prose pages are untouched -- this reaches
+# docstrings and `{eval-rst}` blocks and nothing else.
+default_role = "literal"
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),

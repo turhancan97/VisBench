@@ -6,10 +6,10 @@ what makes it dangerous to share carelessly: **a probe head is only meaningful
 against the exact features it was fitted on**, and almost every way of getting
 that wrong is shape-compatible.
 
-Measured on real DINOv2-S weights over Imagenette (200 images per class): a
-linear head fitted on CLS tokens, then fed *mean-pooled* tokens from the same
-backbone, scores **0.9620 against 0.9895**. It does not crash. It does not
-produce garbage. It produces a number nobody would question.
+Measured on real DINOv2-S weights over Imagenette: a linear head fitted on CLS
+tokens, then fed *mean-pooled* tokens from the same backbone, scores **0.9620
+against 0.9820**. It does not crash. It does not produce garbage. It produces
+a number nobody would question.
 
 So VisBench does not distribute weights. It distributes weights *plus the
 identity they are valid against*, and refuses a load that does not match.

@@ -86,6 +86,7 @@ step is next rather than attempting the whole roadmap in one session.
 | 12a-1 | BSDS500: the dataset, and several people's answers per image | done |
 | 12a-2 | BSDS500: ODS/OIS/AP, reproducing the published human agreement | done |
 | 12a-3 | BSDS500: the probe — **refused by the oracle gate**, line closed | n/a |
+| 13a | The documentation site restructured: guides, 16 probe pages, an API reference | done |
 
 **A closed step's full write-up lives in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md), not here.** That file is the archive
@@ -170,8 +171,8 @@ ceiling and nothing measured the floor.**
 
 **Three probes shipped after v0.11.0 and each has a 12-backbone board**, all
 2026-08-28 unless stated. Their board readings are in
-[`CORPUS_FINDINGS.md`](CORPUS_FINDINGS.md) and their per-probe reference in
-`docs/tasks.md`; what matters here is what each one *is*:
+[`CORPUS_FINDINGS.md`](CORPUS_FINDINGS.md) and their per-probe reference on
+their own page under `docs/probes/`; what matters here is what each one *is*:
 
 - **`scene_classification`** (14th, probe 2026-08-27) — scene category on the
   same linear-probe path as object `classification`, on `places365_standard`,
@@ -349,7 +350,8 @@ the pushed repositories into one collection, dry-run unless `--create`.
 **Twenty trained heads are published and public**, as of 2026-08-07: the ten
 trained probes against DINOv2-S/14 and DINOv2-B/14, one repository per pair at
 `turhancan97/visbench-<probe>-<backbone>`, gathered in a collection whose URL is
-quoted in `README.md` and `docs/hub.md`. **Read it from one of those two files
+quoted in `README.md` and `docs/guides/sharing.md`. **Read it from one of those
+two files
 rather than reconstructing it** — a Hub collection slug carries a generated hash
 suffix and cannot be derived from its title. The three zero-shot probes are
 deliberately absent. Two operational notes that each cost an attempt: the Hub
@@ -564,12 +566,24 @@ examples/        custom_backbone (the escape hatch + the RNG note),
                  occlusion_edges, corners, orientation, save_probe (local),
                  push_probe (the Hub round trip; never uploads without --push),
                  show_panels (the viewer; no backbone without --predict-from)
-docs/            conf.py, index.md, tasks.md (the per-probe reference AND the
-                 ten generated tables), hub.md (sharing a trained probe),
-                 show.md (the panel viewer + all 13 figures), roadmap.md,
-                 _static/custom.css, _static/gallery/*.png (the figures —
-                   inside docs/ because Sphinx cannot follow ../, and excluded
-                   from the sdist)
+docs/            conf.py, index.md (the landing page: sphinx-design cards)
+                 getting-started/ installation, quickstart, cli
+                 guides/      backbones, datasets, dense-probes, visualising
+                              (was show.md), sharing (was hub.md),
+                              reading-a-board (the CORPUS_FINDINGS rules)
+                 probes/      overview, leaderboard, and ONE PAGE PER PROBE
+                              under {high,mid,low}-level/ — each carries its
+                              gallery figure and its generated board marker.
+                              `render_tables.py` derives the file list from
+                              `list_probes()`, so a new probe needs its page
+                 api/         15 pages of autodoc over 84 of 87 modules. Every
+                              directive sits in an ```{eval-rst} fence, NEVER a
+                              ```{automodule} one — MyST re-parses a directive
+                              body as markdown, so autodoc's generated RST would
+                              render as literal text WITH NO WARNING
+                 roadmap.md, _static/custom.css, _static/gallery/*.png (the
+                   figures — inside docs/ because Sphinx cannot follow ../, and
+                   excluded from the sdist)
                  — a Sphinx source tree; `_build/` is gitignored
 .github/         workflows/{ci,slow,docs}.yml, ISSUE_TEMPLATE/, PR template
 CITATION.cff     GitHub's cite button + what Zenodo archives (7e)
@@ -890,7 +904,9 @@ designed up front; extend it the same way, from a case that already runs.
   map and a committed `docs/_static/gallery/<name>.png`, and
   `analyse_board_correlates.py`'s copied `HEADLINE_METRICS`. Then the board step
   adds `analyse_board_correlates.py`'s `SOURCE_IMAGES` (hand-written, a test
-  fails without it), a `docs/tasks.md` board marker, and — because a fourteenth
+  fails without it), a board marker on its own `docs/probes/<level>/<name>.md`
+  page (which `render_tables.py` derives from `list_probes()`, so the page must
+  exist or `--check` fails), and — because a fourteenth
   high-level board shifts every tier and source correlation — a deliberate
   rewrite of the tier-coherence test and finding. A probe that is "just a
   dataset swap" is still a dozen small edits plus a corpus analysis, because
@@ -1615,6 +1631,51 @@ designed up front; extend it the same way, from a case that already runs.
   regenerated corpus reproduces all six to four decimals, which is what
   retired the hand-written table.
 
+- **A `{automodule}` fence in MyST produces garbage and emits no warning**
+  (13a). This is the single most expensive thing the API reference could have
+  got wrong, and `-W` cannot catch it. MyST renders a directive's body with
+  `nested_parse` **as markdown**, so autodoc's generated reST — `.. py:class::`,
+  `:param x:`, tables, roles — arrives as literal paragraph text. It builds
+  clean and the page is nonsense. **Every autodoc directive on this site sits
+  in an ```` ```{eval-rst} ```` fence**, which routes through a real
+  `RSTParser`. Two rules follow: never put a reST section title inside such a
+  fence (it is a standalone parse, so the title is legal and splices in at the
+  wrong level), and write every heading as a markdown `##` *outside* the fence.
+
+- **Docstrings had been written for an API reference for six steps and none of
+  them had ever been rendered** (13a). `conf.py` enabled autodoc, autosummary,
+  napoleon and viewcode at 7d, and its own comments referred to `docs/api/` and
+  "~25 prose pages" — **neither of which existed**. So ~5,198 lines of numpydoc
+  went through docutils for the first time at 13a and nine source files had
+  real defects: two malformed simple tables, a `#:` block whose `History/-----`
+  reached docutils as a section title (a SEVERE, fatal under `-W`), three
+  numpydoc `Returns`/`Raises` sections whose free prose had no type line so
+  napoleon read *the prose* as the type and mangled it into bullets, and three
+  dead cross-references. **A docstring convention nothing renders is not a
+  convention, it is a guess** — `scripts/check_docstrings.py` now runs each one
+  through napoleon and docutils in the fast suite, in ~1s and with no Sphinx
+  *build*. It does import `sphinx.ext.napoleon`, and **that is the
+  optional-extra trap for the third time**: `sphinx` and `docutils` are in the
+  `docs` extra, CI installs `.[dev]` only, and the whole guard errored on CI
+  while passing locally. `sphinx` is a declared `dev` dependency now — not a
+  skip, because a guard that quietly disappears in the install CI uses is the
+  `slow`-only failure again. Add the import to `dev` whenever a fast test
+  reaches outside the core: the list is now `clip`, `timm`, `hub`, `yaml`,
+  `datasets`, `sphinx`.
+  The trick that makes it work is indenting the result three spaces under a
+  dummy directive: un-nested, a section title is legal and docutils says
+  nothing. It documents what it **cannot** reach, and a test asserts that limit.
+
+- **Only prose drifts, and the one measured number with no generated table
+  drifted three ways** (13a). The pooling-mismatch pair is quoted by hand in
+  the CLI help, an example, two guides, an API page and both archives. The
+  README said 0.9540/0.9830, `docs/hub.md` said 0.9620/0.9895 and `docs/show.md`
+  said 0.9620/0.9820; the record in `ENGINEERING_LOG.md` says **0.9620 against
+  0.9820** and a test pins the card at 0.9820. Two of the three published
+  values were wrong and nothing failed. `tests/test_docs_numbers.py` reads the
+  pair **out of the engineering log** — not out of its own source, which would
+  be a fourth place to drift — and fails any file that quotes it differently.
+
 - **The docs build runs `-W` with `nitpicky = False`, and both halves are
   load-bearing** (7d). Many of the 371 cross-references are bare (`` :meth:`fit`
   ``) and resolve only from the owning class's context; with nitpicky off those
@@ -1673,15 +1734,25 @@ designed up front; extend it the same way, from a case that already runs.
   deliberately excluded from that check and carries no `doi` key**: it is the
   deposit's *input*, so a `doi` there claims a pre-reserved identifier rather
   than recording the minted one.
-- **The optional-extra trap has now been hit twice, by the same person, two
-  steps apart.** v0.6.0's hub tests needed `huggingface_hub` at monkeypatch time
-  and CI installs `.[dev]` only; 7c's issue-template test needed PyYAML, present
-  locally via timm and absent from `.[dev]`. The second was caught *before
-  pushing* by blocking the import the way `CONTRIBUTING.md` now documents — the
-  `find_spec` recipe there, and in 6e-5's section of the engineering log. Run it
-  whenever a test touches `clip`, `timm`, `hub` or `yaml`; the five verification
-  commands cannot catch this, because they run in the environment that has
-  everything. PyYAML is now a declared `dev` dependency.
+- **The optional-extra trap has now been hit three times, by the same person.**
+  v0.6.0's hub tests needed `huggingface_hub` at monkeypatch time and CI
+  installs `.[dev]` only; 7c's issue-template test needed PyYAML, present
+  locally via timm and absent from `.[dev]`; **13a's docstring guard needed
+  `sphinx` and `docutils`**, which are in the `docs` extra, and it reached a
+  pull request — seven red tests on both Pythons after all six local checks
+  were green. The second was caught *before* pushing by blocking the import the
+  way `CONTRIBUTING.md` documents — the `find_spec` recipe there, and in 6e-5's
+  section of the engineering log. **The third was not, and the reason is worth
+  keeping: the docs build had been run and passed, which felt like it covered
+  Sphinx.** It does not — that build installs `.[all,docs]`, and the *test*
+  suite does not. Run the blocker whenever a fast test touches `clip`, `timm`,
+  `hub`, `yaml`, `datasets` or `sphinx`; the six verification commands cannot
+  catch this, because they run in the environment that has everything. PyYAML,
+  `datasets` and `sphinx` are all declared `dev` dependencies now.
+
+  **Declare it; do not skip it.** A `pytest.importorskip` would have made the
+  suite green and left the guard uninstalled in exactly the environment that
+  gates every pull request — the `slow`-only failure with a different label.
 
 **The bullets below were lifted out of the v0.3 step write-ups when those moved
 to [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md). Each states the rule; the log has
@@ -1776,11 +1847,11 @@ codebase has actually shipped, and the next one will rhyme with them.
 `CHANGELOG.md` under `[Unreleased]` is the full record of what each step
 added and why. Since 7b the user-facing view is **split three ways**:
 `README.md` is the arrival path (demo, install, what it is, the CLI), while the
-per-probe reference and the measured numbers are in `docs/tasks.md` and the
-roadmap and backlog in `docs/roadmap.md`. `CONTRIBUTING.md` is the public
-version of the conventions this file keeps. All are kept current per step —
-update them in the same commit as the code, not afterwards, and put a new
-probe's measured numbers in `docs/tasks.md` rather than the README.
+reference material lives on the docs site and the roadmap and backlog in
+`docs/roadmap.md`. `CONTRIBUTING.md` is the public version of the conventions
+this file keeps. All are kept current per step — update them in the same commit
+as the code, not afterwards, and put a new probe's measured numbers on its own
+`docs/probes/` page rather than in the README.
 
 **Update this file at the end of every step, in that same commit.** The build
 table, the registered names, the layout block, the v0.2 checklist and the

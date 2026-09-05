@@ -377,7 +377,7 @@ stated hazard — that a viewer applying its own resize or colour-map is a secon
 geometry — is guarded by a test pinning the image panel byte-for-byte against
 `np.asarray(dataset[i][0])`.
 
-See [looking at a probe](show.md) for the three rules it keeps and why invalid
+See [looking at a probe](guides/visualising.md) for the three rules it keeps and why invalid
 pixels are magenta.
 
 **The pair renderer for `correspondence` followed immediately**, and step 9c

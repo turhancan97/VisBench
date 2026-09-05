@@ -137,7 +137,17 @@ def test_the_readme_links_to_the_docs_it_split_into():
     """
     root = Path(__file__).resolve().parent.parent
     readme = (root / "README.md").read_text()
-    for name in ("docs/tasks.md", "docs/roadmap.md", "LEADERBOARD.md", "CHANGELOG.md"):
+    # `docs/probes/overview.md` replaced `docs/tasks.md` when the reference was
+    # split into a page per probe. Naming the *entry point* rather than a leaf:
+    # sixteen probe pages should not each need a README link, but a reader who
+    # only reads the README has to be able to find the reference at all.
+    for name in (
+        "docs/probes/overview.md",
+        "docs/api/index.md",
+        "docs/roadmap.md",
+        "LEADERBOARD.md",
+        "CHANGELOG.md",
+    ):
         assert (root / name).is_file(), f"{name} does not exist"
         assert name in readme, f"the README never points at {name}"
 

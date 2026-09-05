@@ -140,14 +140,14 @@ def _scalar_loader(
 #: Share of total target mass held by the strongest 1% of pixels, over 40 val
 #: frames:
 #:
-#: =================  =============  ================================
-#: domain             mass in top 1%  ``correlation``, DINOv2-S vs -B
-#: =================  =============  ================================
-#: ``edge_texture``   0.10           0.4558 / 0.4481
-#: ``keypoints2d``    0.11           (see below)
-#: ``edge_occlusion`` **0.46**       **0.0877 / 0.0842** — does not rank
-#: ``edge_occlusion``, ``log1p``  0.09  **0.2924 / 0.3167** — ranks
-#: =================  =============  ================================
+#: ==============================  ==============  ===================================
+#: domain                          mass in top 1%  ``correlation``, DINOv2-S vs -B
+#: ==============================  ==============  ===================================
+#: ``edge_texture``                0.10            0.4558 / 0.4481
+#: ``keypoints2d``                 0.11            (see below)
+#: ``edge_occlusion``              **0.46**        **0.0877 / 0.0842** — does not rank
+#: ``edge_occlusion`` + ``log1p``  0.09            **0.2924 / 0.3167** — ranks
+#: ==============================  ==============  ===================================
 #:
 #: The linear-target occlusion probe was flat under everything tried: four
 #: target scales spanning 30x (0.077-0.082), 4x the training budget (+0.01), and
@@ -350,14 +350,14 @@ class TaskonomyDataset(DenseFolderDataset):
             oscillates around the answer. On 600 train / 600 val frames with
             DINOv2-S/14 and probe3d's schedule:
 
-            ==============  ============  ====================
+            ================  ============  ====================
             ``target_scale``  frame mean    ``edge_correlation``
-            ==============  ============  ====================
-            65535           0.011         0.047
-            6553.5          0.109         0.285
-            **1000**        **0.717**     **0.456**
-            100             7.165         0.467
-            ==============  ============  ====================
+            ================  ============  ====================
+            65535             0.011         0.047
+            6553.5            0.109         0.285
+            **1000**          **0.717**     **0.456**
+            100               7.165         0.467
+            ================  ============  ====================
 
             It plateaus once the target is order 1 — a further 7x buys 0.011 —
             so 1000 sits at the knee. Scaling the *target* rather than raising
