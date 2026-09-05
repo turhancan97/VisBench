@@ -65,6 +65,10 @@ docs = [
     "furo>=2024.1,<2026.0",
     "myst-parser>=3.0,<5.0",
     "sphinx-copybutton>=0.5,<1.0",
+    # The landing page's card grid. Upper-bounded for the same reason as Furo:
+    # `sphinx-design` ships its own CSS, so a major release restyling a card
+    # would change the published page without a commit here.
+    "sphinx-design>=0.6,<1.0",
 ]
 dev = [
     # The issue-template test parses .github/ISSUE_TEMPLATE/*.yml. PyYAML is

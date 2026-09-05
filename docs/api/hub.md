@@ -7,7 +7,7 @@ saving and loading a local path do not.
 **A head is only meaningful against the features it was fitted on**, so the
 artifact records four identity fields and `load_probe` refuses a mismatch. That
 is not defensive coding for its own sake: the same head loaded under the wrong
-pooling scores 0.9620 against 0.9895 on Imagenette, and neither number looks
+pooling scores 0.9620 against 0.9820 on Imagenette, and neither number looks
 wrong on its own.
 
 `weights_only=True` on every load, and nothing enters the payload that needs

@@ -15,8 +15,9 @@ loudly rather than leaving a board frozen at whatever it last said.
 
 It is derived from :func:`visbench.list_probes` rather than typed out, so a new
 probe cannot be added with a board that this script does not know to regenerate.
-Three probes have no board on their own page and are listed as exceptions in
-:data:`NO_PAGE_BOARD`: their numbers are in ``LEADERBOARD.md`` only.
+A probe whose corpus group cannot render is listed in :data:`NO_PAGE_BOARD`
+and links ``LEADERBOARD.md`` instead; that set is currently empty, so all
+sixteen boards are generated onto the sixteen probe pages.
 
     scripts/render_tables.py            # rewrite the marked files in place
     scripts/render_tables.py --check    # exit 1 if it would change anything
@@ -54,11 +55,12 @@ CORPUS = REPO / "results" / "corpus" / "visbench.jsonl"
 #: Every file holding ``visbench:board`` markers. Each must contain at least
 #: one; see the module docstring.
 #: Probes whose page links `LEADERBOARD.md` instead of carrying a generated
-#: board. Not an oversight: `docs/tasks.md` never had a section for these three,
-#: so splitting it could not produce one, and inventing a board here would mean
-#: writing a marker whose table nobody had reviewed the surrounding prose for.
-#: Delete a name from this set and add the marker to its page in one change.
-NO_PAGE_BOARD = frozenset({"depth", "surface_normal", "generic_segmentation"})
+#: board. Empty, and kept as a named set rather than deleted: `depth`,
+#: `surface_normal` and `generic_segmentation` sat here because `docs/tasks.md`
+#: never had a section for them, so splitting it could not produce one. Their
+#: boards were in `LEADERBOARD.md` the whole time and are on their pages now.
+#: A probe belongs here only if its corpus group genuinely cannot render.
+NO_PAGE_BOARD: frozenset[str] = frozenset()
 
 #: Which level each probe's page lives under. Read from the task classes rather
 #: than typed, so a probe that moves tier cannot leave a stale path here.

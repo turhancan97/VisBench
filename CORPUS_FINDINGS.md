@@ -269,7 +269,7 @@ Two standing cautions apply to everything below:
   tops classification (0.9997) and retrieval (0.9890) and places seventh or
   lower on every dense geometric board. It is ImageNet-1k *supervised* and
   Imagenette's classes are ImageNet-1k wnids, so those two scores are close to
-  in-distribution recall rather than transfer. `docs/tasks.md` names both
+  in-distribution recall rather than transfer. The probe pages name both
   backbones now, not just the ResNet.
 
 

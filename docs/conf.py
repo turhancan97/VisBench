@@ -39,10 +39,12 @@ extensions = [
     "sphinx.ext.githubpages",
     "myst_parser",
     "sphinx_copybutton",
+    "sphinx_design",
 ]
 
-# Deliberately absent: sphinx.ext.autosectionlabel. With 74 modules and ~25
-# prose pages it produces duplicate-label warnings, and `-W` turns those fatal.
+# Deliberately absent: sphinx.ext.autosectionlabel. Across 87 modules and 44
+# pages it produces duplicate-label warnings, and `-W` turns those fatal --
+# the sixteen probe pages alone share a "Data layout" heading.
 
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
