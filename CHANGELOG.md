@@ -9,6 +9,27 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+## [0.16.0] — 2026-09-05
+
+**The release that changes no number and rewrites where the numbers live.**
+Every board 0.15.0 published, 0.16.0 publishes identically: the corpus is still
+16 probes × 12 backbones, the schema is still v8, and no ordering moves. What
+changes is everything around them — the documentation site is restructured from
+four long pages into 42, the API reference that `conf.py` had been configured
+for since 0.7.0 finally exists, and the README is an arrival path again at 263
+lines instead of 586. v0.7.0 is the precedent for shipping a release that moves
+no measurement.
+
+Two probes were also measured and **rejected** in this window, which is the
+other half of what a benchmark ships: relative depth ordering reproduced the
+`depth` board at Spearman +1.000 and was kept as a control rather than a board,
+and the gauntlet gained the floor check whose absence let it get that far.
+
+**If you are upgrading for the documentation, note that three probes —
+`depth`, `surface_normal` and `generic_segmentation` — have a reference page
+and a generated board for the first time.** Their numbers were always in
+`LEADERBOARD.md`; they had simply never had a section.
+
 ### Added
 
 - **Relative depth ordering: built, measured, and rejected as a probe — kept as
@@ -3748,7 +3769,8 @@ API philosophy.
 [#2]: https://github.com/turhancan97/VisBench/issues/2
 [#4]: https://github.com/turhancan97/VisBench/issues/4
 [#3]: https://github.com/turhancan97/VisBench/issues/3
-[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.15.0...HEAD
+[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/turhancan97/VisBench/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/turhancan97/VisBench/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/turhancan97/VisBench/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/turhancan97/VisBench/compare/v0.12.0...v0.13.0
