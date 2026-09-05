@@ -130,7 +130,7 @@ upside down** — see step 6f — v0.7.0 is the contributor-facing release that
 changes no number, and **v0.8.0 (2026-08-07) is the corner probe**, steps 8a and
 8b together.
 
-**v0.9.0 through v0.14.0 are all shipped**, and each one's narrative is in
+**v0.9.0 through v0.16.0 are all shipped**, and each one's narrative is in
 `CHANGELOG.md`, its derivation in [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md)
 and its upload record in that file's "Release history": v0.9.0 was
 `visbench show` (9a-9d) plus the Hub work below; v0.10.0 was three timm
@@ -138,12 +138,15 @@ backbones, a supervised ViT-B/16 and the gallery on real photographs (10a-10c,
 11a); v0.11.0 was `dino_vitb16`, the `sam_vitb16` recipe control and
 `examples/custom_backbone.py` (10d, 10e); v0.12.0-v0.13.0 were the
 `scene_classification`, `orientation` and `fine_grained_classification` probes
-and their boards; v0.14.0 is the oracle gate. **The corpus file is 252 records
-resolving to 192 board cells** — sixteen boards, twelve backbones a board. The
-two numbers differ because the corpus is **append-only** and 0.15.0 re-ran the
-five low-level boards for their `ceiling_*`; `latest_per_backbone` picks the
-newest. Quote 192 for coverage and 252 only for the file, and re-read both off
-`LEADERBOARD.md` and `wc -l` rather than from here.
+and their boards; v0.14.0 is the oracle gate; v0.15.0 measured that gate against
+a DPT head; **v0.16.0 is the documentation release and moves no number.**
+
+**The corpus file is 252 records resolving to 192 board cells** — sixteen
+boards, twelve backbones a board. The two numbers differ because the corpus is
+**append-only** and 0.15.0 re-ran the five low-level boards for their
+`ceiling_*`; `latest_per_backbone` picks the newest. Quote 192 for coverage and
+252 only for the file, and re-read both off `LEADERBOARD.md` and `wc -l` rather
+than from here.
 
 Two standing consequences of that history, both of which have already cost a
 published claim:
@@ -374,46 +377,30 @@ run through `tail`: it buffers, so a run that is killed part-way leaves no log,
 and the Hub then has to be queried to find out what actually shipped — which
 happened, and is recoverable only because each record names its own pair.
 
-**`0.16.0` is PREPARED, NOT PUBLISHED** (2026-09-05). The version bump,
-`uv.lock`, `CITATION.cff` and the changelog section are on `main`; **PyPI, the
-tag, the GitHub release and the Zenodo archive are the maintainer's to run and
-none of them has happened yet.** Do not read this paragraph as a release
-record, and do not assume `main` matches what is installable — check
-[PyPI](https://pypi.org/project/visbench/). When it does go out, replace this
-paragraph with the usual record (tag commit, version DOI, what the wheel import
-read back) and add the upload record to `ENGINEERING_LOG.md`.
+**`0.16.0` is fully released** (2026-09-05) — on PyPI, tagged `v0.16.0`
+(annotated) on merge commit `481fdae`, released on GitHub from that tag,
+archived by Zenodo as version DOI `10.5281/zenodo.22340899`, the tenth, and
+**verified out of the published wheel by import**. Tag, wheel, release and
+`main` all agree at `481fdae` — the third release running with no gap. The full
+record — byte counts, digests, what the import read back — is in
+[`ENGINEERING_LOG.md`](ENGINEERING_LOG.md) under "Release history", where
+0.15.0's paragraph also now lives in full.
 
 **What 0.16.0 is**: the release that changes no number and rewrites where the
-numbers live. No probe, no backbone, corpus still 16 x 12, schema still v8,
-**every published ordering unchanged** — the second such release after v0.7.0.
-The documentation site is restructured (four long pages into 42, an API
-reference over 84 of 87 modules, the README from 586 lines to 263), three
-probes gain a reference page and a generated board they never had, and two
-candidates were measured and **rejected**: relative depth ordering reproduced
-the `depth` board at Spearman +1.000, and the gauntlet gained the floor check
-whose absence let it get that far. **The one user-visible fix**: the README on
-PyPI up to 0.15.0 links to `docs/tasks.md` and `docs/show.md`, which no longer
-exist — dead links a release is the only way to correct.
+numbers live — the second such release after v0.7.0. No probe, no backbone,
+corpus still 16 x 12, schema still v8, **every published ordering unchanged**.
+The docs site is 42 pages instead of four, with an API reference over 84 of 87
+modules; three probes (`depth`, `surface_normal`, `generic_segmentation`) gain
+a reference page and a generated board they never had; the README is 263 lines
+instead of 586. Two candidates were measured and **rejected** in the same
+window — relative depth ordering, and the floor check whose absence let it get
+that far.
 
-**`0.15.0` is fully released** (2026-09-03) — on PyPI, tagged `v0.15.0`
-(annotated) on merge commit `f8e2ae5`, released on GitHub from that tag,
-archived by Zenodo as version DOI `10.5281/zenodo.22283870`, the ninth, and
-**verified out of the published wheel by import**. Tag, wheel, release and
-`main` all agree at `f8e2ae5`, with no gap at all. The full record — byte
-counts, digests, what the import read back — is in
-[`ENGINEERING_LOG.md`](ENGINEERING_LOG.md) under "Release history".
-
-**What 0.15.0 is**: the release that measures its own gate. No probe, the
-corpus still 16 probes x 12 backbones, schema still v8, **every published
-ordering unchanged**. It publishes two corrections to 0.14.0's own claims: the
-five low-level boards were **re-run** so their records carry `ceiling_*`
-produced by a run rather than backfilled (252 lines for the same 16 x 12, since
-the corpus is append-only), and `results/controls/dpt_head.jsonl` shows a DPT
-head reaching **70-104%** of the linear oracle and exceeding it in two of ten
-cases — so the gate is a **bar for the head VisBench reports, not a ceiling a
-better head cannot pass**. The re-run also found that `orientation`'s two
-middle rows are **not separable**: its metric is ill-conditioned and drifts
-1.8e-03 where the other four boards drift 1e-7.
+**The reason it shipped when it did**: the README on PyPI up to 0.15.0 linked
+to `docs/tasks.md` and `docs/show.md`, deleted by the restructure. A PyPI
+version can never be re-uploaded, so dead links on the front page are only ever
+fixed by the *next* release — which is the general lesson, not a fact about
+this one. **When a change deletes a file the README names, the clock starts.**
 
 Every release from v0.6.0 onward is recorded paragraph by paragraph in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md) under "Release history" — byte
@@ -421,20 +408,22 @@ counts, wheel digests, which commit the tag resolves to, and what each
 `__version__`/`SCHEMA_VERSION` import read back. Read it there rather than
 carrying it here; only the standing rules below stay in this file.
 
-**The concept DOI is `10.5281/zenodo.21822684`**, unchanged across all nine
-version DOIs and now resolving to v0.15.0. That is the point of quoting it
+**The concept DOI is `10.5281/zenodo.21822684`**, unchanged across all ten
+version DOIs and now resolving to v0.16.0 (confirmed against Zenodo's API on
+2026-09-05, rather than assumed). That is the point of quoting it
 rather than a version DOI; `tests/test_citation.py` rejects any other Zenodo
 DOI in `README.md`, `docs/index.md` and `CITATION.cff`, because pasting one
 over it is the realistic mistake and it freezes every citation at one release.
 
 
-**Releasing — the standing rules, learned across v0.6.0 through v0.15.0.** The
+**Releasing — the standing rules, learned across v0.6.0 through v0.16.0.** The
 release-by-release detail is in [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md),
 under "Release history"; what recurs is:
 
 - **Tag before building**, so the artifact is built from the tagged commit.
-  v0.10.0 was the first release whose tag and wheel agree exactly, and v0.14.0
-  and v0.15.0 are the two with no gap at all, which is what that order buys.
+  v0.10.0 was the first release whose tag and wheel agree exactly, and v0.14.0,
+  v0.15.0 and v0.16.0 are the three with no gap at all, which is what that
+  order buys.
 - **`git tag -a`, annotated.** `v0.12.0` is the only lightweight tag in this
   project's history and it is the reason `gh api .../git/tags/{sha}` 404s on
   it: there is no tag *object* to fetch, only a ref. Nothing about the release

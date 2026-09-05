@@ -1230,6 +1230,37 @@ The four most recent entries were lifted out of `CLAUDE.md` on 2026-09-03,
 when that file passed the 150k-character limit it is loaded under for the second
 time. Nothing was rewritten; each paragraph is as its release recorded it.
 
+**`0.16.0` is fully released** (2026-09-05). On PyPI — wheel and sdist both
+(373,824 and 1,195,351 bytes, wheel sha256 `37a8f115…`, sdist `071cb0fd…`,
+uploaded 2026-09-05T11:03:35Z) — tagged `v0.16.0`, **annotated**, on merge
+commit `481fdae`, with a GitHub release cut from that tag (published
+2026-09-05T11:03:44Z) and archived by Zenodo as version DOI
+**`10.5281/zenodo.22340899`**, the tenth. **Verified out of the published wheel
+by import**: `__version__` 0.16.0, `SCHEMA_VERSION` 8, `ARTIFACT_VERSION` 1,
+sixteen probes, thirteen backbones, three heads (`linear`, `dpt`, `detection`),
+`show_probes() == list_probes()`, and `correspondence` still
+`threshold_units="pixel"` with `(1, 2, 5, 10)` — read back through the import
+rather than the source text, as every release since 0.6.1 has been.
+
+**Tag, wheel, release and `main` all agree at `481fdae`** — the third release
+running with no gap. Tagging before building is what buys it.
+
+**This release's own content is a README and a docs tree, so the check is the
+METADATA, and it is the reason the release happened.** The README shipped with
+0.15.0 linked to `docs/tasks.md` and `docs/show.md`, both deleted by the docs
+restructure — two dead links on the package's front page that no later edit to
+`main` could fix, because a PyPI version can never be re-uploaded. Confirmed
+gone from the served METADATA, with `docs/roadmap.md` the only `docs/*.md` link
+left and still resolving, **every link absolute** (the `tests/test_readme.py`
+rule, checked against the artifact rather than the repo), the concept DOI
+present and **no other Zenodo DOI** pasted over it.
+
+**The extras were read back too, and they carry 13a's correction**: `docs` has
+`sphinx-design` beside furo/myst/copybutton, and `sphinx` is in **both** `docs`
+and `dev` — the optional-extra trap's fix, verified in the artifact rather than
+in `pyproject.toml`. Metadata 2.5 writes those markers with **single** quotes
+(`extra == 'hub'`), so the check matched either quote, per the standing rule.
+
 **`0.15.0` is fully released** (2026-09-03). On PyPI — wheel and sdist both
 (369,030 and 1,119,784 bytes, wheel sha256 `74e56ac9…`, sdist `021872a7…`) —
 tagged `v0.15.0`, **annotated**, on merge commit `f8e2ae5`, with a GitHub
