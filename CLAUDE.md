@@ -1653,7 +1653,15 @@ designed up front; extend it the same way, from a case that already runs.
   napoleon read *the prose* as the type and mangled it into bullets, and three
   dead cross-references. **A docstring convention nothing renders is not a
   convention, it is a guess** — `scripts/check_docstrings.py` now runs each one
-  through napoleon and docutils in the fast suite, in ~1s and with no Sphinx.
+  through napoleon and docutils in the fast suite, in ~1s and with no Sphinx
+  *build*. It does import `sphinx.ext.napoleon`, and **that is the
+  optional-extra trap for the third time**: `sphinx` and `docutils` are in the
+  `docs` extra, CI installs `.[dev]` only, and the whole guard errored on CI
+  while passing locally. `sphinx` is a declared `dev` dependency now — not a
+  skip, because a guard that quietly disappears in the install CI uses is the
+  `slow`-only failure again. Add the import to `dev` whenever a fast test
+  reaches outside the core: the list is now `clip`, `timm`, `hub`, `yaml`,
+  `datasets`, `sphinx`.
   The trick that makes it work is indenting the result three spaces under a
   dummy directive: un-nested, a section title is legal and docutils says
   nothing. It documents what it **cannot** reach, and a test asserts that limit.
@@ -1726,15 +1734,25 @@ designed up front; extend it the same way, from a case that already runs.
   deliberately excluded from that check and carries no `doi` key**: it is the
   deposit's *input*, so a `doi` there claims a pre-reserved identifier rather
   than recording the minted one.
-- **The optional-extra trap has now been hit twice, by the same person, two
-  steps apart.** v0.6.0's hub tests needed `huggingface_hub` at monkeypatch time
-  and CI installs `.[dev]` only; 7c's issue-template test needed PyYAML, present
-  locally via timm and absent from `.[dev]`. The second was caught *before
-  pushing* by blocking the import the way `CONTRIBUTING.md` now documents — the
-  `find_spec` recipe there, and in 6e-5's section of the engineering log. Run it
-  whenever a test touches `clip`, `timm`, `hub` or `yaml`; the five verification
-  commands cannot catch this, because they run in the environment that has
-  everything. PyYAML is now a declared `dev` dependency.
+- **The optional-extra trap has now been hit three times, by the same person.**
+  v0.6.0's hub tests needed `huggingface_hub` at monkeypatch time and CI
+  installs `.[dev]` only; 7c's issue-template test needed PyYAML, present
+  locally via timm and absent from `.[dev]`; **13a's docstring guard needed
+  `sphinx` and `docutils`**, which are in the `docs` extra, and it reached a
+  pull request — seven red tests on both Pythons after all six local checks
+  were green. The second was caught *before* pushing by blocking the import the
+  way `CONTRIBUTING.md` documents — the `find_spec` recipe there, and in 6e-5's
+  section of the engineering log. **The third was not, and the reason is worth
+  keeping: the docs build had been run and passed, which felt like it covered
+  Sphinx.** It does not — that build installs `.[all,docs]`, and the *test*
+  suite does not. Run the blocker whenever a fast test touches `clip`, `timm`,
+  `hub`, `yaml`, `datasets` or `sphinx`; the six verification commands cannot
+  catch this, because they run in the environment that has everything. PyYAML,
+  `datasets` and `sphinx` are all declared `dev` dependencies now.
+
+  **Declare it; do not skip it.** A `pytest.importorskip` would have made the
+  suite green and left the guard uninstalled in exactly the environment that
+  gates every pull request — the `slow`-only failure with a different label.
 
 **The bullets below were lifted out of the v0.3 step write-ups when those moved
 to [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md). Each states the rule; the log has

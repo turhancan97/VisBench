@@ -230,6 +230,17 @@ so it stands on its own rather than assuming you have read the ones above it.
 - **The issue-template "The probes and their measured numbers" link 404'd**
   once `docs/tasks.md` was split. It points at the documentation site now.
 
+- **The docstring guard needed Sphinx and CI does not install it** — the
+  optional-extra trap for the third time, and the first to reach a pull
+  request: seven red tests on both Pythons after all six local checks were
+  green, because `sphinx`/`docutils` are in the `docs` extra and the test job
+  installs `.[dev]` only. **Running the `-W` docs build does not cover this**;
+  that build installs `.[all,docs]` and the test job does not, which is exactly
+  why it felt covered. `sphinx` is a declared `dev` dependency now rather than
+  a `pytest.importorskip` — a guard that vanishes in the environment gating
+  every pull request is the "only tested under `slow`" failure with a new
+  label. `CONTRIBUTING.md`'s blocker recipe names the wider list.
+
 - **`ceiling_ordinal_vertical` was emitted and was meaningless.** The base
   `context_metrics` prefixes `ceiling_` onto every key the oracle's metrics
   returned, which is right when they are all scores. One of these is not: the

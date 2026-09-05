@@ -3375,6 +3375,8 @@ dev = [
     { name = "pytest-cov" },
     { name = "pyyaml" },
     { name = "ruff" },
+    { name = "sphinx", version = "8.1.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "sphinx", version = "8.2.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
 ]
 docs = [
     { name = "furo" },
@@ -3409,6 +3411,7 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4,<1.0" },
     { name = "scikit-learn", specifier = ">=1.3,<2.0" },
     { name = "scipy", specifier = ">=1.10,<2.0" },
+    { name = "sphinx", marker = "extra == 'dev'", specifier = ">=7.3,<9.0" },
     { name = "sphinx", marker = "extra == 'docs'", specifier = ">=7.3,<9.0" },
     { name = "sphinx-copybutton", marker = "extra == 'docs'", specifier = ">=0.5,<1.0" },
     { name = "sphinx-design", marker = "extra == 'docs'", specifier = ">=0.6,<1.0" },
