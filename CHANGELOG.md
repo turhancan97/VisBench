@@ -230,6 +230,20 @@ so it stands on its own rather than assuming you have read the ones above it.
 - **The issue-template "The probes and their measured numbers" link 404'd**
   once `docs/tasks.md` was split. It points at the documentation site now.
 
+- **`CLAUDE.md`'s own counts had gone stale the way it warns about.** It said
+  the fast suite was 1920 tests (it collects 1933), that the slow suite was 90
+  (115), that the corpus was "192 records" (the file is 252, resolving to 192
+  board cells — the difference is that the corpus is append-only), that no
+  dependency had moved since 2026-08-06 (13a moved two), and that the checks
+  run on `dgx1` — which contradicts the same file's standing `--exclude=dgx1`
+  rule three sections earlier. `tests/test_docs_numbers.py` now pins the two
+  corpus counts, which move only when a probe, backbone or board lands. The
+  **test** counts are deliberately left unpinned: a guard there would turn
+  every pull request that adds a test into a `CLAUDE.md` edit, on a file with a
+  size budget. The paragraph states the collected count instead, since the skip
+  count is a fact about the environment — the same commit reports 1927+3 on CI,
+  1922+8 on `.venv` and 1930+0 with every extra installed.
+
 - **The docstring guard needed Sphinx and CI does not install it** — the
   optional-extra trap for the third time, and the first to reach a pull
   request: seven red tests on both Pythons after all six local checks were
