@@ -73,3 +73,43 @@ def test_every_quote_of_the_pair_agrees_with_the_record(recorded):
             seen += 1
             assert pair == recorded, f"{path.relative_to(ROOT)} quotes {pair}"
     assert seen >= 4, "the quotes moved or changed shape; re-point this guard"
+
+
+# --- The corpus counts CLAUDE.md quotes -------------------------------------
+#
+# Every count that has gone stale in this project went stale by being carried
+# forward in prose through a release that added a column or a board -- the
+# standing rule in `CLAUDE.md` says so, and the corpus counts there had drifted
+# again by 13a ("192 records" for a 252-record file). These are pinned rather
+# than the fast-suite count because they move only when a probe, a backbone or
+# a board lands, which already touches a dozen files by the documented edit
+# list; a guard on the *test* count would turn every pull request that adds a
+# test into a CLAUDE.md edit, on a file with a size budget.
+
+CORPUS = ROOT / "results" / "corpus" / "visbench.jsonl"
+CLAUDE = ROOT / "CLAUDE.md"
+
+
+@pytest.fixture(scope="module")
+def corpus() -> list[dict]:
+    import json
+
+    return [json.loads(line) for line in CORPUS.read_text().splitlines() if line.strip()]
+
+
+def test_claude_md_quotes_the_corpus_file_size(corpus):
+    """252 is the file; it is append-only, so it exceeds the coverage."""
+    assert f"**The corpus file is {len(corpus)} records" in CLAUDE.read_text()
+
+
+def test_claude_md_quotes_the_board_coverage(corpus):
+    """192 is boards x backbones -- what `latest_per_backbone` resolves to."""
+    boards = {record["task"] for record in corpus}
+    backbones = {record["backbone"] for record in corpus}
+    assert f"resolving to {len(boards) * len(backbones)} board cells" in CLAUDE.read_text()
+
+
+def test_the_leaderboard_renders_a_board_for_every_probe_in_the_corpus(corpus):
+    """The count above is only meaningful if the boards actually exist."""
+    rendered = re.findall(r"^### (\S+)$", (ROOT / "LEADERBOARD.md").read_text(), re.M)
+    assert set(rendered) == {record["task"] for record in corpus}

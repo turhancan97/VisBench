@@ -138,8 +138,12 @@ backbones, a supervised ViT-B/16 and the gallery on real photographs (10a-10c,
 11a); v0.11.0 was `dino_vitb16`, the `sam_vitb16` recipe control and
 `examples/custom_backbone.py` (10d, 10e); v0.12.0-v0.13.0 were the
 `scene_classification`, `orientation` and `fine_grained_classification` probes
-and their boards; v0.14.0 is the oracle gate. **The corpus is 192 records
-across sixteen boards**, twelve backbones a board.
+and their boards; v0.14.0 is the oracle gate. **The corpus file is 252 records
+resolving to 192 board cells** — sixteen boards, twelve backbones a board. The
+two numbers differ because the corpus is **append-only** and 0.15.0 re-ran the
+five low-level boards for their `ceiling_*`; `latest_per_backbone` picks the
+newest. Quote 192 for coverage and 252 only for the file, and re-read both off
+`LEADERBOARD.md` and `wc -l` rather than from here.
 
 Two standing consequences of that history, both of which have already cost a
 published claim:
@@ -1811,16 +1815,28 @@ the measurement behind it, under the step named in brackets.**
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite is **1920 tests** (8 skipped) and green on 2026-09-04, after the
-relative-depth rejection (1888 after the DPT control was widened, 1879 at the
-0.15.0 release, 1824 at the oracle gate, 1784 through the
-`fine_grained_classification` probe and schema v8), as
-are all three lint steps, mypy and the `-W` docs build — all five run on `dgx1` via
-`sbatch`, since `.venv/bin/python` does not resolve on a `dgxh100` login shell.
-`uv lock --check` was green on 2026-08-06 and no dependency has moved since; the
-90 slow tests were green on `main` on 2026-08-14 (up from 79: 10a's timm
-ViT tests had never run in CI, since `slow.yml` does not run on pull requests). If
-anything is red for you, that is new — do not go looking for a known cause here.
+fast suite **collects 1933 tests** and the **115 slow ones** were green on
+`main` on 2026-09-05 (113 passed, 2 skipped), along with all three lint steps,
+mypy and the `-W` docs build. Earlier fast counts, for dating a claim: 1930 at
+the docs redesign, 1920 after the relative-depth rejection, 1888 after the DPT
+control was widened,
+1879 at the 0.15.0 release, 1824 at the oracle gate, 1784 through the
+`fine_grained_classification` probe and schema v8.
+
+**Quote the collected count, not "N passed", because the skip count is a fact
+about the environment rather than the suite.** Measured on one commit
+(`06b85bb`, 1930 collected): **1927 passed + 3 skipped on CI, 1922 + 8 on
+`.venv`, 1930 + 0 on a machine with every extra installed.** So a remembered
+"(8 skipped)" reads as universal and is wrong two ways out of three, and the
+three environments cannot all be right about "N passed".
+`pytest --collect-only` is the number that means something.
+
+Run the checks via `sbatch` (`.venv/bin/python` does not resolve on a `dgxh100`
+login shell) and **`--exclude=dgx1`**, per the degraded-node bullet above; the
+usable node is `dgx2`. `uv lock --check` is green as of 2026-09-05 — 13a moved
+it twice, adding `sphinx-design` to `docs` and `sphinx` to `dev`, which is the
+first dependency change since 2026-08-06. If anything is red for you, that is
+new — do not go looking for a known cause here.
 
 The entries are kept because each one records a *class* of failure this
 codebase has actually shipped, and the next one will rhyme with them.
@@ -2210,8 +2226,8 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 1920 fast tests
-pytest -m slow                                      # 79, real DINOv2/CLIP weights
+pytest                                              # 1933 fast tests
+pytest -m slow                                      # 115, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/
 mypy visbench/ examples/ --ignore-missing-imports   # reads [tool.mypy], py 3.12
