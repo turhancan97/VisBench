@@ -20,9 +20,10 @@
 
 ---
 
-> **Status: v0.15.0.** Sixteen probes across high, mid and low level, thirteen
-> backbones from three families, and a committed corpus of **192 records** —
-> every one of them reproducible from the flags in its own record. The full
+> **Status: v0.16.0.** Sixteen probes across high, mid and low level, thirteen
+> backbones from three families, and a committed corpus covering **192 board
+> cells** — sixteen boards, twelve backbones each, every one of them
+> reproducible from the flags in its own record. The full
 > documentation, including a generated API reference, is at
 > **[https://turhancan97.github.io/VisBench](https://turhancan97.github.io/VisBench/)**.
 

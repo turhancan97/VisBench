@@ -374,6 +374,27 @@ run through `tail`: it buffers, so a run that is killed part-way leaves no log,
 and the Hub then has to be queried to find out what actually shipped — which
 happened, and is recoverable only because each record names its own pair.
 
+**`0.16.0` is PREPARED, NOT PUBLISHED** (2026-09-05). The version bump,
+`uv.lock`, `CITATION.cff` and the changelog section are on `main`; **PyPI, the
+tag, the GitHub release and the Zenodo archive are the maintainer's to run and
+none of them has happened yet.** Do not read this paragraph as a release
+record, and do not assume `main` matches what is installable — check
+[PyPI](https://pypi.org/project/visbench/). When it does go out, replace this
+paragraph with the usual record (tag commit, version DOI, what the wheel import
+read back) and add the upload record to `ENGINEERING_LOG.md`.
+
+**What 0.16.0 is**: the release that changes no number and rewrites where the
+numbers live. No probe, no backbone, corpus still 16 x 12, schema still v8,
+**every published ordering unchanged** — the second such release after v0.7.0.
+The documentation site is restructured (four long pages into 42, an API
+reference over 84 of 87 modules, the README from 586 lines to 263), three
+probes gain a reference page and a generated board they never had, and two
+candidates were measured and **rejected**: relative depth ordering reproduced
+the `depth` board at Spearman +1.000, and the gauntlet gained the floor check
+whose absence let it get that far. **The one user-visible fix**: the README on
+PyPI up to 0.15.0 links to `docs/tasks.md` and `docs/show.md`, which no longer
+exist — dead links a release is the only way to correct.
+
 **`0.15.0` is fully released** (2026-09-03) — on PyPI, tagged `v0.15.0`
 (annotated) on merge commit `f8e2ae5`, released on GitHub from that tag,
 archived by Zenodo as version DOI `10.5281/zenodo.22283870`, the ninth, and
