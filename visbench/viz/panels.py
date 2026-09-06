@@ -25,7 +25,7 @@ import numpy as np
 import torch
 from PIL import Image, ImageDraw, ImageFont
 
-from visbench.viz.colour import display_range, target_to_rgb
+from visbench.viz.colour import DisplayRange, display_range, target_to_rgb
 from visbench.viz.styles import TargetStyle, style_for
 
 __all__ = [
@@ -33,6 +33,8 @@ __all__ = [
     "PAGE_INK",
     "draw_boxes",
     "font_for_captions",
+    "frame_label",
+    "frame_stem",
     "render_panels",
     "render_probe_panels",
 ]
@@ -220,6 +222,27 @@ def _as_target_form(prediction: torch.Tensor, style: TargetStyle) -> torch.Tenso
     return prediction
 
 
+def frame_stem(dataset: Any, index: int) -> str:
+    """The frame's own name for the row gutter, or its index if it has none."""
+    stem = str(getattr(dataset, "stems", [])[index]) if hasattr(dataset, "stems") else str(index)
+    return stem.rsplit("/", 1)[-1]
+
+
+def frame_label(stem: str, span: DisplayRange | None, unit: str = "") -> str:
+    """The gutter text: the frame's name, and the range its greys span.
+
+    Two pages build this — :func:`_row` here, and the gallery's prediction-only
+    page, which cannot reuse ``_row`` because it has no target panel to draw
+    beside the prediction. They share this function because they drifted once:
+    the gallery computed a ``span`` to colour its panel with and then labelled
+    the row with a bare index, so ``depth.png`` stated no range at all and a
+    reader had no way to tell whether bright meant near or far. The range is
+    the one thing in the gutter that says how to read the picture, and a
+    greyscale panel without it is not a weaker figure but an unreadable one.
+    """
+    return stem if span is None else f"{stem}\n{span.caption(unit)}"
+
+
 def render_probe_panels(
     dataset: Any,
     probe: str,
@@ -258,8 +281,7 @@ def _row(
     class_names: Sequence[str] | None,
 ) -> tuple[str, list[np.ndarray | Image.Image]]:
     """One frame: its label, and the two or three panels beside it."""
-    stem = str(getattr(dataset, "stems", [])[index]) if hasattr(dataset, "stems") else str(index)
-    stem = stem.rsplit("/", 1)[-1]
+    stem = frame_stem(dataset, index)
 
     if style.kind == "boxes":
         return _box_row(stem, image, target, prediction, class_names)
@@ -284,7 +306,7 @@ def _row(
         # panel is scaled to its own extremes.
         panels.append(target_to_rgb(_as_target_form(prediction, style), style, span))
 
-    label = stem if span is None else f"{stem}\n{span.caption(style.unit)}"
+    label = frame_label(stem, span, style.unit)
     return label, panels
 
 

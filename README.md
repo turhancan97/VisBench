@@ -134,7 +134,7 @@ image fails **silently**: the probe trains, and the number merely comes out
 mediocre. Two of the most expensive bugs in this project were exactly that, and
 both are obvious in one frame.
 
-![Depth panels: image, target, and magenta where there is no ground truth](https://raw.githubusercontent.com/turhancan97/VisBench/main/docs/_static/gallery/depth.png)
+![Depth panels: a photograph and a predicted depth map, each row captioned with the range in metres it is drawn against](https://raw.githubusercontent.com/turhancan97/VisBench/main/docs/_static/gallery/depth.png)
 
 ![Correspondence: two views with the matches between them](https://raw.githubusercontent.com/turhancan97/VisBench/main/docs/_static/gallery/correspondence.png)
 

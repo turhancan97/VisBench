@@ -8,9 +8,9 @@ these numbers incomparable with the published ones, which is the only reason to
 borrow a protocol at all.
 
 ```{figure} /_static/gallery/surface_normal.png
-:alt: surface_normal — image, target and prediction
+:alt: surface_normal — a photograph and a normal map, RGB by the (n+1)/2 convention predicted from it; no target column
 
-What `visbench show surface_normal` draws. {doc}`How to read it </guides/visualising>`.
+What `visbench show surface_normal` draws, minus the target column: surface_normal needs sensor or reconstruction geometry, which no redistributable photograph carries, so the prediction comes from a published Hub head instead. {doc}`How to read it </guides/visualising>`.
 ```
 
 ## Things that will bite

@@ -9,7 +9,7 @@ visbench show depth --data /path/to/nyuv2 --out panels.png
 ```
 
 ```{image} /_static/gallery/depth.png
-:alt: Depth panels: image, target, with magenta marking pixels that have no depth return
+:alt: Depth panels: a photograph and a predicted depth map, each row captioned with the range in metres it is drawn against
 :class: visbench-figure
 ```
 
@@ -136,7 +136,7 @@ Depth is above. The other seven differ only in how the target is coloured and
 what counts as invalid.
 
 ```{image} /_static/gallery/surface_normal.png
-:alt: Surface normal panels, RGB by the (n+1)/2 convention
+:alt: Surface normal panels: a photograph and a predicted normal map, RGB by the (n+1)/2 convention
 :class: visbench-figure
 ```
 
@@ -151,7 +151,7 @@ what counts as invalid.
 ```
 
 ```{image} /_static/gallery/occlusion_edge.png
-:alt: Occlusion edge panels, NaN holes drawn magenta
+:alt: Occlusion edge panels: a photograph and a predicted occlusion-edge response
 :class: visbench-figure
 ```
 
@@ -161,7 +161,7 @@ what counts as invalid.
 ```
 
 ```{image} /_static/gallery/keypoints2d.png
-:alt: 2D keypoint response panels
+:alt: 2D keypoint panels: a photograph and a predicted keypoint response
 :class: visbench-figure
 ```
 

@@ -1592,6 +1592,24 @@ designed up front; extend it the same way, from a case that already runs.
   `TestEveryPanelKindRenders`, which renders a full page per panel kind and is
   the coverage whose absence let it through.
 
+  **A fourth bug outlived all three, for the same reason and one tier further
+  out** (2026-09-05). The four prediction-only figures (`depth`,
+  `surface_normal`, `keypoints2d`, `occlusion_edge`) go through a path in
+  `render_gallery.py` that *reimplements* `_row` — it has no target panel, so
+  it cannot reuse it — and the copy captioned each row `str(index)` while
+  computing the `DisplayRange` one line above and using it only to colour. So a
+  greyscale depth page stated no range at all, and `_GUTTER` being a fixed
+  200px meant 30% of the width said `0`. Its footer also never named the
+  **feature grid**, so a 16x16 map stretched to 224 read as a broken head
+  rather than as the probe's resolution — the `ceiling_*` argument, applied to
+  a picture. Both were invisible to the suite because drawing this page needs
+  the network, the `[hub]` extra and a published head. **When a page cannot be
+  rendered in the fast suite, the fix is to make what it *says* a pure
+  function** — `frame_stem`/`frame_label` in `panels.py`, shared by both pages
+  so they cannot drift again, and `prediction_row`/`prediction_footer` in the
+  script. Note the pattern across all four: every gallery bug so far was found
+  by looking at the output, never by a test.
+
 - **`show` and `run` compose their flags from one callable, and that is a
   correctness property rather than tidiness** (9a). `ProbeSpec.show_arguments`
   is built by `_viewing(<probe>_view_flags)`, where every probe's

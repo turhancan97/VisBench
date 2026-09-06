@@ -9,6 +9,36 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+### Fixed
+
+- **The four prediction-only gallery figures stated no range, on pages whose
+  whole content is a greyscale ramp.** `depth`, `surface_normal`, `keypoints2d`
+  and `occlusion_edge` have no redistributable ground truth, so they render
+  `image | prediction` through a path in `scripts/render_gallery.py` that
+  reimplements `visbench.viz.panels._row` rather than reusing it — it has no
+  target panel to draw, so it cannot. The copy dropped the row caption: it
+  computed a `DisplayRange` to colour its panel with and then labelled the row
+  `str(index)`. So `depth.png` said `0` where `edge.png` says
+  `point_0_view_0` / `2.356-65.54`, and a reader had no way to tell whether
+  bright meant near or far, over what range. `_GUTTER` is a fixed 200px
+  whatever the label is, so this also spent 30% of each figure's width saying
+  nothing. The caption is now drawn — `depth.png` reads `1.632-7.014 m` — and
+  `frame_stem`/`frame_label` are shared by both pages so they cannot drift
+  again.
+
+- **Nothing said the prediction was a 16x16 patch grid.** A dense head reads one
+  feature vector per patch and upsamples, so the coarseness of these four
+  panels is the probe's resolution rather than a rendering artefact — and with
+  no clause saying so, `keypoints2d` and `occlusion_edge` read as a broken
+  head. The footer now states the grid and the size it is stretched to, read
+  from `features["grid_hw"]` rather than assumed. This is the argument
+  `ceiling_*` already makes about a score, applied to a picture of one.
+
+  Both were invisible to the suite because drawing this page needs the network,
+  the `[hub]` extra and a published head, so its only check for three weeks was
+  looking at it. The row and the footer are now pure functions
+  (`prediction_row`, `prediction_footer`) with fast tests.
+
 ## [0.16.0] — 2026-09-05
 
 **The release that changes no number and rewrites where the numbers live.**

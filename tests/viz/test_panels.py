@@ -8,6 +8,8 @@ from PIL import Image
 from visbench.data.dense import DenseFolderDataset
 from visbench.data.detection import DetectionFolderDataset
 from visbench.viz import draw_boxes, render_panels, render_probe_panels, style_for
+from visbench.viz.colour import DisplayRange, display_range
+from visbench.viz.panels import _row, frame_label, frame_stem
 
 
 @pytest.fixture
@@ -224,3 +226,42 @@ class TestPage:
             depth_split, "depth", [0], torch.rand(1, 1, image.height, image.width)
         )
         assert with_prediction.width == without.width + image.width + 8
+
+
+class TestFrameLabel:
+    """The gutter text: a frame's name, and the range its greys span.
+
+    `_GUTTER` is a fixed 200px whatever the label is, so a page whose rows are
+    captioned with a bare index spends 30% of its width saying nothing --
+    which is what the four prediction-only gallery figures did until the
+    caption they already computed was actually drawn.
+    """
+
+    class _Stemmed:
+        stems = ["buildings/point_7_view_0", "b"]
+
+    def test_a_stem_loses_its_directory_but_keeps_its_name(self):
+        assert frame_stem(self._Stemmed(), 0) == "point_7_view_0"
+
+    def test_a_dataset_with_no_stems_falls_back_to_the_index(self):
+        assert frame_stem(object(), 3) == "3"
+
+    def test_a_range_is_captioned_under_the_stem_with_its_unit(self):
+        label = frame_label("point_7_view_0", DisplayRange(0.41, 6.24), "m")
+        assert label.split("\n") == ["point_7_view_0", "0.41-6.24 m"]
+
+    def test_a_kind_with_no_range_gets_the_stem_alone(self):
+        assert frame_label("point_7_view_0", None, "") == "point_7_view_0"
+
+    def test_row_and_the_gallery_build_the_same_label(self, depth_split):
+        """The two pages drifted once; they share this function so they cannot.
+
+        `_row` is the `visbench show` page and cannot be reused by the
+        prediction-only gallery page, which has no target panel to draw. What
+        they must still agree on is how a row is captioned.
+        """
+        style = style_for("depth")
+        image, target = depth_split[0]
+        label, _ = _row(style, depth_split, 0, image, target, None, None)
+        span = display_range(target, ~style.invalid(target))
+        assert label == frame_label(frame_stem(depth_split, 0), span, style.unit)

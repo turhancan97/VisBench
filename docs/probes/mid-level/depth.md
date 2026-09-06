@@ -14,9 +14,9 @@ it reproduces probe3d's protocol, which is the only reason its numbers compare
 to anything. See `results/controls/relative_depth.jsonl`.
 
 ```{figure} /_static/gallery/depth.png
-:alt: depth — image, target and prediction
+:alt: depth — a photograph and a depth map in metres predicted from it; no target column
 
-What `visbench show depth` draws. {doc}`How to read it </guides/visualising>`.
+What `visbench show depth` draws, minus the target column: depth needs sensor or reconstruction geometry, which no redistributable photograph carries, so the prediction comes from a published Hub head instead. {doc}`How to read it </guides/visualising>`.
 ```
 
 ## Data layout
