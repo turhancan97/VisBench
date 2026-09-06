@@ -8,9 +8,9 @@ what the tiers mean that this project has: recovering a depth discontinuity
 needs scene geometry, recovering an intensity one does not.
 
 ```{figure} /_static/gallery/occlusion_edge.png
-:alt: occlusion_edge — image, target and prediction
+:alt: occlusion_edge — a photograph and an occlusion-edge response predicted from it; no target column
 
-What `visbench show occlusion_edge` draws. {doc}`How to read it </guides/visualising>`.
+What `visbench show occlusion_edge` draws, minus the target column: occlusion_edge needs sensor or reconstruction geometry, which no redistributable photograph carries, so the prediction comes from a published Hub head instead. {doc}`How to read it </guides/visualising>`.
 ```
 
 ## Its board

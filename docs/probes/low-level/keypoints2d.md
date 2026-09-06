@@ -7,9 +7,9 @@ perfectly well anyway, which is why the criterion is the spread rather than the
 level. It reaches only 41% of its own oracle where `corner` reaches 80%.
 
 ```{figure} /_static/gallery/keypoints2d.png
-:alt: keypoints2d — image, target and prediction
+:alt: keypoints2d — a photograph and a 2D keypoint response predicted from it; no target column
 
-What `visbench show keypoints2d` draws. {doc}`How to read it </guides/visualising>`.
+What `visbench show keypoints2d` draws, minus the target column: keypoints2d needs sensor or reconstruction geometry, which no redistributable photograph carries, so the prediction comes from a published Hub head instead. {doc}`How to read it </guides/visualising>`.
 ```
 
 Two more probes share the edge probe's implementation and differ only in what

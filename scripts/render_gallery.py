@@ -47,11 +47,15 @@ import shutil
 import sys
 import tempfile
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from PIL import Image
 
 import visbench.cli
+from visbench.viz.colour import DisplayRange, display_range, target_to_rgb
+from visbench.viz.panels import _SCALAR_KINDS, _as_target_form, frame_label, frame_stem
+from visbench.viz.styles import TargetStyle
 
 REPO = Path(__file__).resolve().parent.parent
 
@@ -87,6 +91,54 @@ PREDICTION_SIZE = 224
 
 #: Void, for the pixels that are genuinely unlabelled -- see ``_label_map``.
 VOID = 255
+
+
+def prediction_row(
+    stem: str,
+    image: np.ndarray,
+    prediction: Any,
+    style: TargetStyle,
+) -> tuple[str, list, DisplayRange | None]:
+    """One row of a prediction-only page: its gutter label and its two panels.
+
+    Pulled out of :func:`_render_prediction` so the fast suite can call it: the
+    page itself needs the network, the ``[hub]`` extra and a 1.7 GB backbone,
+    so for its whole life the only test of what it drew was looking at it.
+    Which is how it shipped stating no range — see :func:`frame_label`.
+
+    Only the scalar kinds take a range. A normal map is ``(3, H, W)`` and asking
+    for a span over it is a shape error rather than merely waste, which is the
+    trap ``_row`` documents and this page inherited by reimplementing it.
+    """
+    prediction = _as_target_form(prediction, style)
+    span = display_range(prediction) if style.kind in _SCALAR_KINDS else None
+    panels = [image, target_to_rgb(prediction, style, span)]
+    return frame_label(stem, span, style.unit), panels, span
+
+
+def prediction_footer(probe: str, repo: str, grid_hw: tuple[int, int], ranged: bool) -> str:
+    """The legend under a prediction-only page.
+
+    It states the **feature grid**, which is the clause these figures were
+    missing. A dense head reads one vector per patch and upsamples, so a
+    ``depth`` or ``keypoints2d`` panel is a 16x16 map stretched to 224 — and
+    with nothing saying so it reads as a broken head rather than as the
+    resolution the probe genuinely works at. That is the argument ``ceiling_*``
+    already makes about a score, applied to a picture of one.
+    """
+    grid_h, grid_w = grid_hw
+    own_range = (
+        ", so each row is drawn against the prediction's own range rather than a target's"
+        if ranged
+        else ""
+    )
+    return (
+        f"prediction only, no ground truth: {probe} needs sensor or reconstruction geometry, "
+        f"which no redistributable photograph carries{own_range}. The prediction is a "
+        f"{grid_h}x{grid_w} patch grid bilinearly upsampled to {PREDICTION_SIZE}px, so the "
+        f"coarseness is the probe's resolution and not a rendering artefact. "
+        f"Drawn from the published {repo} head."
+    )
 
 
 def load_frames() -> dict:
@@ -518,8 +570,7 @@ def _prediction_figure(probe: str, root: Path, out: Path) -> int:
     from visbench.cache import FeatureCache
     from visbench.data.derived import DerivedTargetDataset
     from visbench.hub import load_probe_from_hub
-    from visbench.viz.colour import display_range, target_to_rgb
-    from visbench.viz.panels import _SCALAR_KINDS, _as_target_form, render_panels
+    from visbench.viz.panels import render_panels
     from visbench.viz.styles import style_for
 
     repo = f"turhancan97/visbench-{probe}-{PREDICTION_BACKBONE}"
@@ -551,24 +602,18 @@ def _prediction_figure(probe: str, root: Path, out: Path) -> int:
 
     style = style_for(probe)
     rows = []
+    ranged = False
     for position in range(len(indices)):
-        prediction = _as_target_form(predictions[position], style)
-        # Only the scalar kinds take a range. A normal map is (3, H, W) and asking
-        # for a span over it is a shape error, not merely waste -- the same trap
-        # `_row` documents, arriving here because this function reimplements the
-        # one decision it could not reuse.
-        span = display_range(prediction) if style.kind in _SCALAR_KINDS else None
-        rows.append(
-            (
-                str(indices[position]),
-                [np.asarray(frames[position][0]), target_to_rgb(prediction, style, span)],
-            )
+        label, panels, span = prediction_row(
+            frame_stem(frames, position),
+            np.asarray(frames[position][0]),
+            predictions[position],
+            style,
         )
+        ranged = ranged or span is not None
+        rows.append((label, panels))
 
-    footer = (
-        f"prediction only, no ground truth: {probe} needs sensor or reconstruction geometry, "
-        f"which no redistributable photograph carries. Drawn from the published {repo} head."
-    )
+    footer = prediction_footer(probe, repo, features["grid_hw"], ranged)
     render_panels(rows, ["image", "prediction"], footer).save(out)
     return 0
 
