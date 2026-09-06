@@ -90,9 +90,11 @@ them is visible in a tensor's shape or dtype:
 | `NaN` is invalid | `occlusion_edge` |
 
 Magenta is used because no colouriser here can produce it: greyscale has no hue,
-the `(n + 1) / 2` normal-map convention cannot reach it for a unit vector, and
-VOC's palette does not contain it. So a hole reads as a hole rather than as a
-plausible dark pixel.
+the `(n + 1) / 2` normal-map convention cannot reach it for a unit vector, VOC's
+palette does not contain it, and the depth ramp stops short of magenta's
+neighbourhood on purpose — viridis proper begins at a purple four degrees of hue
+away, which is why the ramp drops that end. So a hole reads as a hole rather
+than as a plausible dark pixel.
 
 **It scales a prediction by the target's range.** Each row states the range it
 was drawn against, computed from the target over valid pixels only. Scaling each
@@ -132,8 +134,17 @@ have not seen.
 
 ### The panel grid
 
-Depth is above. The other seven differ only in how the target is coloured and
-what counts as invalid.
+Depth is above, and it is the one scalar map drawn as a **ramp** rather than in
+grey: dark blue is near, pale yellow is far. A magnitude answers "how much is
+here", where mid-grey is a reading like any other; a depth map answers "how
+far", and the eye reads no ordinal meaning into mid-grey, so a grey depth panel
+comes out as texture. The ramp's luminance rises monotonically from end to end,
+which is what keeps it honest — the grey panel is recoverable as its luminance
+channel, so it cannot introduce a boundary grey does not already have, and a
+test asserts that rather than the docstring claiming it.
+
+The other seven differ only in how the target is coloured and what counts as
+invalid.
 
 ```{image} /_static/gallery/surface_normal.png
 :alt: Surface normal panels: a photograph and a predicted normal map, RGB by the (n+1)/2 convention
@@ -178,7 +189,8 @@ out looking like a target full of holes.
 ### Orientation
 
 `orientation` is also derived from the frame, but its target is a *direction*,
-not a magnitude — so it is drawn in colour, not greyscale: hue is the local
+not a magnitude — so it is drawn in colour, like depth and unlike the magnitude
+maps: hue is the local
 gradient orientation and brightness is its coherence, so a flat patch reads as
 black rather than as a confident wrong colour.
 

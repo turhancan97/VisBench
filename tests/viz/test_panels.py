@@ -248,7 +248,7 @@ class TestFrameLabel:
 
     def test_a_range_is_captioned_under_the_stem_with_its_unit(self):
         label = frame_label("point_7_view_0", DisplayRange(0.41, 6.24), "m")
-        assert label.split("\n") == ["point_7_view_0", "0.41-6.24 m"]
+        assert label.split("\n") == ["point_7_view_0", "0.41 to 6.24 m"]
 
     def test_a_kind_with_no_range_gets_the_stem_alone(self):
         assert frame_label("point_7_view_0", None, "") == "point_7_view_0"

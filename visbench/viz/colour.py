@@ -17,9 +17,23 @@ renders *identically* to a correct one. :func:`display_range` is computed once,
 from the target, over valid pixels only, and applied to both.
 
 Greyscale rather than a perceptual colour map is a deliberate second-order
-choice. It needs no lookup table and therefore no new dependency, and it cannot
-manufacture structure: a viridis ramp puts visible boundaries at its own colour
-transitions, and on a noisy magnitude map those read as edges in the data.
+choice **for a magnitude map**. It needs no lookup table and therefore no new
+dependency, and it cannot manufacture structure: a colour ramp puts visible
+boundaries at its own transitions, and on a noisy magnitude map those read as
+edges in the data.
+
+**Depth is the exception, and the exception is measured rather than asserted.**
+A magnitude answers "how much is here", where mid-grey is a reading like any
+other; a depth map answers "how far", and the eye reads no ordinal meaning into
+mid-grey at all, so a depth panel comes out as texture rather than as near and
+far. :data:`_DEPTH_ANCHORS` is therefore a ramp — generated inline by
+interpolating five anchors, the way :func:`voc_palette` and
+:func:`_orientation` stay dependency-free. What makes it safe against the
+objection above is **strictly monotonic luminance**: the greyscale panel is
+recoverable as this one's luminance channel, so the ramp cannot introduce a
+boundary greyscale does not already have. A test asserts that, and asserts the
+ramp stays far from magenta, which is the other property the palette owes
+:data:`INVALID_RGB`.
 """
 
 from dataclasses import dataclass
@@ -71,9 +85,20 @@ class DisplayRange:
         return np.clip((values - self.low) / span, 0.0, 1.0)
 
     def caption(self, unit: str = "") -> str:
-        """``"0.41-6.24 m"``, for the panel label."""
+        """``"0.41 to 6.24 m"``, for the panel label.
+
+        Spelled ``to`` rather than a hyphen because a negative low makes a
+        hyphen ambiguous: ``keypoints2d`` renders ranges like
+        ``-0.3318 to 1.956``, which as ``-0.3318--1.956`` reads as a subtraction
+        or a typo. Negative lows are ordinary here — a magnitude probe's
+        ``_activate`` is the identity, so a head is free to predict below zero
+        and the 2nd percentile of one often is.
+
+        ASCII, like every caption this package writes: PIL's built-in bitmap
+        font has no glyph for an en dash and draws an empty box.
+        """
         suffix = f" {unit}" if unit else ""
-        return f"{self.low:.4g}-{self.high:.4g}{suffix}"
+        return f"{self.low:.4g} to {self.high:.4g}{suffix}"
 
 
 def display_range(target: torch.Tensor, valid: torch.Tensor | None = None) -> DisplayRange:
@@ -120,6 +145,22 @@ def voc_palette(count: int = 256) -> np.ndarray:
     return palette
 
 
+#: The depth ramp, as five anchors interpolated at draw time. Ordered dark blue
+#: -> blue -> teal -> green -> pale yellow, which is the viridis family with its
+#: purple end dropped: that end sits at hue ~296 degrees, four degrees from
+#: magenta, and a marker that means "no ground truth" must not share a
+#: neighbourhood with real data however dark that data is drawn. Luminance rises
+#: 24 -> 80 -> 122 -> 175 -> 229, and interpolation is linear, so luminance is
+#: linear within every segment and increasing across all of them.
+_DEPTH_ANCHORS: tuple[tuple[int, int, int], ...] = (
+    (13, 24, 61),
+    (26, 90, 140),
+    (32, 148, 133),
+    (120, 200, 90),
+    (250, 235, 110),
+)
+
+
 def _greyscale(target: torch.Tensor, span: DisplayRange) -> np.ndarray:
     values = target.detach().to(torch.float64).cpu().numpy()
     # NaN survives normalise() as NaN and would cast to 0 silently. It is always
@@ -129,6 +170,23 @@ def _greyscale(target: torch.Tensor, span: DisplayRange) -> np.ndarray:
     grey = np.nan_to_num(span.normalise(values), nan=1.0)
     scaled = np.round(grey * 255.0).astype(np.uint8)
     return np.repeat(scaled[..., None], 3, axis=-1)
+
+
+def _depth(target: torch.Tensor, span: DisplayRange) -> np.ndarray:
+    """A distance as a ramp, not as grey. See the module docstring.
+
+    Shares every scaling decision with :func:`_greyscale` — the same
+    :class:`DisplayRange`, so a prediction is still drawn against the target's
+    range, and the same ``nan_to_num`` to the top of the ramp — and differs only
+    in what the normalised value is looked up in.
+    """
+    values = target.detach().to(torch.float64).cpu().numpy()
+    position = np.nan_to_num(span.normalise(values), nan=1.0)
+
+    anchors = np.asarray(_DEPTH_ANCHORS, dtype=np.float64)
+    stops = np.linspace(0.0, 1.0, len(anchors))
+    channels = [np.interp(position, stops, anchors[:, channel]) for channel in range(3)]
+    return np.round(np.stack(channels, axis=-1)).astype(np.uint8)
 
 
 def _normals(target: torch.Tensor) -> np.ndarray:
@@ -246,7 +304,7 @@ def target_to_rgb(
                 "prediction, or a prediction at half the target's scale draws "
                 "identically to a correct one."
             )
-        rgb = _greyscale(target, span)
+        rgb = _greyscale(target, span) if style.kind == "magnitude" else _depth(target, span)
     elif style.kind == "normals":
         rgb = _normals(target)
     elif style.kind == "orientation":
