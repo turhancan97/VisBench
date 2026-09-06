@@ -9,6 +9,43 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+### Changed
+
+- **`depth` is drawn as a ramp rather than in grey, and the objection to doing
+  that is answered with a measurement.** `colour.py`'s docstring had argued
+  greyscale on two grounds: no lookup table means no dependency, and a colour
+  ramp's transitions read as edges on a noisy magnitude map. The first is kept —
+  `_DEPTH_ANCHORS` is five anchors interpolated inline, the way `voc_palette`
+  and `_orientation` already stay dependency-free. The second is a fact about a
+  *magnitude*, and depth is not one: a magnitude answers "how much is here",
+  where mid-grey is a reading like any other, while a depth map answers "how
+  far" and the eye reads no ordinal meaning into mid-grey, so a grey depth panel
+  comes out as texture. Dark blue is near, pale yellow is far.
+
+  **What makes it safe is strictly monotonic luminance**, which is asserted
+  rather than claimed: the grey panel is recoverable as the ramp's luminance
+  channel, so the ramp cannot introduce a boundary grey does not already have.
+  The anchors are the viridis family with its purple end dropped — that end sits
+  four degrees of hue from magenta, and a marker meaning "no ground truth" must
+  not share a neighbourhood with real data. A test pins the luminance and the
+  distance from magenta; an exact-inequality test against `INVALID_RGB` would
+  not have caught the purple.
+
+  Every scaling decision is unchanged: the same `DisplayRange`, so a prediction
+  is still drawn against the *target's* range, and `NaN` still goes to the top
+  of the ramp. `magnitude` stays grey, and a test pins that too.
+
+- **A display range is captioned `"1.632 to 7.014 m"`, not `"1.632-7.014 m"`.**
+  A magnitude probe's `_activate` is the identity, so a head is free to predict
+  below zero and the 2nd percentile of one often does — `keypoints2d` renders
+  `-0.3318 to 1.956`, which as `-0.3318--1.956` reads as a subtraction or a
+  typo. Spelled `to` rather than an en dash because PIL's built-in bitmap font
+  has no glyph for one and draws an empty box, which is the ASCII rule this
+  package already keeps.
+
+  Five figures carry a range and are re-rendered for it: `depth`, `edge`,
+  `corner`, `keypoints2d` and `occlusion_edge`.
+
 ### Fixed
 
 - **The four prediction-only gallery figures stated no range, on pages whose

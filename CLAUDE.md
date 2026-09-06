@@ -1394,6 +1394,32 @@ designed up front; extend it the same way, from a case that already runs.
   VOC's palette does not contain it. A test asserts that, so a future colouriser
   cannot quietly make the marker ambiguous.
 
+  **Greyscale was argued for on two grounds and only one of them generalised**
+  (2026-09-06). `colour.py` documented greyscale as deliberate: no lookup table
+  means no dependency, and a ramp's transitions read as edges on a noisy
+  magnitude map. The first holds everywhere — `_DEPTH_ANCHORS` is five anchors
+  interpolated inline, as `voc_palette` and `_orientation` already are. The
+  second is a fact about a *magnitude*, and **`depth` is not one**: mid-grey is
+  an ordinary reading for "how much is here" and means nothing to the eye for
+  "how far", so a grey depth panel reads as texture. It is a ramp now, dark blue
+  near to pale yellow far, and `magnitude` stays grey.
+
+  **The old argument is answered by a number, not by preference: the ramp's
+  luminance is strictly monotonic**, so the grey panel is recoverable as its
+  luminance channel and it cannot introduce a boundary grey does not already
+  have. Assert that when adding a colouriser. The anchors are the viridis family
+  **with its purple end dropped** — viridis begins at `(68, 1, 84)`, hue 296°,
+  four degrees from magenta — and the magenta test is a *distance* now, because
+  exact inequality against `INVALID_RGB` would have passed on that purple. And
+  the fixtures start at 0.1 rather than 0: depth's convention makes 0 invalid,
+  so a ramp row starting there is painted magenta and every property is then
+  measured against the marker, which is how these tests first failed.
+
+  **A range caption reads `"1.632 to 7.014 m"`.** A magnitude probe's
+  `_activate` is the identity, so a head may predict below zero and often does;
+  `-0.3318--1.956` reads as a subtraction. `to` rather than an en dash, per the
+  ASCII rule the bitmap font imposes.
+
   One thing it is deliberately **not**: it does not train. That is
   `run --save-probe`, added alongside, because `--push-to` needed a Hub account
   and the prediction column otherwise had no CLI-producible input.

@@ -5,7 +5,7 @@ import pytest
 import torch
 
 from visbench.viz import INVALID_RGB, DisplayRange, display_range, style_for, target_to_rgb
-from visbench.viz.colour import voc_palette
+from visbench.viz.colour import _DEPTH_ANCHORS, voc_palette
 
 
 def _rgb(target, probe, span=None):
@@ -44,7 +44,7 @@ class TestDisplayRange:
         assert display_range(target, torch.zeros(2, 2, dtype=torch.bool)) == DisplayRange(0.0, 1.0)
 
     def test_the_caption_states_the_unit(self):
-        assert DisplayRange(0.41, 6.24).caption("m") == "0.41-6.24 m"
+        assert DisplayRange(0.41, 6.24).caption("m") == "0.41 to 6.24 m"
 
 
 class TestWhereMagentaLands:
@@ -170,3 +170,85 @@ class TestPredictionShapes:
         drawn = _as_target_form(logits, style_for("semantic_segmentation"))
         assert drawn.shape == (2, 2)
         assert (drawn == 2).all()
+
+
+class TestDepthRamp:
+    """A distance is drawn as a ramp; a magnitude stays grey.
+
+    The module docstring's case against a colour map — that its transitions
+    read as edges in the data — is answered by luminance, not by preference,
+    so it is asserted here rather than argued in a comment.
+    """
+
+    def _ramp(self):
+        """The ramp itself, with no invalid pixel in it.
+
+        Starts at 0.1 rather than 0 deliberately: depth's convention makes 0
+        *invalid*, so a row starting there is painted magenta by the caller and
+        every property below would be measured against the marker instead of
+        the ramp. Which is how these tests first failed.
+        """
+        span = DisplayRange(0.1, 1.0)
+        row = torch.linspace(0.1, 1.0, 256).reshape(1, 256)
+        return _rgb(row, "depth", span)[0].astype(np.float64)
+
+    @staticmethod
+    def _luminance(rgb):
+        return rgb @ np.array([0.2126, 0.7152, 0.0722])
+
+    def test_luminance_increases_all_the_way_along_the_ramp(self):
+        """Why it cannot manufacture a boundary greyscale does not have.
+
+        The greyscale panel is recoverable as this one's luminance channel, so
+        a ramp whose luminance never reverses adds hue to the picture without
+        adding structure to it.
+        """
+        assert np.all(np.diff(self._luminance(self._ramp())) >= 0)
+        assert self._luminance(self._ramp())[-1] > self._luminance(self._ramp())[0]
+
+    def test_the_ramp_stays_far_from_the_invalid_marker(self):
+        """Magenta must not merely be absent, it must not be approached.
+
+        Viridis proper starts at (68, 1, 84) — hue 296 degrees, four from
+        magenta's 300. Dropping that end is why the anchors are what they are,
+        and an exact-inequality test would not have noticed it.
+        """
+        distances = np.linalg.norm(self._ramp() - np.array(INVALID_RGB, dtype=np.float64), axis=-1)
+        assert distances.min() > 150.0
+
+    def test_near_and_far_are_different_hues_not_just_different_greys(self):
+        ramp = self._ramp()
+        near, far = ramp[0], ramp[-1]
+        assert abs(float(near[2]) - float(far[2])) > 40.0  # blue channel inverts
+        assert float(near[2]) > float(near[0])  # near is blue-dominant
+        assert float(far[0]) > float(far[2])  # far is warm
+
+    def test_a_magnitude_is_still_grey(self):
+        """The docstring's rule survives for the kind it was written about."""
+        grey = _rgb(torch.linspace(0.1, 1.0, 64).reshape(1, 64), "edge", DisplayRange(0.1, 1.0))
+        assert (grey[..., 0] == grey[..., 1]).all()
+        assert (grey[..., 1] == grey[..., 2]).all()
+
+    def test_depth_and_a_magnitude_no_longer_draw_the_same_pixels(self):
+        """The regression this change is: they were identical before."""
+        row = torch.linspace(0.1, 1.0, 64).reshape(1, 64)
+        span = DisplayRange(0.1, 1.0)
+        assert not np.array_equal(_rgb(row, "depth", span), _rgb(row, "edge", span))
+
+    def test_a_prediction_is_still_drawn_against_the_target_s_range(self):
+        """The ramp changes the lookup, never the scaling.
+
+        A prediction at half the target's magnitude must not draw as a correct
+        one, which is the property the shared `DisplayRange` exists for.
+        """
+        target = torch.linspace(0.5, 1.0, 64).reshape(1, 64)
+        span = DisplayRange(0.5, 1.0)
+        halved = _rgb(target * 0.5, "depth", span)
+        assert not np.array_equal(halved, _rgb(target, "depth", span))
+        # ... and scaling the prediction to its own extremes would hide it.
+        assert np.array_equal(halved, _rgb(target * 0.5, "depth", span))
+
+    def test_nan_goes_to_the_top_of_the_ramp_not_to_black(self):
+        values = torch.tensor([[0.5, float("nan")]])
+        rgb = _rgb(values, "depth", DisplayRange(0.5, 1.0))
+        assert tuple(rgb[0, 1]) == tuple(np.asarray(_DEPTH_ANCHORS[-1], dtype=np.uint8))

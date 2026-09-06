@@ -120,7 +120,10 @@ TARGET_STYLES: dict[str, TargetStyle] = {
         kind="depth",
         invalid=_invalid_zero,
         unit="m",
-        note="grey spans each row's stated range, taken over valid pixels only",
+        note=(
+            "dark blue is near and pale yellow is far, spanning each row's "
+            "stated range, taken over valid pixels only"
+        ),
     ),
     "surface_normal": TargetStyle(
         kind="normals",
