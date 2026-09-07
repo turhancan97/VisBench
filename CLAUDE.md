@@ -275,48 +275,24 @@ GitHub, Zenodo archived it, and the concept DOI is
 [10.5281/zenodo.21822684](https://doi.org/10.5281/zenodo.21822684). **v0.7.0
 reached PyPI on 2026-08-06**, verified out of the wheel; see below.
 
-**What v0.6.0 changed, in one paragraph.** `results/corpus/visbench.jsonl` is a
-committed corpus — 72 records when it shipped, 78 after 8b added `corner`, and
-117 after 10b added the three timm backbones, and **130 since 10c added a
-supervised ViT** — of every probe against every
-backbone, one comparability group each and every group holding all ten.
-`visbench/results/leaderboard.py`
-holds the rules for which records may be ranked together and
-`visbench/results/render.py` turns an answer into markdown; **ten** marker-
-delimited tables and `LEADERBOARD.md` are generated from the corpus, and a
-**fast** test fails if either drifts. (Nine of those were in the README when
-v0.6.0 shipped; 7b moved them to `docs/tasks.md`, and corner's joined them in
-8b.) `visbench/hub/` serialises a
-trained head with the backbone identity beside it and moves it to and from the
-Hugging Face Hub behind a `[hub]` extra. Schema was **v7** at that release — `pooling_requested`, because keying
-comparability on resolved pooling could never rank a CNN against a ViT.
-
-**v0.3's numbered steps are all done: 6a (fine-tuning), 6b
-(prefix caching) and all of 6c (detection).** Dense probes take `finetune_blocks=N` /
-`--finetune-blocks N`, DINOv2 only, recorded under schema v6's `finetune` field.
-Proved on VOC at two scales: 0.7758 against the frozen 0.7328 on DINOv2-S, and
-0.7992 against 0.7533 on DINOv2-B. 6b caches the frozen blocks below the cut in
-a separate `PrefixCache`, cutting a fine-tuned ViT-B run from ~345 s to ~272 s
-with the mIoU unchanged to four decimals. 6c added the box dataset, the VOC
-metric and an anchor-free single-scale detection probe, in that order. **The
-schema is still v6 — detection needed no bump**, because `task_params` and
-`dataset_params` are both open dicts and the protocol, the decoding settings and
-`include_difficult` all land in them.
-
-**6d-1 added the first low-level task**, so all three levels of the taxonomy now
-have entries and `visbench/tasks/low_level/` is no longer a placeholder. Edge
-detection is dense magnitude regression on Taskonomy's `edge_texture`, scored by
-per-image Pearson correlation and recorded as `visbench_edge_regression` — not
-BSDS500's, which is a correspondence metric and a step of its own.
-
-**6d-2 wired up `mask_valid/` and added two more probes**, released as v0.5.0.
-Four of the six Taskonomy domains that were refused are now supported — `depth_zbuffer`, `normal`, `edge_occlusion`, `keypoints3d` —
-each declaring how it marks an invalid pixel rather than exposing a mask.
-`keypoints2d` (low-level) and `occlusion_edge` (mid-level) joined `edge` on a
-lifted `DenseMagnitudeTask`. **Still schema v6**: twelve probes, and the new
+**What v0.6.0 through v0.5.0 left behind, in one paragraph** — the narratives
+are in `CHANGELOG.md` and the derivations in `ENGINEERING_LOG.md`; these are
+the facts still load-bearing. `results/corpus/visbench.jsonl` is a committed,
+**append-only** corpus of every probe against every backbone;
+`visbench/results/leaderboard.py` holds the rules for which records may be
+ranked together, `visbench/results/render.py` turns an answer into markdown,
+and every marker-delimited table plus `LEADERBOARD.md` is generated from the
+corpus with a **fast** test failing if either drifts. `visbench/hub/`
+serialises a trained head with the backbone identity beside it, behind a
+`[hub]` extra. Dense probes take `finetune_blocks=N` / `--finetune-blocks N`,
+**DINOv2 only**, recorded under schema v6's `finetune` field, with the frozen
+blocks below the cut cached separately in `PrefixCache`. Four Taskonomy domains
+declare how they mark an invalid pixel rather than exposing a mask —
+`depth_zbuffer`, `normal`, `edge_occlusion`, `keypoints3d` — and the
 `target_transform` / `invalid` / `masked` settings land in `dataset_params`,
-which is what that field was added for. The next step is **6d-3+** — another
-task, or the HF Hub / leaderboard work.
+which is what that field was added for. Edge detection is dense magnitude
+regression on `edge_texture` recorded as `visbench_edge_regression`, **not**
+BSDS500's, which is a correspondence metric and was a step of its own.
 
 Registered names — `visbench.list_backbones()`, `list_probes()`,
 `visbench.heads.list_heads()`:
@@ -377,30 +353,29 @@ run through `tail`: it buffers, so a run that is killed part-way leaves no log,
 and the Hub then has to be queried to find out what actually shipped — which
 happened, and is recoverable only because each record names its own pair.
 
-**`0.16.0` is fully released** (2026-09-05) — on PyPI, tagged `v0.16.0`
-(annotated) on merge commit `481fdae`, released on GitHub from that tag,
-archived by Zenodo as version DOI `10.5281/zenodo.22340899`, the tenth, and
-**verified out of the published wheel by import**. Tag, wheel, release and
-`main` all agree at `481fdae` — the third release running with no gap. The full
-record — byte counts, digests, what the import read back — is in
-[`ENGINEERING_LOG.md`](ENGINEERING_LOG.md) under "Release history", where
-0.15.0's paragraph also now lives in full.
+**`0.16.0` is fully released** (2026-09-05) — the tenth Zenodo DOI, with tag,
+wheel, release and `main` all agreeing at `481fdae`, the third release running
+with no gap. Its full record and both its per-release paragraphs are in
+[`ENGINEERING_LOG.md`](ENGINEERING_LOG.md) under "Release history"; the one
+rule worth keeping here is the reason it shipped when it did. **When a change
+deletes a file the README names, the clock starts** — the README shipped with
+0.15.0 linked to two files the docs restructure had deleted, and a PyPI version
+can never be re-uploaded, so dead links on the front page are only ever fixed
+by the *next* release.
 
-**What 0.16.0 is**: the release that changes no number and rewrites where the
-numbers live — the second such release after v0.7.0. No probe, no backbone,
-corpus still 16 x 12, schema still v8, **every published ordering unchanged**.
-The docs site is 42 pages instead of four, with an API reference over 84 of 87
-modules; three probes (`depth`, `surface_normal`, `generic_segmentation`) gain
-a reference page and a generated board they never had; the README is 263 lines
-instead of 586. Two candidates were measured and **rejected** in the same
-window — relative depth ordering, and the floor check whose absence let it get
-that far.
-
-**The reason it shipped when it did**: the README on PyPI up to 0.15.0 linked
-to `docs/tasks.md` and `docs/show.md`, deleted by the restructure. A PyPI
-version can never be re-uploaded, so dead links on the front page are only ever
-fixed by the *next* release — which is the general lesson, not a fact about
-this one. **When a change deletes a file the README names, the clock starts.**
+**`0.16.1` is PREPARED, NOT PUBLISHED** (2026-09-07). The version bump,
+`uv.lock`, `CITATION.cff` and the changelog section are on the branch;
+**PyPI, the tag, the GitHub release and the Zenodo archive are the maintainer's
+to run and none of them has happened.** Do not read this paragraph as a release
+record, and do not assume `main` matches what is installable — check
+[PyPI](https://pypi.org/project/visbench/). The next session replaces this with
+the real record. It is a patch release that **moves no number**: the two
+gallery-caption fixes (#93, #94), plus `CITATION.cff`'s abstract, which said
+"Fifteen probes" and omitted the sixteenth from v0.13.0 onward — so three
+Zenodo archives describe a smaller VisBench than they contain, and being
+unfixable after the fact is the point. `.zenodo.json` was right throughout;
+`tests/test_citation.py` compares the two files' *titles* and never compared
+their abstracts.
 
 Every release from v0.6.0 onward is recorded paragraph by paragraph in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md) under "Release history" — byte
@@ -1869,9 +1844,10 @@ the measurement behind it, under the step named in brackets.**
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite **collects 1933 tests** and the **115 slow ones** were green on
+fast suite **collects 1950 tests** and the **115 slow ones** were green on
 `main` on 2026-09-05 (113 passed, 2 skipped), along with all three lint steps,
-mypy and the `-W` docs build. Earlier fast counts, for dating a claim: 1930 at
+mypy and the `-W` docs build. Earlier fast counts, for dating a claim: 1933 at
+the 0.16.0 release, 1930 at
 the docs redesign, 1920 after the relative-depth rejection, 1888 after the DPT
 control was widened,
 1879 at the 0.15.0 release, 1824 at the oracle gate, 1784 through the
@@ -2280,7 +2256,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 1933 fast tests
+pytest                                              # 1950 fast tests
 pytest -m slow                                      # 115, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/
