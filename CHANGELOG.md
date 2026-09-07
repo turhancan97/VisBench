@@ -60,16 +60,22 @@ re-run a probe.
 ### Fixed
 
 - **`CITATION.cff`'s abstract said "Fifteen probes" and omitted the sixteenth**,
-  which it had done since `fine_grained_classification` shipped in v0.13.0 — so
-  three Zenodo archives describe a VisBench one probe smaller than the one they
-  contain. `.zenodo.json` was correct throughout, which is why nothing caught
-  it: `tests/test_citation.py` pins the two files' *titles* against each other,
+  which it had done since `fine_grained_classification` shipped in v0.13.0.
+  `.zenodo.json` was correct throughout, which is why nothing caught it:
+  `tests/test_citation.py` pins the two files' *titles* against each other,
   because a divergence there publishes the archive under a name nobody chose,
   and it never compared the abstracts. The count is now the same in both.
 
-  This is the drift rule this project already keeps about board counts, arriving
-  in the one kind of file where it cannot be fixed after the fact: a released
-  archive is not editable, so the three that carry it stay wrong.
+  **What it reached is GitHub's "Cite this repository" button, and nothing
+  permanent** — checked against Zenodo's API rather than assumed, after a first
+  draft of this entry claimed three archives carried it. Zenodo reads
+  `.zenodo.json` **in preference to** `CITATION.cff`, which this project already
+  knew and wrote down, so every archive from v0.13.0 to v0.16.1 says "Sixteen
+  probes". The rule that saved it is the one that makes the pair confusing: the
+  two files are read by different consumers, so a divergence between them is
+  half wrong and half fine, and which half depends on which file the consumer
+  prefers. Verify before claiming an archive is wrong; an archive is the one
+  thing that cannot be corrected afterwards.
 
 - **`CLAUDE.md` quoted a fast-suite count of 1933 where the suite collects
   1950.** The two gallery fixes below added tests and neither commit updated the

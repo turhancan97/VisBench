@@ -260,20 +260,13 @@ board replacing 8a's hand-written table, and `scripts/stage_corner_frames.py`
 to reconstruct the frames. **Both shipped together as v0.8.0**, which is what is
 on PyPI.
 
-**Between v0.6.1 and v0.7.0 the work was contributor-facing, not measurement**
-(7a-7e).
-`visbench demo` runs a real probe on generated images with no dataset and no
-extras; the README is 397 lines instead of 1,020, with the per-probe reference
-in `docs/tasks.md` and the roadmap in `docs/roadmap.md`; `CONTRIBUTING.md` is
-the public version of the rules this file keeps; and `docs/` is now a Sphinx
-site deployed to GitHub Pages by a **third workflow**, `docs.yml`. **The
-generated tables moved with the reference material** — they are in
-`docs/tasks.md` now, not the README, and `scripts/render_tables.py` takes a
-list of marked files. 7e added `CITATION.cff` and `.zenodo.json`, so a release
-is archived with a DOI — and **the DOI now exists**: v0.7.0 was released on
-GitHub, Zenodo archived it, and the concept DOI is
-[10.5281/zenodo.21822684](https://doi.org/10.5281/zenodo.21822684). **v0.7.0
-reached PyPI on 2026-08-06**, verified out of the wheel; see below.
+**v0.7.0 was contributor-facing, not measurement** (7a-7e), and what survives
+it: `visbench demo` runs a real probe on generated images with no dataset and
+no extras; `CONTRIBUTING.md` is the public version of the rules this file
+keeps; `docs/` is a Sphinx site deployed by a **third workflow**, `docs.yml`;
+the generated tables live with the reference material rather than in the README,
+and `scripts/render_tables.py` takes a list of marked files; and
+`CITATION.cff` + `.zenodo.json` are what get a release archived with a DOI.
 
 **What v0.6.0 through v0.5.0 left behind, in one paragraph** — the narratives
 are in `CHANGELOG.md` and the derivations in `ENGINEERING_LOG.md`; these are
@@ -363,19 +356,37 @@ deletes a file the README names, the clock starts** — the README shipped with
 can never be re-uploaded, so dead links on the front page are only ever fixed
 by the *next* release.
 
-**`0.16.1` is PREPARED, NOT PUBLISHED** (2026-09-07). The version bump,
-`uv.lock`, `CITATION.cff` and the changelog section are on the branch;
-**PyPI, the tag, the GitHub release and the Zenodo archive are the maintainer's
-to run and none of them has happened.** Do not read this paragraph as a release
-record, and do not assume `main` matches what is installable — check
-[PyPI](https://pypi.org/project/visbench/). The next session replaces this with
-the real record. It is a patch release that **moves no number**: the two
+**`0.16.1` is fully released** (2026-09-07) — on PyPI, tagged `v0.16.1`
+(annotated) on merge commit `1079bfc`, released on GitHub from that tag,
+archived by Zenodo as version DOI `10.5281/zenodo.22647634`, the eleventh, and
+**verified out of the published wheel by import**. Tag, wheel, release and
+`main` all agree at `1079bfc` — the fourth release running with no gap. The
+full record is in [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md) under "Release
+history". It is a patch release that **moves no number**: the two
 gallery-caption fixes (#93, #94), plus `CITATION.cff`'s abstract, which said
-"Fifteen probes" and omitted the sixteenth from v0.13.0 onward — so three
-Zenodo archives describe a smaller VisBench than they contain, and being
-unfixable after the fact is the point. `.zenodo.json` was right throughout;
-`tests/test_citation.py` compares the two files' *titles* and never compared
-their abstracts.
+"Fifteen probes" and omitted the sixteenth from v0.13.0 onward.
+
+Two corrections came out of verifying it, and both are the same shape — a claim
+that was checkable and was asserted instead:
+
+- **The `CITATION.cff` drift reached GitHub's cite button and no archive.** A
+  first draft of the changelog entry said three Zenodo archives carried it.
+  They do not: Zenodo reads `.zenodo.json` **in preference to** `CITATION.cff`
+  — the rule this file states two bullets down — and `.zenodo.json` said
+  "Sixteen" throughout, confirmed against Zenodo's API for every version from
+  v0.13.0. **A divergence between those two files is half wrong and half fine,
+  and which half depends on the consumer**, so read the API before claiming an
+  archive is wrong; an archive is the one artifact that cannot be corrected
+  afterwards.
+- **The depth ramp's luminance is non-decreasing, not "strictly monotonic".**
+  Measured on the published wheel: it never reverses and rises 24.3 → 229.2
+  over 256 samples, with **5 ties in 255 steps** from uint8 quantisation. That
+  is exactly what `tests/viz/test_colour.py` asserts (`>= 0` plus a rising
+  endpoint) and all the argument needs — the grey panel stays recoverable as
+  the luminance channel and the ramp adds no boundary grey lacks. Strict
+  monotonicity is unreachable in uint8 across a 205-level span. The stronger
+  word is in `colour.py`'s docstring and shipped in this wheel, so it is the
+  **next** release's to correct.
 
 Every release from v0.6.0 onward is recorded paragraph by paragraph in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md) under "Release history" — byte
@@ -383,9 +394,9 @@ counts, wheel digests, which commit the tag resolves to, and what each
 `__version__`/`SCHEMA_VERSION` import read back. Read it there rather than
 carrying it here; only the standing rules below stay in this file.
 
-**The concept DOI is `10.5281/zenodo.21822684`**, unchanged across all ten
-version DOIs and now resolving to v0.16.0 (confirmed against Zenodo's API on
-2026-09-05, rather than assumed). That is the point of quoting it
+**The concept DOI is `10.5281/zenodo.21822684`**, unchanged across all eleven
+version DOIs and now resolving to v0.16.1 (confirmed against Zenodo's API on
+2026-09-07, rather than assumed). That is the point of quoting it
 rather than a version DOI; `tests/test_citation.py` rejects any other Zenodo
 DOI in `README.md`, `docs/index.md` and `CITATION.cff`, because pasting one
 over it is the realistic mistake and it freezes every citation at one release.

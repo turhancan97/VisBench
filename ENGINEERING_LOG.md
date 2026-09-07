@@ -1230,6 +1230,82 @@ The four most recent entries were lifted out of `CLAUDE.md` on 2026-09-03,
 when that file passed the 150k-character limit it is loaded under for the second
 time. Nothing was rewritten; each paragraph is as its release recorded it.
 
+**`0.16.1` is fully released** (2026-09-07). On PyPI — wheel and sdist both
+(375,412 and 1,203,926 bytes, wheel sha256 `21e01a55…`, sdist `a99afeaa…`,
+uploaded 2026-09-07T16:47:11Z) — tagged `v0.16.1`, **annotated**, on merge
+commit `1079bfc`, with a GitHub release cut from that tag (published
+2026-09-07T16:52:53Z) and archived by Zenodo as version DOI
+**`10.5281/zenodo.22647634`**, the eleventh. **Verified out of the published
+wheel by import**: `__version__` 0.16.1, `SCHEMA_VERSION` 8, `ARTIFACT_VERSION`
+1, sixteen probes, thirteen backbones, three heads (`linear`, `dpt`,
+`detection`), `show_probes() == list_probes()`, and `correspondence` still
+`threshold_units="pixel"` with `(1, 2, 5, 10)`.
+
+**Tag, wheel, release and `main` all agree at `1079bfc`** — the fourth release
+running with no gap. `gh api .../git/tags/{sha}` resolves, which is the call
+that 404s on v0.12.0's lightweight tag.
+
+**This release's content is what the gallery figures SAY, so that is what was
+read back**, through the import rather than out of the source text:
+`DisplayRange(1.632, 7.014).caption("m")` returns `'1.632 to 7.014 m'` and the
+negative case `'-0.3318 to 1.956'`, which is the ambiguity the change exists to
+remove; `frame_stem` and `frame_label` are present in `visbench.viz.panels`,
+which is what stops the two gallery pages drifting again; `_DEPTH_ANCHORS` is
+five anchors from `(13, 24, 61)` to `(250, 235, 110)`; `style_for("depth").kind`
+is `"depth"` while `style_for("edge").kind` is still `"magnitude"`, so
+magnitude stayed grey.
+
+**Two claims this release published were checkable and had been asserted
+instead. Both were caught by verifying the artifact, which is the argument for
+doing it at all.**
+
+**The `CITATION.cff` drift reached GitHub's cite button and no archive.** The
+changelog entry as first written said three Zenodo archives described a
+VisBench one probe smaller than the one they contain. They do not.
+`.zenodo.json` carries its own `description`, Zenodo prefers it over
+`CITATION.cff` — the rule this project had already written down — and it said
+"Sixteen probes" throughout. Confirmed against Zenodo's API for every version
+from v0.13.0 to v0.16.1. The bug was real and worth fixing, because GitHub
+renders `CITATION.cff` for the cite button, but the permanent-damage claim was
+false. **A divergence between those two files is half wrong and half fine, and
+which half depends on which file the consumer prefers**; the two are read by
+different consumers, which is what makes the pair confusing and is exactly why
+`tests/test_citation.py` pins their titles together. It does not compare their
+abstracts, which is how the count drifted for three releases.
+
+**The depth ramp's luminance is non-decreasing, not "strictly monotonic".**
+Measured on the published wheel over 256 samples: it never reverses and rises
+24.3 → 229.2, with **5 ties in 255 steps**. Those are uint8 quantisation — the
+ramp spans about 205 levels across 256 samples, so ties are forced — and strict
+monotonicity is therefore unreachable, not merely absent. The property the
+argument needs is the weaker one, and it holds: the grey panel stays
+recoverable as the luminance channel, and the ramp cannot introduce a boundary
+grey does not already have. `tests/viz/test_colour.py` asserts precisely that
+(`np.diff(...) >= 0` plus a rising endpoint), so **the test was right and the
+prose around it overstated**. `colour.py`'s docstring shipped in this wheel
+with the stronger word; correcting it is the next release's, since the archive
+is not editable. The general form: when a docstring states a property as
+absolute, check whether the test states it that way too, and prefer the test's
+wording.
+
+**The METADATA check, now routine**: no relative links, all three `docs/*.md`
+targets (`api/index.md`, `probes/overview.md`, `roadmap.md`) resolve, the
+concept DOI present with **no** other Zenodo DOI over it, dependencies under
+all seven extras (`all`, `clip`, `datasets`, `dev`, `docs`, `hub`, `timm`) read
+with the either-quote match Metadata 2.5 requires, and the README's status line
+reading v0.16.1.
+
+**The upload failed on an environment, not an artifact, and the error names
+neither.** `twine upload` on the conda interpreter died with `ImportError:
+cannot import name 'errors' from 'packaging'`: that env has `packaging` 23.2,
+and twine's `package.py` imports `packaging.errors`, added in 24.2. The
+traceback is eight frames of `importlib` and mentions neither twine's version
+nor `packaging`'s, so it reads as a broken twine. The standing rule already had
+the fix — **build and upload from a throwaway venv**, never the project's
+`.venv/` (no `pip`) and never a shared conda env, where upgrading `packaging`
+to get one release out would move dependency resolution for everything else
+installed in it.
+
 **`0.16.0` is fully released** (2026-09-05). On PyPI — wheel and sdist both
 (373,824 and 1,195,351 bytes, wheel sha256 `37a8f115…`, sdist `071cb0fd…`,
 uploaded 2026-09-05T11:03:35Z) — tagged `v0.16.0`, **annotated**, on merge
