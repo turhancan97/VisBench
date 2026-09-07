@@ -9,6 +9,17 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+## [0.16.1] — 2026-09-07
+
+A patch release that moves no number and adds no probe. It is the corrections
+to what the gallery figures *say* — the panels themselves were right — plus two
+pieces of metadata that had drifted from the thing they describe.
+
+Every board 0.16.0 published, 0.16.1 publishes identically: sixteen probes
+against twelve backbones, 252 records resolving to 192 board cells, schema v8.
+No feature, no metric and no protocol changes, so nothing here is a reason to
+re-run a probe.
+
 ### Changed
 
 - **`depth` is drawn as a ramp rather than in grey, and the objection to doing
@@ -47,6 +58,24 @@ so it stands on its own rather than assuming you have read the ones above it.
   `corner`, `keypoints2d` and `occlusion_edge`.
 
 ### Fixed
+
+- **`CITATION.cff`'s abstract said "Fifteen probes" and omitted the sixteenth**,
+  which it had done since `fine_grained_classification` shipped in v0.13.0 — so
+  three Zenodo archives describe a VisBench one probe smaller than the one they
+  contain. `.zenodo.json` was correct throughout, which is why nothing caught
+  it: `tests/test_citation.py` pins the two files' *titles* against each other,
+  because a divergence there publishes the archive under a name nobody chose,
+  and it never compared the abstracts. The count is now the same in both.
+
+  This is the drift rule this project already keeps about board counts, arriving
+  in the one kind of file where it cannot be fixed after the fact: a released
+  archive is not editable, so the three that carry it stay wrong.
+
+- **`CLAUDE.md` quoted a fast-suite count of 1933 where the suite collects
+  1950.** The two gallery fixes below added tests and neither commit updated the
+  count — the same "only prose drifts" failure the file warns about, two steps
+  after it last corrected itself. `CONTRIBUTING.md` and the docs site quote no
+  count at all, deliberately, so there was one place to fix.
 
 - **The four prediction-only gallery figures stated no range, on pages whose
   whole content is a greyscale ramp.** `depth`, `surface_normal`, `keypoints2d`
@@ -3836,7 +3865,8 @@ API philosophy.
 [#2]: https://github.com/turhancan97/VisBench/issues/2
 [#4]: https://github.com/turhancan97/VisBench/issues/4
 [#3]: https://github.com/turhancan97/VisBench/issues/3
-[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.16.0...HEAD
+[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.16.1...HEAD
+[0.16.1]: https://github.com/turhancan97/VisBench/compare/v0.16.0...v0.16.1
 [0.16.0]: https://github.com/turhancan97/VisBench/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/turhancan97/VisBench/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/turhancan97/VisBench/compare/v0.13.0...v0.14.0
