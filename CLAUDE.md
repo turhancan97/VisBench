@@ -89,8 +89,8 @@ step is next rather than attempting the whole roadmap in one session.
 | 13a | The documentation site restructured: guides, 16 probe pages, an API reference | done |
 | 14a-1 | Instance segmentation: the VOC dataset and its instance loader | done |
 | 14a-2 | Instance segmentation: mask AP, by making VOC's matching IoU-agnostic | done |
-| 14a-3 | Instance segmentation: the head, proved end to end on DINOv2-S | next |
-| 14a-4 | Instance segmentation: the 12-backbone board and the probe's own page | |
+| 14a-3 | Instance segmentation: the head, proved end to end on DINOv2-S | done |
+| 14a-4 | Instance segmentation: the 12-backbone board and the probe's own page | next |
 
 **A closed step's full write-up lives in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md), not here.** That file is the archive
@@ -484,6 +484,9 @@ visbench/
                    balanced_subset lives here now, not on ImageFolderDataset)
   heads/         base.py (register_head/build_head), linear.py, dpt.py,
                  detection.py (DetectionHead — cls + box branches, focal prior)
+                 instance.py (InstanceHead — a DetectionHead plus ONE 1x1 conv
+                   for masks, reachable as mask_logits(); one module so both
+                   branches ride head.state_dict(), 14a-3)
   metrics/       classification, retrieval, correspondence, similarity,
                  instance.py (instance_metrics -> mask_map_50/mask_map_50_95,
                    mask_average_precision, masks_from_instance_map — the
@@ -509,7 +512,9 @@ visbench/
                  schedule.py (warmup_cosine/check_schedule — probe3d's schedule,
                    shared by DenseTrainingTask and DetectionTask)
                  high_level/  classification, retrieval, semantic_segmentation,
-                              detection (anchor-free, single-scale, 6c-3)
+                              detection (anchor-free, single-scale, 6c-3),
+                              instance_segmentation (DetectionTask + RoIAlign +
+                                a mask BCE; UNREGISTERED until 14a-4)
                  mid_level/   correspondence, depth, surface_normal,
                               generic_segmentation, similarity, occlusion_edge
                  low_level/   edge (6d-1), keypoints (Keypoint2DTask, 6d-2),
@@ -901,6 +906,47 @@ designed up front; extend it the same way, from a case that already runs.
   figure later. It is per figure now (`MAX_FIGURE_BYTES`), with the total scaled
   by `len(list_probes())`. **Raising a budget to make a guard pass is usually
   wrong; check first whether the budget was measuring the right thing.**
+- **The instance probe is `DetectionTask` plus a mask branch, and every
+  decision in it is about staying attributable** (14a-3). `InstanceHead` is a
+  `DetectionHead` plus **one 1x1 convolution** over RoI-aligned features, where
+  Mask R-CNN's branch is four 3x3 convolutions and a deconvolution on an FPN.
+  RoIAlign carries no parameters, so the only learned thing between features
+  and mask is that convolution — which is what lets a difference between two
+  backbones be a difference between two representations, the same argument
+  behind `LinearHead` and `hidden_dim=0`. Class-**agnostic**, one channel: the
+  class is already decided by the detection branch.
+
+  **Proved on DINOv2-S over VOC val**: `mask_map_50` **0.2641**,
+  `box_map_50` 0.2847, `train_mask_loss` 0.4719 — so 40% of the 0.6666 oracle,
+  which is the fraction `keypoints2d` reaches and CLAUDE.md already notes ranks
+  backbones fine. Whether it *ranks* is 14a-4's question, not answerable from
+  one backbone.
+
+  Four things not to re-derive:
+
+  **Both branches live in one module.** A mask convolution held beside the head
+  would be outside `head.state_dict()`, so a saved probe would load its boxes
+  and predict blank masks — 9a's `grid_hw` bug, one artifact round-trip later.
+
+  **The mask branch trains on ground-truth boxes and predicts on detected
+  ones**, recorded as `mask_train_boxes: "ground_truth"`. The boxes come from
+  the same head being trained, so early epochs would hand the mask branch RoIs
+  containing no object. `box_map_50` is reported beside `mask_map_50` so a low
+  score is attributable to outlines or to localisation.
+
+  **Target and prediction go through the same RoIAlign.** Cropping the ground
+  truth by hand would put them on two sampling grids that agree almost
+  everywhere — the `recall@1px = 0.003` failure. And the mask bias starts at
+  **zero, not the focal prior**: a RoI is a detected object's box, so half its
+  pixels are foreground, and copying the dense branch's prior starts every mask
+  empty.
+
+  **Collecting a split's mask predictions costs 5.4 GB** at the 74.4
+  detections/image DINOv2-S actually decodes — `bool` rather than `float32` is
+  what makes it feasible (21.6 GB otherwise). A first draft of that docstring
+  said "~5 MB", which was per-image arithmetic labelled as a total; check a
+  memory claim by multiplying it out.
+
 - **Mask AP is the detection protocol with the overlap swapped, and the
   sharing is enforced by a listed table** (14a-2). `average_precision` takes
   `shapes="boxes"|"masks"`, keys of `SHAPE_KINDS`, and reads the annotation key,
@@ -1124,29 +1170,19 @@ designed up front; extend it the same way, from a case that already runs.
   (DINOv2 and timm both initialise randomly before loading the state dict)
   outside the seeded window.
 
-  This shipped in `--push-to`, which built the backbone early so it could hand
-  the same object to `push_probe`. Found by publishing a full board and diffing
-  it against the corpus: 20 of 26 records differed and **the 6 that reproduced
-  were exactly the zero-shot probes**, which train no head. That signature —
-  trained probes all move, zero-shot ones all reproduce, no recorded field
-  explains it — means seeding, not a version regression, and it was misread as
-  the latter first because the corpus was written under an older version.
+  Found by publishing a full board and diffing it against the corpus: 20 of 26
+  records differed and **the 6 that reproduced were exactly the zero-shot
+  probes**, which train no head. That signature — trained probes all move,
+  zero-shot ones all reproduce, no recorded field explains it — means seeding
+  rather than a version regression, and it was misread as the latter first.
 
-  **The obvious regression test for this is vacuous, and mutation testing is
-  the only thing that says so.** Comparing a pushed run's metrics against an
-  unpushed one looks decisive and is not: the CLI fixtures are three
-  colour-separable classes, so both sides read 1.0 however badly the RNG is
-  threaded. Pin the backbone's *weights* against a freshly seeded
-  construction — that is what the seed decides and what actually moved.
-
-  **The whole board was re-run and republished after the fix, and 24 of the 26
-  DINOv2 records reproduce the corpus exactly** — including all three rankings
-  the bug had inverted (`edge` S, `keypoints2d` S, `corner` B). The two
-  exceptions are both `detection`, and only in the fourth decimal: `map_50`
-  0.2291 against the corpus's 0.2285 on ViT-S, 0.2897 against 0.2895 on ViT-B,
-  with the S-versus-B ordering unmoved. That is a property of the detection
-  probe and not of the seeding fix — **diagnosed 2026-08-13, see the next
-  bullet.**
+  **The obvious regression test for this is vacuous.** Comparing a pushed run's
+  metrics against an unpushed one looks decisive and is not: the CLI fixtures
+  are three colour-separable classes, so both sides read 1.0 however badly the
+  RNG is threaded. Pin the backbone's *weights* against a freshly seeded
+  construction — that is what the seed decides and what actually moved. The
+  board was re-run after the fix and 24 of 26 DINOv2 records reproduce the
+  corpus exactly, the two exceptions being `detection` in the fourth decimal.
 
 - **A backbone that changes its configuration must change its *name*, or a
   leaderboard silently deletes the row it was built to be compared against**
@@ -1491,40 +1527,22 @@ designed up front; extend it the same way, from a case that already runs.
   0%", caught by the footer figure that exists for exactly that.
 
 - **For correspondence it is the *shape* of the errors that diagnoses the bug,
-  not their size — and that is now a number, not an impression** (9b).
-  `error_coherence` is the mean resultant length of the error directions: 1.0
-  when every match is wrong the same way, ~0 when they scatter. Measured on
-  224px homography pairs with ResNet-18 features:
+  not their size** (9b). `error_coherence` is the mean resultant length of the
+  error directions: measured on 224px homography pairs with ResNet-18, a
+  *correct* geometry gives median error 10.2/22.6 px at coherence **0.40/0.29**,
+  and the homography in the wrong pixel frame gives 293.9/226.6 px at
+  **0.98/1.00**. **The median cannot make that call and the coherence can** — a
+  weak backbone and a broken pipeline produce overlapping medians. It is a
+  **diagnostic, never a score**: not recorded, and it must not reach a
+  leaderboard.
 
-  | geometry | median error | coherence |
-  | --- | --- | --- |
-  | correct | 10.2 px, 22.6 px | **0.40, 0.29** |
-  | homography in the wrong pixel frame | 293.9 px, 226.6 px | **0.98, 1.00** |
-
-  **The median cannot make this call and the coherence can.** A weak backbone
-  and a broken pipeline produce overlapping medians; only the direction
-  distribution separates them, which is exactly the discrimination that took
-  reading the code to make when `recall@1px = 0.003` first appeared. It is a
-  **diagnostic, never a score** — it says nothing about a backbone, it is not
-  recorded, and it must not reach a leaderboard.
-
-  **`match_details` is on the task, and `_pair_errors` calls it.** The panel and
-  the number therefore come from one code path by construction. A renderer that
-  recomputed the geometry would put a *drawing that vouches for a wrong number*
-  one edit away, which is worse than no drawing: the whole value of a panel is
-  that it is independent evidence about the same computation, not about a
-  parallel one.
-
-  **Matches are sampled evenly, never from the front.** `match()` returns them
-  sorted by descending similarity, so a prefix draws the most confident few and
-  shows a systematically better picture than the score describes. Evenly rather
-  than randomly so the same pair draws the same way twice.
-
-  Correspondence is the one drawable probe that **always needs a backbone** —
-  the matches are the thing being looked at and do not exist until features do —
-  and it is also zero-shot, so `--predict-from` is refused by name rather than
-  ignored. Its `show_arguments` is its `add_arguments`: nothing about a match is
-  a training setting, so there was no schedule half to drop.
+  Two rules from it. **`match_details` is on the task and the renderer calls
+  it**, so the panel and the number come from one code path by construction; a
+  renderer that recomputed the geometry would put a drawing that vouches for a
+  wrong number one edit away. And **matches are sampled evenly, never from the
+  front** — `match()` returns them sorted by descending similarity, so a prefix
+  draws the most confident few and shows a better picture than the score
+  describes.
 
 - **`TimmBackbone` reads a model's own structure; it used to assume a CNN's**
   (10a). `has_cls_token` and `patch_size` were *class* attributes declaring
@@ -1841,9 +1859,10 @@ the measurement behind it, under the step named in brackets.**
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite **collects 2012 tests** and the **115 slow ones** were green on
+fast suite **collects 2050 tests** and the **115 slow ones** were green on
 `main` on 2026-09-05 (113 passed, 2 skipped), along with all three lint steps,
-mypy and the `-W` docs build. Earlier fast counts, for dating a claim: 1983 at the VOC instance dataset, 1950 at
+mypy and the `-W` docs build. Earlier fast counts, for dating a claim: 2012 at
+the mask-AP metric, 1983 at the VOC instance dataset, 1950 at
 the monotonic-wording fix, 1933 at the 0.16.0 release, 1930 at the docs
 redesign, 1920 after the relative-depth rejection, 1879 at the 0.15.0 release,
 1824 at the oracle gate.
@@ -2251,7 +2270,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 2012 fast tests
+pytest                                              # 2050 fast tests
 pytest -m slow                                      # 115, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/
