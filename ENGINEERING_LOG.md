@@ -1283,10 +1283,14 @@ recoverable as the luminance channel, and the ramp cannot introduce a boundary
 grey does not already have. `tests/viz/test_colour.py` asserts precisely that
 (`np.diff(...) >= 0` plus a rising endpoint), so **the test was right and the
 prose around it overstated**. `colour.py`'s docstring shipped in this wheel
-with the stronger word; correcting it is the next release's, since the archive
-is not editable. The general form: when a docstring states a property as
-absolute, check whether the test states it that way too, and prefer the test's
-wording.
+with the stronger word, and since the archive is not editable it was corrected
+on `main` afterwards (2026-09-08): the docstring, `docs/guides/visualising.md`,
+and the test's own *name* — `test_luminance_increases_all_the_way_along_the_ramp`
+became `test_luminance_never_reverses_along_the_ramp`, and its docstring now
+records the tie count and says that tightening `>= 0` to `> 0` would fail,
+because that tidy-up is how the stronger claim got in. No pixel moved. The
+general form: when a docstring states a property as absolute, check whether the
+test states it that way too, and prefer the test's wording.
 
 **The METADATA check, now routine**: no relative links, all three `docs/*.md`
 targets (`api/index.md`, `probes/overview.md`, `roadmap.md`) resolve, the

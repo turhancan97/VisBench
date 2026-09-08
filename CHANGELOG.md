@@ -9,6 +9,32 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+### Fixed
+
+- **The depth ramp's luminance is non-decreasing, and 0.16.1 shipped calling it
+  "strictly monotonic".** The stronger word was in `colour.py`'s module
+  docstring, in `docs/guides/visualising.md` ("rises monotonically from end to
+  end"), and in the name of the test that checks it
+  (`test_luminance_increases_all_the_way_along_the_ramp`). Measured over the
+  256 samples the test uses: luminance rises 24.3 to 229.2 with **5 ties in 255
+  steps**. The ramp covers about 205 of the 255 available uint8 levels, so
+  repeats are *forced* by quantisation — strict monotonicity is unreachable at
+  that sample count rather than merely absent.
+
+  **The test was right the whole time**, asserting `np.diff(...) >= 0` plus a
+  rising endpoint, which is also all the argument needs: a ramp whose luminance
+  never reverses adds hue to the picture without adding structure, so the grey
+  panel stays recoverable as the luminance channel. Only the prose around it
+  overstated. Each site now says "never reverses", the test is renamed to what
+  it asserts, and its docstring records the tie count and says explicitly that
+  tightening the predicate to `> 0` would fail and would assert a property
+  nothing here requires — that tidy-up is how the stronger wording got in.
+
+  No pixel changes: the anchors, the `DisplayRange`, the `NaN` handling and the
+  magenta distance are all untouched, and `magnitude` is still grey. **0.16.1's
+  own changelog section is left as written**, since it records what that
+  release claimed; the archive it was published from cannot be edited anyway.
+
 ## [0.16.1] — 2026-09-07
 
 A patch release that moves no number and adds no probe. It is the corrections
