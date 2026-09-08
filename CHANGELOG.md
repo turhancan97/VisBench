@@ -11,6 +11,68 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Added
 
+- **The instance-segmentation probe, proved end to end on DINOv2-S** (14a-3).
+  `InstanceHead` (registered as `"instance"`) and `InstanceSegmentationTask`,
+  plus `examples/segment_instances.py`. The **probe is deliberately not
+  registered**: a probe name is load-bearing across a dozen fixed tables and
+  adding it belongs with the board that gives them something to say (14a-4), so
+  it is constructed directly for now, as `RelativeDepthTask` is. Nothing in the
+  corpus moves.
+
+  **Measured on DINOv2-S over VOC val** (1,464 train / 1,449 val, the same
+  images `semantic_segmentation` scores): `mask_map_50` **0.2641**,
+  `mask_map_50_95` 0.1006, `box_map_50` 0.2847, `train_mask_loss` 0.4719. That
+  is 40% of the calibrated 0.6666 oracle — the fraction `keypoints2d` reaches,
+  which this project already notes still ranks backbones. Whether *this* board
+  ranks is 14a-4's question and cannot be answered from one backbone.
+
+  **The mask branch is one 1x1 convolution over RoI-aligned features**, where
+  Mask R-CNN's is four 3x3 convolutions and a deconvolution on an FPN. RoIAlign
+  carries no parameters, so the only learned thing between a backbone's features
+  and a predicted mask is that convolution — the argument that keeps
+  `LinearHead` the head a dense number is quoted with. Class-agnostic, one
+  channel, since the class is already decided by the detection branch. The
+  record says `protocol: "visbench_anchor_free_instance"`, which claims neither
+  Mask R-CNN's protocol nor VOC's own.
+
+  **Everything about the boxes is inherited unchanged** — the FCOS-style
+  assignment, the focal and GIoU losses, the distance decode, per-class NMS and
+  the `grid_hw` bookkeeping — because a second copy of any of it would be a
+  second thing to keep in step with a published board.
+
+  Four decisions worth not re-deriving:
+
+  - **Both branches live in one module.** A mask convolution held beside the
+    head would sit outside `head.state_dict()`, so a saved probe would load its
+    boxes and predict blank masks — 9a's `grid_hw` bug, one artifact round-trip
+    later.
+  - **The mask branch trains on ground-truth boxes and predicts on detected
+    ones**, recorded as `mask_train_boxes: "ground_truth"`. The boxes come from
+    the head being trained, so early epochs would supply RoIs containing no
+    object. `box_map_50` is reported beside `mask_map_50` so a low score is
+    attributable to outlines or to localisation.
+  - **Target and prediction go through the same RoIAlign**, making their
+    alignment structural rather than tested — the `recall@1px = 0.003` failure
+    is what that costs when it is not. Void pixels become a per-pixel loss
+    *weight* rather than a label, the label-map convention.
+  - **The mask bias starts at zero, not at the focal prior.** A RoI is a
+    detected object's box, so roughly half its pixels are foreground; copying
+    the dense classification branch's `-log((1-pi)/pi)` would start every mask
+    empty.
+
+### Fixed
+
+- **A memory claim in this step's own docstring was wrong by three orders of
+  magnitude**, corrected before merge. It read "~5 MB and ~160 MB over VOC val"
+  for holding a split's mask predictions; that was *per-image* arithmetic
+  labelled as a total. The real cost at the 74.4 detections an image DINOv2-S
+  decodes is **5.4 GB** as `bool` and **21.6 GB** as `float32` — which makes the
+  bool choice load-bearing rather than tidy, and makes `max_detections` and
+  `score_threshold` the levers when it does not fit. Multiply a memory claim
+  out before writing it down.
+
+### Added
+
 - **Mask AP — instance segmentation's metric, as the detection protocol with
   the overlap swapped** (14a-2). `visbench.metrics.instance` ships
   `instance_metrics` (`mask_map_50`, `mask_map_50_95`, `classes_scored`),
