@@ -26,9 +26,16 @@ from visbench.metrics.dense import (
 )
 from visbench.metrics.detection import (
     COCO_IOU_THRESHOLDS,
+    SHAPE_KINDS,
     average_precision,
     box_iou,
     detection_metrics,
+    mask_iou,
+)
+from visbench.metrics.instance import (
+    instance_metrics,
+    mask_average_precision,
+    masks_from_instance_map,
 )
 from visbench.metrics.retrieval import mean_average_precision, recall_at_k
 
@@ -48,7 +55,12 @@ __all__ = [
     "match_scale_and_shift",
     "surface_normal_metrics",
     "box_iou",
+    "mask_iou",
     "average_precision",
     "detection_metrics",
     "COCO_IOU_THRESHOLDS",
+    "SHAPE_KINDS",
+    "instance_metrics",
+    "mask_average_precision",
+    "masks_from_instance_map",
 ]

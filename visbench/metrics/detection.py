@@ -38,7 +38,8 @@ reader comparing numbers needs them:
   VOC-comparable while ``map_50_95`` is COCO-**style** rather than a COCO number.
 """
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from typing import NamedTuple
 
 import torch
 
@@ -46,9 +47,12 @@ from visbench.types import MetricsDict
 
 __all__ = [
     "box_iou",
+    "mask_iou",
     "average_precision",
     "detection_metrics",
     "COCO_IOU_THRESHOLDS",
+    "SHAPE_KINDS",
+    "sweep_average_precision",
 ]
 
 #: COCO's IoU sweep, 0.50 to 0.95 inclusive in steps of 0.05. Ten values, and
@@ -94,6 +98,156 @@ def box_iou(boxes_a: torch.Tensor, boxes_b: torch.Tensor) -> torch.Tensor:
     return torch.where(union > 0, intersection / union.clamp(min=1e-12), torch.zeros_like(union))
 
 
+def mask_iou(masks_a: torch.Tensor, masks_b: torch.Tensor) -> torch.Tensor:
+    """Pairwise IoU between two sets of binary masks, as an ``(N, M)`` tensor.
+
+    ``masks_a`` is ``(N, H, W)`` and ``masks_b`` is ``(M, H, W)``, both boolean
+    or castable to it. The counterpart of :func:`box_iou` for the same matching
+    protocol: an instance-segmentation AP differs from a detection AP only in
+    which of these two computes the overlap.
+
+    Computed as a matrix product over flattened masks rather than an
+    ``(N, M, H, W)`` broadcast, which at 224px and twenty instances a side would
+    allocate about 4 GB to answer a 20x20 question.
+
+    An empty input gives a correctly shaped empty output rather than raising: an
+    image with no detections or no instances is ordinary, not an error. The
+    masks must agree on ``(H, W)`` though — comparing masks of two resolutions
+    is not a degenerate case but a pipeline that has already gone wrong, and the
+    IoU it would produce is meaningless rather than merely small.
+    """
+    for name, masks in (("masks_a", masks_a), ("masks_b", masks_b)):
+        if masks.ndim != 3:
+            raise ValueError(f"{name} must be (N, H, W), got {tuple(masks.shape)}")
+    if masks_a.shape[1:] != masks_b.shape[1:]:
+        raise ValueError(
+            f"masks_a is {tuple(masks_a.shape[1:])} and masks_b is "
+            f"{tuple(masks_b.shape[1:])}; an IoU between two resolutions is meaningless."
+        )
+    if masks_a.numel() == 0 or masks_b.numel() == 0:
+        return masks_a.new_zeros((masks_a.shape[0], masks_b.shape[0]), dtype=torch.float32)
+
+    flat_a = masks_a.reshape(masks_a.shape[0], -1).to(torch.float32)
+    flat_b = masks_b.reshape(masks_b.shape[0], -1).to(torch.float32)
+    intersection = flat_a @ flat_b.T
+    area_a = flat_a.sum(dim=1)
+    area_b = flat_b.sum(dim=1)
+    union = area_a[:, None] + area_b[None, :] - intersection
+    # An empty mask gives zero union; 0/0 is 0 IoU, not nan, exactly as in
+    # box_iou -- one degenerate instance must not poison a whole curve.
+    return torch.where(union > 0, intersection / union.clamp(min=1e-12), torch.zeros_like(union))
+
+
+def _as_tensor(value: object, dtype: torch.dtype) -> torch.Tensor:
+    """A 1-D tensor of ``dtype``, accepting a tensor, sequence or ``None``."""
+    if value is None:
+        return torch.zeros(0, dtype=dtype)
+    tensor = value if isinstance(value, torch.Tensor) else torch.as_tensor(value)
+    return tensor.reshape(-1).to(dtype)
+
+
+def _as_float_boxes(value: object) -> torch.Tensor:
+    """An ``(N, 4)`` float32 box tensor, accepting a tensor, sequence or ``None``."""
+    if value is None:
+        return torch.zeros((0, 4), dtype=torch.float32)
+    tensor = value if isinstance(value, torch.Tensor) else torch.as_tensor(value)
+    tensor = tensor.to(torch.float32).reshape(-1, 4)
+    return tensor
+
+
+class _ShapeKind(NamedTuple):
+    """How one geometry is read out of an annotation and overlapped.
+
+    The VOC matching protocol -- rank every detection in the split, match each
+    to the ground-truth shape it overlaps *most*, consult that shape's
+    difficult/claimed state -- says nothing about what a shape is. Only three
+    lines of :func:`average_precision` do, so they read this instead: the key
+    the annotations carry, the reader that validates one, and the overlap.
+
+    A table rather than a callable parameter, and listed rather than inferred,
+    for the reason ``TARGET_STYLES`` and ``METRIC_DIRECTIONS`` are: guessing the
+    geometry from whichever key happens to be present would silently score a
+    mask run against absent boxes and report the 0.0 as a result.
+    """
+
+    key: str
+    read: Callable[[object], torch.Tensor]
+    overlap: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
+
+
+#: The geometries :func:`average_precision` can match, by name. ``"boxes"`` is
+#: the detection protocol and the default, so every existing caller is
+#: unchanged; ``"masks"`` is the same protocol with the overlap swapped, which
+#: is what makes an instance-segmentation AP comparable to a detection one.
+SHAPE_KINDS: dict[str, _ShapeKind] = {}
+
+
+def _as_bool_masks(value: object) -> torch.Tensor:
+    """An ``(N, H, W)`` bool mask tensor, accepting a tensor, sequence or ``None``.
+
+    ``None`` and an empty tensor both give ``(0, 0, 0)``: there is no resolution
+    to infer from no masks, and :func:`mask_iou` short-circuits on an empty side
+    before it would compare shapes.
+    """
+    if value is None:
+        return torch.zeros((0, 0, 0), dtype=torch.bool)
+    tensor = value if isinstance(value, torch.Tensor) else torch.as_tensor(value)
+    if tensor.numel() == 0:
+        return torch.zeros((0, 0, 0), dtype=torch.bool)
+    if tensor.ndim != 3:
+        raise ValueError(
+            f"masks must be (N, H, W), got {tuple(tensor.shape)}. A single mask needs a "
+            "leading instance axis."
+        )
+    return tensor.to(torch.bool)
+
+
+SHAPE_KINDS["boxes"] = _ShapeKind(key="boxes", read=_as_float_boxes, overlap=box_iou)
+SHAPE_KINDS["masks"] = _ShapeKind(key="masks", read=_as_bool_masks, overlap=mask_iou)
+
+
+def _refuse_the_other_geometry(
+    predictions: Sequence[dict],
+    targets: Sequence[dict],
+    kind: _ShapeKind,
+) -> None:
+    """Raise when the annotations carry a geometry other than the one asked for.
+
+    This is the guard the whole adapter table exists for. Without it, scoring
+    mask annotations with ``shapes="boxes"`` reads a ``"boxes"`` key that is not
+    there, coerces the absence to an empty tensor, and returns **0.0** — a
+    number that looks like a detector finding nothing rather than like a caller
+    naming the wrong geometry. Every other failure in this module raises; this
+    one would not, which is exactly the class of silent-wrong-number this
+    codebase keeps paying for.
+
+    An entry with *neither* key is fine and not checked: an image with no
+    detections is ordinary, and the row-pairing check downstream catches a
+    genuinely malformed one.
+    """
+    other_keys = {name: spec.key for name, spec in SHAPE_KINDS.items() if spec.key != kind.key}
+    for label, entries in (("prediction", predictions), ("target", targets)):
+        for entry in entries:
+            if kind.key in entry:
+                continue
+            for other_name, other_key in other_keys.items():
+                if other_key in entry:
+                    raise ValueError(
+                        f"A {label} carries {other_key!r} but not {kind.key!r}, and "
+                        f"shapes={kind.key!r} was requested. Pass shapes={other_name!r} "
+                        f"to score {other_key}; scoring them as {kind.key} would silently "
+                        "report 0.0."
+                    )
+
+
+def _resolve_shape_kind(name: str) -> _ShapeKind:
+    """The adapter named ``name``, or a refusal listing what exists."""
+    try:
+        return SHAPE_KINDS[name]
+    except KeyError:
+        raise ValueError(f"Unknown shapes={name!r}. Known: {sorted(SHAPE_KINDS)}.") from None
+
+
 def _interpolated_average_precision(recall: torch.Tensor, precision: torch.Tensor) -> float:
     """Area under the precision-recall curve, all-points interpolated.
 
@@ -118,92 +272,69 @@ def _interpolated_average_precision(recall: torch.Tensor, precision: torch.Tenso
     )
 
 
-def average_precision(
+class _ClassMatches(NamedTuple):
+    """One class's ranked detections, with everything the threshold does not move.
+
+    The split that makes this worth existing: the matcher takes ``argmax`` over
+    *every* ground-truth shape in the image and only then consults that shape's
+    difficult and claimed state, so **which shape a detection matches best, and
+    by how much, does not depend on the IoU threshold**. Only the tally does.
+
+    So a ten-threshold sweep can overlap once and tally ten times. That is pure
+    waste avoided rather than an approximation — :func:`_ap_at_threshold` still
+    starts each threshold with a fresh ``claimed`` state, because *that* is
+    threshold-dependent. On mask AP the saving is what makes the metric usable
+    at all: 20 classes x 10 thresholds over 1,449 VOC images was recomputing
+    every 224x224 mask overlap ten times.
+    """
+
+    #: Ranked detection -> index of the image it belongs to.
+    image_indices: list[int]
+    #: Ranked detection -> its best overlap with any shape of this class.
+    best_overlap: list[float]
+    #: Ranked detection -> which shape of that image it overlapped most, or -1
+    #: when the image has no shapes of this class.
+    best_index: list[int]
+    #: Image -> ``difficult`` flags for this class's shapes, in target order.
+    difficult: list[torch.Tensor]
+    #: Non-difficult shapes of this class in the split: the recall denominator.
+    num_positives: int
+
+
+def _class_matches(
     predictions: Sequence[dict],
     targets: Sequence[dict],
     *,
     class_id: int,
-    iou_threshold: float = 0.5,
-) -> float | None:
-    """VOC average precision for one class, over a whole split.
+    kind: _ShapeKind,
+) -> _ClassMatches | None:
+    """Rank one class's detections and overlap each, independently of any threshold.
 
-    Parameters
-    ----------
-    predictions:
-        One dict per image, in the same order as ``targets``, each with
-        ``boxes`` ``(N, 4)`` ``xyxy``, ``scores`` ``(N,)`` and ``labels``
-        ``(N,)``. An image may have no detections.
-    targets:
-        One dict per image with ``boxes`` ``(M, 4)``, ``labels`` ``(M,)`` and
-        ``difficult`` ``(M,)`` bool. ``difficult`` may be omitted, in which case
-        no object is treated as difficult — but note that passing targets from
-        which difficult objects have already been *removed* silently changes the
-        protocol; see the module docstring.
-    class_id:
-        Which class to score. AP is per class by definition; mAP is the mean over
-        classes, taken by :func:`detection_metrics`.
-    iou_threshold:
-        Minimum IoU for a detection to match an object.
-
-    Returns
-    -------
-    float or None
-        The AP, or ``None`` when the class has **no non-difficult objects
-        anywhere in the split**. That is undefined rather than zero: recall has
-        no denominator, and scoring it 0 would drag a mAP down in proportion to
-        how many classes the split happens not to contain.
-        :func:`detection_metrics` excludes those classes and reports how many it
-        scored.
-
-    Notes
-    -----
-    Matching follows ``VOCevaldet.m`` exactly, including a subtlety worth
-    stating: each detection is matched to the ground-truth box it overlaps
-    **most**, and only then is that box's state consulted. If the best-matching
-    box is difficult, the detection is ignored; if it is already claimed by a
-    higher-scoring detection, this one is a false positive. There is deliberately
-    no fallback to the second-best box — a greedy alternative that reassigned
-    duplicates would score higher than the reference implementation and stop
-    being comparable to it.
+    Returns ``None`` when the class has no non-difficult shapes in the split,
+    which is AP undefined rather than zero.
     """
-    if len(predictions) != len(targets):
-        raise ValueError(
-            f"{len(predictions)} prediction entries against {len(targets)} target entries; "
-            "detections and objects are paired by image index."
-        )
-    if not 0.0 < iou_threshold <= 1.0:
-        raise ValueError(f"iou_threshold must be in (0, 1], got {iou_threshold}")
-
-    # Ground truth for this class, per image, plus the claimed/difficult state
-    # the matching loop mutates.
-    per_image: list[dict] = []
+    per_image_shapes: list[torch.Tensor] = []
+    per_image_difficult: list[torch.Tensor] = []
     num_positives = 0
     for target in targets:
         labels = _as_tensor(target.get("labels"), torch.int64)
-        boxes = _as_float_boxes(target.get("boxes"))
+        target_shapes = kind.read(target.get(kind.key))
         difficult = target.get("difficult")
         if difficult is None:
             difficult_mask = torch.zeros(labels.shape[0], dtype=torch.bool)
         else:
             difficult_mask = _as_tensor(difficult, torch.bool)
-        if not (labels.shape[0] == boxes.shape[0] == difficult_mask.shape[0]):
+        if not (labels.shape[0] == target_shapes.shape[0] == difficult_mask.shape[0]):
             raise ValueError(
-                f"A target has {boxes.shape[0]} boxes, {labels.shape[0]} labels and "
-                f"{difficult_mask.shape[0]} difficult flags; the three are paired by row."
+                f"A target has {target_shapes.shape[0]} {kind.key}, {labels.shape[0]} labels "
+                f"and {difficult_mask.shape[0]} difficult flags; the three are paired by row."
             )
-
         keep = labels == class_id
-        entry_difficult = difficult_mask[keep]
-        per_image.append(
-            {
-                "boxes": boxes[keep],
-                "difficult": entry_difficult,
-                "claimed": torch.zeros(int(keep.sum()), dtype=torch.bool),
-            }
-        )
-        # The recall denominator counts only objects the protocol expects to be
+        per_image_shapes.append(target_shapes[keep])
+        per_image_difficult.append(difficult_mask[keep])
+        # The recall denominator counts only shapes the protocol expects to be
         # found. Difficult ones are excluded here as well as in the tally.
-        num_positives += int((~entry_difficult).sum())
+        num_positives += int((~difficult_mask[keep]).sum())
 
     if num_positives == 0:
         return None
@@ -213,14 +344,14 @@ def average_precision(
     # would measure something else.
     image_indices: list[int] = []
     scores: list[torch.Tensor] = []
-    boxes_list: list[torch.Tensor] = []
+    shapes_list: list[torch.Tensor] = []
     for index, prediction in enumerate(predictions):
         labels = _as_tensor(prediction.get("labels"), torch.int64)
         prediction_scores = _as_tensor(prediction.get("scores"), torch.float32)
-        prediction_boxes = _as_float_boxes(prediction.get("boxes"))
-        if not (labels.shape[0] == prediction_scores.shape[0] == prediction_boxes.shape[0]):
+        prediction_shapes = kind.read(prediction.get(kind.key))
+        if not (labels.shape[0] == prediction_scores.shape[0] == prediction_shapes.shape[0]):
             raise ValueError(
-                f"A prediction has {prediction_boxes.shape[0]} boxes, "
+                f"A prediction has {prediction_shapes.shape[0]} {kind.key}, "
                 f"{prediction_scores.shape[0]} scores and {labels.shape[0]} labels; "
                 "the three are paired by row."
             )
@@ -229,15 +360,13 @@ def average_precision(
         if count:
             image_indices.extend([index] * count)
             scores.append(prediction_scores[keep])
-            boxes_list.append(prediction_boxes[keep])
+            shapes_list.append(prediction_shapes[keep])
 
     if not scores:
-        # Objects exist and nothing was detected: recall 0 everywhere, so the
-        # area under the curve is 0. Distinct from the None above.
-        return 0.0
+        return _ClassMatches([], [], [], per_image_difficult, num_positives)
 
     all_scores = torch.cat(scores)
-    all_boxes = torch.cat(boxes_list)
+    all_shapes = torch.cat(shapes_list)
     all_images = torch.tensor(image_indices, dtype=torch.int64)
 
     # Descending score. Stable so that equal scores keep a deterministic order
@@ -245,29 +374,59 @@ def average_precision(
     # does.
     order = torch.argsort(all_scores, descending=True, stable=True)
 
-    true_positives = torch.zeros(order.numel(), dtype=torch.float64)
-    false_positives = torch.zeros(order.numel(), dtype=torch.float64)
-    ignored = torch.zeros(order.numel(), dtype=torch.bool)
-
-    for rank, detection_index in enumerate(order.tolist()):
-        entry = per_image[int(all_images[detection_index])]
-        if entry["boxes"].numel() == 0:
-            false_positives[rank] = 1.0
+    ranked_images: list[int] = []
+    ranked_overlap: list[float] = []
+    ranked_index: list[int] = []
+    for detection_index in order.tolist():
+        image_index = int(all_images[detection_index])
+        entry_shapes = per_image_shapes[image_index]
+        ranked_images.append(image_index)
+        if entry_shapes.numel() == 0:
+            ranked_overlap.append(0.0)
+            ranked_index.append(-1)
             continue
-
-        overlaps = box_iou(all_boxes[detection_index][None, :], entry["boxes"])[0]
+        overlaps = kind.overlap(all_shapes[detection_index][None], entry_shapes)[0]
         best = int(torch.argmax(overlaps))
-        if float(overlaps[best]) < iou_threshold:
+        ranked_overlap.append(float(overlaps[best]))
+        ranked_index.append(best)
+
+    return _ClassMatches(
+        ranked_images, ranked_overlap, ranked_index, per_image_difficult, num_positives
+    )
+
+
+def _ap_at_threshold(matches: _ClassMatches, iou_threshold: float) -> float:
+    """Tally :func:`_class_matches` at one threshold and integrate the curve.
+
+    ``claimed`` is rebuilt here rather than carried on ``matches``, because a
+    shape claimed at IoU 0.5 need not be claimed at 0.75 — that state is the
+    one part of the matching the threshold does move.
+    """
+    if not matches.image_indices:
+        # Shapes exist and nothing was detected: recall 0 everywhere, so the
+        # area under the curve is 0. Distinct from the None _class_matches gives.
+        return 0.0
+
+    claimed = [torch.zeros(flags.numel(), dtype=torch.bool) for flags in matches.difficult]
+    count = len(matches.image_indices)
+    true_positives = torch.zeros(count, dtype=torch.float64)
+    false_positives = torch.zeros(count, dtype=torch.float64)
+    ignored = torch.zeros(count, dtype=torch.bool)
+
+    for rank in range(count):
+        image_index = matches.image_indices[rank]
+        best = matches.best_index[rank]
+        if best < 0 or matches.best_overlap[rank] < iou_threshold:
             false_positives[rank] = 1.0
-        elif bool(entry["difficult"][best]):
+        elif bool(matches.difficult[image_index][best]):
             # Neither TP nor FP: removed from the tally. This is the whole
             # difference between VOC's protocol and dropping difficult targets.
             ignored[rank] = True
-        elif bool(entry["claimed"][best]):
+        elif bool(claimed[image_index][best]):
             false_positives[rank] = 1.0  # a duplicate detection
         else:
             true_positives[rank] = 1.0
-            entry["claimed"][best] = True
+            claimed[image_index][best] = True
 
     keep = ~ignored
     cumulative_tp = torch.cumsum(true_positives[keep], dim=0)
@@ -275,9 +434,127 @@ def average_precision(
     if cumulative_tp.numel() == 0:
         return 0.0
 
-    recall = cumulative_tp / num_positives
+    recall = cumulative_tp / matches.num_positives
     precision = cumulative_tp / (cumulative_tp + cumulative_fp).clamp(min=1e-12)
     return _interpolated_average_precision(recall, precision)
+
+
+def average_precision(
+    predictions: Sequence[dict],
+    targets: Sequence[dict],
+    *,
+    class_id: int,
+    iou_threshold: float = 0.5,
+    shapes: str = "boxes",
+) -> float | None:
+    """VOC average precision for one class, over a whole split.
+
+    Parameters
+    ----------
+    predictions:
+        One dict per image, in the same order as ``targets``, each with the
+        geometry named by ``shapes``, plus ``scores`` ``(N,)`` and ``labels``
+        ``(N,)``. An image may have no detections.
+    targets:
+        One dict per image with the same geometry key, ``labels`` ``(M,)`` and
+        ``difficult`` ``(M,)`` bool. ``difficult`` may be omitted, in which case
+        no object is treated as difficult — but note that passing targets from
+        which difficult objects have already been *removed* silently changes the
+        protocol; see the module docstring.
+    class_id:
+        Which class to score. AP is per class by definition; mAP is the mean over
+        classes, taken by :func:`detection_metrics`.
+    iou_threshold:
+        Minimum overlap for a detection to match an object.
+    shapes:
+        Which geometry to match, a key of :data:`SHAPE_KINDS`. ``"boxes"`` is
+        the detection protocol and the default, so every existing caller is
+        unchanged; ``"masks"`` is the same protocol with the overlap swapped,
+        which is what :func:`~visbench.metrics.instance.mask_average_precision`
+        names. **Annotations carrying the other geometry are refused** rather
+        than read as absent and scored 0.0.
+
+    Returns
+    -------
+    float or None
+        The AP, or ``None`` when the class has **no non-difficult objects** in
+        the split. :func:`detection_metrics` excludes those classes and reports
+        how many it scored.
+
+    Notes
+    -----
+    Matching follows ``VOCevaldet.m`` exactly, including a subtlety worth
+    stating: each detection is matched to the ground-truth shape it overlaps
+    **most**, and only then is that shape's state consulted. If the best-matching
+    shape is difficult, the detection is ignored; if it is already claimed by a
+    higher-scoring detection, this one is a false positive. There is deliberately
+    no fallback to the second-best shape — a greedy alternative that reassigned
+    duplicates would score higher than the reference implementation and stop
+    being comparable to it.
+
+    Because that ``argmax`` precedes every threshold comparison, the overlap
+    work is threshold-independent and is factored into :func:`_class_matches`,
+    which :func:`detection_metrics` reuses across its whole sweep.
+    """
+    if len(predictions) != len(targets):
+        raise ValueError(
+            f"{len(predictions)} prediction entries against {len(targets)} target entries; "
+            "detections and objects are paired by image index."
+        )
+    if not 0.0 < iou_threshold <= 1.0:
+        raise ValueError(f"iou_threshold must be in (0, 1], got {iou_threshold}")
+    kind = _resolve_shape_kind(shapes)
+    _refuse_the_other_geometry(predictions, targets, kind)
+
+    matches = _class_matches(predictions, targets, class_id=class_id, kind=kind)
+    if matches is None:
+        return None
+    return _ap_at_threshold(matches, iou_threshold)
+
+
+def sweep_average_precision(
+    predictions: Sequence[dict],
+    targets: Sequence[dict],
+    *,
+    num_classes: int,
+    iou_thresholds: Sequence[float],
+    shapes: str = "boxes",
+) -> dict[int, dict[float, float | None]]:
+    """AP for every class at every threshold, overlapping each class **once**.
+
+    Returns ``{class_id: {threshold: ap_or_None}}`` with thresholds rounded to
+    four places, which is how :func:`detection_metrics` and
+    :func:`~visbench.metrics.instance.instance_metrics` key their lookups.
+
+    Calling :func:`average_precision` per class per threshold gives identical
+    numbers and recomputes every overlap once per threshold. For boxes that is
+    merely wasteful; for masks it is the difference between a usable metric and
+    an unusable one, so both mAP functions come through here. ``None`` is kept
+    distinct from ``0.0``: a class absent from the split has undefined AP and
+    must be excluded from the mean rather than dragging it down.
+    """
+    if len(predictions) != len(targets):
+        raise ValueError(
+            f"{len(predictions)} prediction entries against {len(targets)} target entries; "
+            "detections and objects are paired by image index."
+        )
+    kind = _resolve_shape_kind(shapes)
+    _refuse_the_other_geometry(predictions, targets, kind)
+    sweep = [round(float(threshold), 4) for threshold in iou_thresholds]
+    for threshold in sweep:
+        if not 0.0 < threshold <= 1.0:
+            raise ValueError(f"iou_thresholds must lie in (0, 1], got {threshold}")
+
+    per_class: dict[int, dict[float, float | None]] = {}
+    for class_id in range(num_classes):
+        matches = _class_matches(predictions, targets, class_id=class_id, kind=kind)
+        if matches is None:
+            per_class[class_id] = dict.fromkeys(sweep)
+        else:
+            per_class[class_id] = {
+                threshold: _ap_at_threshold(matches, threshold) for threshold in sweep
+            }
+    return per_class
 
 
 def detection_metrics(
@@ -309,16 +586,13 @@ def detection_metrics(
             "cannot be reported from it. Pass a sweep containing 0.5."
         )
 
-    # class -> threshold -> AP, keeping None (undefined) distinct from 0.0.
-    per_class: dict[int, dict[float, float | None]] = {}
-    for class_id in range(num_classes):
-        per_class[class_id] = {
-            round(float(threshold), 4): average_precision(
-                predictions, targets, class_id=class_id, iou_threshold=float(threshold)
-            )
-            for threshold in iou_thresholds
-        }
-
+    per_class = sweep_average_precision(
+        predictions,
+        targets,
+        num_classes=num_classes,
+        iou_thresholds=iou_thresholds,
+        shapes="boxes",
+    )
     scored = [class_id for class_id, values in per_class.items() if values[0.5] is not None]
 
     def mean_at(threshold: float) -> float:
@@ -335,20 +609,3 @@ def detection_metrics(
         "map_50_95": float(sum(mean_at(threshold) for threshold in sweep) / len(sweep)),
         "classes_scored": float(len(scored)),
     }
-
-
-def _as_tensor(value: object, dtype: torch.dtype) -> torch.Tensor:
-    """A 1-D tensor of ``dtype``, accepting a tensor, sequence or ``None``."""
-    if value is None:
-        return torch.zeros(0, dtype=dtype)
-    tensor = value if isinstance(value, torch.Tensor) else torch.as_tensor(value)
-    return tensor.reshape(-1).to(dtype)
-
-
-def _as_float_boxes(value: object) -> torch.Tensor:
-    """An ``(N, 4)`` float32 box tensor, accepting a tensor, sequence or ``None``."""
-    if value is None:
-        return torch.zeros((0, 4), dtype=torch.float32)
-    tensor = value if isinstance(value, torch.Tensor) else torch.as_tensor(value)
-    tensor = tensor.to(torch.float32).reshape(-1, 4)
-    return tensor
