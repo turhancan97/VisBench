@@ -223,29 +223,69 @@ def test_every_board_in_the_corpus_has_a_source(script):
 
 
 def test_sharing_images_is_not_what_makes_two_boards_agree(script):
-    """The VOC confound test, pinned as a finding.
+    """The VOC confound test, **reformulated at 14a-4 because the old one broke.**
 
-    `semantic_segmentation` and `generic_segmentation` read the *same 1449
-    images* at the same resolution through the same head; `detection` reads 600
-    different VOC frames. If shared pixels drove agreement, the identical-image
-    pair would be the strongest of the three VOC pairs. It is the weakest, and
-    `generic_segmentation`'s nearest neighbours are boards that read entirely
-    different datasets -- so the tier clustering is not an artefact of how the
-    corpus was assembled.
+    Until the seventeenth board there were two boards on the identical 1449
+    images and this test asserted two things: that their pair was the weakest of
+    the three VOC pairs, and that `generic_segmentation`'s nearest neighbour
+    read a different dataset. `instance_segmentation` reads those same 1449
+    images and agrees with `generic_segmentation` at **+0.909** -- its nearest
+    neighbour of all, and a VOC sibling. The second assertion failed, exactly as
+    its own message said it would, and "shared pixels drive agreement" was back
+    on the table.
+
+    It does not survive the numbers, and what replaces it is sharper. The three
+    same-image pairs span **+0.378 to +0.909** -- a range of 0.531, wider than
+    any source group's -- and the *lowest of all six* VOC pairs is a same-image
+    one (`instance_segmentation` / `semantic_segmentation`, +0.378). So reading
+    identical pixels is not sufficient. And `generic_segmentation` reaches
+    +0.881, +0.867 and +0.853 with three boards on three *other* datasets, so it
+    is not necessary either.
+
+    What the three same-image boards actually differ in is what they are
+    sensitive to: against feature grid they read +0.958, +0.902 and **+0.545**.
+    The two resolution-driven ones agree at +0.909; the one that is not agrees
+    with neither. That is consistent with the standing corpus finding that
+    feature resolution is the strongest correlate of every dense board, and with
+    `semantic_segmentation` being the board that ranks by neither objective nor
+    resolution.
+
+    Deliberately **not** asserted: that agreement is monotonic in the
+    grid-correlation gap. It is not -- `generic`/`semantic` differ by 0.413 and
+    agree at +0.538, while `instance`/`semantic` differ by 0.357 and agree at
+    +0.378 -- and pinning a mechanism this corpus cannot support is how the
+    previous formulation got itself retired.
     """
     boards = script.load_boards(script.CORPUS)
     pairs = script.agreement(boards)
-    same_images = pairs["generic_segmentation", "semantic_segmentation"]
-    assert same_images < pairs["detection", "semantic_segmentation"]
-    assert same_images < pairs["detection", "generic_segmentation"]
 
-    nearest = max(
-        (t for t in boards if t != "generic_segmentation"),
-        key=lambda t: pairs[tuple(sorted(("generic_segmentation", t)))],
+    def rho(a, b):
+        return pairs[tuple(sorted((a, b)))]
+
+    same = sorted(script.SAME_IMAGES & set(boards))
+    trio = [rho(a, b) for i, a in enumerate(same) for b in same[i + 1 :]]
+    assert len(trio) >= 3, "this finding needs at least three same-image boards"
+
+    # Not sufficient: identical pixels span most of the achievable range, and
+    # the weakest VOC pair of all is one of them.
+    assert max(trio) - min(trio) > 0.4, f"same-image pairs span only {max(trio) - min(trio):.3f}"
+    voc = sorted(t for t in boards if script.SOURCE_IMAGES[t] == "VOC")
+    voc_pairs = {(a, b): rho(a, b) for i, a in enumerate(voc) for b in voc[i + 1 :]}
+    weakest = min(voc_pairs, key=lambda k: voc_pairs[k])
+    assert set(weakest) <= script.SAME_IMAGES, (
+        f"the weakest VOC pair is {weakest}, which no longer reads identical images -- "
+        "the 'not sufficient' half of this finding needs re-deriving"
     )
-    assert script.SOURCE_IMAGES[nearest] != "VOC", (
-        f"generic_segmentation's nearest neighbour is {nearest}, which reads VOC too -- "
-        "the shared-images explanation would be back on the table"
+
+    # Not necessary: agreement at the same level is reached across datasets.
+    others = [
+        rho("generic_segmentation", t)
+        for t in boards
+        if t != "generic_segmentation" and script.SOURCE_IMAGES[t] != "VOC"
+    ]
+    assert max(others) > 0.8, (
+        f"generic_segmentation's best non-VOC partner is only {max(others):+.3f}; "
+        "shared pixels would then be the simplest explanation left"
     )
 
 

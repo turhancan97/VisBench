@@ -105,6 +105,9 @@ METRIC_DIRECTIONS: dict[str, Direction] = {
     # detection
     "map_50": "higher",
     "map_50_95": "higher",
+    "mask_map_50": "higher",
+    "mask_map_50_95": "higher",
+    "box_map_50": "higher",
 }
 
 #: Directions for metrics whose names carry a **parameter** after ``@``.

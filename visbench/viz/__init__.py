@@ -45,7 +45,7 @@ from visbench.viz.gallery import (
     vote_balance,
 )
 from visbench.viz.matches import draw_matches, error_coherence, render_match_panels
-from visbench.viz.panels import draw_boxes, render_panels, render_probe_panels
+from visbench.viz.panels import draw_boxes, draw_instances, render_panels, render_probe_panels
 from visbench.viz.styles import (
     COMPOSITE_KINDS,
     TARGET_STYLES,
@@ -68,6 +68,7 @@ __all__ = [
     "class_balance",
     "display_range",
     "draw_boxes",
+    "draw_instances",
     "draw_matches",
     "error_coherence",
     "render_match_panels",

@@ -44,7 +44,7 @@ extensions = [
 
 # Deliberately absent: sphinx.ext.autosectionlabel. Across 87 modules and 44
 # pages it produces duplicate-label warnings, and `-W` turns those fatal --
-# the sixteen probe pages alone share a "Data layout" heading.
+# the seventeen probe pages alone share a "Data layout" heading.
 
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 

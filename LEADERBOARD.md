@@ -303,6 +303,27 @@ Ordered by `top1`, which **disagrees with `top5`** — this task does not rank i
 
 <sub>fine_grained_classification on val/val, protocol=visbench_fine_grained_linear_probe, frozen [a10a2fcf]</sub>
 
+### instance_segmentation
+
+| backbone | `box_map_50` | `mask_map_50` | `mask_map_50_95` | `classes_scored` | `detections_per_image` |
+| --- | --- | --- | --- | --- | --- |
+| `dinov2_vitb14` | **0.3067** | **0.2861** | **0.1077** | 20 | 83.8226 |
+| `dinov2_vits14` | 0.2863 | 0.2696 | 0.0994 | 20 | 73.7081 |
+| `mae_vitb16` | 0.2974 | 0.2186 | 0.0779 | 20 | 54.1477 |
+| `dino_vitb16` | 0.2563 | 0.2122 | 0.0782 | 20 | 71.6674 |
+| `sam_vitb16` | 0.2518 | 0.2068 | 0.0704 | 20 | 57.7129 |
+| `clip_vitb16` | 0.2126 | 0.1805 | 0.0617 | 20 | 90.2740 |
+| `clip_vitb32` | 0.2340 | 0.1520 | 0.0448 | 20 | 87.7453 |
+| `siglip_vitb16` | 0.2087 | 0.1491 | 0.0386 | 20 | 99.9979 |
+| `supervised_vitb16` | 0.2051 | 0.1486 | 0.0454 | 20 | 91.0366 |
+| `resnet50` | 0.1796 | 0.0973 | 0.0235 | 20 | 59.5438 |
+| `resnet18` | 0.1600 | 0.0794 | 0.0193 | 20 | 64.9607 |
+| `convnext_base` | 0.1398 | 0.0713 | 0.0169 | 20 | 75.3741 |
+
+Ordered by `mask_map_50`, which **disagrees with `box_map_50`, `mask_map_50_95`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
+
+<sub>instance_segmentation on voc_instance/val, protocol=visbench_anchor_free_instance, frozen [ed4484fa]</sub>
+
 ### retrieval
 
 | backbone | `mAP` | `recall@1` | `recall@10` | `recall@5` |

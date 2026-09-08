@@ -94,7 +94,7 @@ class BaseHead(nn.Module, ABC):
         — so without this the rendered page ends with *"Initialize internal
         Module state, shared by both nn.Module and ScriptModule"*, inherited
         from :class:`torch.nn.Module`. Turning off
-        ``autodoc_inherit_docstrings`` would fix it and cost far more: sixteen
+        ``autodoc_inherit_docstrings`` would fix it and cost far more: seventeen
         probe classes rely on inheriting :class:`BaseTask`'s method
         documentation, and an un-inherited method is dropped from its page
         entirely rather than merely left undocumented.

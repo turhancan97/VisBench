@@ -2,7 +2,7 @@
 
 A probe. `BaseTask` is the whole interface — `fit`, `evaluate`, `predict`,
 `describe` — and everything else here exists because a *dense* probe needs far
-more than that and sixteen of them should not each reimplement it.
+more than that and seventeen of them should not each reimplement it.
 
 Subclass `DenseTrainingTask` for a new dense probe: it supplies feature sources
 (in-memory or streaming), batching, head construction, probe3d's optimiser

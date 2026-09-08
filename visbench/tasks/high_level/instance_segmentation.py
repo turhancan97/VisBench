@@ -55,21 +55,23 @@ from visbench.heads.base import build_head, get_head
 from visbench.heads.instance import InstanceHead
 from visbench.metrics.detection import COCO_IOU_THRESHOLDS, detection_metrics
 from visbench.metrics.instance import instance_metrics
+from visbench.registry import register_task
 from visbench.tasks.high_level.detection import DetectionTask
 from visbench.types import MetricsDict
 
 __all__ = ["InstanceSegmentationTask"]
 
 
+@register_task("instance_segmentation")
 class InstanceSegmentationTask(DetectionTask):
     """Anchor-free detection plus a linear mask readout, on frozen dense features.
 
-    Deliberately **not registered**. A probe *name* is load-bearing across a
-    dozen fixed tables — the CLI's ``SPECS``, ``HEADLINE_METRICS``,
-    ``TARGET_STYLES``, both corpus arrays, a gallery figure and a docs page —
-    and adding it belongs with the board that gives those tables something to
-    say (14a-4). Construct this class directly until then, as
-    ``RelativeDepthTask`` is.
+    Registered at 14a-4, alongside the board that gives its dozen fixed tables
+    something to say. The name is load-bearing in every one of them — the CLI's
+    ``SPECS``, ``HEADLINE_METRICS``, ``METRIC_DIRECTIONS``, ``TARGET_STYLES``,
+    both corpus arrays, a gallery figure and a docs page — which is why 14a-3
+    shipped the implementation unregistered rather than claiming a name it had
+    no board for.
 
     Parameters
     ----------

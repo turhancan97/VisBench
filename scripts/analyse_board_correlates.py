@@ -57,6 +57,7 @@ HEADLINE_METRICS: dict[str, str] = {
     "semantic_segmentation": "miou",
     "generic_segmentation": "iou",
     "detection": "map_50",
+    "instance_segmentation": "mask_map_50",
     "depth": "d1",
     "surface_normal": "mean",
     "edge": "edge_correlation",
@@ -130,14 +131,30 @@ STRUCTURE: dict[str, Structure] = {
 #: staged Taskonomy corner frames), so grouping on that would merge boards that
 #: share nothing.
 #:
-#: Only ``semantic_segmentation`` and ``generic_segmentation`` read the *same
-#: 1449 images*; the rest of a group shares a corpus, not a split. That
-#: distinction is what makes the VOC trio worth reading pair by pair rather
-#: than as a mean.
+#: **Three** boards read the *same 1449 images* —
+#: ``semantic_segmentation``, ``generic_segmentation`` and (since 14a-4)
+#: ``instance_segmentation``; ``detection`` reads ``ImageSets/Main``, which is
+#: four times larger. So the rest of a group shares a corpus, not a split, and
+#: that distinction is what makes the VOC group worth reading pair by pair
+#: rather than as a mean.
+#: The boards that read the *identical* 1449 images -- VOC's official
+#: ``ImageSets/Segmentation`` val split -- rather than merely the same corpus.
+#: ``detection`` is deliberately absent: it reads ``ImageSets/Main``, four times
+#: larger. Hand-written, like :data:`SOURCE_IMAGES`, and for the same reason:
+#: nothing in a record says which split list produced it.
+#:
+#: This was a hardcoded *pair* until 14a-4 added a third member, at which point
+#: the pair silently stopped covering the section it annotates -- two of the
+#: three same-image pairs would have printed unmarked.
+SAME_IMAGES: frozenset[str] = frozenset(
+    {"semantic_segmentation", "generic_segmentation", "instance_segmentation"}
+)
+
 SOURCE_IMAGES: dict[str, str] = {
     "semantic_segmentation": "VOC",
     "generic_segmentation": "VOC",
     "detection": "VOC",
+    "instance_segmentation": "VOC",
     "classification": "Imagenette",
     "scene_classification": "Places365",
     "fine_grained_classification": "CUB-200-2011",
@@ -369,15 +386,11 @@ def report_sources(boards: dict[str, dict[str, float]], levels: dict[str, str]) 
     print(f"  within any source   {sum(pooled) / len(pooled):+.3f}  ({len(pooled):2d} pairs)")
     print(f"  across sources      {sum(across) / len(across):+.3f}  ({len(across):2d} pairs)")
 
-    print("\n  the VOC trio, where two boards read the *same* 1449 images:")
+    print("\n  the VOC boards; three of them read the *same* 1449 images:")
     voc = sorted(t for t in boards if SOURCE_IMAGES[t] == "VOC")
     for i, a in enumerate(voc):
         for b in voc[i + 1 :]:
-            same = (
-                "<- same images"
-                if {a, b} == {"semantic_segmentation", "generic_segmentation"}
-                else ""
-            )
+            same = "<- same images" if {a, b} <= SAME_IMAGES else ""
             print(f"    {pairs[a, b]:+.3f}  {a} ({levels[a]}) / {b} ({levels[b]})  {same}")
 
     # The clincher, and the reason this section exists at all: rank the

@@ -112,6 +112,7 @@ PROBES=(
   semantic_segmentation
   generic_segmentation
   detection
+  instance_segmentation
   depth
   surface_normal
   edge

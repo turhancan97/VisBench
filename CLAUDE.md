@@ -90,7 +90,7 @@ step is next rather than attempting the whole roadmap in one session.
 | 14a-1 | Instance segmentation: the VOC dataset and its instance loader | done |
 | 14a-2 | Instance segmentation: mask AP, by making VOC's matching IoU-agnostic | done |
 | 14a-3 | Instance segmentation: the head, proved end to end on DINOv2-S | done |
-| 14a-4 | Instance segmentation: the 12-backbone board and the probe's own page | next |
+| 14a-4 | Instance segmentation: the 12-backbone board and the probe's own page | done |
 
 **A closed step's full write-up lives in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md), not here.** That file is the archive
@@ -135,11 +135,11 @@ precedent for shipping one: **v0.7.0** (contributor-facing) and **v0.16.0**
 (documentation). **v0.6.1** is the other one to know — it corrects a
 correspondence board that shipped ranked upside down; see step 6f.
 
-**The corpus file is 252 records resolving to 192 board cells** — sixteen
+**The corpus file is 264 records resolving to 204 board cells** — seventeen
 boards, twelve backbones a board. The two numbers differ because the corpus is
 **append-only** and 0.15.0 re-ran the five low-level boards for their
-`ceiling_*`; `latest_per_backbone` picks the newest. Quote 192 for coverage and
-252 only for the file, and re-read both off `LEADERBOARD.md` and `wc -l` rather
+`ceiling_*`; `latest_per_backbone` picks the newest. Quote 204 for coverage and
+264 only for the file, and re-read both off `LEADERBOARD.md` and `wc -l` rather
 than from here.
 
 Two standing consequences of that history, both of which have already cost a
@@ -160,15 +160,13 @@ further down this file — and the cheapest items there need no new dataset at
 all. **Two of those are done, and a third was built and rejected.**
 
 **Relative depth ordering was the last cheap candidate and it did not earn a
-board** (2026-09-04). It is the third rejection and **the first for failing to
-*rank* rather than for failing to be recoverable**: it cleared the oracle gate
-comfortably (94.0%) and then reproduced the `depth` board's ordering at
-Spearman **+1.000**, at 38% of its spread, with two backbones 0.0007 apart that
-`depth` separates by 0.0707. `RelativeDepthTask` is kept **unregistered** and
-its five records are a control, because the rejection is a finding about a
-board that ships — see `CORPUS_FINDINGS.md`. The transferable lesson is the new
-gauntlet rule in "decisions already paid for": **the oracle gate measures a
-ceiling and nothing measured the floor.**
+board** (2026-09-04). The third rejection and **the first for failing to *rank*
+rather than for failing to be recoverable**: it cleared the oracle gate at 94.0%
+and then reproduced the `depth` board's ordering at Spearman **+1.000**, at 38%
+of its spread, with two backbones 0.0007 apart that `depth` separates by 0.0707.
+`RelativeDepthTask` is kept **unregistered** and its five records are a control.
+The transferable lesson is the gauntlet's floor rule in "decisions already paid
+for": **the oracle gate measures a ceiling and nothing measured the floor.**
 
 **Three probes shipped after v0.11.0 and each has a 12-backbone board.** Their
 board readings are in [`CORPUS_FINDINGS.md`](CORPUS_FINDINGS.md) and their
@@ -223,9 +221,10 @@ metric ship, reproducing the published human ODS of 0.80 at **0.8030**, and the
 probe was **refused by the oracle gate** at a 0.4193 ODS ceiling against
 Canny's published 0.60, which removed the only reason to add BSDS rather than
 reuse `edge`. Its write-up and the two routes that could reopen it are in
-`visbench/tasks/low_level/README.md`. **Instance segmentation on VOC is the
-open line** (14a) and is the exception to "nothing cheap remains" — see its
-bullet below. Re-confirm what is wanted before starting anything; do not assume
+`visbench/tasks/low_level/README.md`. **Instance segmentation on VOC shipped**
+(14a-1 to 14a-4, 2026-09-08) as the seventeenth probe and board; it was the
+exception to "nothing cheap remains" and is now closed, leaving **no open
+candidate line**. Re-confirm what is wanted before starting anything; do not assume
 this order is a plan. **The one thread that was open — why `detection`
 alone fails to reproduce — is closed**: it is GPU non-determinism made visible
 by a discrete metric, it was never a bug, and detection reproduces to *three*
@@ -280,12 +279,12 @@ backbones  dinov2_vits14, dinov2_vitb14, clip_vitb16, clip_vitb32,
 probes     classification, scene_classification,
            fine_grained_classification, retrieval, correspondence,
            depth, surface_normal, generic_segmentation, semantic_segmentation,
-           similarity, detection, edge, keypoints2d, occlusion_edge, corner,
-           orientation
-heads      linear, dpt, detection
+           similarity, detection, instance_segmentation, edge,
+           keypoints2d, occlusion_edge, corner, orientation
+heads      linear, dpt, detection, instance
 ```
 
-The CLI exposes all sixteen probes: `visbench list`, `visbench run <probe>`,
+The CLI exposes all seventeen probes: `visbench list`, `visbench run <probe>`,
 `visbench cache stats|clear`, plus `visbench demo` (7a) and **`visbench show
 <probe>` (9a)**. A test asserts the CLI's table and `list_probes()` are the same
 set, so a probe cannot ship unreachable from a shell by accident. Since 9c
@@ -342,12 +341,11 @@ record in the log.
 **Two corrections came out of verifying it**, both the same shape — a claim
 that was checkable and was asserted instead — and both fully recorded in the
 log. The transferable halves: **read Zenodo's API before claiming an archive is
-wrong** (the `CITATION.cff` drift reached GitHub's cite button and *no* archive,
-because `.zenodo.json` is preferred, so a divergence between those two files is
-half wrong and half fine depending on the consumer); and **when a docstring
-states a property as absolute, check whether the test states it that way too,
-and prefer the test's wording** (the depth ramp's luminance is non-decreasing,
-never "strictly monotonic" — corrected on `main` 2026-09-08).
+wrong** (a `CITATION.cff`/`.zenodo.json` divergence is half wrong and half fine,
+because Zenodo prefers the latter and GitHub's cite button the former); and
+**when a docstring states a property as absolute, check whether the test states
+it that way too, and prefer the test's wording** (the depth ramp's luminance is
+non-decreasing, never "strictly monotonic").
 
 Every release from v0.6.0 onward is recorded paragraph by paragraph in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md) under "Release history" — byte
@@ -514,7 +512,7 @@ visbench/
                  high_level/  classification, retrieval, semantic_segmentation,
                               detection (anchor-free, single-scale, 6c-3),
                               instance_segmentation (DetectionTask + RoIAlign +
-                                a mask BCE; UNREGISTERED until 14a-4)
+                                a mask BCE; 14a-4)
                  mid_level/   correspondence, depth, surface_normal,
                               generic_segmentation, similarity, occlusion_edge
                  low_level/   edge (6d-1), keypoints (Keypoint2DTask, 6d-2),
@@ -526,7 +524,8 @@ visbench/
                    one row per drawable probe, style_for() raises otherwise)
                  colour.py (DisplayRange/display_range, target_to_rgb,
                    voc_palette, INVALID_RGB — pure, no I/O)
-                 panels.py (render_probe_panels, render_panels, draw_boxes —
+                 panels.py (render_probe_panels, render_panels, draw_boxes,
+                   draw_instances (one colour per instance, magenta = VOC void) —
                    pastes at the dataset's own resolution, never resizes; 9a)
                  matches.py (render_match_panels, draw_matches, error_coherence
                    — the pair renderer; two views and the errors between; 9b)
@@ -796,45 +795,28 @@ designed up front; extend it the same way, from a case that already runs.
 
 - **`run()` seeds before it constructs a *name*, so a `CustomBackbone` is
   constructed outside the seeded window — and that makes it more reproducible,
-  not less** (`examples/custom_backbone.py`, 2026-08-19). The standing bullet
-  below says to pass a backbone's name and take the object back off
-  `RunResult.backbone`. On the custom path that advice is unavailable: a
-  registry name cannot carry an `nn.Module`, so the caller must construct.
-
-  Measured on generated data with features that are **bit-identical** (max
-  absolute difference 0.0), classification top-1:
-
-  | path | seeds 0-4 | spread |
-  | --- | --- | --- |
-  | `CustomBackbone` | 0.9125 0.9125 0.9125 0.9187 0.9125 | 0.0062 |
-  | `run("resnet18")` | 0.9062 0.9125 0.9062 0.9062 0.9125 | 0.0063 |
-
-  **The wrapped path is perfectly reproducible**, and unchanged by RNG consumed
-  before `run()` is called — because construction happens *before* `set_seed`
-  rather than after it, so nothing the caller did can reach the head. The
-  between-path gap of 0.0062 is **the same size as each path's own seed-to-seed
-  spread**, so it is jitter rather than a cost of wrapping. Zero-shot probes are
-  identical bit for bit (retrieval 0.603730 both), since no head is fitted.
-
-  So a wrapped model's trained number is comparable with another number from the
-  same wrapped model, and not with a registered backbone's to the last decimal.
-  **Do not read this as "the custom path is unreliable"** — that is the
-  intuition it was written to correct.
+  not less** (`examples/custom_backbone.py`, 2026-08-19). On the custom path the
+  standing "pass the name" advice is unavailable: a registry name cannot carry an
+  `nn.Module`, so the caller must construct. Measured on bit-identical features,
+  classification top-1 over seeds 0-4: the wrapped path spreads 0.0062 and
+  `run("resnet18")` spreads 0.0063 — **the wrapped path is perfectly
+  reproducible** and unchanged by RNG consumed before `run()`, because
+  construction happens *before* `set_seed` rather than after it. The
+  between-path gap is the same size as each path's own seed-to-seed spread, so
+  it is jitter rather than a cost of wrapping; zero-shot probes are identical bit
+  for bit. So a wrapped model's number is comparable with another from the same
+  wrapped model, and not with a registered backbone's to the last decimal. **Do
+  not read this as "the custom path is unreliable"** — that is the intuition it
+  was written to correct.
 
 - **`dgx1` was degraded on 2026-08-19 and it does not fail like a broken node**
-  (found while running 10c). A job submitted there hung for 30 minutes with no
-  output and no error; the first read was that the new backbone was broken.
-  `mae_vitb16` — which had run fine five days earlier — hung identically, and
-  forcing HF offline changed nothing, which ruled out both the registration and
-  the network. `python -X importtime` is what named it: on dgx1 **`import torch`
-  spends 1–1.6 seconds per submodule** and never finishes inside 300 s, while
-  dgx2 imports the same venv in 2.4 s. Nothing in Slurm reports the node as
-  unhealthy, so it accepts work and starves it.
-
-  Submit with **`--exclude=dgx1`** until this clears, and when a job on this
-  cluster hangs with an empty log, time an `import torch` on the node before
-  suspecting the code. The venv is still only valid on `dgx1`/`dgx2`, so the
-  usable set is currently one node.
+  (found while running 10c). It accepts work and starves it: `import torch`
+  spends 1-1.6 s *per submodule* there and never finishes inside 300 s, while
+  dgx2 imports the same venv in 2.4 s. Nothing in Slurm reports it unhealthy, so
+  a job hangs with an empty log and the first read is that your new code is
+  broken. **Submit with `--exclude=dgx1`**, and when a job on this cluster hangs
+  with no output, time an `import torch` on the node before suspecting the code.
+  The venv is only valid on `dgx1`/`dgx2`, so the usable set is one node.
 
 - **The corpus matrix is defined in two files, and one of them was short by a
   probe for a whole release** (10b). `slurm/corpus.sbatch`'s `PROBES` had twelve
@@ -916,11 +898,14 @@ designed up front; extend it the same way, from a case that already runs.
   behind `LinearHead` and `hidden_dim=0`. Class-**agnostic**, one channel: the
   class is already decided by the detection branch.
 
-  **Proved on DINOv2-S over VOC val**: `mask_map_50` **0.2641**,
-  `box_map_50` 0.2847, `train_mask_loss` 0.4719 — so 40% of the 0.6666 oracle,
-  which is the fraction `keypoints2d` reaches and CLAUDE.md already notes ranks
-  backbones fine. Whether it *ranks* is 14a-4's question, not answerable from
-  one backbone.
+  **Registered at 14a-4, and the board ranks**: spread **0.2148** on
+  `mask_map_50` over twelve backbones, `dinov2_vitb14` 0.2861 to
+  `convnext_base` 0.0713, reproducing no other board's ordering (0 of 136
+  pairs). Only `siglip_vitb16`/`supervised_vitb16` are inseparable (0.0005), so
+  **quote it to three decimals** like `detection`. 14a-3's proof run reported
+  0.2641 for DINOv2-S against the board's **0.2696** — the example constructs
+  the backbone itself and `run()` seeds before constructing from a name, the
+  documented RNG path difference. The board is the number to quote.
 
   Four things not to re-derive:
 
@@ -947,69 +932,75 @@ designed up front; extend it the same way, from a case that already runs.
   said "~5 MB", which was per-image arithmetic labelled as a total; check a
   memory claim by multiplying it out.
 
+- **`instance_segmentation` is a high-level board whose four strongest partners
+  are all mid-level — and the mask branch is not why** (14a-4). Mean rho
+  +0.821 against mid-level, **+0.238 against its own tier**: `occlusion_edge`
+  +0.958, `surface_normal` +0.930, `generic_segmentation` +0.909, `depth`
+  +0.902, against `semantic_segmentation` +0.378 and `retrieval` −0.217. The
+  sharpest case yet of `high_level` being a folder rather than a quantity.
+
+  **The obvious explanation was checked and is wrong.** "Mask AP measures
+  outlines, so it ranks with geometry" predicts the box half ranking elsewhere;
+  the record carries `box_map_50` from the same runs and the two halves agree at
+  **+0.986**, both topped by `occlusion_edge`. The box half alone ranks with the
+  geometry cluster while inheriting every line from `detection`, whose board
+  sits at +0.804 with `semantic_segmentation`. What is left is the **data** —
+  `ImageSets/Segmentation` entire against `ImageSets/Main` at `--limit 600` —
+  and the control that would separate "which images" from "how many" is named in
+  `CORPUS_FINDINGS.md` rather than run. The transferable claim is the negative
+  one: **two probes sharing an implementation and a dataset family can rank
+  differently, and the output type is not what does it.**
+
+  **It also retired an already-published finding's argument.** "The board
+  clustering is not an artefact of shared datasets" rested on there being two
+  boards on the identical 1449 VOC images, whose pair was the weakest of three;
+  this probe is a third, and it is `generic_segmentation`'s **nearest neighbour
+  of all** at +0.909. The conclusion survives on different evidence — the three
+  same-image pairs span +0.378 to +0.909 and the weakest of all six VOC pairs is
+  a same-image one, so identical pixels are neither sufficient nor necessary —
+  and the test that pinned the old form failed exactly as its message predicted.
+  See `CORPUS_FINDINGS.md`; do not quote the old ordering.
+
 - **Mask AP is the detection protocol with the overlap swapped, and the
   sharing is enforced by a listed table** (14a-2). `average_precision` takes
   `shapes="boxes"|"masks"`, keys of `SHAPE_KINDS`, and reads the annotation key,
-  the coercion and the overlap from that row — so `VOCevaldet.m`'s matching
-  (best-overlap first, state consulted second, **no fallback to the
-  second-best**) has one implementation rather than two. A parallel mask
-  matcher would be the duplicated-`_row` failure on a number instead of a
-  picture, and its AP would not be comparable with this codebase's own box AP.
+  the coercion and the overlap from that row — so `VOCevaldet.m`'s matching has
+  one implementation rather than two, and mask AP is comparable with this
+  codebase's own box AP. **The guard is the point of the table**: annotations
+  carrying the *other* geometry are refused by name, because masks scored as
+  boxes read an absent key, coerce to empty and report **0.0** — a silent wrong
+  number that looks like a detector finding nothing.
 
-  **The guard is the point of the table.** Annotations carrying the *other*
-  geometry are refused by name; without that, masks scored as boxes read an
-  absent key, coerce to empty and report **0.0** — a silent wrong number that
-  looks like a detector finding nothing. An annotation carrying *both* is
-  accepted, because `VOCInstanceDataset.target` returns masks and derived boxes
-  together and that is the ordinary case.
-
-  **Box AP is bit-identical after the refactor**, checked rather than assumed:
-  4800 values over 400 random splits against the pre-refactor implementation,
-  **exact** equality, twice — once after the geometry seam and again after the
-  sweep split. `detection` is a published board; "the tests still pass" is not
-  the same claim.
-
-  **The sweep is an optimisation, not an approximation.** The best-matching
-  shape and its overlap do not depend on the threshold — the `argmax` precedes
-  every comparison — so `sweep_average_precision` overlaps **once per class**
-  and re-tallies per threshold with a fresh `claimed` state. That took mask mAP
-  over VOC val from unusable (20 classes x 10 thresholds recomputing every
-  224x224 IoU) to **7 seconds**. A test asserts the swept and naive paths agree
-  exactly, on both geometries, because the reasoning is worth only as much as
-  that equality.
-
-  **Calibration: 1.0000 on perfect predictions**, on real VOC val and in the
-  fast suite, which is what makes any lower number attributable to a probe. The
-  oracle at a 16x16 grid is **mask mAP@50 0.6666**, `mask_map_50_95` 0.4550.
-  Keys are prefixed `mask_` so they can never sit in a flat metrics dict beside
-  detection's `map_50` meaning something else. The sharpest test is that
-  **rectangle masks score exactly as their boxes** — a rectangle's pixel IoU
-  *is* its half-open box IoU — so any divergence between the two paths fails on
-  a number.
+  Three things not to re-derive. **Box AP is bit-identical after the refactor**,
+  checked over 4800 values on 400 random splits, twice — `detection` is a
+  published board and "the tests still pass" is not that claim. **The sweep is
+  an optimisation, not an approximation**: the best-matching shape and its
+  overlap do not depend on the threshold, so `sweep_average_precision` overlaps
+  once per class and re-tallies per threshold, which took mask mAP over VOC val
+  from unusable to 7 seconds; a test pins the swept and naive paths equal on
+  both geometries. And **rectangle masks score exactly as their boxes** — a
+  rectangle's pixel IoU *is* its half-open box IoU — so any divergence between
+  the two paths fails on a number. Calibrated at **1.0000** on perfect
+  predictions; the 16x16 oracle is mask mAP@50 **0.6666**. Keys are prefixed
+  `mask_` so they cannot sit beside detection's `map_50` meaning something else.
 
 - **Instance segmentation is feasible on VOC and not on COCO, and the deciding
-  number is grid collisions** (14a-1). VOC2012's `SegmentationObject` ships
-  2913 instance masks on the *same* official 1464/1449 splits the
-  `semantic_segmentation` board reads. Measured over all 1449 val images at a
-  16x16 grid: median instance **16.92 patches** against COCO's 2.27, and **zero
-  of 3207 instance pairs share a grid cell**. That last one is what makes a
-  per-patch head viable — no patch is contested — even though the instance
-  *index* is only annotation order and can never be a stable output channel.
-  Ceiling and floor, from a mask-AP harness calibrated at exactly 1.0000 on
-  perfect predictions: **oracle mask mAP@50 0.6666** at 16x16 against a
-  connected-components floor of **0.1376 mean IoU**, which over-segments 3207
-  instances into 21819 components. `CORPUS_FINDINGS.md` is not involved yet —
-  there is no board until 14a-4.
+  number is grid collisions** (14a-1). At a 16x16 grid the median VOC instance
+  covers **16.92 patches** against COCO's 2.27, and **zero of 3207 val instance
+  pairs share a grid cell** — no patch is contested, which is what makes a
+  per-patch head viable. The instance *index* is only annotation order and can
+  never be a stable output channel. Oracle mask mAP@50 **0.6666** against a
+  connected-components floor of 0.1376 mean IoU. VOC2012 ships those masks on
+  the *same* official 1464/1449 splits `semantic_segmentation` reads.
 
   Three things the loader must keep doing, each silent when wrong. **An
   instance's class comes from `SegmentationClass` at that instance's pixels and
-  the lookup is EXACT, not a vote** — all 6934 instances in train and val carry
-  exactly one class at purity 1.000000, so a mixed instance means the two files
-  disagree and `target()` raises. **The class is read before the crop**, so an
-  instance cropped away resolves and is dropped rather than raising for having
-  no semantic pixels. And **boxes are derived from the cropped mask**, which
-  deletes the rescale-and-shift hazard `data/detection.py` exists to guard
-  rather than re-testing it.
+  the lookup is EXACT, not a vote** — all 6934 instances carry one class at
+  purity 1.000000, so a mixed instance means the two files disagree and
+  `target()` raises. **The class is read before the crop**, so an instance
+  cropped away resolves and is dropped rather than raising. And **boxes are
+  derived from the cropped mask**, which deletes the rescale-and-shift hazard
+  `data/detection.py` guards rather than re-testing it.
 
 - **Every dense target sits a sub-pixel from its image, in the shipped
   loaders** (found in 14a-1, not fixed). `DenseFolderDataset` resamples targets
@@ -1586,16 +1577,14 @@ designed up front; extend it the same way, from a case that already runs.
 - **The docs gallery is real photographs, and the licence rule that made it
   generated was satisfied by better sourcing rather than waived** (9d, replaced
   2026-08-19). **VOC, ImageNet, NYUv2, Taskonomy and NIGHTS all restrict
-  redistribution and appear nowhere in this repository** — committing their
-  frames would put third-party imagery in an MIT package. Open Images'
-  validation split is CC BY 2.0 for all 41,620 images, so
-  `scripts/fetch_gallery_frames.py` reads from there, the frames are committed
-  (`assets/gallery_frames/`, 1.5 MB) and **the licence is verified per frame
-  rather than inherited** — an allowlist at fetch time, and a refusal for any
-  frame with no author or landing page, since an unattributable CC BY image is
-  one this repo may not redistribute. `CREDITS.md` is generated beside them and
-  `tests/test_gallery_licences.py` fails on an uncredited photograph, because CC
-  BY compliance rots silently: the page renders correctly either way.
+  redistribution and appear nowhere in this repository.** Open Images'
+  validation split is CC BY 2.0, so `scripts/fetch_gallery_frames.py` reads from
+  there, the frames are committed (`assets/gallery_frames/`, 1.5 MB) and **the
+  licence is verified per frame rather than inherited** — with a refusal for any
+  frame lacking an author or landing page, since an unattributable CC BY image
+  is one this repo may not redistribute. `CREDITS.md` is generated beside them
+  and a test fails on an uncredited photograph, because CC BY compliance rots
+  silently: the page renders correctly either way.
 
   **Four probes cannot have a target column and must not be given one.**
   `depth`, `surface_normal`, `keypoints2d` and `occlusion_edge` need sensor or
@@ -1604,27 +1593,24 @@ designed up front; extend it the same way, from a case that already runs.
   invented middle column would teach the wrong convention to exactly the reader
   who came to learn it. Two details cost an attempt each: a trained head's
   `output_size` is **fitted state**, so these emit 224x224 whatever they are fed
-  and the figure must be rendered at 224 or the panels differ in size *and*
-  framing; and they are drawn on **interiors**, since the heads were fitted on
-  NYUv2 rooms.
+  and the figure must be rendered at 224; and they are drawn on **interiors**,
+  since the heads were fitted on NYUv2 rooms.
 
   **The figures live under `docs/_static/`, not `assets/`** — Sphinx cannot
   follow a relative path escaping its source tree and MyST does not warn, so
   `-W` would not catch `../assets/...`; the site would simply have holes. The
-  README points at the same files through `raw.githubusercontent.com`, per the
-  absolute-URL rule. They are excluded from the sdist, which they would
-  otherwise nearly triple.
+  README points at the same files through `raw.githubusercontent.com`. They are
+  excluded from the sdist, which they would otherwise nearly triple.
 
   **Every gallery bug so far was found by looking at the output, never by a
-  test** — four of them, the last two years apart. A `(H, W)` validity mask
-  against a `(3, H, W)` target; a ragged final row; a footer running off the
-  page and truncating the *legend*; and the four prediction-only figures
-  captioning each row `str(index)` while computing a `DisplayRange` one line
-  above, so a greyscale depth page stated no range at all and never named the
-  **feature grid**, making a 16x16 map stretched to 224 read as a broken head.
-  **When a page cannot be rendered in the fast suite, make what it *says* a
-  pure function** — `frame_stem`/`frame_label` in `panels.py`, shared by both
-  pages so they cannot drift again.
+  test** — five of them now, the newest being an instance colour that blended
+  into the magenta invalid marker (14a-4). The earlier four: a `(H, W)` mask
+  against a `(3, H, W)` target; a ragged final row; a footer that truncated the
+  *legend*; and four prediction-only figures captioning each row `str(index)`
+  while computing a `DisplayRange` one line above, so a depth page stated no
+  range and never named the **feature grid**. **When a page cannot be rendered
+  in the fast suite, make what it *says* a pure function** — `frame_stem`/
+  `frame_label` in `panels.py`, shared by both pages so they cannot drift again.
 
 - **`show` and `run` compose their flags from one callable, and that is a
   correctness property rather than tidiness** (9a). `ProbeSpec.show_arguments`
@@ -1859,10 +1845,10 @@ the measurement behind it, under the step named in brackets.**
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite **collects 2050 tests** and the **115 slow ones** were green on
+fast suite **collects 2071 tests** and the **115 slow ones** were green on
 `main` on 2026-09-05 (113 passed, 2 skipped), along with all three lint steps,
-mypy and the `-W` docs build. Earlier fast counts, for dating a claim: 2012 at
-the mask-AP metric, 1983 at the VOC instance dataset, 1950 at
+mypy and the `-W` docs build. Earlier fast counts, for dating a claim: 2050 at the
+instance head, 2012 at the mask-AP metric, 1983 at the VOC instance dataset, 1950 at
 the monotonic-wording fix, 1933 at the 0.16.0 release, 1930 at the docs
 redesign, 1920 after the relative-depth rejection, 1879 at the 0.15.0 release,
 1824 at the oracle gate.
@@ -2270,7 +2256,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 2050 fast tests
+pytest                                              # 2071 fast tests
 pytest -m slow                                      # 115, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/

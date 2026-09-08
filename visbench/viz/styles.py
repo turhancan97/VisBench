@@ -54,6 +54,7 @@ Kind = Literal[
     "binary",
     "labels",
     "boxes",
+    "instances",
     "matches",
     "sheet",
     "ranking",
@@ -170,6 +171,15 @@ TARGET_STYLES: dict[str, TargetStyle] = {
         invalid=None,
         note="boxes are post-transform pixels, drawn on the crop the probe saw",
     ),
+    "instance_segmentation": TargetStyle(
+        kind="instances",
+        invalid=None,
+        note=(
+            "one colour per instance, arbitrary and NOT matched between panels -- an "
+            "instance index is only annotation order; the class is the text, the box is "
+            "the outline; magenta is VOC's void, which the loss weights to zero"
+        ),
+    ),
     "correspondence": TargetStyle(
         kind="matches",
         invalid=None,
@@ -205,7 +215,9 @@ TARGET_STYLES: dict[str, TargetStyle] = {
 #: Kinds that are not a panel beside their image, and are drawn by their own
 #: renderer instead. Listed so a caller can ask before reaching for
 #: :func:`~visbench.viz.colour.target_to_rgb`, which refuses both by name.
-COMPOSITE_KINDS: frozenset[str] = frozenset({"boxes", "matches", "sheet", "ranking", "triplet"})
+COMPOSITE_KINDS: frozenset[str] = frozenset(
+    {"boxes", "instances", "matches", "sheet", "ranking", "triplet"}
+)
 
 
 class UnknownTargetStyle(KeyError):

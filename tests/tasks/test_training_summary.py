@@ -31,6 +31,7 @@ ZERO_SHOT = {"retrieval", "correspondence", "similarity"}
 REQUIRED_KWARGS: dict[str, dict] = {
     "semantic_segmentation": {"num_classes": 3},
     "detection": {"num_classes": 3},
+    "instance_segmentation": {"num_classes": 3},
 }
 
 

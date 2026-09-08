@@ -20,9 +20,9 @@
 
 ---
 
-> **Status: v0.16.1.** Sixteen probes across high, mid and low level, thirteen
-> backbones from three families, and a committed corpus covering **192 board
-> cells** — sixteen boards, twelve backbones each, every one of them
+> **Status: v0.16.1.** Seventeen probes across high, mid and low level, thirteen
+> backbones from three families, and a committed corpus covering **204 board
+> cells** — seventeen boards, twelve backbones each, every one of them
 > reproducible from the flags in its own record. The full
 > documentation, including a generated API reference, is at
 > **[https://turhancan97.github.io/VisBench](https://turhancan97.github.io/VisBench/)**.
@@ -140,7 +140,7 @@ both are obvious in one frame.
 
 Every probe is drawable, and every figure here is a real photograph run through
 the real command — see [looking at a probe](https://turhancan97.github.io/VisBench/guides/visualising.html) for all
-sixteen and how to read them.
+seventeen and how to read them.
 
 ## Task levels
 
@@ -211,7 +211,7 @@ in [`uv.lock`](https://github.com/turhancan97/VisBench/blob/main/uv.lock), and C
 **Before quoting any board**, read
 [how to read one](https://turhancan97.github.io/VisBench/guides/reading-a-board.html). The short version: "which
 backbone is best" is not a well-formed question against this corpus —
-`mae_vitb16` is first on six of the sixteen boards and last on four.
+`mae_vitb16` is first on six of the seventeen boards and last on four.
 
 ## Prior art
 

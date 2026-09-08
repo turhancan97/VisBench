@@ -2,7 +2,7 @@
 
 ``CustomBackbone`` is the escape hatch: any ``nn.Module`` you already have — a
 fine-tuned checkpoint, an architecture from a paper's repo, something you
-trained yourself — probed by the same thirteen probes as DINOv2 and CLIP, with
+trained yourself — probed by the same seventeen probes as DINOv2 and CLIP, with
 no addition to this package.
 
 Run it with no arguments at all::

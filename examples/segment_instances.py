@@ -53,11 +53,20 @@ pixels in post-transform space, so two different values put every cell centre
 and every pasted mask at the wrong coordinate — and the run trains, scores
 badly, and reads as a weak backbone.
 
-This probe is **not registered**, so there is no
-``visbench.get_probe("instance_segmentation")`` and no ``visbench run``
-subcommand yet. A probe name is load-bearing across a dozen fixed tables and
-adding it belongs with the board that gives them something to say (14a-4).
-Until then it is constructed directly, which is what this script shows.
+**This script and the published board differ in the third decimal, and the
+board is the number to quote.** The probe is registered as of 14a-4, so
+``visbench run instance_segmentation`` exists and is what built the corpus.
+This script constructs the backbone itself — the house style for every
+``examples/`` script here, because it prints things about the object — and
+``run()`` seeds *before* it constructs one from a name, so the two paths fit
+the head from different RNG states. Measured on DINOv2-S: **0.2641** here
+against **0.2696** on the board, every recorded field identical. Neither is
+wrong; they are not comparable to the last decimal, and the board is the one
+with twelve backbones beside it.
+
+The CLI also takes ``--data`` as the ``VOCdevkit/VOC2012`` directory itself,
+matching ``detection`` and ``semantic_segmentation``, where this script takes
+its parent and appends the rest.
 """
 
 import argparse
