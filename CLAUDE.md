@@ -88,8 +88,8 @@ step is next rather than attempting the whole roadmap in one session.
 | 12a-3 | BSDS500: the probe — **refused by the oracle gate**, line closed | n/a |
 | 13a | The documentation site restructured: guides, 16 probe pages, an API reference | done |
 | 14a-1 | Instance segmentation: the VOC dataset and its instance loader | done |
-| 14a-2 | Instance segmentation: mask AP, by making VOC's matching IoU-agnostic | next |
-| 14a-3 | Instance segmentation: the head, proved end to end on DINOv2-S | |
+| 14a-2 | Instance segmentation: mask AP, by making VOC's matching IoU-agnostic | done |
+| 14a-3 | Instance segmentation: the head, proved end to end on DINOv2-S | next |
 | 14a-4 | Instance segmentation: the 12-backbone board and the probe's own page | |
 
 **A closed step's full write-up lives in
@@ -485,6 +485,9 @@ visbench/
   heads/         base.py (register_head/build_head), linear.py, dpt.py,
                  detection.py (DetectionHead — cls + box branches, focal prior)
   metrics/       classification, retrieval, correspondence, similarity,
+                 instance.py (instance_metrics -> mask_map_50/mask_map_50_95,
+                   mask_average_precision, masks_from_instance_map — the
+                   DETECTION protocol with the overlap swapped, 14a-2)
                  boundary.py (BSDS500's ODS/OIS/AP — thin_boundaries,
                    correspond_pixels (exact min-cost max-cardinality;
                    sparse, pads the SMALLER side), image_counts,
@@ -493,8 +496,10 @@ visbench/
                  (+ magnitude_metrics — per-image Pearson, masks NaN;
                     edge_metrics is it under the published key;
                     orientation_metrics — coherence-weighted angular error, deg)
-                 detection.py (box_iou, average_precision, detection_metrics —
-                   VOC protocol, dataset-level, difficult ignored not dropped)
+                 detection.py (box_iou + mask_iou, average_precision(shapes=),
+                   sweep_average_precision, detection_metrics — VOC protocol,
+                   dataset-level, difficult ignored not dropped. SHAPE_KINDS is
+                   the listed geometry table the matcher reads; 14a-2)
   tasks/         base.py (BaseTask)
                  dense_base.py (DenseTrainingTask — shared by every dense probe;
                    pool_to_grid + evaluate_oracle — the recoverability gate,
@@ -896,6 +901,46 @@ designed up front; extend it the same way, from a case that already runs.
   figure later. It is per figure now (`MAX_FIGURE_BYTES`), with the total scaled
   by `len(list_probes())`. **Raising a budget to make a guard pass is usually
   wrong; check first whether the budget was measuring the right thing.**
+- **Mask AP is the detection protocol with the overlap swapped, and the
+  sharing is enforced by a listed table** (14a-2). `average_precision` takes
+  `shapes="boxes"|"masks"`, keys of `SHAPE_KINDS`, and reads the annotation key,
+  the coercion and the overlap from that row — so `VOCevaldet.m`'s matching
+  (best-overlap first, state consulted second, **no fallback to the
+  second-best**) has one implementation rather than two. A parallel mask
+  matcher would be the duplicated-`_row` failure on a number instead of a
+  picture, and its AP would not be comparable with this codebase's own box AP.
+
+  **The guard is the point of the table.** Annotations carrying the *other*
+  geometry are refused by name; without that, masks scored as boxes read an
+  absent key, coerce to empty and report **0.0** — a silent wrong number that
+  looks like a detector finding nothing. An annotation carrying *both* is
+  accepted, because `VOCInstanceDataset.target` returns masks and derived boxes
+  together and that is the ordinary case.
+
+  **Box AP is bit-identical after the refactor**, checked rather than assumed:
+  4800 values over 400 random splits against the pre-refactor implementation,
+  **exact** equality, twice — once after the geometry seam and again after the
+  sweep split. `detection` is a published board; "the tests still pass" is not
+  the same claim.
+
+  **The sweep is an optimisation, not an approximation.** The best-matching
+  shape and its overlap do not depend on the threshold — the `argmax` precedes
+  every comparison — so `sweep_average_precision` overlaps **once per class**
+  and re-tallies per threshold with a fresh `claimed` state. That took mask mAP
+  over VOC val from unusable (20 classes x 10 thresholds recomputing every
+  224x224 IoU) to **7 seconds**. A test asserts the swept and naive paths agree
+  exactly, on both geometries, because the reasoning is worth only as much as
+  that equality.
+
+  **Calibration: 1.0000 on perfect predictions**, on real VOC val and in the
+  fast suite, which is what makes any lower number attributable to a probe. The
+  oracle at a 16x16 grid is **mask mAP@50 0.6666**, `mask_map_50_95` 0.4550.
+  Keys are prefixed `mask_` so they can never sit in a flat metrics dict beside
+  detection's `map_50` meaning something else. The sharpest test is that
+  **rectangle masks score exactly as their boxes** — a rectangle's pixel IoU
+  *is* its half-open box IoU — so any divergence between the two paths fails on
+  a number.
+
 - **Instance segmentation is feasible on VOC and not on COCO, and the deciding
   number is grid collisions** (14a-1). VOC2012's `SegmentationObject` ships
   2913 instance masks on the *same* official 1464/1449 splits the
@@ -1418,52 +1463,32 @@ designed up front; extend it the same way, from a case that already runs.
   and the prediction column otherwise had no CLI-producible input.
   `correspondence` was out of scope for 9a and is covered by 9b, below.
 
-- **The three probes with no spatial target draw their *decision*, and each
-  states the diagnostic its own history calls for** (9c). `classification`,
-  `retrieval` and `similarity` have nothing to lay beside the image at the same
-  resolution, which is why they were skipped in 9a. What they have is a choice —
-  which class, which neighbours, which candidate — and drawing it closes the
-  last gap: `show_probes() == list_probes()` is now asserted, so a new probe
-  cannot ship undrawable.
+- **The three probes with no spatial target draw their *decision*** (9c).
+  `classification`, `retrieval` and `similarity` have nothing to lay beside the
+  image, so they draw the choice — which class, which neighbours, which
+  candidate — and `show_probes() == list_probes()` is asserted, so a new probe
+  cannot ship undrawable. Four rules survive from it:
 
-  **`class_balance` is the prefix bug as a figure.** `subset(n)` on a labelled
-  folder takes a prefix and the file list is grouped by class, so an Imagenette
-  prefix is entirely class 0 and the run scores 1.0 while measuring nothing —
-  which is why `balanced_subset` exists. The footer reads `1 class, ... any
-  score here is an artefact` whichever frames were drawn, so the diagnosis does
-  not depend on the sample. **Frames are therefore picked spread across the
-  split for the class-grouped kinds**, not as a prefix: drawing the first four
-  rows would reproduce the artefact the sheet exists to reveal and look like a
-  bug in the viewer.
+  **`class_balance` and `vote_balance` are the prefix bug and the CSV-column
+  bug as figures** — a one-class sample footers itself as an artefact whichever
+  frames were drawn, and NIGHTS' vote sitting far from 50% means the wrong
+  field was read. Both are **diagnostics, never scores**, like
+  `error_coherence`. **Frames are picked spread across the split** for the
+  class-grouped kinds, since drawing a prefix would reproduce the very artefact
+  the sheet exists to reveal. **Retrieval loads the whole split whatever
+  `--frames` says** — leave-one-out over four images ranks each against three,
+  so shortening it destroys what is being drawn; `--limit` is *how much to
+  load*, distinct from `--frames`, *how many rows to draw*. And
+  **classification keeps its own schedule defaults**
+  (`CLASSIFICATION_SCHEDULE_DEFAULTS`, 200 epochs at 1e-2), because one shared
+  table would hand `show` a probe built with the wrong ones and `load_probe`
+  would then refuse a head that is fine.
 
-  **`vote_balance` is the CSV-column bug as a figure.** NIGHTS presents the two
-  candidates in arbitrary order, so the human vote sits near 50%; far from it
-  means the vote was read from the wrong field, which otherwise surfaces only
-  as a mediocre accuracy. Both are **diagnostics, never scores**, like
-  `error_coherence`.
-
-  **Retrieval loads the whole split whatever `--frames` says.** Leave-one-out
-  retrieval over four images ranks each against three alternatives, so
-  shortening the split does not shorten the drawing — it destroys what is being
-  drawn. `--limit` became an explicit `show` flag for this: it is *how much to
-  load*, distinct from `--frames`, *how many rows to draw*.
-
-  **`--backbone` now defaults to `None`** and is demanded only where something
-  must be computed — `correspondence` and `retrieval`, whose content is the
-  features, and anywhere `--predict-from` is passed. It is checked *before* the
-  split is indexed, which on a real dataset is the slow part.
-
-  **Classification keeps its own schedule defaults**
-  (`CLASSIFICATION_SCHEDULE_DEFAULTS`: 200 epochs at 1e-2, not the dense
-  probes' 10 at 5e-4). One shared table would hand `show` a probe built with
-  the wrong ones, and `load_probe` would then refuse a head that is fine.
-
-  **Two bugs were found by rendering a page, not by a test**, which is the
-  argument for this package arriving inside it: PIL's built-in bitmap font has
-  no glyph for an em dash or an ellipsis and draws an empty box, so every
-  caption this package writes is **ASCII** and a test asserts it; and a fixture
-  whose vote column held a raw tally rather than 0/1 read as "humans chose
-  right in 0%" — caught by the footer figure that exists for exactly that.
+  Two bugs there were found by **rendering a page, not by a test**: PIL's
+  built-in font has no glyph for an em dash or ellipsis and draws an empty box,
+  so every caption this package writes is **ASCII** and a test asserts it; and
+  a fixture whose vote column held a raw tally read as "humans chose right in
+  0%", caught by the footer figure that exists for exactly that.
 
 - **For correspondence it is the *shape* of the errors that diagnoses the bug,
   not their size — and that is now a number, not an impression** (9b).
@@ -1540,94 +1565,48 @@ designed up front; extend it the same way, from a case that already runs.
   produce a silently wrong number rather than an error, so the logic takes a
   stub and is tested without a download.
 
-- **The docs gallery is real photographs now, and the licence rule that made it
-  generated is unchanged — it was satisfied by better sourcing, not waived**
-  (9d, replaced 2026-08-19). The original bullet said "do not improve the
-  gallery by swapping in real frames", and that instruction was right about
-  every source it had in view: VOC, ImageNet, NYUv2, Taskonomy and NIGHTS each
-  restrict redistribution, none clearly grants it, and committing their frames
-  would put third-party imagery in an MIT package — the line `NOTICE` already
-  takes on probe3d's CC BY-NC code. **Those five are still forbidden and still
-  appear nowhere in this repository.**
+- **The docs gallery is real photographs, and the licence rule that made it
+  generated was satisfied by better sourcing rather than waived** (9d, replaced
+  2026-08-19). **VOC, ImageNet, NYUv2, Taskonomy and NIGHTS all restrict
+  redistribution and appear nowhere in this repository** — committing their
+  frames would put third-party imagery in an MIT package. Open Images'
+  validation split is CC BY 2.0 for all 41,620 images, so
+  `scripts/fetch_gallery_frames.py` reads from there, the frames are committed
+  (`assets/gallery_frames/`, 1.5 MB) and **the licence is verified per frame
+  rather than inherited** — an allowlist at fetch time, and a refusal for any
+  frame with no author or landing page, since an unattributable CC BY image is
+  one this repo may not redistribute. `CREDITS.md` is generated beside them and
+  `tests/test_gallery_licences.py` fails on an uncredited photograph, because CC
+  BY compliance rots silently: the page renders correctly either way.
 
-  What changed is that a source exists which does grant it. Open Images'
-  validation split is **CC BY 2.0 for all 41,620 images**, with CC BY 4.0 human
-  boxes and instance masks, so `scripts/fetch_gallery_frames.py` fetches from
-  there and `render_gallery.py` draws on the result.
-  **The licence is verified per frame rather than inherited from that
-  sentence**: an allowlist at fetch time, and a refusal for any frame whose
-  metadata carries no author or landing page, because an unattributable CC BY
-  image is one this repository may not redistribute. `CREDITS.md` is generated
-  beside the frames and `tests/test_gallery_licences.py` fails if a committed
-  photograph has no credit — CC BY compliance is the kind of obligation that
-  rots silently, since the page renders correctly either way.
-
-  **The three properties generating used to buy were each paid for
-  differently**, and one was genuinely lost:
-
-  - *rebuilds with no downloads* — kept, by committing the frames
-    (`assets/gallery_frames/`, 1.5 MB). Fetching is a separate one-off command.
-  - *exact ground truth* — kept where the target is computed from the frame
-    (`corner` runs the probe's own generator, `correspondence` warps by a chosen
-    homography) and **replaced by something better** where it is annotated:
-    `detection` and both segmentations now show what a human marked rather than
-    what a script constructed.
-  - *invalid pixels placed on purpose* — **weakened**. Real annotation has holes
-    where it has them. The magenta marker survives because Open Images boxes an
-    object it does not always mask, and a boxed region with no mask under it is
-    genuinely unlabelled — which is what an ignore index is for. That is real
-    structure rather than a placed hole, and it is rarer.
-
-  **Four probes cannot have a target column at all and must not be given one.**
+  **Four probes cannot have a target column and must not be given one.**
   `depth`, `surface_normal`, `keypoints2d` and `occlusion_edge` need sensor or
-  reconstruction geometry no redistributable photograph carries. They render
-  `image | prediction` from a *published* Hub head, footer saying so. A
-  three-column figure with an invented middle column would teach the wrong
-  convention to precisely the reader who came to learn it, which is worse than
-  no figure. Two details cost an attempt each: a trained head's `output_size` is
-  **fitted state**, so these heads emit 224x224 whatever they are fed and the
-  figure must be rendered at 224 or the panels differ in size *and framing*; and
-  they are drawn on **interiors**, because the heads were fitted on NYUv2 rooms
-  and a photograph filled by an animal's face shows domain shift rather than the
-  probe.
+  reconstruction geometry no redistributable photograph carries, so they render
+  `image | prediction` from a *published* Hub head with a footer saying so. An
+  invented middle column would teach the wrong convention to exactly the reader
+  who came to learn it. Two details cost an attempt each: a trained head's
+  `output_size` is **fitted state**, so these emit 224x224 whatever they are fed
+  and the figure must be rendered at 224 or the panels differ in size *and*
+  framing; and they are drawn on **interiors**, since the heads were fitted on
+  NYUv2 rooms.
 
-  **The figures live under `docs/_static/`, not `assets/`.** Sphinx cannot
-  follow a relative path that escapes its source tree and MyST does not warn
-  about it, so `-W` would not catch `../assets/...` — the site would simply have
-  holes. The README points at the same files through
-  `raw.githubusercontent.com`, which is the absolute-URL rule
-  `tests/test_readme.py` already enforces. They are excluded from the sdist in
-  `pyproject.toml`, which they would otherwise nearly triple.
+  **The figures live under `docs/_static/`, not `assets/`** — Sphinx cannot
+  follow a relative path escaping its source tree and MyST does not warn, so
+  `-W` would not catch `../assets/...`; the site would simply have holes. The
+  README points at the same files through `raw.githubusercontent.com`, per the
+  absolute-URL rule. They are excluded from the sdist, which they would
+  otherwise nearly triple.
 
-  **Rendering the gallery found three real bugs that the whole test suite had
-  missed**, which is the argument for this package landing on itself a third
-  time. `_row` computed a display range for *every* kind, and a normal map's
-  validity mask is `(H, W)` against a `(3, H, W)` target — so the first
-  three-channel page ever rendered raised, having shipped in 9a. `render_panels`
-  could not lay out a **ragged** final row, which a contact sheet produces
-  whenever the tile count is not a multiple of `--columns`. And a long footer
-  ran off the page edge, silently truncating the *legend* — the one line that
-  says how to read the panel. All three now have tests; the first is
-  `TestEveryPanelKindRenders`, which renders a full page per panel kind and is
-  the coverage whose absence let it through.
-
-  **A fourth bug outlived all three, for the same reason and one tier further
-  out** (2026-09-05). The four prediction-only figures (`depth`,
-  `surface_normal`, `keypoints2d`, `occlusion_edge`) go through a path in
-  `render_gallery.py` that *reimplements* `_row` — it has no target panel, so
-  it cannot reuse it — and the copy captioned each row `str(index)` while
-  computing the `DisplayRange` one line above and using it only to colour. So a
-  greyscale depth page stated no range at all, and `_GUTTER` being a fixed
-  200px meant 30% of the width said `0`. Its footer also never named the
-  **feature grid**, so a 16x16 map stretched to 224 read as a broken head
-  rather than as the probe's resolution — the `ceiling_*` argument, applied to
-  a picture. Both were invisible to the suite because drawing this page needs
-  the network, the `[hub]` extra and a published head. **When a page cannot be
-  rendered in the fast suite, the fix is to make what it *says* a pure
-  function** — `frame_stem`/`frame_label` in `panels.py`, shared by both pages
-  so they cannot drift again, and `prediction_row`/`prediction_footer` in the
-  script. Note the pattern across all four: every gallery bug so far was found
-  by looking at the output, never by a test.
+  **Every gallery bug so far was found by looking at the output, never by a
+  test** — four of them, the last two years apart. A `(H, W)` validity mask
+  against a `(3, H, W)` target; a ragged final row; a footer running off the
+  page and truncating the *legend*; and the four prediction-only figures
+  captioning each row `str(index)` while computing a `DisplayRange` one line
+  above, so a greyscale depth page stated no range at all and never named the
+  **feature grid**, making a 16x16 map stretched to 224 read as a broken head.
+  **When a page cannot be rendered in the fast suite, make what it *says* a
+  pure function** — `frame_stem`/`frame_label` in `panels.py`, shared by both
+  pages so they cannot drift again.
 
 - **`show` and `run` compose their flags from one callable, and that is a
   correctness property rather than tidiness** (9a). `ProbeSpec.show_arguments`
@@ -1862,9 +1841,9 @@ the measurement behind it, under the step named in brackets.**
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite **collects 1983 tests** and the **115 slow ones** were green on
+fast suite **collects 2012 tests** and the **115 slow ones** were green on
 `main` on 2026-09-05 (113 passed, 2 skipped), along with all three lint steps,
-mypy and the `-W` docs build. Earlier fast counts, for dating a claim: 1950 at
+mypy and the `-W` docs build. Earlier fast counts, for dating a claim: 1983 at the VOC instance dataset, 1950 at
 the monotonic-wording fix, 1933 at the 0.16.0 release, 1930 at the docs
 redesign, 1920 after the relative-depth rejection, 1879 at the 0.15.0 release,
 1824 at the oracle gate.
@@ -2272,7 +2251,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 1983 fast tests
+pytest                                              # 2012 fast tests
 pytest -m slow                                      # 115, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/

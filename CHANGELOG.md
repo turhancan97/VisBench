@@ -11,6 +11,53 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Added
 
+- **Mask AP — instance segmentation's metric, as the detection protocol with
+  the overlap swapped** (14a-2). `visbench.metrics.instance` ships
+  `instance_metrics` (`mask_map_50`, `mask_map_50_95`, `classes_scored`),
+  `mask_average_precision` and `masks_from_instance_map`; `mask_iou` joins
+  `box_iou`. Still no probe and no board — nothing in the corpus moves.
+
+  **`average_precision` now takes `shapes="boxes"|"masks"`**, keys of a listed
+  `SHAPE_KINDS` table giving the annotation key, the coercion and the overlap.
+  So `VOCevaldet.m`'s matching — best-overlap first, difficult and claimed state
+  consulted second, **no fallback to the second-best shape** — has one
+  implementation rather than two, and a mask AP is comparable with this
+  codebase's own box AP. A parallel matcher would be the duplicated-`_row`
+  failure arriving on a number instead of a picture.
+
+  **The table exists for its guard.** Annotations carrying the *other* geometry
+  are refused by name; without that, masks scored as boxes read an absent key,
+  coerce it to empty and report **0.0** — indistinguishable from a detector
+  finding nothing. An annotation carrying *both* is accepted, since
+  `VOCInstanceDataset.target` returns masks and derived boxes together.
+
+  **`sweep_average_precision` overlaps once per class and re-tallies per
+  threshold**, because the best-matching shape and its overlap do not depend on
+  the threshold — the `argmax` precedes every comparison — while `claimed` does
+  and is rebuilt each time. That is what makes mask mAP usable: 20 classes x 10
+  thresholds over VOC val went from recomputing every 224x224 IoU ten times to
+  **7 seconds**. Both mAP functions come through it.
+
+### Changed
+
+- **Box AP is bit-identical after that refactor**, and this was checked rather
+  than assumed: **4800 values over 400 random splits** against the pre-refactor
+  implementation, with **exact** equality, run twice — once after the geometry
+  seam and again after the sweep split. `detection` is a published board, and
+  "the existing tests still pass" is a weaker claim than "no number moved".
+
+### Fixed
+
+- Nothing. Two calibrations are pinned instead, both on real VOC val and one in
+  the fast suite: **perfect predictions score exactly 1.0000** (the check 6c-2
+  used for box AP, without which no lower number is attributable to a probe),
+  and the **oracle at a 16x16 grid scores mask mAP@50 0.6666**. The sharpest of
+  the new tests is that **rectangle masks score exactly as their boxes** — a
+  rectangle's pixel IoU *is* its half-open box IoU — so any divergence between
+  the mask and box paths fails on a number rather than a shape.
+
+### Added
+
 - **`VOCInstanceDataset` — per-instance mask targets, the first step toward a
   real instance-segmentation probe** (14a-1). Reads VOC2012's
   `SegmentationObject` (2913 instance masks) on the **official 1464/1449
