@@ -32,6 +32,7 @@ from visbench.data import (
 from visbench.data.dense import load_label_map, load_mask, load_normal_map
 from visbench.data.derived import DerivedTargetDataset, OrientationResponse, ShiTomasiResponse
 from visbench.data.detection import VOC_CLASSES
+from visbench.data.instance import VOCInstanceDataset
 from visbench.data.pair_dataset import HomographyPairDataset
 from visbench.data.triplet import TwoAFCDataset
 
@@ -628,6 +629,171 @@ def _detection_splits(args: argparse.Namespace) -> Splits:
     )
 
 
+def _instance_view_flags(parser: argparse.ArgumentParser) -> None:
+    """Instance segmentation's own flag set, minus the schedule.
+
+    Deliberately *not* built from :func:`_detection_view_flags` even though it
+    repeats most of it. The two probes read different directories and different
+    split lists — ``ImageSets/Segmentation`` here against ``ImageSets/Main``
+    there — and sharing the function would put one probe's defaults one edit
+    away from silently changing the other's board. The table-not-a-hierarchy
+    rule, applied to the case where it is most tempting to break it.
+    """
+    _split_flags(parser, evaluate="val", train="train")
+    parser.add_argument("--image-dir", default="JPEGImages", help="image folder (VOC's name)")
+    parser.add_argument(
+        "--instance-dir",
+        default="SegmentationObject",
+        help="per-object mask folder; one palette index per instance",
+    )
+    parser.add_argument(
+        "--class-dir",
+        default="SegmentationClass",
+        help="class mask folder. An instance's class is read from here EXACTLY, at that "
+        "instance's pixels, and a disagreement between the two folders raises",
+    )
+    parser.add_argument(
+        "--image-size",
+        type=int,
+        default=224,
+        help="working resolution; must be a multiple of the backbone's patch size. Passed to "
+        "the dataset AND the probe from this one flag, because box targets are absolute "
+        "pixels and two different values would silently misplace every cell centre and "
+        "every pasted mask",
+    )
+    parser.add_argument(
+        "--stems",
+        type=Path,
+        default=None,
+        help="file listing the scored split's stems. For VOC this is "
+        "ImageSets/Segmentation/val.txt -- NOT ImageSets/Main, which is four times larger "
+        "and has no instance masks",
+    )
+    parser.add_argument(
+        "--train-stems",
+        type=Path,
+        default=None,
+        help="the same for the training split; required alongside --stems",
+    )
+    parser.add_argument("--head", default="instance", help="see `visbench list heads`")
+    parser.add_argument(
+        "--hidden-dim",
+        type=int,
+        default=0,
+        help="width of the detection branches' optional 3x3 stem; 0 (default) keeps them linear",
+    )
+    parser.add_argument(
+        "--mask-hidden-dim",
+        type=int,
+        default=0,
+        help="width of an optional 3x3 stem before the mask convolution. 0 (default) keeps "
+        "the mask branch a single 1x1 convolution, which is what makes a difference "
+        "between two backbones a difference between representations",
+    )
+    parser.add_argument(
+        "--mask-size",
+        type=int,
+        default=14,
+        help="side of the RoI the mask is predicted at. 14 rather than Mask R-CNN's 28: the "
+        "features are on a 16x16 grid, so a larger RoI asks RoIAlign to invent detail "
+        "between patch centres the backbone never produced",
+    )
+    parser.add_argument("--mask-weight", type=float, default=1.0)
+    parser.add_argument(
+        "--mask-threshold",
+        type=float,
+        default=0.5,
+        help="probability above which a pasted pixel is foreground. Part of the protocol, "
+        "not a display setting: raising it shrinks every mask and moves mask AP",
+    )
+    parser.add_argument(
+        "--min-instance-pixels",
+        type=int,
+        default=1,
+        help="drop instances with fewer pixels than this after the centre crop",
+    )
+    parser.add_argument("--score-threshold", type=float, default=0.05)
+    parser.add_argument("--nms-iou", type=float, default=0.5)
+    parser.add_argument("--max-detections", type=int, default=100)
+
+
+def _instance_flags(parser: argparse.ArgumentParser) -> None:
+    _instance_view_flags(parser)
+    parser.add_argument("--epochs", type=int, default=10)
+    parser.add_argument("--lr", type=float, default=5e-4)
+    parser.add_argument("--train-batch-size", type=int, default=8)
+
+
+def _instance_splits(args: argparse.Namespace) -> Splits:
+    """Both halves of an instance run, from VOC's segmentation split lists.
+
+    Unlike :func:`_detection_splits` there is no difficult/not-difficult
+    asymmetry to arrange: ``SegmentationObject`` carries no ``difficult`` flag,
+    so both splits are read identically and VOC's ignore convention travels as
+    the void label instead.
+    """
+    if (args.stems is None) != (args.train_stems is None):
+        raise ValueError(
+            "Pass --stems and --train-stems together, or neither. One split named by a "
+            "file and the other by a directory would silently mix two layouts."
+        )
+
+    def load(split: str, listing: Path | None) -> VOCInstanceDataset:
+        stems = None
+        if listing is not None:
+            if not listing.is_file():
+                raise FileNotFoundError(
+                    f"No split list at {listing}. For VOC this is "
+                    "ImageSets/Segmentation/<split>.txt -- note Segmentation, not Main: "
+                    "the detection split is four times larger and has no instance masks."
+                )
+            stems = listing.read_text().split()
+            if args.limit is not None:
+                stems = stems[: args.limit]
+        dataset = VOCInstanceDataset(
+            args.data if listing is not None else args.data / split,
+            image_dir=args.image_dir,
+            instance_dir=args.instance_dir,
+            class_dir=args.class_dir,
+            split=split,
+            stems=stems,
+            image_size=args.image_size,
+            min_instance_pixels=args.min_instance_pixels,
+        )
+        if listing is not None or args.limit is None:
+            return dataset
+        # subset() reindexes the parallel lists together; slicing one by hand
+        # would pair an image with another image's instance masks.
+        return dataset.subset(args.limit)
+
+    return Splits(
+        evaluate=load(args.split, args.stems),
+        train=load(args.train_split, args.train_stems),
+    )
+
+
+def _instance_kwargs(args: argparse.Namespace) -> dict:
+    return {
+        # From the dataset's class list, not a flag: the loader's classes and
+        # the head's width are one fact, and a flag would let them disagree.
+        "num_classes": len(VOC_CLASSES),
+        "image_size": args.image_size,
+        "head": args.head,
+        "hidden_dim": args.hidden_dim,
+        "mask_hidden_dim": args.mask_hidden_dim,
+        "mask_size": args.mask_size,
+        "mask_weight": args.mask_weight,
+        "mask_threshold": args.mask_threshold,
+        "epochs": args.epochs,
+        "lr": args.lr,
+        "batch_size": args.train_batch_size,
+        "score_threshold": args.score_threshold,
+        "nms_iou": args.nms_iou,
+        "max_detections": args.max_detections,
+        "device": args.device,
+    }
+
+
 def _detection_kwargs(args: argparse.Namespace) -> dict:
     return {
         # From the dataset's class list rather than a flag: the loader's classes
@@ -1014,6 +1180,14 @@ SPECS: dict[str, ProbeSpec] = {
         build=_detection_splits,
         probe_kwargs=_detection_kwargs,
         show_arguments=_viewing(_detection_view_flags),
+    ),
+    "instance_segmentation": ProbeSpec(
+        summary="detect-then-segment over frozen features, scored mask mAP@50",
+        layout="<data>/{JPEGImages,SegmentationObject,SegmentationClass}/  (a VOC2012 root)",
+        add_arguments=_instance_flags,
+        build=_instance_splits,
+        probe_kwargs=_instance_kwargs,
+        show_arguments=_viewing(_instance_view_flags),
     ),
     "depth": ProbeSpec(
         summary="probe3d's 256-bin depth protocol",

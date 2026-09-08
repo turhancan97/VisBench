@@ -219,6 +219,19 @@ probe_detection() {
     --limit "$DETECTION_LIMIT"
 }
 
+probe_instance_segmentation() {
+  # ImageSets/Segmentation, NOT Main -- so this reads the same 1464/1449 images
+  # the semantic_segmentation board scores. That sharing is the point: two
+  # boards over identical pixels answering different questions, one asking
+  # which class a pixel is and one asking which object it belongs to. It also
+  # means no --limit: the split is already the size detection needs one for.
+  run instance_segmentation \
+    --data "$VOC" --image-dir JPEGImages \
+    --instance-dir SegmentationObject --class-dir SegmentationClass \
+    --stems "$VOC/ImageSets/Segmentation/val.txt" \
+    --train-stems "$VOC/ImageSets/Segmentation/train.txt"
+}
+
 probe_edge() {
   run edge --data "$TASKONOMY" --partition tiny --limit "$TASKONOMY_LIMIT"
 }
@@ -306,6 +319,7 @@ ALL_PROBES=(
   semantic_segmentation
   generic_segmentation
   detection
+  instance_segmentation
   depth
   surface_normal
   edge

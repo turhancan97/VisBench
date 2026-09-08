@@ -62,6 +62,10 @@ HEADLINE_METRICS: dict[str, str] = {
     "semantic_segmentation": "miou",
     "generic_segmentation": "iou",
     "detection": "map_50",
+    # Mask AP, not box AP. `box_map_50` rides along in the record so a low
+    # score is attributable to outlines or to localisation, but the board is
+    # ranked on the thing the probe is for.
+    "instance_segmentation": "mask_map_50",
     "depth": "d1",
     "surface_normal": "mean",
     "edge": "edge_correlation",

@@ -186,12 +186,21 @@ class TestTheHead:
 
 
 class TestTheProbeIsConfiguredHonestly:
-    def test_it_is_not_registered_yet(self):
-        """The probe *name* is load-bearing across a dozen tables; 14a-4 adds it."""
-        from visbench import list_probes
+    def test_it_is_registered_under_its_own_name(self):
+        """Registered at 14a-4, with the board that gives its tables something to say.
 
-        assert "instance_segmentation" not in list_probes()
+        The name is what a dozen fixed tables key on, so this asserts the
+        registry agrees with the class rather than merely that the name exists:
+        a probe registered under one name whose class declares another would
+        write records no board could find.
+        """
+        from visbench import get_probe, list_probes
+
+        assert "instance_segmentation" in list_probes()
         assert InstanceSegmentationTask.name == "instance_segmentation"
+        probe = get_probe("instance_segmentation", num_classes=NUM_CLASSES)
+        assert isinstance(probe, InstanceSegmentationTask)
+        assert probe.level == "high_level"
 
     def test_task_params_record_everything_that_shaped_the_number(self):
         params = make_task(mask_size=10, mask_weight=2.0).describe()["task_params"]

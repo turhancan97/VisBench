@@ -13,9 +13,9 @@ corrected, is in
 
 ## "Which backbone is best" is not a well-formed question
 
-`mae_vitb16` is first on **six** of the sixteen boards and last on **four**. A
+`mae_vitb16` is first on **six** of the seventeen boards and last on **four**. A
 summary that picks a winner is discarding the result — the whole point of
-sixteen boards is that a representation is good *at things*, not good.
+seventeen boards is that a representation is good *at things*, not good.
 
 ## A count is a fact about the corpus, not about a backbone
 

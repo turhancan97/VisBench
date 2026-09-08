@@ -1,6 +1,6 @@
 # Dense probes
 
-Eight of the sixteen probes predict something per *pixel*. They share almost
+Eight of the seventeen probes predict something per *pixel*. They share almost
 everything — feature sources, batching, head construction, the optimiser
 schedule, the training loop, per-image metric averaging — and a new one supplies
 four methods.

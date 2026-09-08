@@ -19,8 +19,9 @@ intend to quote one.**
 | {doc}`retrieval </probes/high-level/retrieval>` | zero-shot nearest neighbours by cosine over pooled features |
 | {doc}`semantic_segmentation </probes/high-level/semantic_segmentation>` | multi-class per-pixel labels |
 | {doc}`detection </probes/high-level/detection>` | anchor-free single-scale boxes from one feature map |
+| {doc}`instance_segmentation </probes/high-level/instance_segmentation>` | which *object* a pixel belongs to, not just which class |
 
-Three of those six share one implementation and ask three different questions:
+Three of those seven share one implementation and ask three different questions:
 `classification` is basic-level, `scene_classification` is place,
 `fine_grained_classification` is subordinate. Each is a distinct probe *name*
 rather than a dataset flag, because a board is keyed on the task name — a second
@@ -245,6 +246,7 @@ high-level/fine_grained_classification
 high-level/retrieval
 high-level/semantic_segmentation
 high-level/detection
+high-level/instance_segmentation
 ```
 
 ```{toctree}

@@ -25,13 +25,20 @@ import numpy as np
 import torch
 from PIL import Image, ImageDraw, ImageFont
 
-from visbench.viz.colour import DisplayRange, display_range, target_to_rgb
+from visbench.viz.colour import (
+    INVALID_RGB,
+    DisplayRange,
+    display_range,
+    target_to_rgb,
+    voc_palette,
+)
 from visbench.viz.styles import TargetStyle, style_for
 
 __all__ = [
     "CAPTION_INK",
     "PAGE_INK",
     "draw_boxes",
+    "draw_instances",
     "font_for_captions",
     "frame_label",
     "frame_stem",
@@ -113,6 +120,112 @@ def draw_boxes(
         if caption:
             draw.text((x1 + 2, max(0.0, y1 - 10)), caption, fill=outline, font=font)
     return canvas
+
+
+def _instance_palette() -> np.ndarray:
+    """VOC's colours, minus black and minus anything that reads as the marker.
+
+    Index 0 is VOC's background black. Index 13 is ``(192, 0, 128)``, which is
+    190 away from ``INVALID_RGB`` in L1 and — once blended at ``alpha`` over a
+    pale animal — reads as magenta to the eye. The palette does not *contain*
+    magenta, so the existing exactness test passes either way; this is about the
+    blend, which is a step no previous colouriser had. Dropping the row is
+    cheaper than special-casing the blend, and it keeps "magenta means no ground
+    truth" true of the rendered pixels rather than only of the palette.
+    """
+    palette = voc_palette()
+    keep = [
+        index
+        for index in range(1, len(palette))
+        if abs(palette[index].astype(int) - np.array(INVALID_RGB)).sum() > 255
+    ]
+    return palette[keep]
+
+
+def draw_instances(
+    image: Image.Image,
+    masks: torch.Tensor,
+    *,
+    boxes: torch.Tensor | None = None,
+    labels: Sequence[Any] | None = None,
+    scores: torch.Tensor | None = None,
+    ignore: torch.Tensor | None = None,
+    alpha: float = 0.5,
+) -> Image.Image:
+    """Overlay per-instance ``masks`` on a copy of ``image``, one colour each.
+
+    ``masks`` is ``(N, H, W)`` — bool or float — in the image's **own** pixel
+    frame, which is what both :class:`~visbench.data.instance.VOCInstanceDataset`
+    and the probe's ``predict`` emit. Nothing is resized here, per the rule this
+    module exists to keep: the whole evidential content of the panel is whether
+    a mask lands on its object.
+
+    **The colours are per instance and mean nothing across panels.** An
+    instance's index is only annotation order — the probe cannot and does not
+    predict it — so target instance 3 and predicted instance 3 are unrelated,
+    and matching their colours would draw a correspondence the protocol never
+    claims. Colouring by *class* instead would be stable, and would hide the one
+    thing this probe measures that ``semantic_segmentation`` does not: two
+    touching objects of the same class would merge into one blob. So the colour
+    separates instances and the caption text carries the class.
+
+    ``ignore`` is VOC's void outline — the pixels the probe's loss weights to
+    zero rather than calling background. Drawn in ``INVALID_RGB``, the same
+    marker every other panel uses for "no ground truth here", because that is
+    what it is. It is drawn *last*, so a void pixel is never hidden by an
+    instance that overlaps it.
+    """
+    if masks.ndim != 3:
+        raise ValueError(f"Expected (N, H, W) instance masks, got {tuple(masks.shape)}")
+
+    canvas = np.asarray(image.convert("RGB"), dtype=np.float32).copy()
+    if masks.shape[0]:
+        height, width = canvas.shape[:2]
+        if tuple(masks.shape[-2:]) != (height, width):
+            raise ValueError(
+                f"Masks are {tuple(masks.shape[-2:])} but the image is {(height, width)}. "
+                "Both describe the same frame; this viewer never resizes to reconcile them."
+            )
+        # Index 0 of VOC's palette is black (its background), so instance
+        # colours start at 1. Cycling is deliberate rather than a limit: past
+        # ~20 instances no palette stays distinguishable, and a frame with that
+        # many is one to read as a whole rather than instance by instance.
+        palette = _instance_palette()
+        for index in range(masks.shape[0]):
+            selected = np.asarray(masks[index].bool().cpu())
+            colour = palette[index % len(palette)].astype(np.float32)
+            canvas[selected] = (1.0 - alpha) * canvas[selected] + alpha * colour
+
+    if ignore is not None and bool(ignore.any()):
+        # Opaque, not blended: this is the one region of the panel that is a
+        # statement about the annotation rather than about the image.
+        canvas[np.asarray(ignore.bool().cpu())] = np.array(INVALID_RGB, dtype=np.float32)
+
+    drawn = Image.fromarray(canvas.astype(np.uint8))
+    if boxes is None and labels is None and scores is None:
+        return drawn
+
+    draw = ImageDraw.Draw(drawn)
+    font = font_for_captions()
+    palette = _instance_palette()
+    for index in range(masks.shape[0]):
+        colour = tuple(int(v) for v in palette[index % len(palette)])
+        top = 0.0
+        left = 0.0
+        if boxes is not None and index < len(boxes):
+            x1, y1, x2, y2 = (float(v) for v in boxes[index])
+            # A one-pixel outline, not two: the fill already carries the shape,
+            # and a thick border eats the thin masks this probe gets wrong.
+            draw.rectangle((x1, y1, x2, y2), outline=colour, width=1)
+            left, top = x1, y1
+        caption = ""
+        if labels is not None and index < len(labels):
+            caption = str(labels[index])
+        if scores is not None and index < len(scores):
+            caption = f"{caption} {float(scores[index]):.2f}".strip()
+        if caption:
+            draw.text((left + 2, max(0.0, top - 10)), caption, fill=colour, font=font)
+    return drawn
 
 
 def render_panels(
@@ -286,6 +399,9 @@ def _row(
     if style.kind == "boxes":
         return _box_row(stem, image, target, prediction, class_names)
 
+    if style.kind == "instances":
+        return _instance_row(stem, image, target, prediction, class_names)
+
     # Only the scalar kinds have a range, and only they are asked for one. A
     # normal map's validity mask is (H, W) while the target is (3, H, W), so
     # computing a span for it is not merely wasted -- it is a shape error, which
@@ -346,3 +462,53 @@ def _box_row(
     # "0 of 3" is a legitimate frame -- a centre crop genuinely removes objects
     # -- and is not distinguishable from a parsing failure without this.
     return f"{stem}\n{kept} of {original} boxes", panels
+
+
+def _instance_row(
+    stem: str,
+    image: Image.Image,
+    target: dict,
+    prediction: Any,
+    class_names: Sequence[str] | None,
+) -> tuple[str, list[np.ndarray | Image.Image]]:
+    """One frame: the image, its instances, and the predicted ones beside them.
+
+    Both panels are drawn by the same function, which is what makes them
+    comparable — a target drawn by one code path and a prediction by another is
+    the failure `match_details` exists to prevent, one probe over.
+    """
+
+    def named(labels: torch.Tensor) -> list[str]:
+        if class_names is None:
+            return [str(int(value)) for value in labels]
+        return [class_names[int(value)] for value in labels]
+
+    panels: list[np.ndarray | Image.Image] = [
+        image,
+        draw_instances(
+            image,
+            target["masks"],
+            boxes=target.get("boxes"),
+            labels=named(target["labels"]),
+            ignore=target.get("ignore"),
+        ),
+    ]
+    if prediction is not None:
+        panels.append(
+            draw_instances(
+                image,
+                prediction["masks"],
+                boxes=prediction.get("boxes"),
+                labels=named(prediction["labels"]),
+                scores=prediction.get("scores"),
+                # The target's void region, on the prediction panel too: it is a
+                # property of the annotation rather than of the prediction, and
+                # it is where the probe's loss and metric both look away.
+                ignore=target.get("ignore"),
+            )
+        )
+    kept = int(target["masks"].shape[0])
+    original = target.get("num_original", kept)
+    # As the box row: "0 of 3" is a real frame on VOC, and without the pair it
+    # is indistinguishable from a loader that parsed nothing.
+    return f"{stem}\n{kept} of {original} instances", panels

@@ -13,7 +13,7 @@ them rather than only the conclusions.
 
 **The single most important one, if you read nothing else:** "which backbone is
 best" is not a well-formed question against this corpus. `mae_vitb16` is first
-on six of the sixteen boards and last on four. A summary that picks a winner
+on six of the seventeen boards and last on four. A summary that picks a winner
 is discarding the result.
 
 Two standing cautions apply to everything below:
@@ -219,7 +219,7 @@ Two standing cautions apply to everything below:
   **n=3 CNNs**, so two of those rho values are one swap each, and the gains are
   the more solid half of this finding.
 
-- **`mae_vitb16` is first on six of the sixteen boards and last on four, and
+- **`mae_vitb16` is first on six of the seventeen boards and last on four, and
   this is the corpus finally demonstrating what the taxonomy claims** (10b,
   2026-08-14; **counts re-read off the board at twelve backbones, 10e**; scene
   board added 2026-08-28, `orientation` and `fine_grained_classification`
@@ -616,21 +616,48 @@ Two standing cautions apply to everything below:
   +0.804 and *both read VOC*, so the pairing might be about the images rather
   than the task. Two things refute it.
 
-  **The identical-image pair is the weakest of the three VOC pairs.**
-  `semantic_segmentation` and `generic_segmentation` read the **same 1449
-  images** at the same resolution through the same head and schedule;
-  `detection` reads 600 different VOC frames.
+  **REFORMULATED 2026-09-08 (14a-4), because the seventeenth board broke the
+  original argument.** This finding used to rest on there being exactly *two*
+  boards on the identical 1449 images, whose pair was the weakest of the three
+  VOC pairs, plus `generic_segmentation`'s nearest neighbour reading a
+  different dataset. `instance_segmentation` reads those same 1449 images and
+  agrees with `generic_segmentation` at **+0.909 — its nearest neighbour of
+  all, and a VOC sibling.** The test that pinned the old form failed exactly as
+  its own message predicted, and "shared pixels drive agreement" was back on
+  the table. The conclusion survives; that argument for it does not.
+
+  **All six VOC pairs, with the three same-image ones marked:**
 
   | pair | rho | |
   | --- | --- | --- |
-  | detection / semantic_segmentation | **+0.804** | different frames |
+  | generic_segmentation / instance_segmentation | **+0.909** | *same 1449 images* |
+  | detection / semantic_segmentation | +0.804 | different frames |
   | detection / generic_segmentation | +0.720 | different frames |
-  | generic_segmentation / semantic_segmentation | **+0.538** | *same 1449 images* |
+  | detection / instance_segmentation | +0.650 | different frames |
+  | generic_segmentation / semantic_segmentation | +0.538 | *same 1449 images* |
+  | instance_segmentation / semantic_segmentation | **+0.378** | *same 1449 images* |
 
-  Shared pixels as the cause predicts the opposite ordering. And
-  `generic_segmentation`'s five nearest neighbours anywhere in the corpus —
-  surface_normal +0.881, depth +0.867, corner +0.853, occlusion_edge +0.832,
-  edge +0.769 — read **NYUv2 and Taskonomy**, not VOC.
+  **Reading identical pixels is neither sufficient nor necessary.** The three
+  same-image pairs span **+0.378 to +0.909**, a range of 0.531 — wider than any
+  source group's mean spread — and the **weakest of all six VOC pairs is a
+  same-image pair.** So not sufficient. `generic_segmentation` meanwhile reaches
+  +0.881 (surface_normal), +0.867 (depth) and +0.853 (corner) on **NYUv2 and
+  Taskonomy**, so that level of agreement is reachable with no shared pixels at
+  all. So not necessary.
+
+  **What the three same-image boards differ in is what they are sensitive to.**
+  Against feature grid they read `generic_segmentation` **+0.958**,
+  `instance_segmentation` **+0.902** and `semantic_segmentation` **+0.545**. The
+  two resolution-driven ones are the pair that agrees at +0.909; the one that is
+  not agrees with neither. That is the standing resolution finding and the
+  standing `semantic_segmentation` anomaly, not a fact about VOC.
+
+  **Deliberately not claimed: that agreement is monotonic in the grid-correlation
+  gap.** It is not — `generic`/`semantic` differ by 0.413 and agree at +0.538,
+  while `instance`/`semantic` differ by 0.357 and agree at +0.378. Pinning a
+  mechanism this corpus cannot support is how the previous formulation got
+  itself retired, and the replacement test asserts only the two negative claims
+  above.
 
   **Imagenette is the second, independent counterexample.** `classification`,
   `retrieval` and `correspondence` all read it and average **+0.128** — the
@@ -652,6 +679,59 @@ Two standing cautions apply to everything below:
   Imagenette, NYUv2 and the staged corner frames are **all called `val`** in
   the `dataset` field, so grouping on it would merge boards sharing nothing.
 
+
+- **`instance_segmentation` is a high-level board whose four strongest partners
+  are all mid-level, and the mask branch is not why** (2026-09-08, 14a-4, 12
+  backbones, VOC official 1464/1449 segmentation splits).
+
+  The board ranks cleanly — spread **0.2148** on `mask_map_50`, from
+  `dinov2_vitb14` 0.2861 to `convnext_base` 0.0713, and it reproduces no other
+  board's ordering (0 of 136 pairs rank identically). Only one adjacent pair is
+  inseparable: `siglip_vitb16` 0.1491 against `supervised_vitb16` 0.1486, a
+  0.0005 gap inside the ~1e-3 drift a discrete AP metric shows on this
+  hardware. So quote it to **three decimals**, as `detection` is quoted.
+
+  | partner | rho | tier |
+  | --- | --- | --- |
+  | `occlusion_edge` | **+0.958** | mid |
+  | `surface_normal` | +0.930 | mid |
+  | `generic_segmentation` | +0.909 | mid |
+  | `depth` | +0.902 | mid |
+  | `corner` | +0.888 | low |
+  | … | | |
+  | `detection` | +0.650 | **high** |
+  | `semantic_segmentation` | +0.378 | **high** |
+  | `classification` | −0.210 | **high** |
+  | `retrieval` | −0.217 | **high** |
+
+  Mean against mid-level is **+0.821**; against its own tier, **+0.238**. It is
+  the sharpest case in the corpus of the standing finding that `high_level` is a
+  folder rather than a quantity to average over.
+
+  **The obvious explanation is wrong, and it was checked rather than asserted.**
+  The natural reading is that mask AP measures *outlines* — a geometry
+  quantity — where `detection` measures semantic localisation. The record
+  carries `box_map_50` from the same runs, so the two halves can be ranked
+  separately, and they agree at **+0.986**. Both put `occlusion_edge` first
+  (mask +0.958, box +0.965) and both sit near +0.81 against mid-level and below
+  +0.24 against high-level. **The box half alone already ranks with the geometry
+  cluster**, despite inheriting every line of its implementation from
+  `detection`, whose own board sits at +0.804 with `semantic_segmentation`.
+
+  So what separates the two boards is not boxes-versus-masks. What is left is
+  the **data**: `detection` reads `ImageSets/Main` limited to 600 frames, this
+  reads `ImageSets/Segmentation` entire, 1464 train / 1449 val. Same head, same
+  losses, same metric family, same dataset family — different split list and 2.4x
+  the training images, and the two orderings agree at only +0.587 (box half
+  against `detection`).
+
+  **That is where this stops, and the control that would settle it is named
+  rather than run.** Running the instance probe's own head on `ImageSets/Main`
+  at `--limit 600` would separate "which images" from "how many" from "which
+  split list", and it belongs in `results/controls/` beside the DPT and
+  resolution controls rather than in a board. Until then the honest statement is
+  the negative one: **two probes sharing an implementation and a dataset family
+  can rank differently, and the output type is not what does it.**
 
 - **`scene_classification` ranks backbones almost independently of the object
   `classification` board — the two "classification" boards are not one

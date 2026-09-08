@@ -17,7 +17,7 @@ The full rules are in {doc}`how to read a board </guides/reading-a-board>`.
 The three that most often go wrong:
 
 **"Which backbone is best" is not a well-formed question against this corpus.**
-`mae_vitb16` is first on six of the sixteen boards and last on four. A summary
+`mae_vitb16` is first on six of the seventeen boards and last on four. A summary
 that picks a winner is discarding the result.
 
 **A count over a corpus is a fact about that corpus, not about a backbone.**

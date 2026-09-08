@@ -296,6 +296,7 @@ def target_to_rgb(
     if style.kind in COMPOSITE_KINDS:
         drawn_by = {
             "boxes": "panels.draw_boxes",
+            "instances": "panels.draw_instances",
             "matches": "matches.draw_matches",
             "sheet": "gallery.render_sheet",
             "ranking": "gallery.render_retrieval_panels",

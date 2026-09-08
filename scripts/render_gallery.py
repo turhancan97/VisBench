@@ -14,15 +14,18 @@ time, with the attribution CC BY requires written to ``CREDITS.md``.
 
 That buys real photographs *with real human annotation* for the probes whose
 targets are annotated, and exact ground truth for the probes that compute their
-own. It does not buy metric geometry, so the sixteen probes are drawn three
+own. It does not buy metric geometry, so the seventeen probes are drawn three
 ways and each figure says which it is:
 
 - **exact ground truth, computed from the frame itself** -- ``corner`` runs the
   probe's own Shi-Tomasi generator, ``correspondence`` warps by a homography
   this script chooses, and ``classification``/``retrieval`` need only which
   folder a photograph is in. Nothing is approximated.
-- **real human annotation** -- ``detection``, ``generic_segmentation`` and
-  ``semantic_segmentation`` draw Open Images' own boxes and instance masks.
+- **real human annotation** -- ``detection``, ``generic_segmentation``,
+  ``semantic_segmentation`` and ``instance_segmentation`` draw Open Images' own
+  boxes and instance masks. The instance figure is the only one that uses those
+  masks *per instance*; both segmentations merge them into one foreground or one
+  label map, which is the difference the probe exists to measure.
 - **a prediction, labelled as one** -- ``depth``, ``surface_normal``,
   ``keypoints2d`` and ``occlusion_edge`` need sensor or reconstruction ground
   truth that no redistributable photograph carries. Rather than fabricate a
@@ -278,10 +281,66 @@ def build_dataset(root: Path, scenes: list, classes: list[str], frames: dict) ->
             )
 
     _build_taskonomy(root / "tasko", scenes)
+    _build_instances(root / "instances", frames, classes)
     _build_labelled_folder(root / "folder", frames)
     _build_flat_folder(root / "flat", scenes)
     _build_context_folder(root / "context", frames)
     _build_triplets(root / "triplets", scenes)
+
+
+def _build_instances(root: Path, frames: dict, classes: list[str]) -> None:
+    """VOC's two-map instance layout, from Open Images' per-instance masks.
+
+    Open Images annotates each instance separately, which is exactly what this
+    probe needs and what neither segmentation probe uses — they merge the masks
+    into one foreground or one label map. So this figure shows **real human
+    annotation**, in the tier ``detection`` and both segmentations are in, not
+    the prediction-only tier the four geometry probes fall back to.
+
+    **Both maps are painted in one pass, in one order.** VOC's convention is
+    that an instance's class is read from ``SegmentationClass`` at that
+    instance's pixels, *exactly* — `VOCInstanceDataset` raises on a mixed
+    instance, because a disagreement between the two files means one of them is
+    wrong. Open Images' masks genuinely overlap (one frame here carries Tiger,
+    Leopard and Jaguar annotations of the same animal), so painting the two maps
+    in separate loops would let a later instance overwrite one map and not the
+    other and produce exactly that raise. Painted together, a later instance
+    simply takes both pixels, which is what VOC's own overlapping annotations
+    do.
+
+    Written as ``.npy`` raw indices rather than palette PNGs because
+    ``load_instance_map`` accepts either and the palette rule is the one thing
+    the loader must not have to guess at here; the real board reads VOC's own
+    mode-``P`` files through the same function.
+    """
+    for name in ("JPEGImages", "SegmentationObject", "SegmentationClass"):
+        (root / name).mkdir(parents=True, exist_ok=True)
+    (root / "ImageSets" / "Segmentation").mkdir(parents=True, exist_ok=True)
+
+    stems = []
+    index = 0
+    for frame, value in sorted(frames.items()):
+        if value["kind"] != "scene":
+            continue
+        rgb = _load_rgb(frame)
+        shape = rgb.shape[:2]
+        stem = f"{index:03d}"
+        index += 1
+
+        objects = np.zeros(shape, dtype=np.int32)
+        semantic = np.zeros(shape, dtype=np.int32)
+        for position, mask in enumerate(value["masks"], start=1):
+            pixels = _load_mask(mask["path"])
+            objects[pixels] = position
+            semantic[pixels] = classes.index(mask["label"])
+
+        Image.fromarray(rgb).save(root / "JPEGImages" / f"{stem}.jpg")
+        np.save(root / "SegmentationObject" / f"{stem}.npy", objects.astype(np.float32))
+        np.save(root / "SegmentationClass" / f"{stem}.npy", semantic.astype(np.float32))
+        stems.append(stem)
+
+    for split in ("train", "val"):
+        (root / "ImageSets" / "Segmentation" / f"{split}.txt").write_text("\n".join(stems) + "\n")
 
 
 def _build_taskonomy(root: Path, scenes: list) -> None:
@@ -546,6 +605,38 @@ def _detection_figure(root: Path, out: Path, classes: list[str]) -> int:
     return 0
 
 
+def _instance_figure(root: Path, out: Path, classes: list[str]) -> int:
+    """Instance segmentation, through the Python API, for detection's reason.
+
+    ``_instance_kwargs`` takes its class count from ``VOC_CLASSES`` rather than
+    a flag — the loader's classes and the head's width are one fact — so a
+    dataset with its own class names cannot be named from the shell. Same
+    trade-off as ``_detection_figure`` and made deliberately in the same place.
+
+    Target column only. Fitting a mask head here would need a training split
+    these six frames cannot supply, and the published Hub heads are VOC's 20
+    classes rather than Open Images' labels, so a prediction column would either
+    be fabricated or be scored against the wrong class list.
+    """
+    from visbench.data.instance import VOCInstanceDataset
+    from visbench.viz import render_probe_panels
+
+    dataset = VOCInstanceDataset(
+        root / "instances",
+        image_dir="JPEGImages",
+        instance_dir="SegmentationObject",
+        class_dir="SegmentationClass",
+        split="val",
+        stems=root / "instances" / "ImageSets" / "Segmentation" / "val.txt",
+        image_size=160,
+        classes=classes[1:],
+    )
+    render_probe_panels(dataset, "instance_segmentation", [0, 1, 2], None, dataset.classes).save(
+        out
+    )
+    return 0
+
+
 def _prediction_figure(probe: str, root: Path, out: Path) -> int:
     """``image | prediction`` for a probe whose ground truth cannot ship.
 
@@ -661,6 +752,11 @@ def main() -> int:
         if _detection_figure(scratch, args.out / "detection.png", classes) != 0:
             failed.append("detection")
 
+    if wanted("instance_segmentation"):
+        print("  instance_segmentation    -> instance_segmentation.png")
+        if _instance_figure(scratch, args.out / "instance_segmentation.png", classes) != 0:
+            failed.append("instance_segmentation")
+
     for probe, argv in figures(scratch, args.backbone, classes).items():
         if not wanted(probe):
             continue
@@ -695,7 +791,12 @@ def main() -> int:
         shutil.rmtree(scratch, ignore_errors=True)
 
     if args.only is not None:
-        known = {"detection", *figures(scratch, args.backbone, classes), *PREDICTED}
+        known = {
+            "detection",
+            "instance_segmentation",
+            *figures(scratch, args.backbone, classes),
+            *PREDICTED,
+        }
         unknown = sorted(set(args.only) - known)
         if unknown:
             print(f"\nNo such probe: {', '.join(unknown)}", file=sys.stderr)

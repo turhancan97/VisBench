@@ -104,13 +104,14 @@ magnitude would render *identically* to a correct one.
 
 ## What it can draw
 
-**Every probe.** All sixteen, across four renderers — a test asserts
+**Every probe.** All seventeen, across five renderers — a test asserts
 `show_probes() == list_probes()`, so a new probe cannot ship undrawable.
 
 | renderer | probes | a row is |
 | --- | --- | --- |
 | panel grid | `depth`, `surface_normal`, `generic_segmentation`, `semantic_segmentation`, `edge`, `keypoints2d`, `occlusion_edge`, `corner`, `orientation` | image, target, prediction |
 | boxes | `detection` | the crop with its boxes drawn on |
+| instances | `instance_segmentation` | the crop with one colour per instance |
 | matches | `correspondence` | two views and the matches between them |
 | gallery | `classification`, `retrieval`, `similarity` | the decision the probe made |
 
@@ -209,6 +210,35 @@ object rather than merely scoring badly.
 :alt: Detection: ground-truth boxes drawn on the crop the probe saw
 :class: visbench-figure
 ```
+
+### Instances
+
+One colour per instance, blended over the crop, with the class as text and the
+box as a thin outline.
+
+```{image} /_static/gallery/instance_segmentation.png
+:alt: Instance segmentation: one colour per instance on the crop the probe saw
+:class: visbench-figure
+```
+
+**The colours are arbitrary and are not matched between the target and
+prediction panels.** An instance's index is only annotation order — the probe
+cannot and does not predict it — so target instance 3 and predicted instance 3
+are unrelated, and matching their colours would draw a correspondence the
+protocol never claims.
+
+Colouring by *class* instead would be stable, and would hide the one thing this
+probe measures that `semantic_segmentation` does not: two touching objects of
+the same class would merge into a single blob. So the colour separates instances
+and the text carries the class.
+
+**Magenta is VOC's void**, drawn last so an excluded pixel is never hidden by an
+instance overlapping it. It is the same marker every other panel uses for "no
+ground truth here", which is exactly what the void outline is — the probe's loss
+weights those pixels to zero rather than calling them background. VOC's own
+palette contains a colour 190 away from that marker in L1, which blends into
+something the eye reads as magenta, so the instance palette drops it; without
+that, an instance and an excluded region were indistinguishable on the page.
 
 ## Correspondence: the shape of the errors, not their size
 

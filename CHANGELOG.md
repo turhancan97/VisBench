@@ -11,6 +11,100 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Added
 
+- **The instance-segmentation board: the probe is registered, and it is the
+  seventeenth** (14a-4). `visbench.get_probe("instance_segmentation")`,
+  `visbench run instance_segmentation` and `visbench show
+  instance_segmentation` all exist; the corpus goes from 252 records / 192 board
+  cells to **264 / 204**, and `LEADERBOARD.md` renders seventeen boards.
+
+  **The board ranks.** Spread **0.2148** on `mask_map_50` over twelve
+  backbones — `dinov2_vitb14` 0.2861 down to `convnext_base` 0.0713 — and it
+  reproduces no other board's ordering (0 of 136 pairs rank identically), which
+  is the test relative depth ordering failed. Only one adjacent pair is
+  inseparable (`siglip_vitb16` 0.1491 against `supervised_vitb16` 0.1486), so
+  **quote it to three decimals**, as `detection` is quoted.
+
+  **A high-level board whose four strongest partners are all mid-level:**
+  `occlusion_edge` +0.958, `surface_normal` +0.930, `generic_segmentation`
+  +0.909, `depth` +0.902, against `semantic_segmentation` +0.378 and `retrieval`
+  −0.217 — mean +0.821 against mid-level, **+0.238 against its own tier**. The
+  sharpest case yet of `high_level` being a folder rather than a quantity to
+  average over.
+
+  **The obvious explanation for that is wrong, and was checked rather than
+  asserted.** "Mask AP measures outlines, so it ranks with geometry" predicts
+  the box half ranking somewhere else; `box_map_50` comes from the same runs and
+  the two halves agree at **+0.986**, both topped by `occlusion_edge`. So the
+  box half alone already ranks with the geometry cluster, while inheriting every
+  line of its implementation from `detection`, whose board sits at +0.804 with
+  `semantic_segmentation`. What is left is the *data* —
+  `ImageSets/Segmentation` entire against `ImageSets/Main` at `--limit 600`. The
+  control that would separate "which images" from "how many" is named in
+  `CORPUS_FINDINGS.md` rather than run, and the claim kept is the negative one:
+  **two probes sharing an implementation and a dataset family can rank
+  differently, and the output type is not what does it.**
+
+  **`visbench show instance_segmentation` draws a new renderer**, the fifth:
+  one colour per instance, blended over the crop, with the class as text and the
+  box as a thin outline. The colours are **arbitrary and not matched between the
+  target and prediction panels** — an instance index is only annotation order,
+  so matching them would draw a correspondence the protocol never claims.
+  Colouring by *class* would be stable and would hide the one thing this probe
+  measures that `semantic_segmentation` cannot: two touching objects of the same
+  class would merge into one blob. Magenta is VOC's void, drawn last.
+
+  The gallery figure is **real human annotation**, not a prediction: Open Images
+  annotates instances separately, which is exactly what this probe needs, so it
+  joins `detection` and both segmentations in that tier rather than the
+  prediction-only tier the four geometry probes fall back to.
+
+### Changed
+
+- **An already-published finding's argument was retired by this board, and the
+  conclusion re-derived on different evidence.** "The board clustering is not an
+  artefact of shared datasets" rested on there being exactly two boards on the
+  identical 1449 VOC images, whose pair was the weakest of the three VOC pairs,
+  plus `generic_segmentation`'s nearest neighbour reading a different dataset.
+  `instance_segmentation` reads those same images and is `generic_segmentation`'s
+  **nearest neighbour of all** at +0.909. The test pinning the old form failed
+  exactly as its own message predicted it would.
+
+  The conclusion survives on stronger evidence: the three same-image pairs span
+  **+0.378 to +0.909**, and the weakest of all six VOC pairs is a same-image
+  one, so identical pixels are **not sufficient**; `generic_segmentation`
+  reaches +0.881/+0.867/+0.853 on NYUv2 and Taskonomy, so they are **not
+  necessary**. `test_sharing_images_is_not_what_makes_two_boards_agree` now pins
+  those two negatives and deliberately does *not* pin a mechanism — agreement is
+  not monotonic in the grid-correlation gap, and over-pinning is what retired
+  the previous formulation.
+
+- **`SAME_IMAGES` replaces a hardcoded pair** in
+  `scripts/analyse_board_correlates.py`. The same-images annotation was
+  `{"semantic_segmentation", "generic_segmentation"}` inline, so a third member
+  silently stopped it covering the section it annotates — two of the three pairs
+  would have printed unmarked.
+
+### Fixed
+
+- **An instance colour blended into the magenta invalid marker**, found by
+  rendering the gallery page and looking at it — the fifth gallery bug found
+  that way and the fifth not caught by a test. VOC's palette does not *contain*
+  `INVALID_RGB`, which is what the existing exactness test asserts, but index 13
+  `(192, 0, 128)` is 190 away in L1 and blends at `alpha=0.5` over a pale animal
+  into something the eye reads as magenta. `_instance_palette()` drops any row
+  within 255 of the marker, and `tests/viz/test_instances.py` asserts the
+  *distance* rather than equality — blending is a step no earlier colouriser
+  had.
+
+- **`examples/segment_instances.py` claimed the probe was unregistered**, which
+  14a-4 made false. It also now states why its own number differs from the
+  board's: it constructs the backbone itself, the house style for `examples/`,
+  and `run()` seeds before constructing one from a name — DINOv2-S reads 0.2641
+  here and **0.2696** on the board, every recorded field identical. The board is
+  the number to quote.
+
+### Added
+
 - **The instance-segmentation probe, proved end to end on DINOv2-S** (14a-3).
   `InstanceHead` (registered as `"instance"`) and `InstanceSegmentationTask`,
   plus `examples/segment_instances.py`. The **probe is deliberately not
