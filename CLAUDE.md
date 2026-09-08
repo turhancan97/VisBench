@@ -87,6 +87,10 @@ step is next rather than attempting the whole roadmap in one session.
 | 12a-2 | BSDS500: ODS/OIS/AP, reproducing the published human agreement | done |
 | 12a-3 | BSDS500: the probe — **refused by the oracle gate**, line closed | n/a |
 | 13a | The documentation site restructured: guides, 16 probe pages, an API reference | done |
+| 14a-1 | Instance segmentation: the VOC dataset and its instance loader | done |
+| 14a-2 | Instance segmentation: mask AP, by making VOC's matching IoU-agnostic | next |
+| 14a-3 | Instance segmentation: the head, proved end to end on DINOv2-S | |
+| 14a-4 | Instance segmentation: the 12-backbone board and the probe's own page | |
 
 **A closed step's full write-up lives in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md), not here.** That file is the archive
@@ -120,26 +124,16 @@ number — every measurement v0.6.1 reported, v0.7.0 reports identically.
 
 ## Current state
 
-**v0.1 through v0.8 are all complete, and every numbered step in the build table
-is done.** Every task, all three backbone families, the CLI, fine-tuning,
-detection, the low-level probes, the leaderboard and probe sharing. Everything
-below exists, is tested, and is on `main`. v0.4.0 filled the low-level tier;
-v0.5.0 was the `mask_valid` release; **v0.6.0 is the leaderboard release**
-(2026-08-02), **v0.6.1 corrects the correspondence board it shipped ranked
-upside down** — see step 6f — v0.7.0 is the contributor-facing release that
-changes no number, and **v0.8.0 (2026-08-07) is the corner probe**, steps 8a and
-8b together.
-
-**v0.9.0 through v0.16.0 are all shipped**, and each one's narrative is in
-`CHANGELOG.md`, its derivation in [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md)
-and its upload record in that file's "Release history": v0.9.0 was
-`visbench show` (9a-9d) plus the Hub work below; v0.10.0 was three timm
-backbones, a supervised ViT-B/16 and the gallery on real photographs (10a-10c,
-11a); v0.11.0 was `dino_vitb16`, the `sam_vitb16` recipe control and
-`examples/custom_backbone.py` (10d, 10e); v0.12.0-v0.13.0 were the
-`scene_classification`, `orientation` and `fine_grained_classification` probes
-and their boards; v0.14.0 is the oracle gate; v0.15.0 measured that gate against
-a DPT head; **v0.16.0 is the documentation release and moves no number.**
+**Everything through v0.16.1 is shipped**, and every numbered step in the build
+table before 14a is done — every task, all three backbone families, the CLI,
+fine-tuning, detection, the low-level probes, the leaderboard and probe
+sharing. Each release's narrative is in `CHANGELOG.md`, its derivation in
+[`ENGINEERING_LOG.md`](ENGINEERING_LOG.md) and its upload record in that file's
+"Release history"; read them there rather than carrying a recap here. The two
+that changed **no measurement** are worth knowing by name because they are the
+precedent for shipping one: **v0.7.0** (contributor-facing) and **v0.16.0**
+(documentation). **v0.6.1** is the other one to know — it corrects a
+correspondence board that shipped ranked upside down; see step 6f.
 
 **The corpus file is 252 records resolving to 192 board cells** — sixteen
 boards, twelve backbones a board. The two numbers differ because the corpus is
@@ -176,10 +170,10 @@ board that ships — see `CORPUS_FINDINGS.md`. The transferable lesson is the ne
 gauntlet rule in "decisions already paid for": **the oracle gate measures a
 ceiling and nothing measured the floor.**
 
-**Three probes shipped after v0.11.0 and each has a 12-backbone board**, all
-2026-08-28 unless stated. Their board readings are in
-[`CORPUS_FINDINGS.md`](CORPUS_FINDINGS.md) and their per-probe reference on
-their own page under `docs/probes/`; what matters here is what each one *is*:
+**Three probes shipped after v0.11.0 and each has a 12-backbone board.** Their
+board readings are in [`CORPUS_FINDINGS.md`](CORPUS_FINDINGS.md) and their
+reference on their own page under `docs/probes/`; what matters here is what
+each one *is*:
 
 - **`scene_classification`** (14th, probe 2026-08-27) — scene category on the
   same linear-probe path as object `classification`, on `places365_standard`,
@@ -211,38 +205,28 @@ and `orientation`'s board is **not** independent even though its target is,
 ranking like `keypoints2d` (rho +0.95), `corner` (+0.82) and `edge` (+0.79).
 
 
-**There is a second backlog beside the candidate-task one**, the
-library-surface one, which ships no new number the way v0.7 did; it is in the same part of this file and in
-`docs/roadmap.md`. **Its first item is done as of 2026-08-14**: step 9a shipped
-`visbench show`, the panel viewer, plus `visbench run --save-probe` to feed its
-prediction column, **9b added the correspondence pair renderer**, and **9c
-covered the last three** — so `visbench show` is valid on *every* probe and
-`show_probes() == list_probes()` is asserted — and **9d added the rendered
-gallery**: one generated figure per probe in the README and on the docs site. See the build table and the five
-bullets in "decisions already paid for". **The library-surface backlog is now
-closed** (2026-08-28): the **dataset bridges** shipped —
-`TorchvisionDataset` / `HuggingFaceDataset` in `visbench.data`, plus
-`--dataset torchvision:… | hf:…` on the three image-level probes — after
-`visbench show` (9a-9d) and `examples/custom_backbone.py` (2026-08-19). The
-candidate-task backlog is what remains, and **fine-grained recognition came
-off it on 2026-08-28** (`fine_grained_classification`, CUB-200-2011).
-**Photometric superpixels was built and rejected the same day** — it scored
-0.021-0.043 after passing every pre-measurement; see the bullet below and
-`visbench/tasks/low_level/README.md`. **The gauntlet gained the oracle gate that
-rejection was missing on 2026-09-01** — `scripts/oracle_ceiling.py`, calibrated
-so the four shipped magnitude targets pass at 0.53-0.83 and the rejected one
-fails at 0.25. It ships no probe and moves no number. That leaves BSDS500 edge
-and optical flow,
-**both of which need a download first** — and **the BSDS500 line is closed at
-two steps** (12a-1 and 12a-2, 2026-09-01): the dataset and a validated
-ODS/OIS/AP metric ship, reproducing the published human ODS of 0.80 at
-**0.8030**, and **the probe was refused by the oracle gate**. A linear probe on
-the 16x16 grid every corpus backbone produces has a ceiling of **0.4193 ODS**,
-below Canny's published 0.60, so a board could not be compared with the
-literature — which was the only reason to add BSDS rather than reuse `edge`.
-The write-up and the two routes that could reopen it are in
-`visbench/tasks/low_level/README.md`. Nothing cheap remains. Re-confirm what is wanted before
-starting anything; do not assume its order is a plan. **The one thread that was open — why `detection`
+**The library-surface backlog is closed** (2026-08-28) — `visbench show`
+(9a-9d), `examples/custom_backbone.py`, and the **dataset bridges**
+(`TorchvisionDataset` / `HuggingFaceDataset`, plus
+`--dataset torchvision:… | hf:…` on the three image-level probes). It shipped
+no new number, the way v0.7 did; `docs/roadmap.md` has the public version and
+the rules it established are in "decisions already paid for".
+
+**The candidate-task backlog is what remains, and its cheap end is
+exhausted.** `fine_grained_classification` came off it (CUB-200-2011);
+**photometric superpixels was built and rejected** at 0.021-0.043;
+**the gauntlet gained the oracle gate** that rejection was missing
+(`scripts/oracle_ceiling.py`, calibrated so the four shipped magnitude targets
+pass at 0.53-0.83 and the rejected one fails at 0.25); and **the BSDS500 line
+is closed at two steps** (12a-1/12a-2) — the dataset and a validated ODS/OIS/AP
+metric ship, reproducing the published human ODS of 0.80 at **0.8030**, and the
+probe was **refused by the oracle gate** at a 0.4193 ODS ceiling against
+Canny's published 0.60, which removed the only reason to add BSDS rather than
+reuse `edge`. Its write-up and the two routes that could reopen it are in
+`visbench/tasks/low_level/README.md`. **Instance segmentation on VOC is the
+open line** (14a) and is the exception to "nothing cheap remains" — see its
+bullet below. Re-confirm what is wanted before starting anything; do not assume
+this order is a plan. **The one thread that was open — why `detection`
 alone fails to reproduce — is closed**: it is GPU non-determinism made visible
 by a discrete metric, it was never a bug, and detection reproduces to *three*
 decimals rather than four. **Settled 2026-08-14 on all six backbones**: only
@@ -252,13 +236,10 @@ the feature grid rather than the width, the architecture or the probe. See
 [`CORPUS_FINDINGS.md`](CORPUS_FINDINGS.md) for the table. **There is no open lead
 here any more.**
 
-**Step 8a added the thirteenth probe**, `corner` — the first whose target is
-computed from the image rather than downloaded, so `visbench/data/derived.py`
-is a new kind of dataset here and the low-level tier now has three entries.
-**8b put it in the corpus**: six records on a pinned frame set, a generated
-board replacing 8a's hand-written table, and `scripts/stage_corner_frames.py`
-to reconstruct the frames. **Both shipped together as v0.8.0**, which is what is
-on PyPI.
+**`corner` (8a/8b) is the first probe whose target is computed from the image
+rather than downloaded**, which is why `visbench/data/derived.py` exists and
+why `scripts/stage_corner_frames.py` has to pin the frame set — see the
+derived-target rules below.
 
 **v0.7.0 was contributor-facing, not measurement** (7a-7e), and what survives
 it: `visbench demo` runs a real probe on generated images with no dataset and
@@ -346,44 +327,27 @@ run through `tail`: it buffers, so a run that is killed part-way leaves no log,
 and the Hub then has to be queried to find out what actually shipped — which
 happened, and is recoverable only because each record names its own pair.
 
-**`0.16.0` is fully released** (2026-09-05) — the tenth Zenodo DOI, with tag,
-wheel, release and `main` all agreeing at `481fdae`, the third release running
-with no gap. Its full record and both its per-release paragraphs are in
-[`ENGINEERING_LOG.md`](ENGINEERING_LOG.md) under "Release history"; the one
-rule worth keeping here is the reason it shipped when it did. **When a change
-deletes a file the README names, the clock starts** — the README shipped with
-0.15.0 linked to two files the docs restructure had deleted, and a PyPI version
-can never be re-uploaded, so dead links on the front page are only ever fixed
-by the *next* release.
+**`0.16.0` is fully released** (2026-09-05) — the tenth Zenodo DOI, agreeing at
+`481fdae`; full record in the log. The rule worth keeping is why it shipped
+when it did: **when a change deletes a file the README names, the clock
+starts** — a PyPI version can never be re-uploaded, so dead links on the front
+page are only ever fixed by the *next* release.
 
-**`0.16.1` is fully released** (2026-09-07) — on PyPI, tagged `v0.16.1`
-(annotated) on merge commit `1079bfc`, released on GitHub from that tag,
-archived by Zenodo as version DOI `10.5281/zenodo.22647634`, the eleventh, and
-**verified out of the published wheel by import**. Tag, wheel, release and
-`main` all agree at `1079bfc` — the fourth release running with no gap. The
-full record is in [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md) under "Release
-history". It is a patch release that **moves no number**: the two
-gallery-caption fixes (#93, #94), plus `CITATION.cff`'s abstract, which said
-"Fifteen probes" and omitted the sixteenth from v0.13.0 onward.
+**`0.16.1` is fully released** (2026-09-07) — the eleventh Zenodo DOI
+(`10.5281/zenodo.22647634`), tag, wheel, release and `main` all agreeing at
+`1079bfc`, the fourth release running with no gap, verified out of the
+published wheel by import. A patch release that **moves no number**; full
+record in the log.
 
-Two corrections came out of verifying it, and both are the same shape — a claim
-that was checkable and was asserted instead:
-
-- **The `CITATION.cff` drift reached GitHub's cite button and no archive.** A
-  first draft of the changelog entry said three Zenodo archives carried it.
-  They do not: Zenodo reads `.zenodo.json` **in preference to** `CITATION.cff`
-  — the rule this file states two bullets down — and `.zenodo.json` said
-  "Sixteen" throughout, confirmed against Zenodo's API for every version from
-  v0.13.0. **A divergence between those two files is half wrong and half fine,
-  and which half depends on the consumer**, so read the API before claiming an
-  archive is wrong; an archive is the one artifact that cannot be corrected
-  afterwards.
-- **The depth ramp's luminance was documented as "strictly monotonic" and is
-  only non-decreasing** — 5 ties in 255 steps, forced by uint8 quantisation.
-  `tests/viz/test_colour.py` asserted the right thing (`>= 0`) throughout, so
-  only the prose overstated; corrected on `main` 2026-09-08, details in the
-  log. **When a docstring states a property as absolute, check whether the test
-  states it that way too, and prefer the test's wording.**
+**Two corrections came out of verifying it**, both the same shape — a claim
+that was checkable and was asserted instead — and both fully recorded in the
+log. The transferable halves: **read Zenodo's API before claiming an archive is
+wrong** (the `CITATION.cff` drift reached GitHub's cite button and *no* archive,
+because `.zenodo.json` is preferred, so a divergence between those two files is
+half wrong and half fine depending on the consumer); and **when a docstring
+states a property as absolute, check whether the test states it that way too,
+and prefer the test's wording** (the depth ramp's luminance is non-decreasing,
+never "strictly monotonic" — corrected on `main` 2026-09-08).
 
 Every release from v0.6.0 onward is recorded paragraph by paragraph in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md) under "Release history" — byte
@@ -507,6 +471,10 @@ visbench/
                  derived.py (ShiTomasiResponse + OrientationResponse +
                    DerivedTargetDataset — the target computed from the image,
                    after the crop; 8a. OrientationResponse is a 2-ch direction)
+                 instance.py (VOCInstanceDataset + load_instance_map — per-
+                   instance masks from VOC SegmentationObject, class read EXACTLY
+                   from SegmentationClass, boxes DERIVED from the cropped mask;
+                   void 255 travels as `ignore`, 14a-1)
                  bridges.py (TorchvisionDataset + HuggingFaceDataset — wrap a
                    torch/HF dataset; cache_identity from index-order immutability)
                  bsds.py (BSDS500Dataset — every annotator's boundary map, 4-9
@@ -928,6 +896,45 @@ designed up front; extend it the same way, from a case that already runs.
   figure later. It is per figure now (`MAX_FIGURE_BYTES`), with the total scaled
   by `len(list_probes())`. **Raising a budget to make a guard pass is usually
   wrong; check first whether the budget was measuring the right thing.**
+- **Instance segmentation is feasible on VOC and not on COCO, and the deciding
+  number is grid collisions** (14a-1). VOC2012's `SegmentationObject` ships
+  2913 instance masks on the *same* official 1464/1449 splits the
+  `semantic_segmentation` board reads. Measured over all 1449 val images at a
+  16x16 grid: median instance **16.92 patches** against COCO's 2.27, and **zero
+  of 3207 instance pairs share a grid cell**. That last one is what makes a
+  per-patch head viable — no patch is contested — even though the instance
+  *index* is only annotation order and can never be a stable output channel.
+  Ceiling and floor, from a mask-AP harness calibrated at exactly 1.0000 on
+  perfect predictions: **oracle mask mAP@50 0.6666** at 16x16 against a
+  connected-components floor of **0.1376 mean IoU**, which over-segments 3207
+  instances into 21819 components. `CORPUS_FINDINGS.md` is not involved yet —
+  there is no board until 14a-4.
+
+  Three things the loader must keep doing, each silent when wrong. **An
+  instance's class comes from `SegmentationClass` at that instance's pixels and
+  the lookup is EXACT, not a vote** — all 6934 instances in train and val carry
+  exactly one class at purity 1.000000, so a mixed instance means the two files
+  disagree and `target()` raises. **The class is read before the crop**, so an
+  instance cropped away resolves and is dropped rather than raising for having
+  no semantic pixels. And **boxes are derived from the cropped mask**, which
+  deletes the rescale-and-shift hazard `data/detection.py` exists to guard
+  rather than re-testing it.
+
+- **Every dense target sits a sub-pixel from its image, in the shipped
+  loaders** (found in 14a-1, not fixed). `DenseFolderDataset` resamples targets
+  with `torch.nn.functional.interpolate(mode="nearest")`, which is
+  left-aligned, while the *image* is resized by PIL, which is centre-aligned.
+  The two crops of one VOC map differ on **1.7%** of pixels (1.5% for a
+  semantic map), always at object boundaries, and on 28 of 60 images a
+  one-pixel roll fits better than none — a sub-pixel offset rather than a
+  shift. `VOCInstanceDataset` keeps the shared convention **deliberately**: the
+  new probe reads the same 1449 images as `semantic_segmentation`, and
+  diverging for one probe would trade comparability for a fractional
+  alignment gain. Measured cost on what it is for: oracle mask mAP@50 0.6666
+  through the torch path against 0.6638 through a PIL one. **Changing it is a
+  decision about five published boards, not about one loader** — so it is
+  recorded here and left alone.
+
 - **The NIGHTS ImageNet split is a contamination check, not a subset.**
   `test_imagenet` and `test_no_imagenet` partition the test set by whether the
   reference image came from ImageNet. DINOv2-S scores 0.882 against 0.854 across
@@ -1855,14 +1862,12 @@ the measurement behind it, under the step named in brackets.**
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite **collects 1950 tests** and the **115 slow ones** were green on
+fast suite **collects 1983 tests** and the **115 slow ones** were green on
 `main` on 2026-09-05 (113 passed, 2 skipped), along with all three lint steps,
-mypy and the `-W` docs build. Earlier fast counts, for dating a claim: 1933 at
-the 0.16.0 release, 1930 at
-the docs redesign, 1920 after the relative-depth rejection, 1888 after the DPT
-control was widened,
-1879 at the 0.15.0 release, 1824 at the oracle gate, 1784 through the
-`fine_grained_classification` probe and schema v8.
+mypy and the `-W` docs build. Earlier fast counts, for dating a claim: 1950 at
+the monotonic-wording fix, 1933 at the 0.16.0 release, 1930 at the docs
+redesign, 1920 after the relative-depth rejection, 1879 at the 0.15.0 release,
+1824 at the oracle gate.
 
 **Quote the collected count, not "N passed", because the skip count is a fact
 about the environment rather than the suite.** Measured on one commit
@@ -2267,7 +2272,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 1950 fast tests
+pytest                                              # 1983 fast tests
 pytest -m slow                                      # 115, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/

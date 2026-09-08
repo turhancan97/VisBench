@@ -9,6 +9,74 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+### Added
+
+- **`VOCInstanceDataset` — per-instance mask targets, the first step toward a
+  real instance-segmentation probe** (14a-1). Reads VOC2012's
+  `SegmentationObject` (2913 instance masks) on the **official 1464/1449
+  segmentation splits**, which are the same images the `semantic_segmentation`
+  board already scores, so the two boards will read identical pixels.
+  `target()` returns `masks` `(N, H, W)` bool, `labels` `(N,)`, `boxes` `(N, 4)`
+  and `ignore` `(H, W)`, plus `num_original`. No probe, no metric and no board
+  yet — nothing in the corpus moves.
+
+  **Why VOC rather than COCO, measured rather than assumed.** A dense probe
+  reads one feature vector per patch, so the question is whether instances
+  survive the feature grid at all. Over all 1449 val images at 224px on a 16x16
+  grid: the median instance covers **16.92 patches** against COCO's **2.27**,
+  87.7% cover at least one, and **zero of 3207 instance pairs share a grid
+  cell**. That last number is the one that matters — no patch is contested, so
+  a per-patch head can carry instance information even though the instance
+  *index* is only annotation order and can never be a stable output channel.
+
+  **Ceiling and floor, from a mask-AP harness calibrated at exactly 1.0000 on
+  perfect predictions** (the check 6c-2 used for box AP): the **oracle** — every
+  ground-truth mask pooled to the grid and upsampled, i.e. a perfect per-patch
+  predictor — scores mask **mAP@50 0.6666** and **mAP@75 0.4857**, while the
+  cheapest shortcut, connected components of the semantic mask, reaches a mean
+  best-IoU of only **0.1376** because it over-segments 3207 instances into
+  21819 components. A wide usable band is what the relative-depth candidate
+  lacked.
+
+  Three loader decisions, each silent when wrong:
+
+  - **An instance's class is read from `SegmentationClass` at that instance's
+    own pixels, and the lookup is exact rather than a vote.** All 6934
+    instances in train and val carry exactly one class at purity 1.000000, so a
+    mixed instance means the two annotation files disagree and `target()`
+    raises. A majority vote would return a confident class for broken
+    annotation.
+  - **The class is read before the crop.** An instance cropped away then
+    resolves and is simply dropped, where a post-crop lookup would raise for an
+    image whose annotation is perfectly valid — and `num_original` keeps "no
+    instances" distinguishable from "all instances dropped".
+  - **Boxes are derived from the cropped mask**, so a box cannot disagree with
+    the mask it describes. That *deletes* the rescale-and-shift hazard
+    `visbench/data/detection.py` is built to guard, rather than re-testing it.
+
+  The palette rule is inherited rather than re-implemented:
+  `load_instance_map` goes through `load_label_map`, which reads mode `P` with
+  no conversion and refuses an `RGB` file. A test proves the trap is real by
+  asserting that `convert("L")` returns 90 where the annotation says instance 2.
+
+### Fixed
+
+- **Nothing, but one finding is recorded and deliberately not acted on.**
+  `DenseFolderDataset` resamples every dense target with
+  `torch.nn.functional.interpolate(mode="nearest")`, which is left-aligned,
+  while the *image* is resized by PIL, which is centre-aligned — so every dense
+  target sits a sub-pixel from its image. Measured on VOC: the two crops of one
+  instance map differ on **1.7%** of pixels (1.5% for a semantic map), always at
+  object boundaries, and on 28 of 60 images a one-pixel roll fits better than
+  none, so it is an offset rather than a shift.
+
+  `VOCInstanceDataset` keeps the shared convention on purpose. The new probe
+  reads the same 1449 images as `semantic_segmentation`, and diverging for one
+  probe would trade that comparability for a fractional alignment gain; the
+  measured cost is oracle mask mAP@50 **0.6666** through the torch path against
+  **0.6638** through a PIL one. Changing it is a decision about five published
+  boards, not about one loader.
+
 ### Fixed
 
 - **The depth ramp's luminance is non-decreasing, and 0.16.1 shipped calling it
