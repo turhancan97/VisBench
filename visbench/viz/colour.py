@@ -29,11 +29,21 @@ mid-grey at all, so a depth panel comes out as texture rather than as near and
 far. :data:`_DEPTH_ANCHORS` is therefore a ramp — generated inline by
 interpolating five anchors, the way :func:`voc_palette` and
 :func:`_orientation` stay dependency-free. What makes it safe against the
-objection above is **strictly monotonic luminance**: the greyscale panel is
+objection above is that its luminance **never reverses**: the greyscale panel is
 recoverable as this one's luminance channel, so the ramp cannot introduce a
 boundary greyscale does not already have. A test asserts that, and asserts the
 ramp stays far from magenta, which is the other property the palette owes
 :data:`INVALID_RGB`.
+
+**Non-decreasing, not strictly increasing** — the distinction is worth stating
+because the stronger word shipped here through 0.16.1 and is wrong. Measured
+over 256 samples, the luminance rises 24.3 to 229.2 with **5 ties in 255
+steps**: the ramp spans about 205 of the 255 available levels, so at this
+sample count uint8 quantisation *forces* repeats and strict monotonicity is
+unreachable rather than merely absent. Non-decreasing is also all the argument
+needs — a ramp that never reverses adds hue without adding structure — so the
+test asserts ``>= 0`` deliberately. Do not tidy it to ``> 0``; it would fail,
+and it would be asserting a property nothing here requires.
 """
 
 from dataclasses import dataclass

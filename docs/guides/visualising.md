@@ -138,7 +138,7 @@ Depth is above, and it is the one scalar map drawn as a **ramp** rather than in
 grey: dark blue is near, pale yellow is far. A magnitude answers "how much is
 here", where mid-grey is a reading like any other; a depth map answers "how
 far", and the eye reads no ordinal meaning into mid-grey, so a grey depth panel
-comes out as texture. The ramp's luminance rises monotonically from end to end,
+comes out as texture. The ramp's luminance never reverses from end to end,
 which is what keeps it honest — the grey panel is recoverable as its luminance
 channel, so it cannot introduce a boundary grey does not already have, and a
 test asserts that rather than the docstring claiming it.

@@ -196,12 +196,21 @@ class TestDepthRamp:
     def _luminance(rgb):
         return rgb @ np.array([0.2126, 0.7152, 0.0722])
 
-    def test_luminance_increases_all_the_way_along_the_ramp(self):
+    def test_luminance_never_reverses_along_the_ramp(self):
         """Why it cannot manufacture a boundary greyscale does not have.
 
         The greyscale panel is recoverable as this one's luminance channel, so
         a ramp whose luminance never reverses adds hue to the picture without
         adding structure to it.
+
+        **Non-decreasing, not strictly increasing, and the ``>=`` is
+        deliberate.** The luminance rises 24.3 to 229.2 across these 256
+        samples with 5 ties in 255 steps: the ramp covers about 205 of the 255
+        uint8 levels, so repeats are forced by quantisation and ``> 0`` would
+        fail. It is also more than the argument needs — never reversing is what
+        makes the greyscale panel recoverable. Tightening this to ``> 0`` is the
+        natural tidy-up and asserts a property nothing here requires; the
+        stronger wording shipped in 0.16.1's docstring for that reason.
         """
         assert np.all(np.diff(self._luminance(self._ramp())) >= 0)
         assert self._luminance(self._ramp())[-1] > self._luminance(self._ramp())[0]

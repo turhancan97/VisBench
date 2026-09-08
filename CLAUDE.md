@@ -378,15 +378,12 @@ that was checkable and was asserted instead:
   and which half depends on the consumer**, so read the API before claiming an
   archive is wrong; an archive is the one artifact that cannot be corrected
   afterwards.
-- **The depth ramp's luminance is non-decreasing, not "strictly monotonic".**
-  Measured on the published wheel: it never reverses and rises 24.3 → 229.2
-  over 256 samples, with **5 ties in 255 steps** from uint8 quantisation. That
-  is exactly what `tests/viz/test_colour.py` asserts (`>= 0` plus a rising
-  endpoint) and all the argument needs — the grey panel stays recoverable as
-  the luminance channel and the ramp adds no boundary grey lacks. Strict
-  monotonicity is unreachable in uint8 across a 205-level span. The stronger
-  word is in `colour.py`'s docstring and shipped in this wheel, so it is the
-  **next** release's to correct.
+- **The depth ramp's luminance was documented as "strictly monotonic" and is
+  only non-decreasing** — 5 ties in 255 steps, forced by uint8 quantisation.
+  `tests/viz/test_colour.py` asserted the right thing (`>= 0`) throughout, so
+  only the prose overstated; corrected on `main` 2026-09-08, details in the
+  log. **When a docstring states a property as absolute, check whether the test
+  states it that way too, and prefer the test's wording.**
 
 Every release from v0.6.0 onward is recorded paragraph by paragraph in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md) under "Release history" — byte
@@ -1391,9 +1388,12 @@ designed up front; extend it the same way, from a case that already runs.
   near to pale yellow far, and `magnitude` stays grey.
 
   **The old argument is answered by a number, not by preference: the ramp's
-  luminance is strictly monotonic**, so the grey panel is recoverable as its
+  luminance never reverses**, so the grey panel is recoverable as its
   luminance channel and it cannot introduce a boundary grey does not already
-  have. Assert that when adding a colouriser. The anchors are the viridis family
+  have. **Non-decreasing, not strictly increasing** — 5 ties in 255 steps,
+  because the ramp spans ~205 of 255 uint8 levels, so strict monotonicity is
+  unreachable at that sample count rather than absent. Assert `>= 0` plus a
+  rising endpoint when adding a colouriser, never `> 0`. The anchors are the viridis family
   **with its purple end dropped** — viridis begins at `(68, 1, 84)`, hue 296°,
   four degrees from magenta — and the magenta test is a *distance* now, because
   exact inequality against `INVALID_RGB` would have passed on that purple. And
