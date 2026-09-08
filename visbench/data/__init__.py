@@ -18,6 +18,11 @@ from visbench.data.dense import (
 )
 from visbench.data.detection import VOC_CLASSES, DetectionFolderDataset, load_voc_boxes
 from visbench.data.image_folder import ImageFolderDataset
+from visbench.data.instance import (
+    ANNOTATION_KEYS,
+    VOCInstanceDataset,
+    load_instance_map,
+)
 from visbench.data.pair_dataset import HomographyPairDataset, PairDataset, PairViewDataset
 from visbench.data.taskonomy import (
     TASKONOMY_DOMAINS,
@@ -47,6 +52,9 @@ __all__ = [
     "DetectionFolderDataset",
     "load_voc_boxes",
     "VOC_CLASSES",
+    "VOCInstanceDataset",
+    "load_instance_map",
+    "ANNOTATION_KEYS",
     "TaskonomyDataset",
     "load_taskonomy_split",
     "TASKONOMY_DOMAINS",
