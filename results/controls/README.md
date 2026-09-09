@@ -179,6 +179,106 @@ correction to its premise. See `visbench/tasks/low_level/README.md`.
 corpus would make those five tasks unrenderable, since `board_for` refuses a
 task with more than one group.
 
+## `detection_split.jsonl` — does a board's cluster come from its task or its split?
+
+**Run 2026-09-09 (after 14a-4), 24 records: `detection` on VOC's
+`ImageSets/Segmentation` — the *instance* probe's own images — in two sizes.**
+
+### The question
+
+14a-4 found `instance_segmentation` ranking with the mid-level geometry boards
+(`occlusion_edge` +0.958, `surface_normal` +0.930, `depth` +0.902) rather than
+its own high-level tier (`semantic_segmentation` +0.378, `retrieval` −0.217),
+and showed the mask branch is **not** the reason: the `box_map_50` half of the
+same runs agrees with the mask half at **+0.986** and is topped by
+`occlusion_edge` too. So the box half alone ranks with geometry, while
+`detection` — one implementation, one matcher, one metric, one dataset family —
+sits at +0.804 with `semantic_segmentation`. What differs is the data.
+
+### The control as first written down was impossible
+
+`CORPUS_FINDINGS.md` named it as "the instance probe's own head on
+`ImageSets/Main` at `--limit 600`". That cannot be run. `SegmentationObject`
+exists for **2913 images only**, so **141 of the first 600 `Main` train stems
+have an instance mask** and the other 459 have no target at all — checked, not
+assumed. `Annotations/` carries **17125 XMLs** covering every devkit image, so
+the direction has to invert: move the *published* probe onto the *new* probe's
+images. That is also the better experiment, since `detection`'s baseline
+reading is the one already published.
+
+### The design
+
+| | probe | stems | size |
+| --- | --- | --- | --- |
+| **A** `full` | `detection` | Segmentation | 1464 train / 1449 val |
+| **B** `limit600` | `detection` | Segmentation | 600 |
+| **C** *(corpus)* | `detection` | **Main** | 600 |
+| **D** *(corpus)* | `instance_segmentation` | Segmentation | 1464 / 1449 |
+
+Three comparisons exhaust the difference between C and D:
+
+| pair | rho | what varies |
+| --- | --- | --- |
+| **A vs D** | **+0.958** | nothing but box provenance and the mask branch |
+| A vs B | +0.818 | training size |
+| B vs C | +0.818 | which images |
+| **A vs C** | **+0.510** | both |
+
+### The answer: the split, and it is not a small effect
+
+**Moving `detection` onto the instance probe's images moves it into the
+geometry cluster.** Nothing about the probe changed:
+
+| | mean vs mid | mean vs high | top partner |
+| --- | --- | --- | --- |
+| `detection` (published, Main-600) | — | — | `semantic_segmentation` +0.804; `occlusion_edge` +0.483 |
+| `detection` (Segmentation-full) | **+0.784** | **+0.018** | `occlusion_edge` **+0.965** |
+| `detection` (Segmentation-600) | +0.723 | +0.287 | `generic_segmentation` +0.853 |
+
+And **once images and size match, `detection` and `instance_segmentation` rank
+the same board** (+0.958). Box provenance — VOC's hand-drawn XML against boxes
+derived from the instance mask — plus the whole mask branch account for about
+0.04 of rho, which is nothing.
+
+So 14a-4's published negative claim is confirmed and can be stated positively:
+**it is the split.** Neither half explains it alone (+0.818 each) and the two
+compound (+0.510).
+
+### The row that shows it most plainly
+
+`mae_vitb16` scores **0.1296** on the published detection board — tenth of
+twelve — and **0.3371** on the same probe over the segmentation split, where it
+is **first**. This is the standing "a count over a corpus is a fact about that
+corpus" caution with a mechanism attached: MAE's position on that board is
+contingent on which 600 frames it read.
+
+### What this does and does not license
+
+It does **not** move a published number. Every corpus record stands; what is
+contingent is the *reading*.
+
+It **does** caveat the corpus's headline two-cluster finding. `detection` is a
+member of the "localised high-level" cluster, and its membership is
+split-contingent — so that cluster is a property of these boards as configured,
+not of the tasks in the abstract. Mid- and low-level coherence is untouched
+here, and the two clusters remain the stable structure; what weakens is any
+claim that a *task* belongs to a cluster.
+
+### One thing that could not be checked
+
+Whether the published board **underfits** relative to config A is unanswerable
+from the corpus: those detection records predate schema v8 and carry
+`training: null`. Within the control, A fits better than B on **all twelve**
+backbones (mean `train_loss` 1.3071 against 1.4012), so the size half of the
+effect coincides with a fitting difference — but that cannot be extended to C,
+and it is not claimed. This is exactly the gap schema v8 was added to close,
+showing up on the records that predate it.
+
+`scripts/build_split_control.sh` holds the flags,
+`slurm/split_control.sbatch` the array, `scripts/analyse_split_control.py` the
+reading, and `tests/scripts/test_split_control_scripts.py` pins the two-file
+matrix and that no record can reach the corpus.
+
 ## `relative_depth.jsonl` — is the `depth` board measuring metric accuracy?
 
 Five records: `RelativeDepthTask` on the whole NYUv2 split, the same frames,

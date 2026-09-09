@@ -11,6 +11,79 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Added
 
+- **The split control: a board's cluster membership is partly a property of its
+  *split*** (`results/controls/detection_split.jsonl`, 24 records, 12
+  backbones x 2 configs). 14a-4 showed `instance_segmentation` ranking with the
+  mid-level geometry boards rather than its own tier, and that the mask branch
+  was not responsible — the `box_map_50` half of the same runs agrees with the
+  mask half at +0.986. This settles what is.
+
+  **Run `detection` on the instance probe's 1464/1449
+  `ImageSets/Segmentation` images instead of its own 600 `Main` frames — same
+  probe, same head, same losses, same matcher, same metric — and it changes
+  cluster.** `occlusion_edge` **+0.965**, mean **+0.784** against mid-level and
+  **+0.018** against high, where the published board reads +0.804 with
+  `semantic_segmentation` and +0.483 with `occlusion_edge`.
+
+  | pair | rho | what varies |
+  | --- | --- | --- |
+  | detection(seg, full) vs the instance board | **+0.958** | box provenance and the mask branch only |
+  | detection(seg, full) vs detection(seg, 600) | +0.818 | training size |
+  | detection(seg, 600) vs the published board | +0.818 | which images |
+  | detection(seg, full) vs the published board | **+0.510** | both |
+
+  So **once images and size match, the two probes rank the same board**: VOC's
+  hand-drawn XML boxes against boxes derived from the instance mask, plus the
+  entire mask branch, are worth about 0.04 of rho. Neither half of the data
+  explains it alone and the two compound. 14a-4's negative claim becomes
+  positive: **it is the split, not the probe.** `mae_vitb16` shows it plainly —
+  **0.1296** on the published detection board, tenth of twelve, against
+  **0.3371** on the segmentation split, where it is **first**.
+
+  **No published number moves.** What was contingent was always the reading, and
+  the standing rule that follows is: **never quote a cluster as a property of a
+  *task*** — it is a property of a board as configured. The two-cluster
+  structure and mid/low coherence are untouched; which side a board falls on is
+  what is contingent. `CORPUS_FINDINGS.md` now carries that caveat *at* the
+  two-cluster finding rather than only in the new entry.
+
+  `scripts/build_split_control.sh` holds the flags,
+  `slurm/split_control.sbatch` the array,
+  `scripts/analyse_split_control.py` the reading, and
+  `tests/scripts/test_split_control_scripts.py` pins the two-file matrix, that
+  only the split and the limit differ from `probe_detection`, and that no record
+  can reach the corpus — a `task=detection` record over another split would make
+  the published board *unrenderable*.
+
+### Fixed
+
+- **The control this answers was documented as something impossible to run**,
+  and checking beat assuming. `CORPUS_FINDINGS.md` had called for "the instance
+  probe's own head on `ImageSets/Main` at `--limit 600`". `SegmentationObject`
+  covers **2913 images only**, so **141 of the first 600 `Main` train stems have
+  an instance mask** and the other 459 have no target at all. The direction had
+  to invert — the *published* probe onto the *new* probe's images, which
+  `Annotations/` supports for every devkit image (17125 XMLs) — and that is also
+  the better experiment, since `detection`'s baseline is the one already
+  published.
+
+- **`scripts/merge_controls.sh` routed two hardcoded groups**, so a third
+  control merged into nothing. It takes a `detection_split` line now; the header
+  no longer claims it serves the DPT control alone.
+
+### Changed
+
+- **One question the corpus cannot answer, recorded rather than guessed at.**
+  Whether the published detection board *underfits* relative to the full-split
+  config is unanswerable: those records **predate schema v8 and carry
+  `training: null`** — precisely the gap v8 was added to close, surfacing on the
+  records older than it. Inside the control the full config fits better than the
+  600-frame one on **all twelve** backbones (mean `train_loss` 1.3071 against
+  1.4012), so the size half of the effect coincides with a fitting difference;
+  that is not extended to the published board and is not claimed.
+
+### Added
+
 - **The instance-segmentation board: the probe is registered, and it is the
   seventeenth** (14a-4). `visbench.get_probe("instance_segmentation")`,
   `visbench run instance_segmentation` and `visbench show

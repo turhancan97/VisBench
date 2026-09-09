@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
-# Merge the per-task JSONL files the DPT-control array wrote into the tracked
-# control files.
+# Merge the per-task JSONL files a control array wrote into the tracked control
+# files. Two controls use it: the DPT-head one and the split one.
 #
 #   scripts/merge_controls.sh
 #
@@ -61,6 +61,11 @@ merge_group() {
 
 merge_group vit results/controls/dpt_head.jsonl
 merge_group cnn results/controls/dpt_head_cnn.jsonl
+# The split control (2026-09-09): `detection` on the instance probe's images.
+# Its two configs DO share a group here, unlike the DPT ones -- they differ only
+# in `--limit`, so `dataset_size` tells them apart inside one file and
+# `comparability_key` keeps them out of the published board either way.
+merge_group detection_split results/controls/detection_split.jsonl
 
 echo
 echo "Parts left in $PARTS; delete them once the merge looks right."

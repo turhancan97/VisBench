@@ -506,9 +506,20 @@ Two standing cautions apply to everything below:
 
 - **The high-level tier is two clusters, not one — and the tier-mean test flips
   sign with the corpus, so read the clusters, not the mean** (2026-08-20,
-  updated 2026-08-28, `analyse_board_correlates.py --section agreement`). The
-  taxonomy's claim, tested as "probes within a tier agree with each other more
-  than probes across tiers":
+  updated 2026-08-28, `analyse_board_correlates.py --section agreement`).
+
+  > **Read the split control before quoting a cluster as a property of a
+  > *task*** (2026-09-09, `results/controls/detection_split.jsonl`).
+  > `detection` is a member of the localised cluster below, and moving it onto
+  > another VOC split list — same probe, same head, same metric — takes it into
+  > the *mid-level geometry* cluster: `occlusion_edge` +0.965, mean +0.784
+  > against mid-level and +0.018 against high. So a cluster here is a property
+  > of these boards **as configured**, not of the tasks in the abstract. The
+  > two-cluster *structure* is unaffected and so is mid/low coherence; what is
+  > contingent is which side a given board falls on.
+
+  The taxonomy's claim, tested as "probes within a tier agree with each other
+  more than probes across tiers":
 
   | | n=9, 13 boards | n=12, 13 boards | n=12, 14 boards | n=12, 15 boards | n=12, 16 boards |
   | --- | --- | --- | --- | --- | --- |
@@ -725,13 +736,52 @@ Two standing cautions apply to everything below:
   the training images, and the two orderings agree at only +0.587 (box half
   against `detection`).
 
-  **That is where this stops, and the control that would settle it is named
-  rather than run.** Running the instance probe's own head on `ImageSets/Main`
-  at `--limit 600` would separate "which images" from "how many" from "which
-  split list", and it belongs in `results/controls/` beside the DPT and
-  resolution controls rather than in a board. Until then the honest statement is
-  the negative one: **two probes sharing an implementation and a dataset family
-  can rank differently, and the output type is not what does it.**
+  **The control ran on 2026-09-09 and the answer is the split** —
+  `results/controls/detection_split.jsonl`, 24 records, full write-up in
+  `results/controls/README.md`.
+
+  **The control as named here was impossible, which is worth recording.** This
+  paragraph used to call for "the instance probe's own head on `ImageSets/Main`
+  at `--limit 600`". That cannot be run: `SegmentationObject` covers **2913
+  images only**, so 141 of the first 600 `Main` train stems have an instance
+  mask and 459 have no target. The direction had to invert — move the
+  *published* probe onto the *new* probe's images, which `Annotations/`
+  supports for every devkit image (17125 XMLs).
+
+  **`detection` on the instance probe's 1464/1449 images joins the geometry
+  cluster.** Top partner `occlusion_edge` **+0.965**, mean **+0.784** against
+  mid-level and **+0.018** against high — where the published board reads +0.804
+  with `semantic_segmentation` and +0.483 with `occlusion_edge`. Nothing about
+  the probe changed.
+
+  | pair | rho | what varies |
+  | --- | --- | --- |
+  | detection(seg, full) vs the instance board | **+0.958** | box provenance and the mask branch only |
+  | detection(seg, full) vs detection(seg, 600) | +0.818 | training size |
+  | detection(seg, 600) vs the published board | +0.818 | which images |
+  | detection(seg, full) vs the published board | **+0.510** | both |
+
+  So **once images and size match, the two probes rank the same board**: XML
+  boxes against mask-derived boxes, plus the entire mask branch, are worth ~0.04
+  of rho. Neither half of the data explains it alone and the two compound. The
+  negative claim above is confirmed and now positive: **it is the split.**
+
+  **`mae_vitb16` is the row that shows it plainly** — 0.1296 on the published
+  detection board, tenth of twelve, and **0.3371** on the same probe over the
+  segmentation split, where it is **first**.
+
+  **The caveat this puts on the two-cluster finding below.** `detection` is a
+  member of the "localised high-level" cluster and its membership is
+  *split-contingent*, so that cluster is a property of these boards as
+  configured rather than of the tasks in the abstract. No published number
+  moves; the reading does. Mid- and low-level coherence is untouched.
+
+  **What could not be checked**: whether the published board underfits relative
+  to the full-split config. Those detection records predate schema v8 and carry
+  `training: null`. Inside the control, the full config fits better than the
+  600-frame one on **all twelve** backbones (mean `train_loss` 1.3071 against
+  1.4012), so the size half coincides with a fitting difference — but that
+  cannot be extended to the published board and is not claimed.
 
 - **`scene_classification` ranks backbones almost independently of the object
   `classification` board — the two "classification" boards are not one
