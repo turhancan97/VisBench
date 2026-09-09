@@ -293,24 +293,29 @@ asserted.
 
 **`visbench run --push-to REPO_ID` publishes the head it just trained**
 (`--public` overrides the private default), and `scripts/build_corpus.sh` takes
-`PUSH_TO` / `PUSH_PUBLIC` so a whole board is published from the file that
-already holds every probe's flags. **Publishing from the run, not from a second
-script, is the design**: a head is only meaningful against the features it was
-fitted on, and the run's flags are what fitted them — a separate publish step is
-a second copy of every dataset flag, free to drift, and a head trained under
-drifted flags uploads, loads and scores without complaint. The CLI refuses a
-zero-shot probe *before* the run; `save_probe` would raise the same thing after
-it, having spent the whole run to do so. `scripts/publish_collection.py` groups
-the pushed repositories into one collection, dry-run unless `--create`.
+`PUSH_TO` / `PUSH_PUBLIC` so a whole board publishes from the file that already
+holds every probe's flags. **Publishing from the run, not a second script, is
+the design**: a head is only meaningful against the features it was fitted on
+and the run's flags are what fitted them, so a separate publish step is a second
+copy of every dataset flag, free to drift — and a head trained under drifted
+flags uploads, loads and scores without complaint. The CLI refuses a zero-shot
+probe *before* the run rather than after spending it.
+`scripts/publish_collection.py` groups the pushed repositories into one
+collection, dry-run unless `--create`; the Hub caps a collection description at
+**150 characters** (rejected with a 400 naming neither the limit nor the value,
+so it is asserted at import) and creating one needs **`collection.write`** on
+the token, where `repo.write` alone pushes models happily and then 403s.
 
-**Twenty trained heads are published and public**, as of 2026-08-07: the ten
-trained probes against DINOv2-S/14 and DINOv2-B/14, one repository per pair at
-`turhancan97/visbench-<probe>-<backbone>`, gathered in a collection whose URL is
-quoted in `README.md` and `docs/guides/sharing.md`. **Read it from one of those
-two files
-rather than reconstructing it** — a Hub collection slug carries a generated hash
-suffix and cannot be derived from its title. The three zero-shot probes are
-deliberately absent. Two operational notes that each cost an attempt: the Hub
+**Twenty trained heads are published and public**, as of 2026-08-07: ten
+probes against DINOv2-S/14 and DINOv2-B/14, one repository per pair at
+`turhancan97/visbench-<probe>-<backbone>`, in a collection whose URL is quoted
+in `README.md` and `docs/guides/sharing.md` — **read it from one of those two
+files rather than reconstructing it**, since a Hub collection slug carries a
+generated hash suffix. **That is ten of the fourteen probes that train a head,
+not all of them**: `scene_classification`, `fine_grained_classification`,
+`orientation` and `instance_segmentation` all shipped after the push and have
+no published head. The three zero-shot probes are deliberately absent, which is
+a different reason. Two operational notes that each cost an attempt: the Hub
 caps a collection description at **150 characters** and rejects a longer one
 with a 400 naming neither the limit nor the value (asserted at import in the
 script, so it fails before the network call), and creating a collection needs
@@ -320,32 +325,47 @@ and then 403s.
 Republishing the board is `PUSH_TO=... PUSH_PUBLIC=1 scripts/build_corpus.sh`.
 **Point `RESULTS=` at a scratch file, never `results/corpus/visbench.jsonl`**,
 so the run can be diffed against the corpus instead of replacing the reference
-it would be checked against. That diff is what caught the seeding bug below, and
-it is the only reason the bug was found at all. Do not pipe a long publishing
-run through `tail`: it buffers, so a run that is killed part-way leaves no log,
-and the Hub then has to be queried to find out what actually shipped — which
-happened, and is recoverable only because each record names its own pair.
+it would be checked against — that diff is the only reason the seeding bug below
+was ever found. And **do not pipe a long publishing run through `tail`**: it
+buffers, so a run killed part-way leaves no log and the Hub has to be queried to
+find out what shipped, which happened and was recoverable only because each
+record names its own pair.
 
-**`0.16.0` is fully released** (2026-09-05) — the tenth Zenodo DOI, agreeing at
-`481fdae`; full record in the log. The rule worth keeping is why it shipped
-when it did: **when a change deletes a file the README names, the clock
-starts** — a PyPI version can never be re-uploaded, so dead links on the front
-page are only ever fixed by the *next* release.
+**`0.16.0` and `0.16.1` are both fully released** (2026-09-05 and 2026-09-07)
+— the tenth and eleventh Zenodo DOIs, tag, wheel, release and `main` all
+agreeing, verified out of the published wheel by import; `0.16.1`'s concept DOI
+resolves to it. Full records in the log. Two rules survive them. **When a change
+deletes a file the README names, the clock starts** — a PyPI version can never
+be re-uploaded, so dead links on the front page are only ever fixed by the
+*next* release, which is why 0.16.0 shipped when it did. And **read Zenodo's API
+before claiming an archive is wrong**: a `CITATION.cff`/`.zenodo.json`
+divergence is half wrong and half fine, because Zenodo prefers the latter and
+GitHub's cite button the former. A third, from the same verification: **when a
+docstring states a property as absolute, check whether the test states it that
+way too, and prefer the test's wording.**
 
-**`0.16.1` is fully released** (2026-09-07) — the eleventh Zenodo DOI
-(`10.5281/zenodo.22647634`), tag, wheel, release and `main` all agreeing at
-`1079bfc`, the fourth release running with no gap, verified out of the
-published wheel by import. A patch release that **moves no number**; full
-record in the log.
+**`0.17.0` is PREPARED, NOT PUBLISHED** (2026-09-09). The version bump
+(`pyproject.toml` and `__init__.py`), `uv.lock`, `CITATION.cff`,
+`.zenodo.json`, the README status line and the changelog section are on the
+branch; **PyPI, the tag, the GitHub release and the Zenodo archive are the
+maintainer's to run and none of them has happened.** Do not read this paragraph
+as a release record, and do not assume `main` matches what is installable —
+check [PyPI](https://pypi.org/project/visbench/). The next session replaces
+this with the real record.
 
-**Two corrections came out of verifying it**, both the same shape — a claim
-that was checkable and was asserted instead — and both fully recorded in the
-log. The transferable halves: **read Zenodo's API before claiming an archive is
-wrong** (a `CITATION.cff`/`.zenodo.json` divergence is half wrong and half fine,
-because Zenodo prefers the latter and GitHub's cite button the former); and
-**when a docstring states a property as absolute, check whether the test states
-it that way too, and prefer the test's wording** (the depth ramp's luminance is
-non-decreasing, never "strictly monotonic").
+It is a **minor** release because it adds a probe: `instance_segmentation`
+(14a-1 to 14a-4) takes the corpus to **264 records / 204 board cells** over
+seventeen boards, schema still v8, and **no existing measurement moves**. It
+also carries the split control, whose standing rule is in "decisions already
+paid for": never quote a cluster as a property of a *task*.
+
+**Both abstracts were bumped, which is the trap 0.16.1 was spent on.**
+`CITATION.cff` said "Sixteen probes" and `.zenodo.json` says the same sentence
+in HTML; the `.cff` one silently said "Fifteen" from v0.13.0 until 0.16.1
+caught it, so three permanent archives describe a smaller VisBench than they
+contain. `tests/test_citation.py` compares the two files' *titles* and still
+does not compare their abstracts, so this remains a hand-checked field — check
+both whenever a probe ships.
 
 Every release from v0.6.0 onward is recorded paragraph by paragraph in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md) under "Release history" — byte
@@ -1297,15 +1317,13 @@ designed up front; extend it the same way, from a case that already runs.
 - **The gauntlet asks whether a target is distinctive; it never asked whether
   it is *recoverable*. Photometric superpixels is what that cost** (built and
   rejected 2026-08-28). SLIC boundary regression passed every gate — tail 0.055
-  against `edge_occlusion`'s 0.46, overlap with `edge_texture` 0.267 per image
-  against the 0.52 `corner` shipped with, cross-image `|r|` 0.044 (below the
-  edge target's own 0.060, so the boundaries followed the image and not SLIC's
-  seeding lattice), and two rival formulations rejected on the overlap rule.
-  Then it scored **0.0434 / 0.0209 / 0.0238** on DINOv2-S, CLIP-B/16 and
-  ResNet-50, where the *weakest* shipped low-level probe (`keypoints2d`) scores
-  0.179-0.236 and `corner` scores 0.492-0.651. Spread 0.023, with ResNet-50
-  "beating" CLIP by 0.003, and `train_loss` **lowest** for the worst scorers —
-  the heads learned the mean boundary density and nothing about location.
+  against `edge_occlusion`'s 0.46, overlap with `edge_texture` 0.267 against the
+  0.52 `corner` shipped with, cross-image `|r|` 0.044 — and then scored
+  **0.0434 / 0.0209 / 0.0238** on DINOv2-S, CLIP-B/16 and ResNet-50, where the
+  weakest shipped low-level probe scores 0.179-0.236 and `corner` scores
+  0.492-0.651. Spread 0.023, ResNet-50 "beating" CLIP by 0.003, and
+  `train_loss` **lowest** for the worst scorers — the heads learned the mean
+  boundary density and nothing about location.
 
   **The missing check was an oracle, and it now ships** (2026-09-01).
   `DenseTrainingTask.evaluate_oracle` pools the target to the feature grid,
@@ -1353,53 +1371,36 @@ designed up front; extend it the same way, from a case that already runs.
     `scripts/premeasure_ordering.py` is the worked example, and it costs one
     pass over a split.
   - **It models a *linear* head exactly, and exactly one backbone's DPT head
-    beats it — measured on two backbones 2026-09-01, widened to the whole
-    corpus 2026-09-04.** `LinearHead` is a 1x1 convolution per patch plus a
-    bilinear upsample, which is literally what the oracle computes; a DPT head
-    decodes progressively and places structure *within* a patch. Across the
-    five probes and the **nine twelve-block ViTs**, a DPT head reaches
-    **54-104%** of the oracle (median 83%) and exceeds it in **2 of 45 cells**
-    — both `mae_vitb16`, on `edge` and `corner`
-    (`results/controls/dpt_head.jsonl`). **Not one of the other eight ViTs
-    exceeds it anywhere.**
+    beats it** (measured on two backbones 2026-09-01, widened to the whole
+    corpus 2026-09-04; full write-up in `results/controls/README.md`).
+    `LinearHead` is a 1x1 convolution per patch plus a bilinear upsample, which
+    is literally what the oracle computes. Across the five probes and the nine
+    twelve-block ViTs a DPT head reaches **54-104%** of the oracle (median 83%)
+    and exceeds it in **2 of 45 cells** — both `mae_vitb16`. So it is a bar for
+    the head VisBench reports, **not a bound on what is achievable**; but **do
+    not read the 104% as a property of decoders** either, since it is one row
+    and MAE is the only backbone trained by masked *pixel* reconstruction. The
+    two-backbone version read as the general claim, which is the mistake
+    widening it caught. It does not reopen BSDS500: scaling that 0.4193 linear
+    ceiling by the best ratio seen anywhere (1.038) gives ~0.435 ODS, still
+    below Canny's 0.60.
 
-    So it is a bar for the head VisBench reports, **not a bound on what is
-    achievable** — do not call it a ceiling a better head cannot pass. But
-    **do not read the 104% as a property of decoders either**: it is one row,
-    and MAE is the only one trained by masked *pixel* reconstruction. The
-    two-backbone version of this control read as the general claim, which is
-    the mistake widening it caught.
+    **A CNN's DPT run is a different experiment and has its own file.**
+    `_grid_of` takes the *finest* requested map, so a ResNet reading stages 1-4
+    gets a 56x56 oracle where its linear run reading `layer4` got 7x7. The head
+    and the bottleneck both moved, so only the DPT/linear *gain* is comparable.
+    A ViT's blocks share one grid, which is what makes the ViT group the clean
+    control and the one the gate's claim is stated over.
 
-    **It does not reopen BSDS500**: scaling that line's 0.4193 linear ceiling by
-    the best ratio observed anywhere (1.038) gives ~0.435 ODS, still below
-    Canny's 0.60, so the closure survives the correction to its premise.
-
-    **A CNN's DPT run is a different experiment and has its own file**
-    (`dpt_head_cnn.jsonl`). `_grid_of` takes the *finest* requested map — right,
-    since a DPT head is bounded by its finest input — so a ResNet reading stages
-    1-4 gets a **56x56** oracle where its linear run reading `layer4` got 7x7
-    (`edge`: 0.8727 against 0.4977). The head and the bottleneck both moved, the
-    two fractions are not two readings of one scale, and only the DPT/linear
-    *gain* is comparable. A ViT's blocks share one grid, so its two ceilings are
-    bit-identical — which is what makes the ViT group the clean control and the
-    one the gate's claim is stated over.
-
-    **And a head is not a neutral magnifying glass**, which is now a counted
-    effect rather than one anecdote. Two of five ViT boards change leader
-    (`occlusion_edge` *and* `keypoints2d` — the second invisible at n=2, since
-    `dino_vitb16` was absent), and **24 of 174 separable pairs reorder**. On the
-    three CNNs, **three of five boards change leader and two invert outright**
-    (rho -1.000 on `corner` and `orientation`, `convnext_base` going from first
-    to last). That is the demonstration behind the standing rule to report the
-    linear number when comparing representations.
-
-    **A DPT head is an order of magnitude less reproducible than a linear one**,
-    measured by this control on itself: re-running its original ten cells three
-    days later moved them **2e-4 to 3.3e-3** relative, where the linear boards
-    reproduce at ~1e-7. **Quote a DPT number to three decimals**, and count a
-    reordering only over pairs both boards separate by more than their own
-    drift — a raw discordant-pair count over these boards includes coin flips.
-    Every `ceiling_*` reproduced bit-identically, which is by construction.
+    **And a head is not a neutral magnifying glass**, counted rather than
+    anecdotal: two of five ViT boards change leader and **24 of 174 separable
+    pairs reorder**; on the three CNNs, three of five boards change leader and
+    two invert outright (`convnext_base` first to last). That is the
+    demonstration behind reporting the linear number when comparing
+    representations. **A DPT number is good to three decimals** — re-running ten
+    cells three days later moved them 2e-4 to 3.3e-3 relative, where the linear
+    boards reproduce at ~1e-7 — so count a reordering only over pairs both
+    boards separate by more than their own drift.
 
   **It has now refused something** (2026-09-01). The BSDS500 probe was not built
   because the gate put a linear probe's ceiling at **0.4193 ODS** on the 16x16
@@ -1409,19 +1410,18 @@ designed up front; extend it the same way, from a case that already runs.
   superpixels** — one is ODS and the other Pearson correlation, they are not
   comparable, and an earlier draft made exactly that mistake.
 
-  **A pooled-resolution overlap check is not that test, and nearly became a
-  false veto.** The boundary map reads 0.267 against `edge` at full resolution
-  and 0.684 pooled to a 16x16 grid, which looked decisive — until it was
-  calibrated: the shipped `corner` target reads **0.781** there and its board
-  ranks backbones differently from `edge` anyway. **Calibrate a new rejection
-  criterion against something that already passed before letting it reject
-  anything.**
+  **A pooled-resolution overlap check nearly became a false veto**: the
+  boundary map reads 0.267 against `edge` at full resolution and 0.684 pooled to
+  a 16x16 grid, which looked decisive until the shipped `corner` target read
+  **0.781** there and its board ranks differently from `edge` anyway.
+  **Calibrate a new rejection criterion against something that already passed
+  before letting it reject anything.**
 
-  What survived: `DerivedTargetDataset` memoises computed targets now
+  What survived: `DerivedTargetDataset` memoises computed targets
   (`MEMO_LIMIT`), because `CachedFeatures.__getitem__` calls
-  `dataset.target(index)` on every access — a ten-epoch streaming run had been
-  recomputing every target ten times, which `corner` and `orientation` were
-  both paying.
+  `dataset.target(index)` on every access — a ten-epoch streaming run was
+  recomputing every target ten times, which `corner` and `orientation` both
+  paid.
 
 - **The overlap check is a veto, and `orientation` is the probe that proves it
   earns its keep** (2026-08-28). DoG-blob detection was the obvious next derived
@@ -1894,10 +1894,9 @@ codebase has actually shipped, and the next one will rhyme with them.
   **When you add a `zip` over two things paired by index, `strict=True` is the
   default** — the cost is nothing and the failure it prevents still trains.
 - **[#1] DINOv2 on 3.9** — fixed by raising the floor; see above.
-- **[#3] CLIP QuickGELU guard** — fixed; see the bullet above.
+- **[#3] CLIP QuickGELU guard** — fixed; see above.
 
-`CHANGELOG.md` under `[Unreleased]` is the full record of what each step
-added and why. Since 7b the user-facing view is **split three ways**:
+`CHANGELOG.md` is the full record of what each step added and why. Since 7b the user-facing view is **split three ways**:
 `README.md` is the arrival path (demo, install, what it is, the CLI), while the
 reference material lives on the docs site and the roadmap and backlog in
 `docs/roadmap.md`. `CONTRIBUTING.md` is the public version of the conventions
