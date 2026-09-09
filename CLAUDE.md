@@ -944,12 +944,45 @@ designed up front; extend it the same way, from a case that already runs.
   the record carries `box_map_50` from the same runs and the two halves agree at
   **+0.986**, both topped by `occlusion_edge`. The box half alone ranks with the
   geometry cluster while inheriting every line from `detection`, whose board
-  sits at +0.804 with `semantic_segmentation`. What is left is the **data** —
-  `ImageSets/Segmentation` entire against `ImageSets/Main` at `--limit 600` —
-  and the control that would separate "which images" from "how many" is named in
-  `CORPUS_FINDINGS.md` rather than run. The transferable claim is the negative
-  one: **two probes sharing an implementation and a dataset family can rank
-  differently, and the output type is not what does it.**
+  sits at +0.804 with `semantic_segmentation`. **The split control settled the
+  rest** (2026-09-09) — see the next bullet.
+
+- **A board's cluster membership is partly a property of its *split*, and
+  `detection` is the proof** (the split control,
+  `results/controls/detection_split.jsonl`, 24 records). Run `detection` on the
+  instance probe's 1464/1449 `ImageSets/Segmentation` images instead of its own
+  600 `Main` frames — same probe, same head, same losses, same matcher, same
+  metric — and it **changes cluster**: `occlusion_edge` **+0.965**, mean
+  **+0.784** against mid-level and **+0.018** against high, where the published
+  board reads +0.804 with `semantic_segmentation` and +0.483 with
+  `occlusion_edge`.
+
+  **Once images and size match, `detection` and `instance_segmentation` rank the
+  same board (+0.958)**, so mask-derived boxes against VOC's XML plus the whole
+  mask branch are worth ~0.04 of rho. Neither half of the data explains it
+  alone (+0.818 for size, +0.818 for images) and the two compound (+0.510).
+  `mae_vitb16` shows it plainly: **0.1296 on the published board (tenth of
+  twelve) against 0.3371 on the segmentation split (first)**.
+
+  So 14a-4's negative claim is now positive: **it is the split, not the probe.**
+  Two consequences. **Never quote a cluster as a property of a *task*** — it is
+  a property of a board as configured; the two-cluster structure and mid/low
+  coherence are untouched, but which side a board falls on is contingent. And
+  **no published number moves** — what was contingent was always the reading.
+
+  One thing the corpus could not answer: whether the published board underfits
+  relative to the full split. Its records **predate schema v8 and carry
+  `training: null`** — the exact gap v8 was added to close, surfacing on the
+  records older than it. Inside the control the full config fits better on all
+  twelve backbones (mean `train_loss` 1.3071 against 1.4012), which is not
+  extended to the published board and is not claimed.
+
+  **The control as first written down was impossible, and checking beat
+  assuming.** `CORPUS_FINDINGS.md` had called for the instance head on
+  `ImageSets/Main --limit 600`; `SegmentationObject` covers 2913 images, so 141
+  of those 600 stems have a mask and 459 have no target. Inverting it — the
+  published probe onto the new probe's images — is both runnable and the better
+  experiment, since that baseline is the one already published.
 
   **It also retired an already-published finding's argument.** "The board
   clustering is not an artefact of shared datasets" rested on there being two
@@ -1232,39 +1265,34 @@ designed up front; extend it the same way, from a case that already runs.
 - **A derived target is the cheapest kind to add and the easiest to fool
   yourself with** (8a). Corner detection computes its target from the RGB frame,
   so it needs no dataset — and three things had to be measured before it was
-  worth shipping, none of which a probe run would have revealed on its own.
+  worth shipping, none of which a probe run would have revealed. The numbers are
+  in `visbench/tasks/low_level/README.md`; the rules are:
 
-  **Check the tail, and check it before writing the task.** Every raw corner
-  response was more concentrated than `edge_occlusion`'s 0.46, the case that
-  scored 0.088 and ranked nothing: Harris `R` clipped at 0 is 0.52, `|R|` is
-  0.33, Shi-Tomasi's λ_min is 0.27. `log1p(1e4·λ_min)` brings it to 0.089 with a
-  frame mean of 0.593, which satisfies 6d-2's tail rule and 6d-1's order-1 rule
-  at one setting. **Shi-Tomasi rather than Harris** because λ_min is
-  non-negative by construction and has no `k`.
+  **Check the tail, before writing the task.** Every raw corner response was
+  more concentrated than `edge_occlusion`'s 0.46 — the case that scored 0.088
+  and ranked nothing. `log1p(1e4·λ_min)` brings it to 0.089, and **Shi-Tomasi
+  rather than Harris** because λ_min is non-negative by construction and has no
+  `k`.
 
-  **Check the overlap with what already ships, which nothing in the codebase
-  previously asked for.** The corner target correlates **0.52** with
-  `edge_texture` and 0.27 with `keypoints2d`, where those two correlate **0.147**
-  with each other — so the new target is more redundant with an existing one
-  than the two existing ones are with each other. The overlap is *intrinsic*: it
-  holds at 0.46–0.54 across eight transforms including near-linear ones, because
-  a corner is a pixel whose gradient is large in two directions and an edge map
-  is gradient magnitude. A first pass blamed the `log1p` for it and was wrong.
+  **Check the overlap with what already ships**, which nothing previously asked
+  for. The corner target correlates **0.52** with `edge_texture` where that and
+  `keypoints2d` correlate 0.147 with each other — so the new target is more
+  redundant with an existing one than the two existing ones are. The overlap is
+  *intrinsic*, holding across eight transforms: a corner is a pixel whose
+  gradient is large in two directions and an edge map is gradient magnitude. A
+  first pass blamed the `log1p` and was wrong.
 
   **A correlated target can still rank differently, and that is the criterion.**
-  Spread over six backbones is 0.1603 against edge's 0.1136, and CLIP-B/16 is
-  first on edges and third on corners. Had the ordering matched, the probe
-  should not have shipped.
-
-  **Do not read one pair as a failure to rank.** DINOv2-S and B differ by 0.0014
-  here, which looks like the occlusion-edge failure and is not: that probe was
-  flat across *all six*, and the edge probe's own top two differ by 0.0007. Ask
+  Spread over six backbones 0.1603 against edge's 0.1136, with CLIP-B/16 first
+  on edges and third on corners. Had the ordering matched, it should not have
+  shipped. **Do not read one pair as a failure to rank** — DINOv2-S and B differ
+  by 0.0014 here, which looks like the occlusion-edge failure and is not; ask
   about the spread over the full set.
 
   **Computing the target after the crop deletes the alignment hazard rather
-  than testing for it.** There is no second geometry and no resampling of the
-  response — the single strongest property of this class of target, and the
-  reason `DerivedTargetDataset` does not subclass `DenseFolderDataset`.
+  than testing for it.** No second geometry, no resampling of the response —
+  the strongest property of this class of target, and why
+  `DerivedTargetDataset` does not subclass `DenseFolderDataset`.
 
 - **The gauntlet asks whether a target is distinctive; it never asked whether
   it is *recoverable*. Photometric superpixels is what that cost** (built and
@@ -1492,30 +1520,25 @@ designed up front; extend it the same way, from a case that already runs.
 
 - **The three probes with no spatial target draw their *decision*** (9c).
   `classification`, `retrieval` and `similarity` have nothing to lay beside the
-  image, so they draw the choice — which class, which neighbours, which
-  candidate — and `show_probes() == list_probes()` is asserted, so a new probe
-  cannot ship undrawable. Four rules survive from it:
+  image, so they draw the choice, and `show_probes() == list_probes()` is
+  asserted so a new probe cannot ship undrawable. Four rules survive.
 
   **`class_balance` and `vote_balance` are the prefix bug and the CSV-column
-  bug as figures** — a one-class sample footers itself as an artefact whichever
-  frames were drawn, and NIGHTS' vote sitting far from 50% means the wrong
-  field was read. Both are **diagnostics, never scores**, like
+  bug as figures**, and both are **diagnostics, never scores**, like
   `error_coherence`. **Frames are picked spread across the split** for the
-  class-grouped kinds, since drawing a prefix would reproduce the very artefact
-  the sheet exists to reveal. **Retrieval loads the whole split whatever
-  `--frames` says** — leave-one-out over four images ranks each against three,
-  so shortening it destroys what is being drawn; `--limit` is *how much to
-  load*, distinct from `--frames`, *how many rows to draw*. And
+  class-grouped kinds, since a prefix would reproduce the artefact the sheet
+  exists to reveal. **Retrieval loads the whole split whatever `--frames`
+  says** — leave-one-out over four images ranks each against three, so `--limit`
+  (how much to load) is distinct from `--frames` (how many rows to draw). And
   **classification keeps its own schedule defaults**
-  (`CLASSIFICATION_SCHEDULE_DEFAULTS`, 200 epochs at 1e-2), because one shared
-  table would hand `show` a probe built with the wrong ones and `load_probe`
-  would then refuse a head that is fine.
+  (`CLASSIFICATION_SCHEDULE_DEFAULTS`, 200 epochs at 1e-2), or `show` builds a
+  probe with the wrong ones and `load_probe` refuses a head that is fine.
 
   Two bugs there were found by **rendering a page, not by a test**: PIL's
   built-in font has no glyph for an em dash or ellipsis and draws an empty box,
-  so every caption this package writes is **ASCII** and a test asserts it; and
-  a fixture whose vote column held a raw tally read as "humans chose right in
-  0%", caught by the footer figure that exists for exactly that.
+  so every caption here is **ASCII** and a test asserts it; and a fixture whose
+  vote column held a raw tally read as "humans chose right in 0%", caught by the
+  footer figure that exists for exactly that.
 
 - **For correspondence it is the *shape* of the errors that diagnoses the bug,
   not their size** (9b). `error_coherence` is the mean resultant length of the
@@ -1537,42 +1560,37 @@ designed up front; extend it the same way, from a case that already runs.
 
 - **`TimmBackbone` reads a model's own structure; it used to assume a CNN's**
   (10a). `has_cls_token` and `patch_size` were *class* attributes declaring
-  "CNN" for everything, which is why timm ViTs were refused outright — a false
+  "CNN" for everything, so timm ViTs were refused outright — and a false
   `has_cls_token` discards the CLS token while the record claims there was none
   to keep. Read per instance from `num_prefix_tokens` and `patch_embed`, any
-  timm ViT becomes usable *and honest*, which is what added ConvNeXt-B, MAE
-  ViT-B/16 and SigLIP-GAP ViT-B/16 in one change rather than three.
+  timm ViT becomes usable *and honest*, which added ConvNeXt-B, MAE ViT-B/16
+  and SigLIP-GAP ViT-B/16 in one change rather than three.
 
   **`default` pooling is read from timm's `global_pool`, not inferred from
-  whether a CLS token exists.** The base class's "CLS if there is one, mean
-  otherwise" is a good default and only a proxy: a ViT can carry a CLS token and
-  still be trained to average. MAE reports `token` and SigLIP-GAP reports `avg`,
-  so `default` means different things for two models of identical shape — each
-  matching what the model hands its own classifier, which is the rule the
-  ResNets already followed.
+  whether a CLS token exists.** "CLS if there is one, mean otherwise" is only a
+  proxy: MAE reports `token` and SigLIP-GAP reports `avg`, so `default` means
+  different things for two models of identical shape — each matching what the
+  model hands its own classifier.
 
   **SigLIP is the `_gap_` variant deliberately.** Canonical SigLIP pools with an
   `AttentionPoolLatent` (`global_pool='map'`) — a *trained module*, not a
-  reduction over tokens, so it cannot be a pooling mode over features the cache
-  stores. `describe_transformer` refuses `map` by name and says which sibling to
-  use. Do not "add a map mode" without deciding first that a pooling mode may
-  carry weights.
+  reduction over tokens, so it cannot be a pooling mode over cached features.
+  `describe_transformer` refuses `map` by name. Do not "add a map mode" without
+  first deciding a pooling mode may carry weights.
 
   **ConvNeXt breaks the "pooled is what the model hands its classifier" rule,
   and the exception is documented rather than smoothed over.** Its head is
-  `avg -> LayerNorm2d`, so the model's own vector is `norm(mean(x))` while this
+  `avg -> LayerNorm2d`, so the model's vector is `norm(mean(x))` where this
   class returns `mean(x)` — max absolute difference 27.5 on one frame. Both
-  invariants cannot hold: LayerNorm across channels does not commute with a
-  spatial mean. The one kept is the structural one — **`pooled` is always a
-  reduction of `dense`** — because the cache stores dense features and every
+  invariants cannot hold, and the one kept is structural: **`pooled` is always a
+  reduction of `dense`**, because the cache stores dense features and every
   pooling task reduces them. A test pins which four backbones match their own
   head and that ConvNeXt does not, in both directions.
 
-  **The guards have fast tests, which is the point of `describe_transformer`
-  being a module-level function.** Every timm backbone test needs real weights
-  and is marked `slow`, which CI does not run; the three decisions here each
-  produce a silently wrong number rather than an error, so the logic takes a
-  stub and is tested without a download.
+  **The guards have fast tests, which is why `describe_transformer` is a
+  module-level function.** Every timm backbone test needs real weights and is
+  `slow`, which CI does not run; these three decisions each produce a silently
+  wrong number rather than an error, so the logic takes a stub.
 
 - **The docs gallery is real photographs, and the licence rule that made it
   generated was satisfied by better sourcing rather than waived** (9d, replaced
@@ -1677,28 +1695,19 @@ designed up front; extend it the same way, from a case that already runs.
   wrong level), and write every heading as a markdown `##` *outside* the fence.
 
 - **Docstrings had been written for an API reference for six steps and none of
-  them had ever been rendered** (13a). `conf.py` enabled autodoc, autosummary,
-  napoleon and viewcode at 7d, and its own comments referred to `docs/api/` and
-  "~25 prose pages" — **neither of which existed**. So ~5,198 lines of numpydoc
-  went through docutils for the first time at 13a and nine source files had
-  real defects: two malformed simple tables, a `#:` block whose `History/-----`
-  reached docutils as a section title (a SEVERE, fatal under `-W`), three
-  numpydoc `Returns`/`Raises` sections whose free prose had no type line so
-  napoleon read *the prose* as the type and mangled it into bullets, and three
-  dead cross-references. **A docstring convention nothing renders is not a
-  convention, it is a guess** — `scripts/check_docstrings.py` now runs each one
-  through napoleon and docutils in the fast suite, in ~1s and with no Sphinx
-  *build*. It does import `sphinx.ext.napoleon`, and **that is the
-  optional-extra trap for the third time**: `sphinx` and `docutils` are in the
-  `docs` extra, CI installs `.[dev]` only, and the whole guard errored on CI
-  while passing locally. `sphinx` is a declared `dev` dependency now — not a
-  skip, because a guard that quietly disappears in the install CI uses is the
-  `slow`-only failure again. Add the import to `dev` whenever a fast test
-  reaches outside the core: the list is now `clip`, `timm`, `hub`, `yaml`,
-  `datasets`, `sphinx`.
-  The trick that makes it work is indenting the result three spaces under a
-  dummy directive: un-nested, a section title is legal and docutils says
-  nothing. It documents what it **cannot** reach, and a test asserts that limit.
+  them had ever been rendered** (13a). ~5,198 lines of numpydoc went through
+  docutils for the first time at 13a and nine source files had real defects —
+  malformed simple tables, a `#:` block whose `History/-----` reached docutils
+  as a section title (fatal under `-W`), `Returns`/`Raises` sections whose free
+  prose had no type line so napoleon read *the prose* as the type, and dead
+  cross-references. **A docstring convention nothing renders is not a
+  convention, it is a guess** — `scripts/check_docstrings.py` runs each one
+  through napoleon and docutils in the fast suite, in ~1s with no Sphinx
+  *build*. The trick that makes it work is indenting the result three spaces
+  under a dummy directive: un-nested, a section title is legal and docutils
+  says nothing. It documents what it **cannot** reach and a test asserts that
+  limit. Its `sphinx` import was the optional-extra trap for the third time —
+  see that bullet below.
 
 - **Only prose drifts, and the one measured number with no generated table
   drifted three ways** (13a). The pooling-mismatch pair is quoted by hand in
@@ -1723,21 +1732,18 @@ designed up front; extend it the same way, from a case that already runs.
 
 - **A `-W` docs build must tolerate an unreachable intersphinx inventory, and
   the filter has two details that each cost an attempt** (7d). intersphinx
-  fetches five `objects.inv` over the network on every cold build; a
-  `ConnectionResetError` reaching `docs.python.org` is logged as a warning,
-  which `-W` turns into a failed deploy — it did, on the first push to `main`,
-  minutes after the same commit passed on its PR. Losing intersphinx degrades
-  gracefully by itself (nitpicky is off, so those references become plain text),
-  so the *warning* is the only real problem, and it carries no `type=`, which is
-  why `suppress_warnings` cannot target it. The filter in `docs/conf.py`
-  therefore matches that one message, and: it goes on the **handlers, not the
-  logger** (Sphinx emits from per-module child loggers, and a parent's filters
-  never see a propagated record — only its handlers do), and it is inserted at
-  **position 0, not appended** (Sphinx implements `-W` as a filter on the same
-  handler, so anything added after it never runs — appending looks correct and
-  does nothing). It prints a note to stderr rather than dropping the failure
-  silently. Verified three ways, and the third is the one that matters: a broken
-  toctree still fails, so the filter did not disable the guard.
+  fetches five `objects.inv` per cold build; a `ConnectionResetError` is logged
+  as a warning, which `-W` turns into a failed deploy — it did, on the first
+  push to `main`, minutes after the same commit passed on its PR. Losing
+  intersphinx degrades gracefully (nitpicky is off), so the *warning* is the
+  only real problem, and it carries no `type=`, so `suppress_warnings` cannot
+  target it. The filter in `docs/conf.py` matches that one message, and: it goes
+  on the **handlers, not the logger** (Sphinx emits from child loggers, and a
+  parent's filters never see a propagated record), and it is inserted at
+  **position 0, not appended** (`-W` is itself a filter on the same handler, so
+  anything appended after it never runs — which looks correct and does nothing).
+  Verified by checking a broken toctree still fails, so the filter did not
+  disable the guard.
 
 - **A DOI is permanent and an archived release cannot be edited, which is what
   makes citation metadata a correctness problem** (7e). `CITATION.cff` naming
@@ -1845,10 +1851,10 @@ the measurement behind it, under the step named in brackets.**
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite **collects 2071 tests** and the **115 slow ones** were green on
+fast suite **collects 2082 tests** and the **115 slow ones** were green on
 `main` on 2026-09-05 (113 passed, 2 skipped), along with all three lint steps,
-mypy and the `-W` docs build. Earlier fast counts, for dating a claim: 2050 at the
-instance head, 2012 at the mask-AP metric, 1983 at the VOC instance dataset, 1950 at
+mypy and the `-W` docs build. Earlier fast counts, for dating a claim: 2071 at the
+instance board, 2050 at the instance head, 2012 at the mask-AP metric, 1983 at the VOC instance dataset, 1950 at
 the monotonic-wording fix, 1933 at the 0.16.0 release, 1930 at the docs
 redesign, 1920 after the relative-depth rejection, 1879 at the 0.15.0 release,
 1824 at the oracle gate.
@@ -2256,7 +2262,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 2071 fast tests
+pytest                                              # 2082 fast tests
 pytest -m slow                                      # 115, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/
