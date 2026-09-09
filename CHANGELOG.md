@@ -9,6 +9,24 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+## [0.17.0] — 2026-09-09
+
+**A seventeenth probe, and a control that changed how a board may be read.**
+
+`instance_segmentation` asks which *object* a pixel belongs to, over the same
+1,449 VOC images `semantic_segmentation` scores — two boards on identical
+pixels answering different questions. The corpus goes from 252 records / 192
+board cells to **264 / 204**, and `LEADERBOARD.md` renders seventeen boards.
+Schema stays at **v8**; no existing measurement moves.
+
+The reading that came with it is the more consequential half. The new board
+ranks with the *mid-level geometry* boards rather than its own high-level tier,
+and the split control (`results/controls/detection_split.jsonl`) traced that to
+the **split** rather than the probe: run `detection` on the same images and it
+changes cluster too. So a cluster is a property of a board **as configured**,
+and the standing rule is now **never quote a cluster as a property of a
+task**. No published number changes — the reading does.
+
 ### Added
 
 - **The split control: a board's cluster membership is partly a property of its
@@ -4242,6 +4260,7 @@ API philosophy.
 [#4]: https://github.com/turhancan97/VisBench/issues/4
 [#3]: https://github.com/turhancan97/VisBench/issues/3
 [Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.16.1...HEAD
+[0.17.0]: https://github.com/turhancan97/VisBench/compare/v0.16.1...v0.17.0
 [0.16.1]: https://github.com/turhancan97/VisBench/compare/v0.16.0...v0.16.1
 [0.16.0]: https://github.com/turhancan97/VisBench/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/turhancan97/VisBench/compare/v0.14.0...v0.15.0

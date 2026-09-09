@@ -20,7 +20,7 @@
 
 ---
 
-> **Status: v0.16.1.** Seventeen probes across high, mid and low level, thirteen
+> **Status: v0.17.0.** Seventeen probes across high, mid and low level, thirteen
 > backbones from three families, and a committed corpus covering **204 board
 > cells** — seventeen boards, twelve backbones each, every one of them
 > reproducible from the flags in its own record. The full
