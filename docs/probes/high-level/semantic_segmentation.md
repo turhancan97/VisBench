@@ -19,9 +19,9 @@ What `visbench show semantic_segmentation` draws. {doc}`How to read it </guides/
 | backbone | `miou` | `miou_per_image` | `pixel_acc` | `mean_acc` |
 | --- | --- | --- | --- | --- |
 | `dinov2_vitb14` | **0.7533** | **0.7161** | **0.9316** | **0.8403** |
-| `dinov2_vits14` | 0.7328 | 0.6841 | 0.9267 | 0.8271 |
+| `dinov2_vits14` | 0.7328 | 0.6841 | 0.9267 | 0.8270 |
 | `clip_vitb16` | 0.6546 | 0.6683 | 0.9019 | 0.7312 |
-| `clip_vitb32` | 0.5813 | 0.6067 | 0.8731 | 0.6633 |
+| `clip_vitb32` | 0.5813 | 0.6067 | 0.8731 | 0.6634 |
 | `supervised_vitb16` | 0.5791 | 0.5877 | 0.8681 | 0.6761 |
 | `siglip_vitb16` | 0.5405 | 0.3210 | 0.8539 | 0.6511 |
 | `dino_vitb16` | 0.5063 | 0.3221 | 0.8632 | 0.5964 |
@@ -29,7 +29,7 @@ What `visbench show semantic_segmentation` draws. {doc}`How to read it </guides/
 | `resnet50` | 0.4574 | 0.5163 | 0.8322 | 0.5248 |
 | `resnet18` | 0.4212 | 0.4497 | 0.8205 | 0.4915 |
 | `mae_vitb16` | 0.3350 | 0.4555 | 0.8269 | 0.3757 |
-| `sam_vitb16` | 0.3339 | 0.3905 | 0.8146 | 0.3825 |
+| `sam_vitb16` | 0.3339 | 0.3906 | 0.8146 | 0.3825 |
 
 Ordered by `miou`, which **disagrees with `mean_acc`, `miou_per_image`, `pixel_acc`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
 

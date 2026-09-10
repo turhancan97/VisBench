@@ -37,11 +37,20 @@ the classes, and it reads ``SegmentationClass`` directly.
 
 Usage
 -----
-::
 
-    python scripts/binarise_voc_masks.py \\
-        --voc-root /shared/sets/datasets/pascal_voc_2021/VOCdevkit/VOC2012 \\
-        --out-dir data/voc_binary_masks
+The layout ``build_corpus.sh`` reads is ``data/voc_binary/{JPEGImages,masks}``,
+with the images symlinked rather than copied so the probe's dataset fingerprint
+is computed over VOC's own file names and sizes::
+
+    VOC=/shared/sets/datasets/pascal_voc_2021/VOCdevkit/VOC2012
+    mkdir -p data/voc_binary
+    ln -sfn "$VOC/JPEGImages" data/voc_binary/JPEGImages
+    python scripts/binarise_voc_masks.py --voc-root "$VOC" \\
+        --out-dir data/voc_binary/masks
+
+The root directory's *name* reaches the result record as the dataset name, so
+``voc_binary`` is what makes a re-staged folder land on the published board
+rather than beside it.
 """
 
 import argparse

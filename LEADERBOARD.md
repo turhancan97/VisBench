@@ -139,10 +139,10 @@ Ordered by `recall@5px`, which **disagrees with `auc@10px`, `auc@1px`, `auc@2px`
 | `dinov2_vits14` | 0.1639 | 0.7652 | 0.9593 | 0.9931 | 0.5518 |
 | `mae_vitb16` | 0.1986 | 0.6945 | 0.9267 | 0.9833 | 0.6326 |
 | `dino_vitb16` | 0.2025 | 0.6748 | 0.9209 | 0.9819 | 0.6705 |
-| `clip_vitb32` | 0.2092 | 0.6538 | 0.9090 | 0.9828 | 0.7005 |
-| `sam_vitb16` | 0.2227 | 0.6356 | 0.8945 | 0.9721 | 0.7317 |
+| `clip_vitb32` | 0.2092 | 0.6539 | 0.9090 | 0.9828 | 0.7005 |
+| `sam_vitb16` | 0.2227 | 0.6356 | 0.8945 | 0.9721 | 0.7316 |
 | `clip_vitb16` | 0.2158 | 0.6321 | 0.9054 | 0.9807 | 0.7173 |
-| `convnext_base` | 0.2347 | 0.6215 | 0.8932 | 0.9722 | 0.7414 |
+| `convnext_base` | 0.2347 | 0.6215 | 0.8932 | 0.9722 | 0.7415 |
 | `supervised_vitb16` | 0.2284 | 0.6195 | 0.8950 | 0.9752 | 0.7214 |
 | `siglip_vitb16` | 0.2358 | 0.6169 | 0.8881 | 0.9711 | 0.7498 |
 | `resnet50` | 0.3064 | 0.5395 | 0.8330 | 0.9433 | 0.8599 |
@@ -167,7 +167,7 @@ Ordered by `d1`, which **disagrees with `abs_rel`, `d2`, `d3`, `rmse`** — this
 | `siglip_vitb16` | 0.7172 | 0.5912 | 0.8682 |
 | `convnext_base` | 0.6732 | 0.5480 | 0.8530 |
 | `resnet50` | 0.6676 | 0.5475 | 0.8646 |
-| `resnet18` | 0.6597 | 0.5358 | 0.8517 |
+| `resnet18` | 0.6597 | 0.5357 | 0.8517 |
 
 Ordered by `iou`, which **disagrees with `pixel_acc`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
 
@@ -261,18 +261,18 @@ Ordered by `top1`, which **disagrees with `top5`** — this task does not rank i
 
 | backbone | `map_50` | `map_50_95` | `classes_scored` | `detections_per_image` |
 | --- | --- | --- | --- | --- |
-| `dinov2_vitb14` | **0.2895** | **0.0978** | 20 | 88.5217 |
-| `dinov2_vits14` | 0.2291 | 0.0702 | 20 | 83.0333 |
-| `clip_vitb16` | 0.1894 | 0.0622 | 20 | 88.7500 |
-| `clip_vitb32` | 0.1886 | 0.0584 | 20 | 91.3833 |
-| `siglip_vitb16` | 0.1871 | 0.0637 | 20 | 99.8550 |
-| `sam_vitb16` | 0.1797 | 0.0544 | 20 | 56.0033 |
-| `supervised_vitb16` | 0.1669 | 0.0563 | 20 | 83.5567 |
-| `dino_vitb16` | 0.1660 | 0.0583 | 20 | 78.6033 |
-| `resnet50` | 0.1380 | 0.0420 | 20 | 48.2133 |
+| `dinov2_vitb14` | **0.2900** | **0.0997** | 20 | 88.5183 |
+| `dinov2_vits14` | 0.2284 | 0.0704 | 20 | 83.0450 |
+| `clip_vitb32` | 0.1886 | 0.0584 | 20 | 91.3850 |
+| `clip_vitb16` | 0.1885 | 0.0624 | 20 | 88.7200 |
+| `siglip_vitb16` | 0.1870 | 0.0641 | 20 | 99.8500 |
+| `sam_vitb16` | 0.1797 | 0.0544 | 20 | 56.0017 |
+| `supervised_vitb16` | 0.1672 | 0.0558 | 20 | 83.5600 |
+| `dino_vitb16` | 0.1657 | 0.0581 | 20 | 78.6500 |
+| `resnet50` | 0.1380 | 0.0420 | 20 | 48.2150 |
 | `mae_vitb16` | 0.1296 | 0.0460 | 20 | 63.7000 |
-| `convnext_base` | 0.0912 | 0.0237 | 20 | 81.1533 |
-| `resnet18` | 0.0912 | 0.0270 | 20 | 57.1033 |
+| `convnext_base` | 0.0912 | 0.0237 | 20 | 81.1467 |
+| `resnet18` | 0.0912 | 0.0270 | 20 | 57.1083 |
 
 Ordered by `map_50`, which **disagrees with `map_50_95`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
 
@@ -373,9 +373,9 @@ Ordered by `top1`, which **disagrees with `top5`** — this task does not rank i
 | backbone | `mean_acc` | `miou` | `miou_per_image` | `pixel_acc` |
 | --- | --- | --- | --- | --- |
 | `dinov2_vitb14` | **0.8403** | **0.7533** | **0.7161** | **0.9316** |
-| `dinov2_vits14` | 0.8271 | 0.7328 | 0.6841 | 0.9267 |
+| `dinov2_vits14` | 0.8270 | 0.7328 | 0.6841 | 0.9267 |
 | `clip_vitb16` | 0.7312 | 0.6546 | 0.6683 | 0.9019 |
-| `clip_vitb32` | 0.6633 | 0.5813 | 0.6067 | 0.8731 |
+| `clip_vitb32` | 0.6634 | 0.5813 | 0.6067 | 0.8731 |
 | `supervised_vitb16` | 0.6761 | 0.5791 | 0.5877 | 0.8681 |
 | `siglip_vitb16` | 0.6511 | 0.5405 | 0.3210 | 0.8539 |
 | `dino_vitb16` | 0.5964 | 0.5063 | 0.3221 | 0.8632 |
@@ -383,7 +383,7 @@ Ordered by `top1`, which **disagrees with `top5`** — this task does not rank i
 | `resnet50` | 0.5248 | 0.4574 | 0.5163 | 0.8322 |
 | `resnet18` | 0.4915 | 0.4212 | 0.4497 | 0.8205 |
 | `mae_vitb16` | 0.3757 | 0.3350 | 0.4555 | 0.8269 |
-| `sam_vitb16` | 0.3825 | 0.3339 | 0.3905 | 0.8146 |
+| `sam_vitb16` | 0.3825 | 0.3339 | 0.3906 | 0.8146 |
 
 Ordered by `miou`, which **disagrees with `mean_acc`, `miou_per_image`, `pixel_acc`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
 

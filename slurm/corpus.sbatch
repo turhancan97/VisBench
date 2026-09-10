@@ -17,6 +17,10 @@
 #   VISBENCH_BACKBONES="convnext_base mae_vitb16 siglip_vitb16" \
 #     sbatch --array=0-38%4 slurm/corpus.sbatch
 #
+# Narrow it to some of the probes with VISBENCH_PROBES, which is how a slice of
+# the matrix is re-run without turning the count guard off:
+#   VISBENCH_PROBES="depth surface_normal" sbatch --array=0-3 slurm/corpus.sbatch
+#
 # PROBES below must stay equal to build_corpus.sh's ALL_PROBES. It was short by
 # one for a whole release -- `corner` shipped in 8b and was missing here, so the
 # array could not produce a corner record however wide the range was, and the
@@ -121,6 +125,42 @@ PROBES=(
   corner
   orientation
 )
+# Which probes the matrix covers. `PROBES` above stays the full list -- the
+# test pins it equal to build_corpus.sh's ALL_PROBES -- and this narrows the
+# matrix for a run that is deliberately a slice of it:
+#
+#   VISBENCH_PROBES="depth surface_normal" VISBENCH_BACKBONES="..." \
+#     sbatch --array=0-23 slurm/corpus.sbatch
+#
+# Overridable for exactly the reason VISBENCH_BACKBONES is: a board is re-run
+# one slice at a time. The v8 `training` re-run needed eight of the seventeen
+# probes against all twelve backbones, and the alternative was VISBENCH_PARTIAL=1
+# with a hand-computed list of 96 indices -- which switches the count guard off
+# precisely when the matrix is big enough to want it.
+#
+# Names are validated against PROBES rather than passed through. build_corpus.sh
+# warns and continues on an unknown probe, which is right for a loop and means a
+# typo here would otherwise cost a queued task and leave an empty part file that
+# merge_corpus.sh cannot distinguish from a probe nobody asked for.
+if [[ -n ${VISBENCH_PROBES:-} ]]; then
+  requested=(${VISBENCH_PROBES})
+  for probe in "${requested[@]}"; do
+    known=
+    for candidate in "${PROBES[@]}"; do
+      [[ $probe == "$candidate" ]] && known=1 && break
+    done
+    if [[ -z $known ]]; then
+      echo "!!! VISBENCH_PROBES names an unknown probe: ${probe}" >&2
+      echo "!!! known probes: ${PROBES[*]}" >&2
+      exit 1
+    fi
+  done
+  # The index -> probe mapping now follows the ORDER GIVEN here, not the order
+  # in PROBES, which matters when a failed task is resubmitted against a logged
+  # index: the same VISBENCH_PROBES must be passed with it.
+  PROBES=("${requested[@]}")
+fi
+
 # Which backbones the matrix covers. Overridable, because the corpus is widened
 # a few backbones at a time rather than re-run whole: the DINOv2 pair is already
 # recorded, and re-running it would only add duplicates for

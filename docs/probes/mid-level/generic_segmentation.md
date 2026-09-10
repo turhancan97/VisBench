@@ -42,7 +42,7 @@ What `visbench show generic_segmentation` draws. {doc}`How to read it </guides/v
 | `siglip_vitb16` | 0.5912 | 0.7172 | 0.8682 |
 | `convnext_base` | 0.5480 | 0.6732 | 0.8530 |
 | `resnet50` | 0.5475 | 0.6676 | 0.8646 |
-| `resnet18` | 0.5358 | 0.6597 | 0.8517 |
+| `resnet18` | 0.5357 | 0.6597 | 0.8517 |
 
 Ordered by `iou`, which **disagrees with `pixel_acc`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
 

@@ -163,3 +163,102 @@ def test_rebuild_is_still_available_and_explicit(tmp_path, corpus_lines):
     assert _run_merge(parts, corpus, REBUILD="1").returncode == 0
     merged = corpus.read_text().splitlines()
     assert merged == corpus_lines[4:6], "REBUILD should replace the corpus with the parts"
+
+
+# -- VISBENCH_PROBES --------------------------------------------------------
+#
+# The matrix is re-run one slice at a time, and the v8 `training` re-run needed
+# eight of the seventeen probes against all twelve backbones. Without a probe
+# override that is `VISBENCH_PARTIAL=1` plus a hand-computed list of 96 array
+# indices -- which switches off the count guard for exactly the run big enough
+# to want it. These run the real script, because what is being checked is the
+# arithmetic it does, not the text it contains.
+
+
+@pytest.fixture(scope="module")
+def stub_checkout(tmp_path_factory) -> Path:
+    """A directory the sbatch accepts as a checkout: `pyproject.toml` + `.venv/`.
+
+    Pointing `VISBENCH_REPO` at the real repository passes locally and fails on
+    CI, which installs the package into the runner's own environment and has no
+    `.venv/` at all -- so the script's "Not a VisBench checkout" guard fires
+    before it reaches the arithmetic under test. That is the same shape as the
+    optional-extra trap `CONTRIBUTING.md` documents: a test that silently
+    depends on something present only on a developer's machine.
+
+    A stub is enough because every case here is refused at the index or count
+    guard, which run before the script sources the venv or reads any repo file.
+    """
+    root = tmp_path_factory.mktemp("checkout")
+    (root / "pyproject.toml").write_text("")
+    (root / ".venv").mkdir()
+    return root
+
+
+def _run_sbatch(stub_checkout: Path, **env_extra: str):
+    import os
+    import subprocess
+
+    env = {
+        **os.environ,
+        "VISBENCH_REPO": str(stub_checkout),
+        # Not a real submission; every case below is refused before the script
+        # reaches `source .venv/bin/activate`.
+        "SLURM_ARRAY_TASK_ID": "0",
+        **env_extra,
+    }
+    return subprocess.run(
+        ["bash", str(SBATCH)], capture_output=True, text=True, env=env, check=False
+    )
+
+
+def test_an_unknown_probe_in_the_override_is_refused_by_name(stub_checkout):
+    """`build_corpus.sh` warns and continues on an unknown probe, which is right
+    for a loop and wrong here: a typo would cost a queued GPU task and leave an
+    empty part file indistinguishable from a probe nobody asked for."""
+    result = _run_sbatch(stub_checkout, VISBENCH_PROBES="depth sufrace_normal")
+    assert result.returncode == 1
+    assert "sufrace_normal" in result.stderr
+    assert "surface_normal" in result.stderr, "the refusal should list the known probes"
+
+
+def test_the_override_narrows_the_matrix_the_guard_sizes_on(stub_checkout):
+    """The point of the override: index 4 is inside the full 17-probe matrix and
+    outside a two-probe one, so the guard must refuse it."""
+    # SLURM_ARRAY_TASK_MAX is set deliberately inconsistent as well, so that if
+    # the override is ever ignored the *count* guard refuses the submission
+    # instead of the script falling through to `source .venv/bin/activate` and
+    # running a real probe inside the test suite.
+    result = _run_sbatch(
+        stub_checkout,
+        VISBENCH_PROBES="depth surface_normal",
+        SLURM_ARRAY_TASK_ID="4",
+        SLURM_ARRAY_TASK_MAX="0",
+        SLURM_ARRAY_TASK_COUNT="1",
+    )
+    assert result.returncode == 1
+    assert "4-task matrix" in result.stderr
+    assert "2 probes x 2 backbones" in result.stderr
+
+
+def test_the_count_guard_still_fires_under_an_override(stub_checkout):
+    """VISBENCH_PARTIAL remains the only way to submit a deliberate gap, so
+    narrowing the probe list must not become a way around the guard."""
+    result = _run_sbatch(
+        stub_checkout,
+        VISBENCH_PROBES="depth surface_normal",
+        SLURM_ARRAY_TASK_MAX="16",
+        SLURM_ARRAY_TASK_COUNT="17",
+    )
+    assert result.returncode == 1
+    assert "the matrix is 4 tasks" in result.stderr
+
+
+def test_the_default_matrix_is_unchanged_by_the_override_existing(sbatch_probes, stub_checkout):
+    """With VISBENCH_PROBES unset the matrix is the full list, so the override
+    cannot silently shrink an ordinary submission."""
+    # One past the end of the full matrix, which is refused by the index guard
+    # before anything is sourced or run.
+    result = _run_sbatch(stub_checkout, SLURM_ARRAY_TASK_ID=str(len(sbatch_probes) * 2))
+    assert result.returncode == 1
+    assert f"{len(sbatch_probes) * 2}-task matrix" in result.stderr
