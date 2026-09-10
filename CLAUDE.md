@@ -135,12 +135,14 @@ precedent for shipping one: **v0.7.0** (contributor-facing) and **v0.16.0**
 (documentation). **v0.6.1** is the other one to know — it corrects a
 correspondence board that shipped ranked upside down; see step 6f.
 
-**The corpus file is 264 records resolving to 204 board cells** — seventeen
+**The corpus file is 357 records resolving to 204 board cells** — seventeen
 boards, twelve backbones a board. The two numbers differ because the corpus is
-**append-only** and 0.15.0 re-ran the five low-level boards for their
-`ceiling_*`; `latest_per_backbone` picks the newest. Quote 204 for coverage and
-264 only for the file, and re-read both off `LEADERBOARD.md` and `wc -l` rather
-than from here.
+**append-only** and two re-runs have appended beside records they supersede:
+0.15.0 re-ran the five low-level boards for their `ceiling_*`, and the
+schema-v8 `training` re-run (2026-09-10) re-ran the eight trained boards that
+predated that field. `latest_per_backbone` picks the newest. Quote 204 for
+coverage and 357 only for the file, and re-read both off `LEADERBOARD.md` and
+`wc -l` rather than from here.
 
 Two standing consequences of that history, both of which have already cost a
 published claim:
@@ -198,7 +200,7 @@ edit for edit.
 expanded in `CORPUS_FINDINGS.md`: the two image-level classification probes
 rank with the *localised* cluster (`detection`, `semantic_segmentation`) rather
 than with the object board they subclass — `fine_grained_classification`
-correlates **+0.860 with `detection`** against +0.343 with `classification` —
+correlates **+0.832 with `detection`** against +0.322 with `classification` —
 and `orientation`'s board is **not** independent even though its target is,
 ranking like `keypoints2d` (rho +0.95), `corner` (+0.82) and `edge` (+0.79).
 
@@ -743,7 +745,7 @@ designed up front; extend it the same way, from a case that already runs.
     different folder both land in the *localised* cluster**, which is the
     replication that makes this a property of the cluster rather than a fact
     about Places365: `fine_grained_classification`'s strongest partner in the
-    whole corpus is `detection` at **+0.860**, against +0.343 with the object
+    whole corpus is `detection` at **+0.832**, against +0.322 with the object
     board it subclasses. The tier-mean-vs-
     cross-tier sign has flipped both ways with corpus composition (below the
     line at 13 boards, marginally above at 14) and is noise; the two clusters
@@ -754,9 +756,13 @@ designed up front; extend it the same way, from a case that already runs.
   - **That clustering is not a shared-dataset artefact**, checked: the two
     boards reading the *same 1449 images* agree least of the three VOC pairs,
     and Imagenette's three probes average +0.128.
-  - **Quote `detection` to three decimals, not four.** It is GPU
-    non-determinism a discrete metric can see, only on the two 16x16-grid
-    backbones, and there is nothing to fix.
+  - **Quote `detection` to three decimals, not four**, and treat
+    `clip_vitb16`/`clip_vitb32` as **tied**. It is GPU non-determinism a
+    discrete metric can see, and there is nothing to fix. Two corrections from
+    the v8 re-run: the drift is not confined to the two 16x16-grid backbones —
+    every 14x14-token ViT-B/16 moved too — and the claim that the two CLIP rows
+    were "verified rather than lucky" is refuted, because they swapped. Their
+    gap is 0.0001 on a board that drifts by more than that.
   - **Two backbones' high-level scores are close to in-distribution recall**,
     not transfer: `convnext_base` and `supervised_vitb16` are ImageNet-1k
     supervised and Imagenette's classes are ImageNet-1k wnids.
@@ -812,6 +818,30 @@ designed up front; extend it the same way, from a case that already runs.
   nothing yet about a backbone; on CUB every backbone reaches `train_top1`
   1.0000, including the one that comes last.
 
+- **A re-run replaces a published record only where it *reproduces* it**
+  (the schema-v8 `training` re-run, 2026-09-10). The corpus is append-only and
+  `latest_per_backbone` takes the newest, so re-running a board silently
+  republishes whatever the re-run produced. Ninety-three of ninety-six cells
+  reproduced; the three that did not are in
+  `results/controls/hardware_a100.jsonl`, because merging them would have
+  dropped `convnext_base` below `resnet50` on the CUB board — **a ranking
+  change caused by a variable no record carries**, since the schema has never
+  recorded which GPU produced a number. That is not picking the convenient
+  number; it is refusing to let an unrecorded variable move a board. Those
+  three cells keep `training: null` until they can be re-run on a V100.
+
+- **A degraded node returns plausible wrong numbers, and only the fit
+  diagnostics catch it** (same re-run). `dgx2` produced twenty cells before
+  entering `DRAIN`; seven of its eight `scene_classification` cells were wrong
+  by up to −0.0102, with the same seed, fingerprint and `task_params` as the
+  records they disagreed with. Every one of them carried a visibly *worse fit*
+  beside its worse score, which is what identified them — and re-running on
+  healthy hardware reproduced all twelve exactly. **A saturated board cannot
+  reveal this**: `classification` came off the same faulty node bit-identical,
+  because top-1 ~0.99 with `train_top1` 1.0 has no margin left to flip. Check
+  `training` before believing a re-run that disagrees, and prefer a board that
+  is *not* saturated when you want a canary.
+
 - **`run()` seeds before it constructs a *name*, so a `CustomBackbone` is
   constructed outside the seeded window — and that makes it more reproducible,
   not less** (`examples/custom_backbone.py`, 2026-08-19). On the custom path the
@@ -835,7 +865,21 @@ designed up front; extend it the same way, from a case that already runs.
   a job hangs with an empty log and the first read is that your new code is
   broken. **Submit with `--exclude=dgx1`**, and when a job on this cluster hangs
   with no output, time an `import torch` on the node before suspecting the code.
-  The venv is only valid on `dgx1`/`dgx2`, so the usable set is one node.
+  Still true on 2026-09-10: `import torch` did not return inside 300 s there,
+  against ~2 s on dgx2.
+
+  **The venv is NOT limited to `dgx1`/`dgx2`, which this file claimed until
+  2026-09-10.** `dgxa100` runs Ubuntu 24.04 *and* ships `/usr/bin/python3.10`
+  beside 3.12, so `.venv` resolves and runs there unchanged — checked by
+  importing torch and visbench on the node, not inferred from the OS version.
+  `dgxh100` needs `--qos=normal --gres=gpu:1`; under `--qos=quick` it is
+  refused with a misleading `QOSMaxGRESPerJob`. That matters because **`dgx2`
+  can go `DRAIN` mid-run** (it did, "Kill task failed"), and with dgx1 unusable
+  the alternative partitions are the only way to finish anything. An A100 has
+  TF32 where a V100 has none, so see the reproducibility entry in
+  `CORPUS_FINDINGS.md` before putting corpus records on one: measured, TF32
+  moves a dense board by ~1e-6, but three `fine_grained_classification` cells
+  do not reproduce across the two.
 
 - **The corpus matrix is defined in two files, and one of them was short by a
   probe for a whole release** (10b). `slurm/corpus.sbatch`'s `PROBES` had twelve
@@ -989,12 +1033,14 @@ designed up front; extend it the same way, from a case that already runs.
   coherence are untouched, but which side a board falls on is contingent. And
   **no published number moves** — what was contingent was always the reading.
 
-  One thing the corpus could not answer: whether the published board underfits
-  relative to the full split. Its records **predate schema v8 and carry
-  `training: null`** — the exact gap v8 was added to close, surfacing on the
-  records older than it. Inside the control the full config fits better on all
-  twelve backbones (mean `train_loss` 1.3071 against 1.4012), which is not
-  extended to the published board and is not claimed.
+  **The one thing the corpus could not answer is now answered** (2026-09-10):
+  the published board *does* underfit relative to the full split, on **12/12**
+  backbones — mean `train_loss` 1.3500 against 1.3071. Its records used to
+  carry `training: null`; the v8 re-run gave them the field. Size is the larger
+  half (1.3071 against 1.4012 at equal images, 12/12) and is partly offset
+  because the `Main` frames are *easier to fit* than the segmentation ones at
+  equal size (12/12, +0.0512). `scripts/analyse_split_control.py` prints it
+  under "THE FIT".
 
   **The control as first written down was impossible, and checking beat
   assuming.** `CORPUS_FINDINGS.md` had called for the instance head on
@@ -1850,9 +1896,10 @@ the measurement behind it, under the step named in brackets.**
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite **collects 2082 tests** and the **115 slow ones** were green on
+fast suite **collects 2113 tests** and the **115 slow ones** were green on
 `main` on 2026-09-05 (113 passed, 2 skipped), along with all three lint steps,
-mypy and the `-W` docs build. Earlier fast counts, for dating a claim: 2071 at the
+mypy and the `-W` docs build. Earlier fast counts, for dating a claim: 2082 at
+the 0.17.0 release, 2071 at the
 instance board, 2050 at the instance head, 2012 at the mask-AP metric, 1983 at the VOC instance dataset, 1950 at
 the monotonic-wording fix, 1933 at the 0.16.0 release, 1930 at the docs
 redesign, 1920 after the relative-depth rejection, 1879 at the 0.15.0 release,
@@ -2260,7 +2307,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 2082 fast tests
+pytest                                              # 2113 fast tests
 pytest -m slow                                      # 115, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/

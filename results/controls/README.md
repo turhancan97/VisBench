@@ -264,20 +264,76 @@ not of the tasks in the abstract. Mid- and low-level coherence is untouched
 here, and the two clusters remain the stable structure; what weakens is any
 claim that a *task* belongs to a cluster.
 
-### One thing that could not be checked
+### The thing that could not be checked — now checked
 
-Whether the published board **underfits** relative to config A is unanswerable
-from the corpus: those detection records predate schema v8 and carry
-`training: null`. Within the control, A fits better than B on **all twelve**
-backbones (mean `train_loss` 1.3071 against 1.4012), so the size half of the
-effect coincides with a fitting difference — but that cannot be extended to C,
-and it is not claimed. This is exactly the gap schema v8 was added to close,
-showing up on the records that predate it.
+This section used to end "unanswerable from the corpus": the published
+detection records predated schema v8 and carried `training: null`, so whether C
+underfits relative to A could not be asked. The v8 re-run gave those records a
+`training` block, and the answer is **yes**, on every backbone:
+
+| config | mean `train_loss` |
+| --- | --- |
+| A `seg/full` — 1464 train | **1.3071** |
+| B `seg/limit600` — 600 train, segmentation images | 1.4012 |
+| C `main/limit600` — the published board | 1.3500 |
+
+A fits better than C on **12/12** backbones (mean −0.0428), so the published
+board does underfit relative to the full-split config. The decomposition is
+the same shape as the rho one: training *size* is worth −0.0940 (A against B,
+12/12), and it is partly offset because the `Main` images are **easier to fit**
+than the segmentation ones at equal size — B is worse than C on 12/12, mean
++0.0512.
+
+`scripts/analyse_split_control.py` prints this under "THE FIT". The caveat that
+applies to the rho decomposition applies here too: no pair varies one thing
+alone, so the two lines bound the size effect rather than isolating it. And
+`train_loss` is comparable across these three only because they share a probe,
+a loss and a target — it is meaningless between boards.
 
 `scripts/build_split_control.sh` holds the flags,
 `slurm/split_control.sbatch` the array, `scripts/analyse_split_control.py` the
 reading, and `tests/scripts/test_split_control_scripts.py` pins the two-file
 matrix and that no record can reach the corpus.
+
+## `hardware_a100.jsonl` — three cells a re-run could not reproduce
+
+Three records: `fine_grained_classification` on `convnext_base`,
+`dino_vitb16` and `dinov2_vitb14`, run on an **A100** during the schema-v8
+`training` re-run, where every published corpus number was produced on a
+**V100**. They are here rather than in the corpus because they are the three
+cells of ninety-six that did not reproduce the value they were re-running.
+
+The other nine cells of that board reproduce their published value **exactly**,
+and each of these three was run **twice** on the A100 and gave an identical
+number both times — so the A100 is deterministic and the disagreement is with
+the silicon, not with the run.
+
+| backbone | published (V100) | A100, twice | `train_top1` |
+| --- | --- | --- | --- |
+| `convnext_base` | 0.7311 | **0.6836** | 0.9892 |
+| `dino_vitb16` | 0.7520 | 0.7587 | 1.000000 |
+| `dinov2_vitb14` | 0.8683 | 0.8640 | 1.000000 |
+
+**`train_top1` says which kind of disagreement each one is.** `convnext_base`
+is the only cell on the board that does not interpolate — every other backbone
+reaches 1.000000 — and it is also the largest mover by a factor of seven. The
+other two interpolate and land on a different point of a zero-training-error
+plateau, worth 25 and 39 images of 5794.
+
+**Why they are not in the corpus.** Publishing them would drop `convnext_base`
+from 0.7311 to 0.6836, below `resnet50` at 0.6943 — a **ranking change on a
+published board caused by a variable no record carries**, since the schema has
+never recorded which GPU produced a number. The rule the re-run followed was:
+*replace a published record only where the re-run reproduces it; otherwise
+leave the published record alone and say why.* That is not selecting the
+convenient number — it is refusing to let unrecorded hardware move a board.
+
+**The follow-up** is to re-run these three on a V100 and merge them, which
+would give the board its `training` block on the silicon its numbers came from.
+It could not be done here: `dgx2` entered `DRAIN` mid-run and `dgx1` is the node
+where `import torch` never returns. Until then those three cells keep
+`training: null` and the board answers the underfitting question for nine of
+twelve.
 
 ## `relative_depth.jsonl` — is the `depth` board measuring metric accuracy?
 

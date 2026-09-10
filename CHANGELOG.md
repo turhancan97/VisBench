@@ -9,6 +9,61 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+### Changed
+
+- **The eight trained boards that predated schema v8 now carry `training`**, so
+  the corpus can say whether a probe **underfitted** — which understates a
+  backbone — or whether the representation does not carry the answer. Those are
+  opposite conclusions from the same low score, and until now fourteen boards
+  could be asked and only six could answer. 96 cells re-run; the corpus goes
+  from 264 records to **357**, still 204 board cells over seventeen boards.
+  Schema is unchanged at v8.
+
+  **It doubled as a reproducibility audit of the corpus, and the corpus
+  passed**: 93 of the 96 cells reproduced the value they were re-running, four
+  boards to 1e-7 or better and `classification` bit-identically, five releases
+  after the records were written.
+
+  **The three that did not are not in the corpus.** They are
+  `fine_grained_classification` on `convnext_base`, `dino_vitb16` and
+  `dinov2_vitb14`, and they are in `results/controls/hardware_a100.jsonl`
+  instead, because publishing them would have dropped `convnext_base` below
+  `resnet50` — a ranking change caused by a variable no record carries, since
+  the schema has never recorded which GPU produced a number. The rule the
+  re-run followed: **replace a published record only where the re-run
+  reproduces it.**
+
+- **`detection`'s `clip_vitb16` and `clip_vitb32` are a tie**, correcting a
+  published claim. `CORPUS_FINDINGS.md` had recorded their 0.0008 gap as
+  "verified rather than lucky" because both rows reproduced exactly across two
+  runs on one machine; re-run, `clip_vitb16` came back at 0.1885 and the two
+  swapped. Exact reproduction on one machine only ever evidenced stability on
+  that machine. Six detection cells move at the fourth decimal and one at the
+  third, which is the precision that board is already quoted to.
+
+### Added
+
+- **`scripts/analyse_training_diagnostics.py`** — reads the new field across
+  every board: each backbone's fit beside its score, whether a board is
+  *saturated* (every `train_top1` at 1.0000, so its whole spread is
+  generalisation), and whether any cell's loss sits apart from its board's
+  distribution. Never a ranking; a probe that fits its training data perfectly
+  has said nothing yet about a backbone.
+- **`scripts/preflight_regroup.py`** — asks, with no GPU and no backbone,
+  whether re-running a board would land its records in the *same* comparability
+  group. When it would not the board does not disagree with itself, it stops
+  rendering, because `board_for` refuses a task with more than one group.
+- **`VISBENCH_PROBES` on `slurm/corpus.sbatch`**, so a slice of the matrix can
+  be re-run with the array's count guard still live.
+- **`results/controls/hardware_a100.jsonl`** — the three cells above, with what
+  `train_top1` says about each.
+
+### Fixed
+
+- The split control's one open question, recorded in `results/controls/README.md`
+  as unanswerable: the published `detection` board **does** underfit relative to
+  the full split, on 12/12 backbones (mean `train_loss` 1.3500 against 1.3071).
+
 ## [0.17.0] — 2026-09-09
 
 **A seventeenth probe, and a control that changed how a board may be read.**

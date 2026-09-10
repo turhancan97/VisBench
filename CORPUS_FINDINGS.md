@@ -31,6 +31,77 @@ Two standing cautions apply to everything below:
 ---
 
 
+- **The published boards reproduce — and the one node that disagreed was
+  broken, which the fit diagnostics are what caught** (the schema-v8 re-run,
+  2026-09-10). Ninety-six cells were re-run to give eight boards the `training`
+  block they predated. **Ninety-three reproduced the value they were
+  re-running**; the exercise was therefore a reproducibility audit of the
+  corpus as much as a diagnostic upgrade, and the corpus passed.
+
+  | board | worst relative drift | headline metric moves at 4dp |
+  | --- | --- | --- |
+  | `classification` | **0.0e+00** (bit-identical) | 0 of 12 |
+  | `scene_classification` | 0.0e+00 | 0 of 12 |
+  | `generic_segmentation` | 4.3e-07 | 1 (a rounding boundary) |
+  | `surface_normal` | 9.7e-07 | 0 |
+  | `semantic_segmentation` | 1.9e-04 | 0 |
+  | `depth` | 9.9e-05 | 1 (+0.0001) |
+  | `detection` | 2.0e-02 (on `map_50_95`) | 6, but only 1 at **3dp** |
+  | `fine_grained_classification` | 6.5e-02 | 3 — see the hardware control |
+
+  **The first pass looked much worse than that, and the difference is a faulty
+  node.** Twenty cells ran on `dgx2` before it entered `DRAIN` ("Kill task
+  failed"); seven of its eight `scene_classification` cells came back moved, by
+  up to −0.0102. Re-run on healthy hardware, **all twelve reproduce exactly**.
+  So `dgx2` was returning plausible, wrong numbers while reporting success.
+
+  **What made that visible is the field this re-run existed to add.** Every bad
+  cell carried a *worse fit* beside its worse score — `scene_classification`
+  on `resnet50` read `train_loss` 0.0033 / `train_top1` 0.99942 on the failing
+  node against 0.0016 / 0.99981 on a healthy one, for the same seed and the
+  same data. Nothing else in the record differed: same fingerprint, same
+  `task_params`, same version. **A score alone cannot tell a bad node from a
+  weak backbone; a score beside its fit can.**
+
+  Two things not to re-derive. **`classification` reproduced bit-identically on
+  the failing node too** — a saturated board (every `train_top1` 1.0000, top-1
+  ~0.99) cannot reveal a numerical fault, which is exactly why the boards that
+  did reveal it are the two hardest ones. And **a metric's discreteness decides
+  its sensitivity**: the four continuous dense boards drift at 1e-7 to 1e-4,
+  while top-1 and AP are argmax and ranking decisions that flip whole images.
+
+  **The one cross-silicon claim it licenses**, since the second pass ran on an
+  A100 where every published number came from a V100: `classification`,
+  `scene_classification`, `semantic_segmentation`, `generic_segmentation`,
+  `surface_normal` and `depth` reproduce across the two, and `detection`
+  reproduces at three decimals. Deliberately **not** claimed: that A100 and
+  V100 agree in general — three `fine_grained_classification` cells do not, and
+  they are in `results/controls/hardware_a100.jsonl` rather than the corpus for
+  that reason. TF32 was measured directly and is not the culprit: turning it
+  off moves `depth` by up to 7.8e-06, the same size as the run-to-run noise.
+
+- **The corpus can now say whether a probe underfitted, on fourteen of
+  seventeen boards** (2026-09-10). The other three are zero-shot and correctly
+  report no fit. `scripts/analyse_training_diagnostics.py` reads it. What the
+  first full pass says:
+
+  - **Two boards are saturated** — `classification` and
+    `fine_grained_classification` reach `train_top1` 1.0000 on *every*
+    backbone, so their whole spread is generalisation and nothing on them can
+    be underfitting. That includes the backbone that comes last.
+  - **The fit tracks the score nearly everywhere**: Spearman between "fitted
+    better" and "scored better" is +0.85 to +0.97 on nine boards.
+    `scene_classification` is the outlier at **+0.27** — how well a head fits
+    Places365 barely predicts how it generalises there.
+  - **Three boards carry a flagged cell**, and on the dense ones the flag is
+    the coarse-grid confound rather than a failure: a head reading a 7x7 grid
+    settles at a higher training loss than one reading 14x14 with nothing
+    having gone wrong. Read a flag as "check the grid, then the schedule".
+
+  **Never rank on any of it**, for the reason the saturated boards make
+  concrete, and never compare `train_loss` between boards — each is a
+  different loss on a different target.
+
 - **Quote `orientation` to two decimals, and treat its bottom two rows as
   tied** (2026-09-01). Re-running the five low-level boards to add their
   ceilings gave a reproducibility measurement for free: four came back at
@@ -554,14 +625,14 @@ Two standing cautions apply to everything below:
 
   | pair | rho |
   | --- | --- |
-  | detection / fine_grained_classification | **+0.860** |
-  | detection / semantic_segmentation | **+0.804** |
+  | detection / fine_grained_classification | **+0.832** |
+  | detection / semantic_segmentation | **+0.797** |
   | classification / retrieval | **+0.769** |
   | detection / scene_classification | **+0.720** |
   | fine_grained_classification / scene_classification | +0.671 |
   | fine_grained_classification / semantic_segmentation | +0.643 |
   | scene_classification / semantic_segmentation | +0.524 |
-  | classification / fine_grained_classification | +0.343 |
+  | classification / fine_grained_classification | +0.322 |
   | classification / scene_classification | +0.161 |
   | classification / detection | +0.140 |
   | classification / semantic_segmentation | +0.140 |
@@ -574,11 +645,11 @@ Two standing cautions apply to everything below:
   other, and **nothing between them** — and the two probes that ought to sit
   with `classification`, because they *are* `classification` with a different
   folder, both sit with the localised cluster instead.
-  `scene_classification` was the first (+0.72 with detection, −0.22 with
+  `scene_classification` was the first (+0.71 with detection, −0.22 with
   retrieval). **`fine_grained_classification` is the replication, and a
   sharper one**: its strongest partner anywhere in the corpus is `detection`
-  at **+0.860** — the highest high-level pair there is, above
-  detection/semseg — while it reaches only +0.343 with the object board it
+  at **+0.832** — the highest high-level pair there is, above
+  detection/semseg — while it reaches only +0.322 with the object board it
   shares every line of its implementation with, and +0.112 with `retrieval`.
 
   Two independent probes now show the same thing, which is what moves this from
@@ -624,7 +695,7 @@ Two standing cautions apply to everything below:
   is one the corpus already contained** (2026-08-20,
   `analyse_board_correlates.py --section sources`). The obvious objection to
   the tier result below: `detection` and `semantic_segmentation` correlate at
-  +0.804 and *both read VOC*, so the pairing might be about the images rather
+  +0.797 and *both read VOC*, so the pairing might be about the images rather
   than the task. Two things refute it.
 
   **REFORMULATED 2026-09-08 (14a-4), because the seventeenth board broke the
@@ -642,7 +713,7 @@ Two standing cautions apply to everything below:
   | pair | rho | |
   | --- | --- | --- |
   | generic_segmentation / instance_segmentation | **+0.909** | *same 1449 images* |
-  | detection / semantic_segmentation | +0.804 | different frames |
+  | detection / semantic_segmentation | +0.797 | different frames |
   | detection / generic_segmentation | +0.720 | different frames |
   | detection / instance_segmentation | +0.650 | different frames |
   | generic_segmentation / semantic_segmentation | +0.538 | *same 1449 images* |
@@ -727,7 +798,7 @@ Two standing cautions apply to everything below:
   (mask +0.958, box +0.965) and both sit near +0.81 against mid-level and below
   +0.24 against high-level. **The box half alone already ranks with the geometry
   cluster**, despite inheriting every line of its implementation from
-  `detection`, whose own board sits at +0.804 with `semantic_segmentation`.
+  `detection`, whose own board sits at +0.797 with `semantic_segmentation`.
 
   So what separates the two boards is not boxes-versus-masks. What is left is
   the **data**: `detection` reads `ImageSets/Main` limited to 600 frames, this
@@ -750,8 +821,8 @@ Two standing cautions apply to everything below:
 
   **`detection` on the instance probe's 1464/1449 images joins the geometry
   cluster.** Top partner `occlusion_edge` **+0.965**, mean **+0.784** against
-  mid-level and **+0.018** against high — where the published board reads +0.804
-  with `semantic_segmentation` and +0.483 with `occlusion_edge`. Nothing about
+  mid-level and **+0.018** against high — where the published board reads +0.797
+  with `semantic_segmentation` and +0.469 with `occlusion_edge`. Nothing about
   the probe changed.
 
   | pair | rho | what varies |
@@ -786,7 +857,7 @@ Two standing cautions apply to everything below:
 - **`scene_classification` ranks backbones almost independently of the object
   `classification` board — the two "classification" boards are not one
   measurement** (2026-08-28, 12 backbones, Places365 val, `--limit 100`).
-  Spearman between the two orderings is **+0.16**.
+  Spearman between the two orderings is **+0.15**.
 
   | | object (Imagenette) | scene (Places365) |
   | --- | --- | --- |
@@ -802,8 +873,8 @@ Two standing cautions apply to everything below:
   cannot rank. **Imagenette's classes are ImageNet-1k wnids**, so the supervised
   CNNs' object numbers are in-distribution recall, not transfer, and Places365
   removes that advantage. And **scene category is a spatial-context task**:
-  `scene_classification` correlates +0.72 with `detection` and +0.52 with
-  `semantic_segmentation` but only +0.16 with object `classification` and −0.22
+  `scene_classification` correlates +0.71 with `detection` and +0.52 with
+  `semantic_segmentation` but only +0.15 with object `classification` and −0.22
   with `retrieval` — it sits with the localised-prediction cluster of the
   high-level tier, not the image-level-categorisation one it nominally belongs
   to (see the tier finding above).
@@ -914,11 +985,22 @@ Two standing cautions apply to everything below:
   it is still open.**
 
   **What this buys concretely**: the corpus detection board's smallest adjacent
-  gap is `clip_vitb16` 0.1894 against `clip_vitb32` 0.1886, i.e. **0.0008** —
-  *below* the 1e-3 spread measured on DINOv2, which is why the pair was worth
-  checking at all. Both of those rows turn out to be the exactly reproducible
-  ones, so the ordering is verified rather than lucky and **no tie marking is
-  needed**. Every other adjacent gap on that board is 0.04-0.06.
+  gap is `clip_vitb16` against `clip_vitb32`, and it was **0.0008** — *below*
+  the 1e-3 spread measured on DINOv2, which is why the pair was worth checking
+  at all. Every other adjacent gap on that board is 0.04-0.06.
+
+  **This paragraph used to end "the ordering is verified rather than lucky and
+  no tie marking is needed", on the grounds that both CLIP rows reproduced
+  exactly. The v8 re-run refuted that and the two rows swapped.** `clip_vitb16`
+  came back at 0.1885 against its published 0.1894 and now sits *below*
+  `clip_vitb32`'s 0.1886 — a gap of 0.0001, on a board whose own drift is
+  larger than that. The re-run was also cross-silicon (see the reproducibility
+  entry below), which is the likeliest source of the extra movement and is not
+  available as an excuse: **the pair is a tie, both orderings are noise, and
+  the board should be read as such.** The lesson is narrower than "the finding
+  was wrong": exact reproduction across two runs on one machine was taken as
+  evidence of stability, and it only ever evidenced stability *on that
+  machine*.
 
   Four things it is **not**, each excluded by measurement rather than argument:
   *version* (the corpus record is v0.5.0 and both reruns are v0.8.0, the only

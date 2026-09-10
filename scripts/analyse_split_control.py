@@ -264,7 +264,9 @@ def main() -> int:
     show("B(limit600) vs C(published)", limited, published, "same size, different images")
     show("B(limit600) vs D(instance)", limited, instance, "different size, same images")
 
-    print(f"\n{'=' * 78}\nTHE FIT -- what `training` says, now that all three configs carry it\n{'=' * 78}")
+    print(f"\n{'=' * 78}")
+    print("THE FIT -- what `training` says, now that all three configs carry it")
+    print("=" * 78)
     fits = train_losses()
     if "main/limit600 (published)" not in fits:
         print("  The published detection board's records carry `training: null` (pre-v8).")

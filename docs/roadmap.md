@@ -92,7 +92,7 @@ This is a multi-month roadmap, built one reviewed step at a time.
 - [x] **backlog: `scene_classification`** — scene category on the object
       `classification` linear-probe path (Places365), a new probe *name* rather
       than a dataset flag; ranks backbones almost independently of the object
-      board (Spearman +0.16)
+      board (Spearman +0.15)
 - [x] **backlog: `orientation`** — gradient orientation, the fourth low-level
       probe and the second derived from the frame, but the first whose target
       is a direction; DoG-blob was rejected first for overlapping 0.51 with
@@ -102,7 +102,7 @@ This is a multi-month roadmap, built one reviewed step at a time.
       one implementation; a new probe *name* rather than a dataset flag, for the
       reason `scene_classification` is. Its twelve-backbone board landed the same
       day and *replicates* `scene_classification`'s surprise: it correlates
-      +0.860 with `detection` and only +0.343 with the object board it
+      +0.832 with `detection` and only +0.322 with the object board it
       subclasses
 - [x] **backlog: the oracle gate** — the derived-target gauntlet asks whether a
       candidate target is *distinctive*; it never asked whether it is
@@ -131,6 +131,17 @@ This is a multi-month roadmap, built one reviewed step at a time.
       measures what a DPT head reaches against the linear oracle the gate
       computes. The gate models a linear head exactly, so it is a bar for the
       head VisBench reports rather than a bound on what is achievable
+- [x] **the corpus carries its fit diagnostics** — the eight trained boards
+      that predated schema v8 re-run so every trained record says how its fit
+      went, 96 cells. It doubled as a reproducibility audit and the corpus
+      passed: **93 of 96 cells reproduced the value they were re-running**, and
+      the boards that appeared not to had been produced by a node that was
+      failing while reporting success — which the new field is what caught,
+      since every bad cell carried a worse fit beside its worse score. It also
+      closes the split control's one open question (the published `detection`
+      board does underfit relative to the full split, 12/12) and refutes a
+      published claim of its own: the detection board's two CLIP rows are a
+      tie, not a verified ordering
 - [x] **the DPT control, widened to the whole corpus** — nine ViTs in
       `dpt_head.jsonl` and three CNNs in `dpt_head_cnn.jsonl`, two
       comparability groups answering two questions. The gate bounds **eight of
@@ -274,7 +285,7 @@ dense probe has to test for.
 |---|---|---|
 | Instance segmentation | high | The category-labelled counterpart to the existing binary segmentation; COCO-style polygon annotations |
 | ~~Fine-grained recognition (CUB-200-2011)~~ | high | **Done** — `fine_grained_classification`, a distinct probe on the linear-probe path, with its twelve-backbone board. Subordinate categories where the object board asks a basic-level question, which is why the object board is saturated and this one spans 0.87 to 0.47 |
-| ~~Scene classification (Places365)~~ | high | **Done** — `scene_classification`, a distinct probe on the linear-probe path, with its twelve-backbone board. Ranks backbones almost independently of the object board (Spearman +0.16) |
+| ~~Scene classification (Places365)~~ | high | **Done** — `scene_classification`, a distinct probe on the linear-probe path, with its twelve-backbone board. Ranks backbones almost independently of the object board (Spearman +0.15) |
 | ~~Relative depth ordering~~ | mid | **Built and rejected** — it cleared the oracle gate at a 94.0% ceiling and then reproduced the `depth` board's ordering at Spearman **+1.000** over five backbones, at 38% of its spread, with two backbones 0.0007 apart that `depth` separates by 0.0707. Kept as a control, because the rejection is a finding about `depth`: discarding scale leaves its ranking unchanged. See `results/controls/README.md` |
 | Intrinsic image decomposition (albedo vs shading) | mid | Classic Marr-style separation of appearance from geometry and lighting. Ground truth is scarce outside synthetic data |
 | Room / scene layout estimation | mid | Floor–wall–ceiling boundaries |
