@@ -1230,6 +1230,56 @@ The four most recent entries were lifted out of `CLAUDE.md` on 2026-09-03,
 when that file passed the 150k-character limit it is loaded under for the second
 time. Nothing was rewritten; each paragraph is as its release recorded it.
 
+**`0.17.0` is fully released** (2026-09-09). On PyPI — wheel and sdist both
+(407,088 and 1,281,464 bytes, wheel sha256 `3cd28f6f…`, sdist `2d41ae4e…`) —
+tagged `v0.17.0`, **annotated**, on merge commit `6f69872`, with a GitHub
+release cut from that tag (published 2026-09-09T18:23:30Z) and archived by
+Zenodo as version DOI **`10.5281/zenodo.22681020`**, the twelfth. **Verified
+out of the published wheel by import**: `__version__` 0.17.0, `SCHEMA_VERSION`
+8, seventeen probes with `instance_segmentation` among them, four heads
+(`linear`, `dpt`, `detection`, `instance`). The wheel's PyPI digest matches the
+locally built artifact byte for byte, so what was checked before the tag was
+pushed is what shipped.
+
+**Tag, wheel, release and `main` all agree at `6f69872`** — the fifth release
+running with no gap. The concept DOI `10.5281/zenodo.21822684` now resolves to
+record 22681020 with `metadata.version` `v0.17.0`, read off Zenodo's API rather
+than assumed.
+
+**The order was tag locally, build, verify, then push the tag.** A pushed tag
+cannot be moved under this project's own rules, so anything wrong in the
+artifact had to surface while the tag was still local and deletable. Checked in
+that window: the import from the wheel with an assert on `visbench.__file__`;
+all seven extras carrying dependencies, matched against **either** quote style
+because Metadata 2.5 writes `extra == 'hub'` and a double-quoted check reports
+every extra as empty; and the gallery absent from the sdist, which it would
+otherwise near-triple.
+
+**It is a minor release because it adds a probe.** `instance_segmentation`
+(14a-1 to 14a-4) takes the corpus to 264 records / 204 board cells over
+seventeen boards; schema stays v8 and no existing measurement moves. The
+release also carries the split control, which showed a board's cluster
+membership is partly a property of its split — `detection` on the instance
+probe's images changes cluster — so no published number moved but one published
+*reading* did.
+
+**The abstract fix reached the archive, and that was checked.** Zenodo record
+22681020's description reads "Seventeen probes span" and names instance
+segmentation. That is the field 0.16.1 was spent discovering: `CITATION.cff`'s
+abstract said "Fifteen probes" from v0.13.0 onward and three archives still say
+so permanently. `tests/test_citation.py` compares the two metadata files'
+*titles* and not their abstracts, so both remain hand-checked per probe.
+
+**Two operational notes, each of which cost an attempt.** `twine upload` failed
+with `ImportError: cannot import name 'errors' from 'packaging'` — and the
+version that matters is **`packaging`**, not twine: both environments had twine
+7.0.0, but conda's sat beside `packaging` 23.2 (no `packaging.errors`) and the
+throwaway venv's beside 26.3. "Conda's twine is broken" had been the recorded
+diagnosis and was wrong twice; it is the pin beside it. Separately, reading the
+release back with `gh release view --json createdAt` failed twice before the
+real field list was read — it is `publishedAt`. That is the standing
+guessed-import rule arriving through a CLI rather than a Python import.
+
 **`0.16.1` is fully released** (2026-09-07). On PyPI — wheel and sdist both
 (375,412 and 1,203,926 bytes, wheel sha256 `21e01a55…`, sdist `a99afeaa…`,
 uploaded 2026-09-07T16:47:11Z) — tagged `v0.16.1`, **annotated**, on merge

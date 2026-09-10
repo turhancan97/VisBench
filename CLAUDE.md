@@ -124,7 +124,7 @@ number — every measurement v0.6.1 reported, v0.7.0 reports identically.
 
 ## Current state
 
-**Everything through v0.16.1 is shipped**, and every numbered step in the build
+**Everything through v0.17.0 is shipped**, and every numbered step in the build
 table before 14a is done — every task, all three backbone families, the CLI,
 fine-tuning, detection, the low-level probes, the leaderboard and probe
 sharing. Each release's narrative is in `CHANGELOG.md`, its derivation in
@@ -301,10 +301,9 @@ copy of every dataset flag, free to drift — and a head trained under drifted
 flags uploads, loads and scores without complaint. The CLI refuses a zero-shot
 probe *before* the run rather than after spending it.
 `scripts/publish_collection.py` groups the pushed repositories into one
-collection, dry-run unless `--create`; the Hub caps a collection description at
-**150 characters** (rejected with a 400 naming neither the limit nor the value,
-so it is asserted at import) and creating one needs **`collection.write`** on
-the token, where `repo.write` alone pushes models happily and then 403s.
+collection, dry-run unless `--create`; its two Hub limits (a 150-character
+description cap, and needing `collection.write` rather than `repo.write`) each
+cost an attempt and are asserted or recorded in the log.
 
 **Twenty trained heads are published and public**, as of 2026-08-07: ten
 probes against DINOv2-S/14 and DINOv2-B/14, one repository per pair at
@@ -315,12 +314,7 @@ generated hash suffix. **That is ten of the fourteen probes that train a head,
 not all of them**: `scene_classification`, `fine_grained_classification`,
 `orientation` and `instance_segmentation` all shipped after the push and have
 no published head. The three zero-shot probes are deliberately absent, which is
-a different reason. Two operational notes that each cost an attempt: the Hub
-caps a collection description at **150 characters** and rejects a longer one
-with a 400 naming neither the limit nor the value (asserted at import in the
-script, so it fails before the network call), and creating a collection needs
-**`collection.write`** on the token — `repo.write` alone pushes models happily
-and then 403s.
+a different reason.
 
 Republishing the board is `PUSH_TO=... PUSH_PUBLIC=1 scripts/build_corpus.sh`.
 **Point `RESULTS=` at a scratch file, never `results/corpus/visbench.jsonl`**,
@@ -331,41 +325,45 @@ buffers, so a run killed part-way leaves no log and the Hub has to be queried to
 find out what shipped, which happened and was recoverable only because each
 record names its own pair.
 
-**`0.16.0` and `0.16.1` are both fully released** (2026-09-05 and 2026-09-07)
-— the tenth and eleventh Zenodo DOIs, tag, wheel, release and `main` all
-agreeing, verified out of the published wheel by import; `0.16.1`'s concept DOI
-resolves to it. Full records in the log. Two rules survive them. **When a change
-deletes a file the README names, the clock starts** — a PyPI version can never
-be re-uploaded, so dead links on the front page are only ever fixed by the
-*next* release, which is why 0.16.0 shipped when it did. And **read Zenodo's API
-before claiming an archive is wrong**: a `CITATION.cff`/`.zenodo.json`
-divergence is half wrong and half fine, because Zenodo prefers the latter and
-GitHub's cite button the former. A third, from the same verification: **when a
-docstring states a property as absolute, check whether the test states it that
+**`0.16.0` and `0.16.1` are both fully released** (2026-09-05 and 2026-09-07),
+the tenth and eleventh Zenodo DOIs; full records in the log. Three rules survive
+them. **When a change deletes a file the README names, the clock starts** — a
+PyPI version can never be re-uploaded, so dead links on the front page are only
+fixed by the *next* release. **Read Zenodo's API before claiming an archive is
+wrong**: a `CITATION.cff`/`.zenodo.json` divergence is half wrong and half fine,
+since Zenodo prefers the latter and GitHub's cite button the former. And **when
+a docstring states a property as absolute, check whether the test states it that
 way too, and prefer the test's wording.**
 
-**`0.17.0` is PREPARED, NOT PUBLISHED** (2026-09-09). The version bump
-(`pyproject.toml` and `__init__.py`), `uv.lock`, `CITATION.cff`,
-`.zenodo.json`, the README status line and the changelog section are on the
-branch; **PyPI, the tag, the GitHub release and the Zenodo archive are the
-maintainer's to run and none of them has happened.** Do not read this paragraph
-as a release record, and do not assume `main` matches what is installable —
-check [PyPI](https://pypi.org/project/visbench/). The next session replaces
-this with the real record.
-
-It is a **minor** release because it adds a probe: `instance_segmentation`
-(14a-1 to 14a-4) takes the corpus to **264 records / 204 board cells** over
-seventeen boards, schema still v8, and **no existing measurement moves**. It
-also carries the split control, whose standing rule is in "decisions already
+**`0.17.0` is fully released** (2026-09-09) — the **twelfth** Zenodo DOI
+(`10.5281/zenodo.22681020`), annotated tag on merge commit `6f69872`, GitHub
+release from that tag, wheel `3cd28f6f…` (407,088 bytes) whose PyPI digest
+matches the local build byte for byte. Tag, wheel, release and `main` all agree:
+**the fifth release running with no gap.** Verified out of the published wheel
+by import — `0.17.0`, `SCHEMA_VERSION` 8, 17 probes, `instance` head. A minor
+release, because it adds a probe: the corpus is **264 records / 204 board
+cells** over seventeen boards, schema still v8, and **no existing measurement
+moves.** It also carries the split control, whose rule is in "decisions already
 paid for": never quote a cluster as a property of a *task*.
 
-**Both abstracts were bumped, which is the trap 0.16.1 was spent on.**
-`CITATION.cff` said "Sixteen probes" and `.zenodo.json` says the same sentence
-in HTML; the `.cff` one silently said "Fifteen" from v0.13.0 until 0.16.1
-caught it, so three permanent archives describe a smaller VisBench than they
-contain. `tests/test_citation.py` compares the two files' *titles* and still
-does not compare their abstracts, so this remains a hand-checked field — check
-both whenever a probe ships.
+**The abstract fix reached the archive, checked rather than assumed.** Zenodo
+record 22681020's description reads "Seventeen probes span" and names instance
+segmentation — unlike the three archives that say "Fifteen", which is what
+0.16.1 was spent discovering and cannot be fixed after the fact. `CITATION.cff`
+and `.zenodo.json` each state the count in prose and
+`tests/test_citation.py` compares the two files' *titles* only, so **both
+abstracts are hand-checked whenever a probe ships.**
+
+**Two operational notes from this release.** `twine` and `packaging` must be
+compatible, and the version that matters is **`packaging`**: the conda env has
+twine 7.0.0 beside `packaging` 23.2, which has no `packaging.errors`, so
+`twine upload` dies in an import before it reaches the network. The throwaway
+venv had `packaging` 26.3 and worked — so "conda's twine is broken" was the
+wrong diagnosis, twice; it is the pin beside it. And **reading a release back
+through `gh` needs the API's field names**: `gh release view --json` has
+`publishedAt`, not `createdAt`, and two guessed queries failed before the real
+field list was read — the same guessed-import failure the rule above describes,
+in a different tool.
 
 Every release from v0.6.0 onward is recorded paragraph by paragraph in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md) under "Release history" — byte
@@ -373,9 +371,10 @@ counts, wheel digests, which commit the tag resolves to, and what each
 `__version__`/`SCHEMA_VERSION` import read back. Read it there rather than
 carrying it here; only the standing rules below stay in this file.
 
-**The concept DOI is `10.5281/zenodo.21822684`**, unchanged across all eleven
-version DOIs and now resolving to v0.16.1 (confirmed against Zenodo's API on
-2026-09-07, rather than assumed). That is the point of quoting it
+**The concept DOI is `10.5281/zenodo.21822684`**, unchanged across all twelve
+version DOIs and now resolving to v0.17.0 (confirmed against Zenodo's API on
+2026-09-09 — record 21822684 reports `id` 22681020 and
+`metadata.version` `v0.17.0` — rather than assumed). That is the point of quoting it
 rather than a version DOI; `tests/test_citation.py` rejects any other Zenodo
 DOI in `README.md`, `docs/index.md` and `CITATION.cff`, because pasting one
 over it is the realistic mistake and it freezes every citation at one release.
@@ -386,9 +385,9 @@ release-by-release detail is in [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md),
 under "Release history"; what recurs is:
 
 - **Tag before building**, so the artifact is built from the tagged commit.
-  v0.10.0 was the first release whose tag and wheel agree exactly, and v0.14.0,
-  v0.15.0 and v0.16.0 are the three with no gap at all, which is what that
-  order buys.
+  v0.10.0 was the first release whose tag and wheel agree exactly, and v0.14.0
+  through v0.17.0 are the five with no gap at all, which is what that order
+  buys.
 - **`git tag -a`, annotated.** `v0.12.0` is the only lightweight tag in this
   project's history and it is the reason `gh api .../git/tags/{sha}` 404s on
   it: there is no tag *object* to fetch, only a ref. Nothing about the release
