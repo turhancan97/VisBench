@@ -1839,6 +1839,16 @@ designed up front; extend it the same way, from a case that already runs.
   suite green and left the guard uninstalled in exactly the environment that
   gates every pull request — the `slow`-only failure with a different label.
 
+  **A fourth instance, and it is not a package: `.venv/` itself** (2026-09-10).
+  Four tests running `slurm/corpus.sbatch` pointed `VISBENCH_REPO` at the real
+  repository, so the script's "Not a VisBench checkout with a .venv" guard
+  fired on CI — which installs into the runner's own environment and has no
+  `.venv/` — while passing locally. The family is wider than optional extras:
+  **a test must not depend on anything that exists because of how this machine
+  is set up.** The fix is a stub the test builds itself (a directory holding
+  `pyproject.toml` and an empty `.venv/`), which is also what makes it a test
+  of the script rather than of the checkout.
+
 **The bullets below were lifted out of the v0.3 step write-ups when those moved
 to [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md). Each states the rule; the log has
 the measurement behind it, under the step named in brackets.**
