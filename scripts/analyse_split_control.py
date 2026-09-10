@@ -159,6 +159,36 @@ def control_configs() -> dict[str, dict[str, float]]:
     return dict(configs)
 
 
+def train_losses() -> dict[str, dict[str, float]]:
+    """`train_loss` by backbone for each detection config that reports one.
+
+    Schema v8's `training` block, which the control has carried since it ran and
+    the published board gained in the re-run that populated it. Absent means
+    absent: a pre-v8 record is skipped rather than read as a fit of zero, which
+    is the whole distinction the field was added for.
+    """
+    fits: dict[str, dict[str, float]] = defaultdict(dict)
+    for record in load(CONTROL):
+        training = record.get("training")
+        if training is None:
+            continue
+        name = "limit600" if record["dataset_size"] <= 600 else "full"
+        fits[f"seg/{name}"][record["backbone"]] = training["train_loss"]
+
+    latest: dict[str, dict] = {}
+    for record in load(CORPUS):
+        if record["task"] != "detection":
+            continue
+        current = latest.get(record["backbone"])
+        if current is None or record["timestamp"] >= current["timestamp"]:
+            latest[record["backbone"]] = record
+    for backbone, record in latest.items():
+        training = record.get("training")
+        if training is not None:
+            fits["main/limit600 (published)"][backbone] = training["train_loss"]
+    return dict(fits)
+
+
 def tier_means(
     board: dict[str, float],
     boards: dict[str, dict[str, float]],
@@ -233,6 +263,39 @@ def main() -> int:
     show("A(full) vs D(instance board)", full, instance, "same images and size")
     show("B(limit600) vs C(published)", limited, published, "same size, different images")
     show("B(limit600) vs D(instance)", limited, instance, "different size, same images")
+
+    print(f"\n{'=' * 78}\nTHE FIT -- what `training` says, now that all three configs carry it\n{'=' * 78}")
+    fits = train_losses()
+    if "main/limit600 (published)" not in fits:
+        print("  The published detection board's records carry `training: null` (pre-v8).")
+        print("  This is the question the control could not answer; re-run the board first.")
+    else:
+        for name in ("seg/full", "seg/limit600", "main/limit600 (published)"):
+            rows = fits.get(name, {})
+            if rows:
+                mean = sum(rows.values()) / len(rows)
+                print(f"  {name:28s} mean train_loss {mean:.4f}  over {len(rows)} backbones")
+
+        # The same decomposition the rho comparisons use, applied to the fit.
+        # Neither pair varies one thing alone -- C differs from B in WHICH images
+        # and from A in which AND how many -- so the two lines below bound the
+        # size effect rather than isolating it.
+        def better(left: str, right: str, what: str) -> None:
+            a, b = fits.get(left, {}), fits.get(right, {})
+            shared = sorted(set(a) & set(b))
+            if not shared:
+                print(f"  {left} vs {right}: no shared backbone")
+                return
+            wins = sum(1 for backbone in shared if a[backbone] < b[backbone])
+            delta = sum(a[backbone] - b[backbone] for backbone in shared) / len(shared)
+            print(
+                f"  {left:28s} fits better than {right:28s} on {wins:2d}/{len(shared)}"
+                f"  (mean {delta:+.4f})   {what}"
+            )
+
+        better("seg/full", "seg/limit600", "same images, 1464 train against 600")
+        better("seg/limit600", "main/limit600 (published)", "same size, different images")
+        better("seg/full", "main/limit600 (published)", "different images AND size")
 
     print("\n  For reference, from the corpus:")
     for pair in (

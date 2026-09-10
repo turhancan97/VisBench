@@ -38,6 +38,26 @@ resolution directly. Same for the training diagnostics: a probe that fits its
 training data perfectly has said nothing yet about a backbone — on CUB every
 backbone reaches `train_top1` 1.0000, including the one that comes last.
 
+## What the training diagnostics *do* answer
+
+A low score has two opposite readings, and `training` is what separates them. An
+unconverged head **understates** a backbone; a converged head that still scores
+badly says the representation does not carry the answer. `GenericSegmentationTask`
+on 80 training images reads 0.16 IoU at the defaults and 0.87 at `epochs=40` on
+*identical* features — the same number, and opposite conclusions.
+
+So before reading a low cell as a fact about a backbone, read its `train_loss`
+(and `train_top1`, where the probe reports one).
+[`scripts/analyse_training_diagnostics.py`](https://github.com/turhancan97/VisBench/blob/main/scripts/analyse_training_diagnostics.py)
+does that for every board at once. Two things it will tell you that are easy to
+misread on your own: a board can be **saturated**, where every head fits its
+training data perfectly and the whole spread is generalisation; and on a dense
+board the highest training loss tends to belong to the **coarsest feature
+grid**, which is the grid rather than a failure to converge.
+
+`train_loss` is comparable *within* a board and meaningless across boards — each
+is a different loss on a different target.
+
 ## Quote an objective gap against the *recipe* gap on the same board
 
 `sam_vitb16` and `supervised_vitb16` share architecture, data, labels and

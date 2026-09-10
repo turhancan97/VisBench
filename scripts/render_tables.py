@@ -16,8 +16,10 @@ loudly rather than leaving a board frozen at whatever it last said.
 It is derived from :func:`visbench.list_probes` rather than typed out, so a new
 probe cannot be added with a board that this script does not know to regenerate.
 A probe whose corpus group cannot render is listed in :data:`NO_PAGE_BOARD`
-and links ``LEADERBOARD.md`` instead; that set is currently empty, so all
-sixteen boards are generated onto the sixteen probe pages.
+and links ``LEADERBOARD.md`` instead; that set is currently empty, so every
+board is generated onto its own probe page. The count is deliberately not
+written here -- it was "sixteen" for one release after the seventeenth board
+shipped, which is how every stale count in this project went stale.
 
     scripts/render_tables.py            # rewrite the marked files in place
     scripts/render_tables.py --check    # exit 1 if it would change anything
@@ -85,7 +87,7 @@ def _probe_pages() -> list[Path]:
         # The CLASS, never a constructed probe: `level` is a class attribute,
         # and `get_probe("detection")` raises because `num_classes` has no
         # default -- a wrong `num_classes` does not raise, so it is required on
-        # purpose. Constructing sixteen probes to read one class attribute would
+        # purpose. Constructing every probe to read one class attribute would
         # also load every task module's dependencies for nothing.
         level = _LEVEL_DIRECTORY[get_task_class(name).level]
         pages.append(REPO / "docs" / "probes" / level / f"{name}.md")
