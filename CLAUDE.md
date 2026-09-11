@@ -458,8 +458,9 @@ point it at `.../blob/main/...`, or `raw.githubusercontent.com` for an image.
 is a Sphinx source tree, not package metadata, so its links must be *relative*
 and must resolve, and none may escape the tree with `../` — which Sphinx cannot
 follow and MyST does not warn about, so `-W` would not catch one.
-Result schema is at **v8** (`training` added 2026-08-28; `pooling_requested`
-in 6e-2b; `finetune` was 6a; `dataset_params` was 5j) and is **additive only**: never remove or repurpose
+Result schema is at **v9** (`hardware` added 2026-09-11; `training`
+2026-08-28; `pooling_requested` in 6e-2b; `finetune` was 6a; `dataset_params`
+was 5j) and is **additive only**: never remove or repurpose
 a field, or old records stop being readable.
 
 ### Layout worth knowing before editing
@@ -838,6 +839,27 @@ designed up front; extend it the same way, from a case that already runs.
   **The disagreement is a fit that does not interpolate, not a metric that
   wobbles** — which is why the fit diagnostics, not the score, are what tell
   the two apart.
+
+- **A record says what it ran on, and that field must never be keyed**
+  (schema v9, 2026-09-11). Every other field describes the experiment; none
+  described the machine, and the two bullets below are what that cost — a
+  failing node identified only by diffing every value against the corpus, and
+  a cross-silicon disagreement whose evidence lived in a shell history.
+  `hardware` is `{device, torch, gpu}`, filled from the **backbone's resolved
+  device** rather than the `device` argument, which is `None` on the common
+  path and ignored when a constructed backbone is passed — the same reason
+  `pooling` is recorded resolved.
+
+  **It is recorded and never grouped**, like `duration_seconds` and `training`.
+  Putting it in `comparability_key` would give every GPU its own group, so a
+  board whose twelve cells came off two nodes would stop rendering — the
+  failure `board_for` raises on — and the measured answer is that such cells
+  reproduce to six decimals, so they belong on one board. Three tests pin this,
+  including that a pre-v9 record (`hardware: None`) still groups with a v9 one,
+  since keying on it would also split the corpus by *age*.
+
+  **`None` dates a record rather than describing a run.** Unlike `finetune` and
+  `training`, there is no run for which "no hardware" is the right answer.
 
 - **A degraded node returns plausible wrong numbers, and only the fit
   diagnostics catch it** (same re-run). `dgx2` produced twenty cells before
@@ -1937,9 +1959,10 @@ the measurement behind it, under the step named in brackets.**
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite **collects 2113 tests** and the **115 slow ones** were green on
-`main` on 2026-09-05 (113 passed, 2 skipped), along with all three lint steps,
-mypy and the `-W` docs build. Earlier fast counts, for dating a claim: 2082 at
+fast suite **collects 2122 tests** and the **115 slow ones** were green on
+`main` on 2026-09-11, along with all three lint steps,
+mypy and the `-W` docs build. Earlier fast counts, for dating a claim: 2113 at
+the v8 `training` re-run, 2082 at
 the 0.17.0 release, 2071 at the
 instance board, 2050 at the instance head, 2012 at the mask-AP metric, 1983 at the VOC instance dataset, 1950 at
 the monotonic-wording fix, 1933 at the 0.16.0 release, 1930 at the docs
@@ -2332,7 +2355,9 @@ candidate-task backlog.
   Bump `SCHEMA_VERSION` when adding a field; never remove or repurpose one.
   A *trained* run also records `training` (v8) — how the fit itself went, which
   is what separates an underfitting probe from a weak representation, and is
-  never something to rank on.
+  never something to rank on. Every run records `hardware` (v9) — what it
+  executed on, which is neither ranked nor **grouped**: it says what produced a
+  number, not whether two may be compared.
 - Package for PyPI from v0.1: `pyproject.toml`, semantic versioning,
   `pip install visbench` as the eventual target install path.
 - Cite prior art in code comments and docs wherever an evaluation protocol is
@@ -2348,7 +2373,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 2113 fast tests
+pytest                                              # 2122 fast tests
 pytest -m slow                                      # 115, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/

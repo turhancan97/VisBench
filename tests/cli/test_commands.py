@@ -304,7 +304,7 @@ class TestRun:
         )
         payload = json.loads(result.out[result.out.index("{") :])
         assert payload["task"] == "retrieval"
-        assert payload["schema_version"] == 8
+        assert payload["schema_version"] == 9
         # Retrieval is zero-shot, so there is no fit to describe.
         assert payload["training"] is None
 

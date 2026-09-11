@@ -175,7 +175,27 @@ def test_a_trained_run_records_how_the_fit_went(fake_vit, splits, cache):
     # It describes the fit, not the evaluation, so it must not be in `metrics` --
     # where every leaderboard code path would meet it and could only refuse it.
     assert "train_loss" not in result.metrics
-    assert result.record.schema_version == 8
+    assert result.record.schema_version == 9
+
+
+def test_a_run_records_what_it_ran_on(fake_vit, splits, cache):
+    """Schema v9. Every other field describes the experiment; this one describes
+    the machine, which is what two days of detective work went without."""
+    train, val = splits
+    result = visbench.run(fake_vit, "classification", val, train_dataset=train, cache=cache)
+
+    assert result.record.hardware is not None
+    assert result.record.hardware["device"] == fake_vit.device
+    assert "torch" in result.record.hardware
+
+
+def test_a_zero_shot_run_records_hardware_too(fake_vit, splits, cache):
+    """Unlike `training` and `finetune`, there is no run for which "no hardware"
+    is the right answer -- a zero-shot probe still executed somewhere."""
+    _, val = splits
+    result = visbench.run(fake_vit, "retrieval", val, cache=cache)
+    assert result.record.hardware is not None
+    assert result.record.training is None
 
 
 def test_a_zero_shot_run_records_no_training(fake_vit, splits, cache):

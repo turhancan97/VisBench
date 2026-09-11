@@ -63,7 +63,28 @@ __all__ = ["ResultRecord", "SCHEMA_VERSION", "utc_timestamp"]
 #:    absence and "trains nothing" agree, as they do for ``finetune``. An open
 #:    dict for ``task_params``' reason: a new probe's own diagnostic must not
 #:    force another bump.
-SCHEMA_VERSION = 8
+#: 9. Added ``hardware``, which says what the run executed on. Every other
+#:    field describes the *experiment*; none described the machine, and twice in
+#:    two days that absence cost real work. A node began returning plausible
+#:    wrong numbers while reporting success, and identifying which cells came
+#:    off it meant diffing every value against the corpus, because no record
+#:    said. Then three cells disagreed across two GPU generations and had to be
+#:    held out of the corpus behind a written-up rule, because "this ran on an
+#:    A100 and that on a V100" existed only in a shell history. Recording the
+#:    device is what turns both into a query.
+#:
+#:    **It must never reach ``comparability_key``.** Grouping on it would put
+#:    every GPU in its own group and make a board with mixed provenance
+#:    unrenderable — the failure ``board_for`` raises on — and the whole point
+#:    is that two runs on different machines *are* comparable, which is exactly
+#:    what the V100 re-run established by reproducing to six decimals. So this
+#:    is recorded and never keyed, like ``duration_seconds`` and ``training``.
+#:
+#:    An open dict, for ``task_params``' reason. ``None`` only on records
+#:    written before this: unlike ``finetune`` and ``training``, there is no
+#:    run for which "no hardware" is the right answer, so absence dates a
+#:    record rather than describing it.
+SCHEMA_VERSION = 9
 
 
 @dataclass
@@ -131,6 +152,14 @@ class ResultRecord:
         ``metrics`` is what ``evaluate()`` returned about the evaluation split.
         Never rank on it: a probe that fits its training data perfectly has said
         nothing yet about a backbone.
+    hardware:
+        What the run executed on — ``device`` (``"cuda"`` or ``"cpu"``),
+        ``gpu`` (the device name, absent on CPU) and ``torch``. ``None`` on
+        records written before schema v9, which is the only case: every run
+        has a machine, so absence dates a record rather than describing one.
+        **Never part of what makes two records comparable** — see the schema
+        history above. It answers "what produced this number", not "may these
+        two be ranked together".
     layer / layers:
         Which backbone depth the features came from. ``layer`` is the
         single-layer form and ``layers`` the resolved list a multiscale head
@@ -163,6 +192,7 @@ class ResultRecord:
     layers: list[int] | None = None
     finetune: dict | None = None
     training: dict | None = None
+    hardware: dict | None = None
     seed: int | None = None
     duration_seconds: float | None = None
     notes: str | None = None
