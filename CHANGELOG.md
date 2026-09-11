@@ -16,7 +16,7 @@ so it stands on its own rather than assuming you have read the ones above it.
   backbone — or whether the representation does not carry the answer. Those are
   opposite conclusions from the same low score, and until now fourteen boards
   could be asked and only six could answer. 96 cells re-run; the corpus goes
-  from 264 records to **357**, still 204 board cells over seventeen boards.
+  from 264 records to **360**, still 204 board cells over seventeen boards.
   Schema is unchanged at v8.
 
   **It doubled as a reproducibility audit of the corpus, and the corpus
@@ -24,14 +24,20 @@ so it stands on its own rather than assuming you have read the ones above it.
   boards to 1e-7 or better and `classification` bit-identically, five releases
   after the records were written.
 
-  **The three that did not are not in the corpus.** They are
-  `fine_grained_classification` on `convnext_base`, `dino_vitb16` and
-  `dinov2_vitb14`, and they are in `results/controls/hardware_a100.jsonl`
-  instead, because publishing them would have dropped `convnext_base` below
-  `resnet50` — a ranking change caused by a variable no record carries, since
-  the schema has never recorded which GPU produced a number. The rule the
-  re-run followed: **replace a published record only where the re-run
-  reproduces it.**
+  **The three that did not reproduce were held back, then closed on a V100.**
+  They are `fine_grained_classification` on `convnext_base`, `dino_vitb16` and
+  `dinov2_vitb14`. Publishing the A100 values would have dropped
+  `convnext_base` below `resnet50` — a ranking change caused by a variable no
+  record carries, since the schema has never recorded which GPU produced a
+  number — so the rule the re-run followed was **replace a published record
+  only where the re-run reproduces it.** Once `dgx2` left `DRAIN` they were
+  re-run on a V100 and **each reproduced its published value to six decimals**,
+  so they merged: the corpus reproduces in full and every board carries
+  `training`. Their A100 records stay in
+  `results/controls/hardware_a100.jsonl` as the evidence, because the
+  three-way comparison is the finding — `convnext_base` reaches `train_top1`
+  1.000000 on a V100 against 0.989156 twice on an A100, so **the disagreement
+  is a fit that does not interpolate, not a metric that wobbles.**
 
 - **`detection`'s `clip_vitb16` and `clip_vitb32` are a tie**, correcting a
   published claim. `CORPUS_FINDINGS.md` had recorded their 0.0008 gap as
