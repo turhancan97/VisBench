@@ -47,7 +47,7 @@ Two standing cautions apply to everything below:
   | `semantic_segmentation` | 1.9e-04 | 0 |
   | `depth` | 9.9e-05 | 1 (+0.0001) |
   | `detection` | 2.0e-02 (on `map_50_95`) | 6, but only 1 at **3dp** |
-  | `fine_grained_classification` | 6.5e-02 | 3 — see the hardware control |
+  | `fine_grained_classification` | 6.5e-02 | 3 on an A100, **0 on a V100** |
 
   **The first pass looked much worse than that, and the difference is a faulty
   node.** Twenty cells ran on `dgx2` before it entered `DRAIN` ("Kill task
@@ -70,14 +70,31 @@ Two standing cautions apply to everything below:
   its sensitivity**: the four continuous dense boards drift at 1e-7 to 1e-4,
   while top-1 and AP are argmax and ranking decisions that flip whole images.
 
+  **All ninety-six cells now reproduce, and the last three took a V100**
+  (2026-09-11). Ninety-three reproduced on the hardware available during the
+  re-run; the three `fine_grained_classification` cells that did not were held
+  out of the corpus, and once `dgx2` left `DRAIN` they were re-run on a V100
+  and came back at **0.731101, 0.751985, 0.868312 — their published values, to
+  six decimals.** So the corpus reproduces in full, and the disagreement was
+  the silicon, measured rather than inferred.
+
+  **What the fit says about that disagreement is the transferable part.**
+  `convnext_base` is the only cell on that board that fails to interpolate on
+  an A100 — `train_top1` 0.989156, twice — and it is the only one whose score
+  moves by more than a point (−0.0475 against +0.0067 and −0.0043). On a V100
+  it reaches 1.000000 like every other backbone. **A cross-silicon gap that
+  matters shows up as a fit that did not converge, not as a metric that
+  wobbles**, which is the same instrument that caught the failing node, pointed
+  at a different question.
+
   **The one cross-silicon claim it licenses**, since the second pass ran on an
   A100 where every published number came from a V100: `classification`,
   `scene_classification`, `semantic_segmentation`, `generic_segmentation`,
   `surface_normal` and `depth` reproduce across the two, and `detection`
   reproduces at three decimals. Deliberately **not** claimed: that A100 and
   V100 agree in general — three `fine_grained_classification` cells do not, and
-  they are in `results/controls/hardware_a100.jsonl` rather than the corpus for
-  that reason. TF32 was measured directly and is not the culprit: turning it
+  their A100 records stay in `results/controls/hardware_a100.jsonl` as the
+  evidence while the corpus carries the V100 ones. TF32 was measured directly and is not the culprit: turning it
   off moves `depth` by up to 7.8e-06, the same size as the run-to-run noise.
 
 - **The corpus can now say whether a probe underfitted, on fourteen of

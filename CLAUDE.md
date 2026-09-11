@@ -135,13 +135,13 @@ precedent for shipping one: **v0.7.0** (contributor-facing) and **v0.16.0**
 (documentation). **v0.6.1** is the other one to know — it corrects a
 correspondence board that shipped ranked upside down; see step 6f.
 
-**The corpus file is 357 records resolving to 204 board cells** — seventeen
+**The corpus file is 360 records resolving to 204 board cells** — seventeen
 boards, twelve backbones a board. The two numbers differ because the corpus is
 **append-only** and two re-runs have appended beside records they supersede:
 0.15.0 re-ran the five low-level boards for their `ceiling_*`, and the
 schema-v8 `training` re-run (2026-09-10) re-ran the eight trained boards that
-predated that field. `latest_per_backbone` picks the newest. Quote 204 for
-coverage and 357 only for the file, and re-read both off `LEADERBOARD.md` and
+predated that field, with three cells of it landing on 2026-09-11. `latest_per_backbone` picks the newest. Quote 204 for
+coverage and 360 only for the file, and re-read both off `LEADERBOARD.md` and
 `wc -l` rather than from here.
 
 Two standing consequences of that history, both of which have already cost a
@@ -827,8 +827,17 @@ designed up front; extend it the same way, from a case that already runs.
   dropped `convnext_base` below `resnet50` on the CUB board — **a ranking
   change caused by a variable no record carries**, since the schema has never
   recorded which GPU produced a number. That is not picking the convenient
-  number; it is refusing to let an unrecorded variable move a board. Those
-  three cells keep `training: null` until they can be re-run on a V100.
+  number; it is refusing to let an unrecorded variable move a board.
+
+  **Closed 2026-09-11**: `dgx2` came out of `DRAIN`, the three were re-run on a
+  V100, and **all three reproduce their published value exactly** — so they
+  merged and every board now carries `training`. The A100 records stay in the
+  control as the evidence, because the three-way comparison is the finding:
+  same code, same data, same seed, two silicons, and `convnext_base` reaches
+  `train_top1` **1.000000** on a V100 against **0.989156** twice on an A100.
+  **The disagreement is a fit that does not interpolate, not a metric that
+  wobbles** — which is why the fit diagnostics, not the score, are what tell
+  the two apart.
 
 - **A degraded node returns plausible wrong numbers, and only the fit
   diagnostics catch it** (same re-run). `dgx2` produced twenty cells before
@@ -865,21 +874,43 @@ designed up front; extend it the same way, from a case that already runs.
   a job hangs with an empty log and the first read is that your new code is
   broken. **Submit with `--exclude=dgx1`**, and when a job on this cluster hangs
   with no output, time an `import torch` on the node before suspecting the code.
-  Still true on 2026-09-10: `import torch` did not return inside 300 s there,
-  against ~2 s on dgx2.
+
+  **"Never finishes" was a floor, not a ceiling** (measured 2026-09-10 by giving
+  it three hours instead of five minutes): `import torch` returns in **1376.7 s**
+  there — 23 minutes, against ~2 s on dgx2 — so the node is not hung, it is
+  uniformly ~600x slow. That is worse news than a hang, because the *work* is
+  slow too: the same job then spent **4.5 hours on one CUB cell** that takes 80 s
+  on `dgxa100`, and timed out having written no record. So dgx1 is unusable for
+  anything real, the exclusion stands, and the reason to state the number is
+  that "it hangs" invites someone to retry with a longer walltime, which is
+  what this was and it still did not finish.
 
   **The venv is NOT limited to `dgx1`/`dgx2`, which this file claimed until
   2026-09-10.** `dgxa100` runs Ubuntu 24.04 *and* ships `/usr/bin/python3.10`
   beside 3.12, so `.venv` resolves and runs there unchanged — checked by
   importing torch and visbench on the node, not inferred from the OS version.
-  `dgxh100` needs `--qos=normal --gres=gpu:1`; under `--qos=quick` it is
-  refused with a misleading `QOSMaxGRESPerJob`. That matters because **`dgx2`
-  can go `DRAIN` mid-run** (it did, "Kill task failed"), and with dgx1 unusable
-  the alternative partitions are the only way to finish anything. An A100 has
+  **`dgxh100` is the opposite case and cannot run it**: it ships
+  `/usr/bin/python3.12` and *no* 3.10, so `.venv/bin/python` is a dead symlink
+  there and a job dies in one second with "cannot execute: required file not
+  found". Its `--qos=quick` refusal (a misleading `QOSMaxGRESPerJob`, fixed by
+  `--qos=normal --gres=gpu:1`) is a *scheduling* obstacle in front of that, and
+  clearing it only buys the right to fail on the node — which is why the QoS
+  fix is not evidence the node is usable, and why this bullet said so for a day
+  before the probe actually landed. **So the usable set is `dgx1`, `dgx2` and
+  `dgxa100`**, of which dgx1 is degraded. That matters because **`dgx2` can go
+  `DRAIN` mid-run** (it did, "Kill task failed"), leaving `dgxa100` as the only
+  healthy node — and it is the one whose silicon differs. An A100 has
   TF32 where a V100 has none, so see the reproducibility entry in
   `CORPUS_FINDINGS.md` before putting corpus records on one: measured, TF32
   moves a dense board by ~1e-6, but three `fine_grained_classification` cells
   do not reproduce across the two.
+
+  **Do not read `torch.backends.cudnn.allow_tf32` as evidence of the
+  hardware.** It is `True` by default and reads `True` on a **V100** too, where
+  there is no TF32 unit for it to enable — checked on dgx2. The flag says what
+  PyTorch would permit, not what the silicon can do, so the A100/V100 question
+  is settled by `get_device_name` or by measuring the effect, which is what the
+  reproducibility entry does.
 
 - **The corpus matrix is defined in two files, and one of them was short by a
   probe for a whole release** (10b). `slurm/corpus.sbatch`'s `PROBES` had twelve

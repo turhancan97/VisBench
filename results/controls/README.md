@@ -328,12 +328,29 @@ never recorded which GPU produced a number. The rule the re-run followed was:
 leave the published record alone and say why.* That is not selecting the
 convenient number — it is refusing to let unrecorded hardware move a board.
 
-**The follow-up** is to re-run these three on a V100 and merge them, which
-would give the board its `training` block on the silicon its numbers came from.
-It could not be done here: `dgx2` entered `DRAIN` mid-run and `dgx1` is the node
-where `import torch` never returns. Until then those three cells keep
-`training: null` and the board answers the underfitting question for nine of
-twelve.
+**The follow-up landed on 2026-09-11**, once `dgx2` came out of `DRAIN`. All
+three were re-run on a V100 and **each reproduced its published value exactly**
+— 0.731101, 0.751985, 0.868312 — so they merged into the corpus with their
+`training` block, and the board now answers the underfitting question for
+twelve of twelve. It reads **saturated**: every backbone reaches `train_top1`
+1.0000, so its whole spread is generalisation.
+
+**These records stay here, because the three-way comparison is the finding.**
+Same code, same data, same seed, two silicons:
+
+| backbone | V100 (published, and re-run) | A100, twice | V100 `train_top1` | A100 `train_top1` |
+| --- | --- | --- | --- | --- |
+| `convnext_base` | 0.731101 | 0.6836 | 1.000000 | **0.989156** |
+| `dino_vitb16` | 0.751985 | 0.7587 | 1.000000 | 1.000000 |
+| `dinov2_vitb14` | 0.868312 | 0.8640 | 1.000000 | 1.000000 |
+
+**The largest disagreement is a fit that does not interpolate, not a metric
+that wobbles.** `convnext_base` is the only cell on the board that fails to
+reach `train_top1` 1.0 on the A100, and it is the only one whose score moves by
+more than a point. So the fit diagnostics separate "different hardware" from
+"different answer" here exactly as they separated a failing node from a weak
+backbone — read `training` before attributing a cross-silicon gap to anything
+else.
 
 ## `relative_depth.jsonl` — is the `depth` board measuring metric accuracy?
 
