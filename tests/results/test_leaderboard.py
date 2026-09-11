@@ -567,3 +567,37 @@ def test_older_schema_records_group_together():
     old = make_record(schema_version=1, dataset_fingerprint=None)
     also_old = make_record(schema_version=1, dataset_fingerprint=None, backbone="other")
     assert comparability_key(old) == comparability_key(also_old)
+
+
+# -- hardware is recorded, never keyed (schema v9) ---------------------------
+#
+# The field exists because two runs on different machines had to be told apart
+# after the fact. Grouping on it would be the opposite mistake: it would put
+# every GPU in its own group, so a board whose twelve cells came off two nodes
+# would stop rendering entirely -- `board_for` refuses a task with more than one
+# comparability group. And the measured answer is that such cells usually agree
+# to six decimals, so they belong on one board.
+
+
+def test_hardware_does_not_split_a_comparability_group():
+    """The whole board is one group whichever machine each cell ran on."""
+    v100 = make_record(hardware={"device": "cuda", "gpu": "Tesla V100-SXM2-32GB"})
+    a100 = make_record(
+        backbone="other", hardware={"device": "cuda", "gpu": "NVIDIA A100-SXM4-40GB"}
+    )
+    assert comparability_key(v100) == comparability_key(a100)
+
+
+def test_a_record_without_hardware_groups_with_one_that_has_it():
+    """Every pre-v9 record carries None, so keying on it would also split the
+    corpus by *age* -- the 264 records written before this from the 96 after."""
+    before = make_record(hardware=None)
+    after = make_record(backbone="other", hardware={"device": "cpu"})
+    assert comparability_key(before) == comparability_key(after)
+
+
+def test_hardware_is_not_a_metric():
+    """It must not reach a board's columns: it is provenance, not a score."""
+    record = make_record(hardware={"device": "cuda", "gpu": "Tesla V100-SXM2-32GB"})
+    assert "hardware" not in record.metrics
+    assert "gpu" not in record.metrics

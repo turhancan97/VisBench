@@ -26,6 +26,7 @@ from visbench.data.pair_dataset import PairDataset, PairViewDataset
 from visbench.results.schema import ResultRecord, utc_timestamp
 from visbench.results.writer import ResultWriter
 from visbench.types import Pooling
+from visbench.utils.device import describe_hardware
 from visbench.utils.seed import set_seed
 
 __all__ = ["run", "RunResult"]
@@ -255,6 +256,12 @@ def run(
         # score: an unconverged probe understates a backbone, and that is the
         # opposite finding from a representation that does not carry the answer.
         training=task.training_summary(),
+        # What it ran on. Read off the backbone rather than the `device`
+        # argument, which is None on the common path and ignored entirely when
+        # a constructed backbone is passed -- the same reason `pooling` is
+        # recorded resolved. Never part of comparability: two machines usually
+        # produce the same number, and where they did not, this is what says so.
+        hardware=describe_hardware(getattr(backbone, "device", device)),
         # Whatever the dataset described beyond the fields above — max_warp,
         # image_size, num_triplets. Taken from the dataset's own describe()
         # rather than a fixed list, so a new dataset type carries its settings

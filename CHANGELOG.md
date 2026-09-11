@@ -9,6 +9,32 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+### Added
+
+- **Schema v9: a record says what it ran on.** Every other field describes the
+  *experiment* — which model, which data, which settings — and none described
+  the machine. That absence cost real work twice in two days: a node began
+  returning plausible wrong numbers while reporting success, and finding which
+  cells came off it meant diffing every value against the corpus; then three
+  cells disagreed across two GPU generations and had to be held out behind a
+  written-up rule, because "this ran on an A100 and that on a V100" existed
+  only in a shell history. `hardware` records `{device, torch, gpu}`, read from
+  the backbone's **resolved** device for the reason `pooling` is recorded
+  resolved.
+
+  **It is recorded and never grouped.** Putting it in `comparability_key` would
+  give every GPU its own group, so a board whose cells came off two nodes would
+  stop rendering — and the measured answer is the opposite: such cells
+  reproduce to six decimals, so they belong on one board. Tests pin that two
+  records differing only in hardware group together, and that a pre-v9 record
+  (`hardware: None`) groups with a v9 one, since keying on it would split the
+  corpus by age as well as by machine.
+
+  Additive as always: every existing record reads back unchanged with
+  `hardware: None`. **No number moves and nothing needs re-running** — `None`
+  here dates a record rather than describing a run, because unlike `finetune`
+  and `training` there is no run for which "no hardware" is the right answer.
+
 ### Changed
 
 - **The eight trained boards that predated schema v8 now carry `training`**, so

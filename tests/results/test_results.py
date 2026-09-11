@@ -284,7 +284,7 @@ class TestDatasetParams:
         assert ResultRecord.from_dict(payload).dataset_params == {}
 
     def test_the_version_moved(self):
-        assert SCHEMA_VERSION == 8
+        assert SCHEMA_VERSION == 9
 
 
 class TestTraining:
@@ -349,3 +349,36 @@ class TestFinetune:
         record = make_record()
         record.finetune = {"blocks": 2, "backbone_lr": 5e-6, "trainable_params": 1_774_080}
         assert ResultRecord.from_dict(record.to_dict()).finetune == record.finetune
+
+
+# -- hardware (schema v9) ----------------------------------------------------
+
+
+def test_hardware_round_trips():
+    record = make_record(hardware={"device": "cuda", "gpu": "Tesla V100-SXM2-32GB"})
+    assert ResultRecord.from_dict(record.to_dict()).hardware == record.hardware
+
+
+def test_a_v8_record_reads_back_with_no_hardware():
+    """Additive, as every bump before it: absence dates a record rather than
+    describing the run, since every run had a machine."""
+    payload = make_record().to_dict()
+    payload["schema_version"] = 8
+    payload.pop("hardware", None)
+    assert ResultRecord.from_dict(payload).hardware is None
+
+
+def test_describe_hardware_always_resolves_the_device():
+    """None must never reach a record -- `pooling` is recorded resolved for the
+    same reason: the word the caller passed does not say what ran."""
+    from visbench.utils.device import describe_hardware
+
+    assert describe_hardware("cpu")["device"] == "cpu"
+    assert describe_hardware()["device"] in {"cuda", "mps", "cpu"}
+    assert "torch" in describe_hardware("cpu")
+
+
+def test_describe_hardware_names_no_gpu_on_cpu():
+    from visbench.utils.device import describe_hardware
+
+    assert "gpu" not in describe_hardware("cpu")
