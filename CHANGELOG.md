@@ -9,6 +9,30 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+## [0.18.0] — 2026-09-11
+
+**The release where the records learned to describe themselves — and audited
+the corpus on the way.**
+
+Two fields, no new probe, and **no measurement moves**. Every trained board now
+records how its *fit* went, and every run records what *machine* it ran on.
+Both exist because the corpus was asked a question it could not answer, and
+both were added the way this schema always grows: additively, so every existing
+record still reads.
+
+Getting the first of them into the corpus meant re-running 96 cells, which
+doubled as a reproducibility audit five releases after those records were
+written. **The corpus reproduces in full — 96 of 96.** Along the way the
+re-run caught a cluster node that was returning plausible wrong numbers while
+reporting success, and *only the new fit diagnostics could tell*: every bad
+cell carried a visibly worse fit beside its worse score, with an identical
+seed, fingerprint and parameters. A saturated board could not have revealed it,
+which is the argument for keeping one that is not.
+
+The corpus goes from 264 records to **360**, still 204 board cells over
+seventeen boards. Schema moves **v8 → v9**, so a v0.17.0 install cannot read a
+record written by this one; records written before it read unchanged here.
+
 ### Added
 
 - **Schema v9: a record says what it ran on.** Every other field describes the
@@ -4346,7 +4370,8 @@ API philosophy.
 [#2]: https://github.com/turhancan97/VisBench/issues/2
 [#4]: https://github.com/turhancan97/VisBench/issues/4
 [#3]: https://github.com/turhancan97/VisBench/issues/3
-[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.16.1...HEAD
+[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.18.0...HEAD
+[0.18.0]: https://github.com/turhancan97/VisBench/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/turhancan97/VisBench/compare/v0.16.1...v0.17.0
 [0.16.1]: https://github.com/turhancan97/VisBench/compare/v0.16.0...v0.16.1
 [0.16.0]: https://github.com/turhancan97/VisBench/compare/v0.15.0...v0.16.0
