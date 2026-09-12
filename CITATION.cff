@@ -28,7 +28,8 @@ abstract: >-
   occlusion edges, 2D keypoints, corners, and gradient orientation. Every run writes a
   structured record under an additive-only schema, and explicit comparability
   rules decide which records may be ranked together, so a number always travels
-  with the conditions that produced it.
+  with the conditions that produced it — including how the fit went and which
+  machine ran it.
 type: software
 authors:
   - given-names: Turhan Can
@@ -38,8 +39,8 @@ repository-code: "https://github.com/turhancan97/VisBench"
 url: "https://turhancan97.github.io/VisBench/"
 doi: "10.5281/zenodo.21822684"
 license: MIT
-version: 0.17.0
-date-released: '2026-09-09'
+version: 0.18.0
+date-released: '2026-09-11'
 keywords:
   - computer vision
   - representation learning
