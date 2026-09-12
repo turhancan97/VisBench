@@ -1230,6 +1230,59 @@ The four most recent entries were lifted out of `CLAUDE.md` on 2026-09-03,
 when that file passed the 150k-character limit it is loaded under for the second
 time. Nothing was rewritten; each paragraph is as its release recorded it.
 
+**`0.18.0` is fully released** (2026-09-12). On PyPI — wheel and sdist both
+(408,877 and 1,317,230 bytes, wheel sha256 `54b85a27…`, sdist `d0c6deea…`) —
+tagged `v0.18.0`, **annotated** (tag object `73015e4`), on merge commit
+`2aee8c8`, with a GitHub release cut from that tag (published
+2026-09-12T08:33:01Z) and archived by Zenodo as version DOI
+**`10.5281/zenodo.22722545`**, the **thirteenth**, minted four seconds after the
+release. **Verified out of the published wheel by import**: `__version__`
+0.18.0, `SCHEMA_VERSION` **9**, the `hardware` field present on `ResultRecord`,
+seventeen probes, thirteen backbones. Both artifacts match the locally built
+ones byte for byte, checked against PyPI's own digests rather than assumed.
+
+**Tag, wheel, release and `main` all agree at `2aee8c8`** — the sixth release
+running with no gap. The concept DOI `10.5281/zenodo.21822684` resolves to
+record 22722545 with `metadata.version` `v0.18.0`, read off Zenodo's API.
+
+**It is a minor release because the schema moves, v8 → v9.** A v0.17.0 install
+raises `Unsupported schema_version` on a record written by this one; records
+written *before* it read unchanged here, so the incompatibility is forward-only
+— which is more than a patch and less than a break. No measurement moves: the
+corpus goes 264 → 360 records and stays at 204 board cells over seventeen
+boards, because the 96 re-run cells reproduce what they superseded.
+
+**What the release is, in one line:** the records learned to describe
+themselves. Every trained board now carries how its *fit* went (v8) and every
+run carries what *machine* it ran on (v9) — two fields added because the corpus
+was twice asked a question it could not answer, and both added additively.
+
+**The version lives in two places, and the lockfile is what said so.** Bumping
+`visbench/__init__.py` and running `uv lock` produced **no diff**, which
+contradicts the standing rule that a version bump always moves the lockfile.
+That contradiction is what exposed `pyproject.toml` still reading 0.17.0 — so
+the wheel would have built as **0.17.0 while `__version__` reported 0.18.0**,
+the tag/artifact mismatch these rules exist to prevent, invisible until someone
+imported the published package. **An empty `uv lock` diff after a bump is a
+symptom, not a pass.** Both literals are bumped now and a check asserts
+`pyproject` == `__version__` == `CITATION.cff`.
+
+**The Zenodo API 302s, and without `-L` that reads as a broken archive.**
+`https://zenodo.org/api/records/<conceptrecid>` redirects to the newest version
+record, so a plain `curl` returns a 229-byte HTML redirect page and the JSON
+parse fails with a traceback that looks like Zenodo serving garbage. It is
+`curl -sL`. This sits directly on top of the existing rule to read the API
+before concluding an archive is wrong — the check itself has a way of lying to
+you.
+
+**The abstracts were hand-checked before the tag, per the standing rule**, and
+the archived text was read back after. Record 22722545's description carries
+the new clause — a record "also carries how its fit went … and what hardware
+produced it" — alongside "Seventeen probes"; the "Fifteen" that three earlier
+archives carry permanently is absent. No probe shipped in this release, so the
+count needed no change; the clause did, because the release is about what a
+record carries.
+
 **`0.17.0` is fully released** (2026-09-09). On PyPI — wheel and sdist both
 (407,088 and 1,281,464 bytes, wheel sha256 `3cd28f6f…`, sdist `2d41ae4e…`) —
 tagged `v0.17.0`, **annotated**, on merge commit `6f69872`, with a GitHub
