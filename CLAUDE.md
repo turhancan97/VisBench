@@ -124,7 +124,7 @@ number — every measurement v0.6.1 reported, v0.7.0 reports identically.
 
 ## Current state
 
-**Everything through v0.17.0 is shipped**, and every numbered step in the build
+**Everything through v0.18.0 is shipped**, and every numbered step in the build
 table before 14a is done — every task, all three backbone families, the CLI,
 fine-tuning, detection, the low-level probes, the leaderboard and probe
 sharing. Each release's narrative is in `CHANGELOG.md`, its derivation in
@@ -373,14 +373,37 @@ counts, wheel digests, which commit the tag resolves to, and what each
 `__version__`/`SCHEMA_VERSION` import read back. Read it there rather than
 carrying it here; only the standing rules below stay in this file.
 
-**The concept DOI is `10.5281/zenodo.21822684`**, unchanged across all twelve
-version DOIs and now resolving to v0.17.0 (confirmed against Zenodo's API on
-2026-09-09 — record 21822684 reports `id` 22681020 and
-`metadata.version` `v0.17.0` — rather than assumed). That is the point of quoting it
+**The concept DOI is `10.5281/zenodo.21822684`**, unchanged across all
+**thirteen** version DOIs and now resolving to v0.18.0 (confirmed against
+Zenodo's API on 2026-09-12 — record 21822684 redirects to `id` 22722545, which
+reports `metadata.version` `v0.18.0` — rather than assumed).
+
+**That API 302s, and without `-L` the check lies to you**: `curl` alone returns
+a 229-byte HTML redirect page and the JSON parse fails with a traceback that
+reads as Zenodo serving garbage. Use `curl -sL`. That is the point of quoting it
 rather than a version DOI; `tests/test_citation.py` rejects any other Zenodo
 DOI in `README.md`, `docs/index.md` and `CITATION.cff`, because pasting one
 over it is the realistic mistake and it freezes every citation at one release.
 
+
+**`0.18.0` is fully released** (2026-09-12) — the **thirteenth** Zenodo DOI
+(`10.5281/zenodo.22722545`), annotated tag `73015e4` on merge commit `2aee8c8`,
+wheel `54b85a27…` (408,877 bytes) and sdist both matching PyPI byte for byte.
+Tag, wheel, release and `main` agree: **the sixth release running with no gap.**
+Verified out of the published wheel by import — 0.18.0, `SCHEMA_VERSION` **9**,
+`hardware` present, 17 probes. A **minor** because the schema moves v8 → v9: a
+v0.17.0 install cannot read a record written by this one, while older records
+read fine here. No measurement moves; the corpus is **360 records / 204 board
+cells**. Full record in the log.
+
+**One rule this release added, and it nearly shipped a wrong artifact.** The
+version lives in **two** literals — `pyproject.toml` and `visbench/__init__.py`
+— and `uv.lock` pins only the former. Bumping `__init__.py` alone and running
+`uv lock` produces **no diff**, which looks like success and means the wheel
+would build at the *old* version while `__version__` reports the new one.
+**An empty `uv lock` diff after a version bump is a symptom, not a pass**: the
+standing rule is that a bump always moves the lockfile, so when it does not,
+the bump is incomplete.
 
 **Releasing — the standing rules, learned across v0.6.0 through v0.16.0.** The
 release-by-release detail is in [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md),
