@@ -39,14 +39,24 @@ each is a different loss on a different target. Nothing here compares two
 boards' losses, and neither should a reader.
 
 **The flag's one systematic confound, on a dense board, is feature
-resolution.** A head reading a coarse grid has less to fit with, so it settles
-at a higher training loss without anything having failed to converge -- and
-resolution is already the strongest correlate of every dense board. Run against
-``results/controls/dpt_head.jsonl`` the flag picks out ``clip_vitb32`` on
+resolution** -- measured, not supposed. A head reading a coarse grid has less
+to fit with, so it settles at a higher training loss without anything having
+failed to converge. Across the eleven boards whose head reads one vector per
+patch, ``rho(tokens, train_loss)`` is **negative on 11 of 11**, mean
+**-0.681**, and the worst-fitting backbone holds the coarsest grid on **10 of
+11**; the exception is ``orientation``, the board already on record as
+ill-conditioned. ``analyse_board_correlates.py --section fit`` reproduces it,
+so this paragraph can be checked rather than believed.
+
+It read as a plausible assertion for a day, backed by one example -- that
+against ``results/controls/dpt_head.jsonl`` the flag picks ``clip_vitb32`` on
 **all five** low-level boards, which is the nine ViTs' coarsest grid (7x7 at
 224px against 14x14 for every other ViT there) rather than five separate
-failures. So read a flag as "check the grid, then check the schedule", which is
-why it is worded as something to re-check rather than a verdict.
+failures. One example is an illustration, not a measurement, and the difference
+matters here because this sentence is what tells a reader to discount a flag.
+
+So read a flag as "check the grid, then check the schedule", which is why it is
+worded as something to re-check rather than a verdict.
 
 Records that predate schema v8 carry ``training: null`` and are reported as
 such rather than skipped, since "this board cannot answer the question" is the

@@ -309,3 +309,56 @@ def test_imagenette_is_the_second_counterexample(script, capsys):
 
     script.report_sources(boards, script.load_levels(script.CORPUS))
     assert "same images" in capsys.readouterr().out
+
+
+# -- ties ------------------------------------------------------------------
+#
+# `ranks` took the first position for a tie, justified by "every board this is
+# used on has distinct values". That was true of one argument and never of the
+# other: `tokens` takes three values across twelve backbones, so most of every
+# comparison against it was tied and broken by dictionary order, and sixteen
+# board vectors carry a genuine tie too. None of the tests above exercised a
+# tie, which is why the old rule passed them all.
+
+
+def test_tied_values_share_a_midrank(script):
+    """The mean of the positions they occupy, so a tie expresses no ordering."""
+    assert script.ranks({"a": 1.0, "b": 1.0}) == {"a": 1.5, "b": 1.5}
+    # ranks 2, 3 and 4 are tied -> 3.0 each; the untied ends keep 1 and 5.
+    got = script.ranks({"top": 9.0, "x": 5.0, "y": 5.0, "z": 5.0, "low": 1.0})
+    assert got == {"top": 1.0, "x": 3.0, "y": 3.0, "z": 3.0, "low": 5.0}
+
+
+def test_a_tie_broken_by_order_would_report_correlation_that_is_not_there(script):
+    """The reason this matters: ordinal tie-breaking *inflates*.
+
+    One side is constant over three of four backbones, so it can only agree
+    with the other on where the fourth sits. Midranks say so; splitting the tie
+    by dictionary order manufactures a full ordering out of nothing.
+    """
+    board = {"a": 4.0, "b": 3.0, "c": 2.0, "d": 1.0}
+    mostly_tied = {"a": 1.0, "b": 1.0, "c": 1.0, "d": 0.0}
+    rho = script.spearman(board, mostly_tied)
+    assert 0.7 < rho < 0.95, rho  # real but partial agreement
+    assert rho != 1.0
+
+
+def test_correlating_against_a_constant_is_not_a_number(script):
+    """Every value tied on one side: there is no ordering to agree with, and
+    reporting 0.0 would read as "measured, and unrelated"."""
+    import math
+
+    board = {"a": 3.0, "b": 2.0, "c": 1.0}
+    flat = {"a": 7.0, "b": 7.0, "c": 7.0}
+    assert math.isnan(script.spearman(board, flat))
+
+
+def test_untied_inputs_still_match_the_textbook_shortcut(script):
+    """Midranks must not disturb the distinct-value case, which is every
+    board-against-board pair without a tie."""
+    left = {"a": 1.0, "b": 2.0, "c": 3.0, "d": 4.0}
+    right = {"a": 2.0, "b": 1.0, "c": 4.0, "d": 3.0}
+    n = 4
+    lr, rr = script.ranks(left), script.ranks(right)
+    shortcut = 1 - 6 * sum((lr[k] - rr[k]) ** 2 for k in left) / (n * (n * n - 1))
+    assert abs(script.spearman(left, right) - shortcut) < 1e-12

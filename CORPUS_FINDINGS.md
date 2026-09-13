@@ -119,6 +119,57 @@ Two standing cautions apply to everything below:
   concrete, and never compare `train_loss` between boards — each is a
   different loss on a different target.
 
+- **A correlation function that breaks ties by dictionary order inflates, and
+  this one did for three published coefficients** (2026-09-13).
+  `analyse_board_correlates.spearman` ranked ties by first position, on the
+  stated grounds that "every board this is used on has distinct values". That
+  was true of one argument and never of the other: a board is distinct floats,
+  but `tokens` takes **three values across twelve backbones** (256/196/49), so
+  most of every comparison against it was tied and resolved by dictionary
+  order. Sixteen board vectors carry a genuine tie as well.
+
+  It is not noise, it is *inflation* — an arbitrary order inside a tied block
+  still counts as agreement. Corrected to midranks, with the Pearson-on-ranks
+  form because the `1 - 6d²/n(n²-1)` shortcut is only Spearman when nothing is
+  tied:
+
+  | quoted | was | now |
+  | --- | --- | --- |
+  | tokens / `generic_segmentation` | +0.958 | **+0.878** |
+  | tokens / `surface_normal` | +0.867 | **+0.817** |
+  | tokens / `depth` | +0.818 | **+0.687** |
+
+  **What did not move: every published board-*pair* number**, all seventeen
+  re-checked, maximum change 0.004 and that is rounding. So the two-cluster
+  structure, the CUB and scene readings and the instance-segmentation
+  neighbours are untouched — the ties happen not to fall in the pairs anyone
+  quotes. The resolution *control* is untouched for a stronger reason: it is
+  measured scores at two grid sizes, not a correlation, so the load-bearing
+  half of that finding never depended on this.
+
+  **The tests it had passed all along**, because not one of them contained a
+  tie. Four now do.
+
+- **A dense board's *fit* tracks its feature grid, which is what makes the
+  flag's advice sound** (2026-09-13, `--section fit`).
+  `analyse_training_diagnostics.py` tells a reader to check the grid before
+  reading a flagged `train_loss` as underfitting. That was asserted from one
+  example. Measured over the eleven boards whose head reads one vector per
+  patch: **rho(tokens, train_loss) is negative on 11 of 11**, mean **−0.681**,
+  and the worst-fitting backbone holds the coarsest grid on **10 of 11**.
+
+  A coarser grid leaves less to fit with, so it fits worse — which is why a
+  high `train_loss` on a 7x7 backbone is the expected reading rather than
+  evidence of a failed run.
+
+  The exception is `orientation`, where `siglip_vitb16` fits worst at 196
+  tokens. That board is already on record as the ill-conditioned one whose
+  bottom rows are not separable, so it is the board least able to support a
+  claim about its own ordering — consistent rather than surprising.
+
+  **This ranks nothing.** It is a statement about fits, and a head that fits
+  its training data better has still said nothing about a representation.
+
 - **Quote `orientation` to two decimals, and treat its bottom two rows as
   tied** (2026-09-01). Re-running the five low-level boards to add their
   ceilings gave a reproducibility measurement for free: four came back at
@@ -159,9 +210,16 @@ Two standing cautions apply to everything below:
   the measurement; that directory's README is the write-up.
 
   The confound was real and this file was built without noticing it. Tokens
-  correlate +0.958 with `generic_segmentation`, +0.867 with `surface_normal`,
-  +0.818 with `depth` — the strongest structural correlate of any dense board,
-  where width correlates with essentially nothing. And **the only backbones
+  correlate **+0.878** with `generic_segmentation`, **+0.817** with
+  `surface_normal`, **+0.687** with `depth` — the strongest structural
+  correlate on nine of the eleven boards whose head reads one vector per patch,
+  where width reaches only −0.08 to −0.40 and in the *opposite* direction.
+
+  **Those three numbers were +0.958, +0.867 and +0.818 until 2026-09-13**, when
+  the tie fix below corrected them. The claim survives the correction and two
+  boards are exceptions to it: `semantic_segmentation` (already the documented
+  exception — pretraining scale correlates +0.689 against tokens' +0.496) and
+  `detection`, which crosses over under midranks (+0.752 against +0.649). And **the only backbones
   carrying 256 tokens are the two DINOv2s**, so grid size, the DINOv2 objective
   and LVD-142M pretraining were one variable. No dense board could say which of
   the three it had ranked.

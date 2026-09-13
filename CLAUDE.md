@@ -790,8 +790,12 @@ designed up front; extend it the same way, from a case that already runs.
   - **Two backbones' high-level scores are close to in-distribution recall**,
     not transfer: `convnext_base` and `supervised_vitb16` are ImageNet-1k
     supervised and Imagenette's classes are ImageNet-1k wnids.
-  - **Feature resolution is the strongest correlate of every dense board, and
-    it is not what DINOv2's lead is made of.** Holding weights fixed and
+  - **Feature resolution is the strongest correlate of nearly every dense
+    board, and it is not what DINOv2's lead is made of.** Nine of the eleven
+    grid-reading boards, after the 2026-09-13 tie fix corrected three published
+    coefficients; `semantic_segmentation` and `detection` are the exceptions,
+    and a board's *fit* tracks the grid too (11 of 11, mean rho −0.681).
+    **Every published board-*pair* number survived that fix unchanged.** Holding weights fixed and
     cutting DINOv2-B from 256 to 196 tokens costs under 3% on all five dense
     boards, and it keeps its lead over the whole ViT-B/16 pack on both boards
     it led — 21% of the `generic_segmentation` gap and 7% of the `depth` one.
@@ -1982,9 +1986,10 @@ the measurement behind it, under the step named in brackets.**
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite **collects 2122 tests** and the **115 slow ones** were green on
+fast suite **collects 2126 tests** and the **115 slow ones** were green on
 `main` on 2026-09-11, along with all three lint steps,
-mypy and the `-W` docs build. Earlier fast counts, for dating a claim: 2113 at
+mypy and the `-W` docs build. Earlier fast counts, for dating a claim: 2122 at
+the 0.18.0 release, 2113 at
 the v8 `training` re-run, 2082 at
 the 0.17.0 release, 2071 at the
 instance board, 2050 at the instance head, 2012 at the mask-AP metric, 1983 at the VOC instance dataset, 1950 at
@@ -2396,7 +2401,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 2122 fast tests
+pytest                                              # 2126 fast tests
 pytest -m slow                                      # 115, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/
