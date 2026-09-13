@@ -75,6 +75,28 @@ HEADLINE_METRICS: dict[str, str] = {
 LOWER_IS_BETTER: frozenset[str] = frozenset({"surface_normal", "orientation"})
 
 
+#: Boards whose head reads **one feature vector per patch**, so the feature grid
+#: is part of what it has to work with. Listed rather than inferred, for
+#: ``HEADLINE_METRICS``' reason: the three image-level classification boards
+#: pool to a single vector, where the grid is irrelevant, and averaging them in
+#: would dilute the very quantity this section measures.
+GRID_READING_BOARDS: frozenset[str] = frozenset(
+    {
+        "depth",
+        "surface_normal",
+        "generic_segmentation",
+        "semantic_segmentation",
+        "edge",
+        "keypoints2d",
+        "occlusion_edge",
+        "corner",
+        "orientation",
+        "detection",
+        "instance_segmentation",
+    }
+)
+
+
 @dataclass(frozen=True)
 class Structure:
     """What a backbone *is*, independent of how it was trained.
@@ -171,15 +193,36 @@ SOURCE_IMAGES: dict[str, str] = {
 }
 
 
-def ranks(values: dict[str, float]) -> dict[str, int]:
-    """Rank 1 is the best score. Ties take their first position, not a mean.
+def ranks(values: dict[str, float]) -> dict[str, float]:
+    """Rank 1 is the best score. **Tied values share their mean rank.**
 
-    Every board this is used on has distinct values, so the simple rule is
-    enough; a corpus with genuine ties would need midranks here and in
-    :func:`spearman` together.
+    This used to take the first position for a tie, on the stated grounds that
+    "every board this is used on has distinct values". That held for one
+    argument and never for the other: a *board* is distinct floats, but the
+    structural properties correlated against it are not — ``tokens`` takes
+    three values across twelve backbones (256, 196, 49), so nine of every
+    twelve comparisons were tied and broken by dictionary order. Sixteen board
+    vectors turned out to carry a genuine tie as well, where two backbones
+    score identically.
+
+    Ordinal tie-breaking does not merely add noise, it *inflates*: an arbitrary
+    order inside a tied block is still counted as agreement or disagreement.
+    Measured on this corpus, the published tokens coefficients fell by up to
+    **0.131** when this was corrected, and the ranking of boards by how much
+    they track resolution changed.
     """
     ordered = sorted(values, key=lambda k: -values[k])
-    return {k: i + 1 for i, k in enumerate(ordered)}
+    out: dict[str, float] = {}
+    index = 0
+    while index < len(ordered):
+        stop = index
+        while stop + 1 < len(ordered) and values[ordered[stop + 1]] == values[ordered[index]]:
+            stop += 1
+        shared = (index + stop) / 2 + 1
+        for position in range(index, stop + 1):
+            out[ordered[position]] = shared
+        index = stop + 1
+    return out
 
 
 def spearman(left: dict[str, float], right: dict[str, float]) -> float:
@@ -195,8 +238,18 @@ def spearman(left: dict[str, float], right: dict[str, float]) -> float:
     if n < 3:
         raise ValueError(f"need at least 3 shared backbones to correlate, got {n}")
     lr, rr = ranks({k: left[k] for k in keys}), ranks({k: right[k] for k in keys})
-    d2 = sum((lr[k] - rr[k]) ** 2 for k in keys)
-    return 1 - 6 * d2 / (n * (n * n - 1))
+    # Pearson over the ranks, not the 1 - 6*d^2 shortcut. That shortcut is only
+    # equal to Spearman when no value is tied; with midranks it is wrong, and
+    # wrong in the direction that reports more correlation than there is.
+    mean_l = sum(lr[k] for k in keys) / n
+    mean_r = sum(rr[k] for k in keys) / n
+    covariance = sum((lr[k] - mean_l) * (rr[k] - mean_r) for k in keys)
+    spread_l = sum((lr[k] - mean_l) ** 2 for k in keys) ** 0.5
+    spread_r = sum((rr[k] - mean_r) ** 2 for k in keys) ** 0.5
+    if spread_l == 0 or spread_r == 0:
+        # Every value tied on one side: there is no ordering to agree with.
+        return float("nan")
+    return covariance / (spread_l * spread_r)
 
 
 def load_boards(corpus: Path) -> dict[str, dict[str, float]]:
@@ -234,6 +287,75 @@ def load_levels(corpus: Path) -> dict[str, str]:
         if levels.setdefault(task, level) != level:
             raise ValueError(f"{task} appears at two levels: {levels[task]} and {level}")
     return levels
+
+
+def load_fits(corpus: Path) -> dict[str, dict[str, float]]:
+    """``{task: {backbone: train_loss}}`` from schema v8's ``training`` block.
+
+    Records that predate v8, and the three zero-shot probes, carry
+    ``training: None`` and are skipped rather than read as a fit of zero —
+    absence there means "no fit was recorded", which is not the same as a
+    perfect one.
+    """
+    fits: dict[str, dict[str, float]] = defaultdict(dict)
+    for line in corpus.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        record = json.loads(line)
+        training = record.get("training")
+        if training and "train_loss" in training:
+            fits[record["task"]][record["backbone"]] = float(training["train_loss"])
+    return dict(fits)
+
+
+def report_fit(fits: dict[str, dict[str, float]], only: str | None) -> None:
+    """Does a board's *fit* track the feature grid, as its flag's wording says?
+
+    ``analyse_training_diagnostics.py`` tells a reader to check the grid before
+    reading a flagged ``train_loss`` as underfitting. That was asserted from one
+    example for a day. This measures it: on a board whose head reads one vector
+    per patch, a coarser grid leaves less to fit with, so ``train_loss`` should
+    rise as ``tokens`` falls — a **negative** rho.
+
+    It is a statement about the *fit*, never about the score. Nothing here may
+    be read as ranking backbones: a head that fits its training data better has
+    said nothing yet about a representation, which is the standing rule for
+    every number in the ``training`` block.
+    """
+    print("\n=== does the fit track the feature grid?")
+    print("    rho(tokens, train_loss) per board whose head reads one vector per patch")
+    print("    NEGATIVE means a coarser grid fits worse, which is the claim\n")
+    print(f"    {'board':28s} {'n':>2s} {'rho':>7s}   worst fit (its tokens)")
+
+    coefficients: list[float] = []
+    coarsest_worst = 0
+    measured = 0
+    for task in sorted(fits):
+        if task not in GRID_READING_BOARDS or (only is not None and task != only):
+            continue
+        losses = fits[task]
+        shared = {b: losses[b] for b in losses if b in STRUCTURE}
+        if len(shared) < 3:
+            continue
+        tokens = {b: float(STRUCTURE[b].tokens) for b in shared}
+        rho = spearman(tokens, shared)
+        worst = max(shared, key=lambda b: shared[b])
+        finest = min(tokens.values())
+        coefficients.append(rho)
+        measured += 1
+        coarsest_worst += tokens[worst] == finest
+        print(f"    {task:28s} {len(shared):2d} {rho:+7.3f}   {worst} ({tokens[worst]:.0f})")
+
+    if not coefficients:
+        return
+    mean = sum(coefficients) / len(coefficients)
+    negative = sum(1 for r in coefficients if r < 0)
+    print(
+        f"\n    mean rho {mean:+.3f} over {measured} boards; negative on {negative} of {measured}"
+    )
+    print(
+        f"    the worst-fitting backbone holds the coarsest grid on {coarsest_worst} of {measured}"
+    )
 
 
 def agreement(boards: dict[str, dict[str, float]]) -> dict[tuple[str, str], float]:
@@ -425,11 +547,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--section",
-        choices=("structure", "agreement", "sources", "all"),
+        choices=("structure", "agreement", "sources", "fit", "all"),
         default="all",
         help="structure: boards against backbone properties. agreement: boards "
         "against each other, and the tier claim that rests on it. sources: "
-        "whether agreement is really about sharing a dataset.",
+        "whether agreement is really about sharing a dataset. fit: whether a "
+        "board's train_loss tracks the feature grid, which is what the "
+        "diagnostics script tells a reader to check first.",
     )
     args = parser.parse_args(argv)
 
@@ -455,6 +579,8 @@ def main(argv: list[str] | None = None) -> int:
         report_agreement(boards, load_levels(args.corpus))
     if args.section in ("sources", "all") and args.board is None:
         report_sources(boards, load_levels(args.corpus))
+    if args.section in ("fit", "all"):
+        report_fit(load_fits(args.corpus), args.board)
     return 0
 
 
