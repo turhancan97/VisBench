@@ -367,7 +367,7 @@ dense probe has to test for.
 | Task | Level | Note |
 |---|---|---|
 | Optical flow | low | Needs image pairs and a flow head. `PairViewDataset` already expresses the pairing; the head is the real cost |
-| Relative camera pose (essential / fundamental matrix) | mid | Pairwise, regressing a geometric relation rather than a per-pixel map |
+| Relative camera pose (essential / fundamental matrix) | mid | **Measured and parked, not rejected** — probe3d's pairwise 7D regression on NAVI, which is on this machine. It reads *pooled* features, so it is cheaper than this table implies. A no-feature floor of 66.94 deg rotation error is the finding: `mae_vitb16` clears it by **21.97 deg** and the other three ViT-B/16s by 2.79, 0.31 and 0.24, so two are at chance. Nothing is converged — every row improved when the pairs went 2055 to 8217, and multi-partner sampling is the untried lever. See `visbench/tasks/low_level/README.md` |
 | Multi-view stereo / point-cloud / mesh recovery | mid | Multi-view input and a non-raster output; the largest departure from every probe here |
 | Motion / video object segmentation | mid | Grouping by motion, not identity. Needs video input, which nothing here consumes yet — **the machinery is the blocker, not the data**: DAVIS is on this machine, 90 sequences with 2016 and 2017 split lists |
 | Action / activity recognition | high | Same video constraint |
