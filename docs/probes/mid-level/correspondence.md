@@ -119,7 +119,7 @@ with it.
 
 The practical consequence is that **"which backbone is best" is not a
 well-formed question here**, and the corpus now says so loudly rather than by
-implication. Six of the thirteen boards are headed by a model that is last on
+implication. Six of the seventeen boards are headed by a model that is last on
 the other four. Pick the tier that matches the downstream use.
 
 Correspondence is less exposed to that (no labels are used), but comes with its

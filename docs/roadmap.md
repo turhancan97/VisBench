@@ -151,6 +151,37 @@ This is a multi-month roadmap, built one reviewed step at a time.
       CNNs, where a DPT run changes the bottleneck as well as the head, three
       of five boards change leader and two invert outright. It still does not
       reopen BSDS500
+- [x] **13a.** the documentation site restructured — four long pages become
+      guides, one page per probe, and the API reference `conf.py` had been
+      configured for since v0.7.0. ~5,198 lines of docstring went through
+      docutils for the first time and nine source files had real defects, so
+      `scripts/check_docstrings.py` now renders every one in the fast suite: a
+      docstring convention nothing renders is a guess, not a convention
+- [x] **14a-1 to 14a-4.** `instance_segmentation`, the **seventeenth probe** —
+      which *object* a pixel belongs to, over the same 1,449 VOC images
+      `semantic_segmentation` scores. `InstanceHead` is a `DetectionHead` plus
+      **one 1x1 convolution**, so the only learned thing between features and
+      mask is that convolution; mask AP is the detection protocol with the
+      overlap swapped, one matcher rather than two. Seventeen probes against
+      twelve backbones, **204 board cells**
+- [x] **the split control** — the new board ranks with the *mid-level geometry*
+      boards rather than its own tier, and this traced that to the **split**
+      rather than the probe: run `detection` on the same 1464/1449 images and
+      it changes cluster too (`occlusion_edge` +0.483 to **+0.965**). So a
+      cluster is a property of a board **as configured**, and the standing rule
+      is now never to quote one as a property of a *task*. No published number
+      moves — the reading does
+- [x] **schema v9: a record says what it ran on** — every other field describes
+      the experiment and none described the machine, which cost real work twice
+      in two days. `hardware` is recorded and **never grouped**: keying it would
+      give every GPU its own group and split the corpus by age as well as by
+      machine, while the measured answer is that such cells reproduce to six
+      decimals
+- [x] **the grid claim, measured** — the correlation between feature resolution
+      and a board's *fit* was asserted from two boards and is now measured over
+      all eleven that read a grid (11 of 11, mean rho −0.681). Fixing the tie
+      handling it exposed corrected three published coefficients, and every
+      published board-*pair* number survived unchanged
 
 ## Roadmap
 
@@ -218,10 +249,48 @@ metric ship — reproducing the published human agreement at 0.8030 against 0.80
 0.60. Every dense probe that declares an oracle now reports a ceiling beside
 its score.
 
+**v0.15** — the release that measures its own gate *(done)*. No probe is added
+and every published ordering is unchanged. The five low-level boards are
+**re-run** so each record carries its `ceiling_*` beside its score — computable
+from the target and the grid alone, so backfilling would have been easy and
+would have put numbers in records no run produced. The DPT control measures
+what the gate was described as bounding, and the word "ceiling" turns out to
+have been too strong: it is a bar for the *linear* head VisBench reports, not a
+bound on what is achievable.
+
+**v0.16** — the release that changes no number and rewrites where the numbers
+live *(done)*. The documentation site goes from four long pages to 42, the API
+reference `conf.py` had been configured for since v0.7.0 finally exists, and
+the README is an arrival path again. `depth`, `surface_normal` and
+`generic_segmentation` get a reference page and a generated board for the first
+time. Relative depth ordering was built and **rejected** in the same window.
+**v0.16.1** corrects what the gallery figures *say* — the panels themselves
+were right — and draws `depth` as a ramp rather than in grey.
+
+**v0.17** — a seventeenth probe, and a control that changed how a board may be
+read *(done)*. `instance_segmentation` asks which *object* a pixel belongs to,
+over the same 1,449 VOC images `semantic_segmentation` scores: two boards on
+identical pixels answering different questions. Seventeen probes against twelve
+backbones, **204 board cells**. The split control is the more consequential
+half — a cluster is a property of a board **as configured**, so never quote one
+as a property of a task.
+
+**v0.18** — the release where the records learned to describe themselves
+*(done)*. Two fields, no new probe, and no measurement moves: every trained
+board records how its *fit* went (schema v8's `training`, backfilled by
+re-running 96 cells) and every run records what *machine* it ran on (schema
+**v9**'s `hardware`, recorded and never grouped). Getting the first into the
+corpus doubled as a reproducibility audit five releases on, and **the corpus
+reproduces in full, 96 of 96** — catching, on the way, a cluster node returning
+plausible wrong numbers while reporting success, which only the new fit
+diagnostics could tell. The corpus goes from 264 records to **360**, still 204
+board cells.
+
 **Next** — there is no committed next step. What follows is a candidate pool.
 The cheap end of it is exhausted: superpixels was built and rejected, DoG-blob
-rejected on overlap, BSDS500 refused by the gate, and optical flow and NYUv2
-are not on this machine.
+rejected on overlap, relative depth ordering rejected for failing to rank,
+BSDS500 refused by the gate, instance segmentation shipped, and optical flow
+and NYUv2 are not on this machine.
 
 ## Future directions
 
@@ -283,7 +352,7 @@ dense probe has to test for.
 
 | Task | Level | Note |
 |---|---|---|
-| Instance segmentation | high | The category-labelled counterpart to the existing binary segmentation; COCO-style polygon annotations |
+| ~~Instance segmentation~~ | high | **Done** — `instance_segmentation` on VOC2012, the seventeenth probe, with its twelve-backbone board. COCO was measured and refused: at a 16x16 grid the median VOC instance covers 16.92 patches against COCO's 2.27, and zero of 3207 VOC val instance pairs share a grid cell, which is what makes a per-patch head viable |
 | ~~Fine-grained recognition (CUB-200-2011)~~ | high | **Done** — `fine_grained_classification`, a distinct probe on the linear-probe path, with its twelve-backbone board. Subordinate categories where the object board asks a basic-level question, which is why the object board is saturated and this one spans 0.87 to 0.47 |
 | ~~Scene classification (Places365)~~ | high | **Done** — `scene_classification`, a distinct probe on the linear-probe path, with its twelve-backbone board. Ranks backbones almost independently of the object board (Spearman +0.15) |
 | ~~Relative depth ordering~~ | mid | **Built and rejected** — it cleared the oracle gate at a 94.0% ceiling and then reproduced the `depth` board's ordering at Spearman **+1.000** over five backbones, at 38% of its spread, with two backbones 0.0007 apart that `depth` separates by 0.0707. Kept as a control, because the rejection is a finding about `depth`: discarding scale leaves its ranking unchanged. See `results/controls/README.md` |

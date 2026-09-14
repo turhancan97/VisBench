@@ -136,6 +136,13 @@ published claim:
   has gone stale in this project went stale by being carried forward through a
   release that added a column or a board. The generated tables have always been
   right; only the prose around them drifts, which is the half no test reads.
+  **`tests/test_docs_counts.py` now reads it** (2026-09-14): the present-tense
+  probe and board totals in seven user-facing files are pinned against
+  `list_probes()` and `LEADERBOARD.md`'s rendered sections. It is keyed to the
+  *idioms* that carry a total, not to any number word before "probes", because
+  a subset count is ordinary prose — and `CHANGELOG.md`, `ENGINEERING_LOG.md`
+  and `docs/roadmap.md` are excluded by name, since a count stated *as of a
+  release* is correct history and rewriting it would falsify the record.
 - **Before quoting any board, read
   [`CORPUS_FINDINGS.md`](CORPUS_FINDINGS.md)** — in particular the
   `sam_vitb16`, `dino_vitb16` and `mae_vitb16` entries. 10e's recipe control
@@ -677,8 +684,15 @@ designed up front; extend it the same way, from a case that already runs.
     thirteen boards that gap is more than a third of the whole objective spread,
     and nothing in a record says which board you are on.
   - **The semantic segmentation board separates neither training objectives nor
-    feature resolution**, which every other dense board ranks by. Do not present
-    it as evidence about an objective.
+    feature resolution**, which nine of the eleven grid-reading boards rank by.
+    Do not present it as evidence about an objective. **Not "the one dense
+    board" — `detection` is a second exception** (2026-09-14), and the test is
+    whether another property *beats* the grid, never whether the grid
+    coefficient is small: `keypoints2d` +0.481 and `orientation` +0.511
+    straddle this board's +0.496 and are grid-ranked. **A coefficient's rank
+    among boards is a fact about which boards are in the corpus** — "the
+    highest of all thirteen" is now third of seventeen, at a value that moved
+    too.
   - **The high-level tier is two clusters, not one** — `classification`/
     `retrieval` (image-level categorisation) against `detection`/
     `semantic_segmentation`/`scene_classification`/`fine_grained_classification`
@@ -1751,11 +1765,12 @@ the measurement behind it, under the step named in brackets.**
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite **collects 2126 tests** and the **115 slow ones** were green on
+fast suite **collects 2142 tests** and the **115 slow ones** were green on
 `main` on 2026-09-11, along with all three lint steps,
-mypy and the `-W` docs build. Earlier fast counts, for dating a claim: 2122 at
-the 0.18.0 release, 2113 at the v8 `training` re-run, 2082 at the 0.17.0
-release, 2071 at the instance board, 1824 at the oracle gate. Keep this list
+mypy and the `-W` docs build. Earlier fast counts, for dating a claim: 2126 at
+the docs-count guard, 2122 at the 0.18.0 release, 2113 at the v8 `training`
+re-run, 2082 at the 0.17.0 release, 2071 at the instance board, 1824 at the
+oracle gate. Keep this list
 short — it is one of the places this file accretes.
 
 **Quote the collected count, not "N passed", because the skip count is a fact
@@ -2114,7 +2129,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 2126 fast tests
+pytest                                              # 2142 fast tests
 pytest -m slow                                      # 115, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/

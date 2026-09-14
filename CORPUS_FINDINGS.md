@@ -649,6 +649,52 @@ Two standing cautions apply to everything below:
   correlated with each other.** It is a lead sized for the corpus, not a proof;
   `--drop` exists so the next person can check which conclusions survive.
 
+  ---
+
+  **Every coefficient above is superseded** (2026-09-14). They were computed
+  against a thirteen-board corpus before the 2026-09-13 tie fix, and both moved
+  them; the entry is kept as written because it is dated, and this is what the
+  same commands return now. `docs/probes/high-level/semantic_segmentation.md`
+  carries the current reading.
+
+  | quoted above | was | now |
+  | --- | --- | --- |
+  | grid / `semantic_segmentation` | +0.545 | **+0.496** |
+  | grid / `generic_segmentation` | +0.958 | **+0.878** |
+  | grid, dropping both DINOv2 | +0.212 | **+0.071** |
+  | grid, pretraining held fixed | 0.000 | **0.000** |
+
+  The last row is the one number above that never moved. Its *group* is
+  misdescribed, though: the IN1k backbones number **seven**, not eight, and
+  did when the entry was written — a miscount in the prose, not in the
+  measurement.
+  | pretraining / `semantic_segmentation` | +0.615 | **+0.689** |
+  | pretraining / `generic_segmentation` | +0.238 | **+0.247** |
+  | pretraining, within the six ViT-B/16 | +0.314 | **+0.541** |
+
+  **The finding survives; two of the sentences carrying it do not.** The claim
+  is and was that this board does not rank by feature resolution, and the
+  strongest evidence for it got *stronger* — dropping DINOv2 now leaves +0.071
+  rather than +0.212, and holding the pretraining data fixed still leaves
+  exactly 0.000. The board's 0.3207 mIoU spread across six architecturally
+  identical ViT-B/16s is unchanged.
+
+  **What does not survive is "the one dense board" and "the highest of all
+  thirteen boards", and they fail in different ways.** `detection` is now a
+  second exception among the eleven grid-reading boards (pretraining +0.752
+  against grid +0.649), so the count was overtaken by a corpus that grew.
+  The superlative was overtaken the same way — +0.689 is *third* of seventeen,
+  behind `scene_classification` (+0.858) and `detection` (+0.752) — and it was
+  also the wrong shape of claim to make: **a coefficient's rank among boards is
+  a fact about which boards happen to be in the corpus.** The durable statement
+  is which property wins *on this board*, which no later board can change.
+
+  **And "low grid coefficient" was never the right test, which the wider corpus
+  makes visible.** `keypoints2d` (+0.481) and `orientation` (+0.511) now sit
+  either side of this board's +0.496 and are grid-ranked, because on them
+  nothing else comes close. The discriminating question is whether some other
+  property *beats* the grid, not whether the grid coefficient is small.
+
 
 - **The high-level tier is two clusters, not one — and the tier-mean test flips
   sign with the corpus, so read the clusters, not the mean** (2026-08-20,
@@ -804,7 +850,10 @@ Two standing cautions apply to everything below:
 
   **What the three same-image boards differ in is what they are sensitive to.**
   Against feature grid they read `generic_segmentation` **+0.958**,
-  `instance_segmentation` **+0.902** and `semantic_segmentation` **+0.545**. The
+  `instance_segmentation` **+0.902** and `semantic_segmentation` **+0.545**
+  (**+0.878**, **+0.840** and **+0.496** since the 2026-09-13 tie fix; the gap
+  between the two resolution-driven boards and the third is what this argument
+  uses, and it is unchanged). The
   two resolution-driven ones are the pair that agrees at +0.909; the one that is
   not agrees with neither. That is the standing resolution finding and the
   standing `semantic_segmentation` anomaly, not a fact about VOC.
