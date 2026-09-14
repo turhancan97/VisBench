@@ -2,8 +2,8 @@
 
 **Multi-class per-pixel labels — cross-entropy over class indices.**
 
-A dense probe, and the one whose board behaves unlike every other dense board
-here. Read the section below before quoting it.
+A dense probe whose board does not rank by what nearly every other dense board
+ranks by. Read the section below before quoting it.
 
 ```{figure} /_static/gallery/semantic_segmentation.png
 :alt: semantic_segmentation — image, target and prediction
@@ -36,29 +36,48 @@ Ordered by `miou`, which **disagrees with `mean_acc`, `miou_per_image`, `pixel_a
 <sub>semantic_segmentation on VOC2012/val, protocol=visbench_semantic_seg, frozen [e14b47db]</sub>
 <!-- /visbench:board -->
 
-**What this board ranks by is not what the other dense boards rank by, and
-that is worth knowing before quoting it.** Correlate each board's ordering
-against the backbones' feature-grid area, over the twelve backbones in the
-corpus, and every other dense board comes out between +0.73 and +0.96 — a
-finer grid is most of what a dense probe rewards. Semantic segmentation is
-**+0.545**, and that much is carried by DINOv2, which has both the finest grid
-and the largest pretraining corpus: without those two rows it is +0.212, and
-with the pretraining data held fixed it is **0.000**.
+**What this board ranks by is not what nearly every other dense board ranks
+by, and that is worth knowing before quoting it.** Correlate each board's
+ordering against the backbones' feature-grid area, over the twelve backbones
+in the corpus: across the eleven whose head reads one vector per patch,
+**nine have the grid as their strongest correlate**, and this is one of the
+two that do not. Grid **+0.496**, against pretraining scale **+0.689**. And the
++0.496 is carried almost entirely by DINOv2, which has both the finest grid
+and the largest pretraining corpus — drop those two rows and it falls to
+**+0.071**, and with the pretraining data held fixed (the seven IN1k
+backbones) it is **exactly 0.000**.
 
-The control is already in this page. `generic_segmentation` runs on the *same
+**Read that as "the grid does not win here", not as "the grid coefficient is
+small".** `keypoints2d` (+0.481) and `orientation` (+0.511) sit either side of
++0.496 and *are* grid-ranked, because on them nothing else comes close. What
+singles this board out is that something does: pretraining scale beats the
+grid on it, and among the eleven only `detection` (+0.752 against +0.649) does
+the same.
+
+The control is already on this page. `generic_segmentation` runs on the *same
 1449 VOC images* at the same resolution with the same linear head and the same
 schedule, and differs only in whether the target has 2 classes or 21 — it
-ranks by grid at **+0.958**. Same pixels, same probe, opposite behaviour, so
-this is a property of the target rather than the data or the protocol.
+ranks by grid at **+0.878** against pretraining's +0.247, which is the
+ordering this board reverses. Same pixels, same probe, opposite behaviour, so
+this is a property of the target rather than the data, the head or the
+protocol.
 
 What it rewards instead is, weakly, pretraining breadth: corpus size is its
-best single correlate at +0.615, the highest of the thirteen boards. But
-within the six *identical* ViT-B/16 backbones the spread is 0.3207 mIoU with
-only a +0.314 correlation, so most of the variance is not structural. **Treat
-this board as evidence about representations, not about training objectives**
-— step 10e's recipe control showed it cannot separate those at all. Reproduce
-any of it with `scripts/analyse_board_correlates.py`; at twelve backbones the
-coefficients have wide error bars.
+best single correlate at **+0.689** — third of the seventeen boards, behind
+`scene_classification` (+0.858) and `detection` (+0.752) — and unmoved by the
+WebLI size assumption anywhere between 4e9 and 1.8e10. But within the six
+*identical* ViT-B/16 backbones — same shape, same width, same 196 tokens — the
+spread is **0.3207 mIoU** (`clip_vitb16` 0.6546 down to `sam_vitb16` 0.3339)
+at a +0.541 correlation, so a large part of this board's variance is not
+structural at all. **Treat this board as evidence about representations, not
+about training objectives** — step 10e's recipe control showed it cannot
+separate those at all.
+
+Reproduce any of it with `scripts/analyse_board_correlates.py`. At twelve
+backbones the coefficients have wide error bars, **and where one board's
+coefficient sits relative to another's is a fact about this corpus, not about
+the task**: these read +0.545 and +0.615 against thirteen boards, before the
+2026-09-13 tie fix and four further boards moved both.
 
 ## Things that will bite otherwise
 

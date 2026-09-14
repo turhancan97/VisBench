@@ -1,6 +1,6 @@
 # The probes
 
-Sixteen probes across three levels. Every one of them is reachable the same
+Seventeen probes across three levels. Every one of them is reachable the same
 three ways — {doc}`visbench.run() </getting-started/quickstart>`, the
 `visbench run` CLI, and an `examples/` script — and every one writes a record
 saying exactly what produced its number.

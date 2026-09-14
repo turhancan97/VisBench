@@ -9,6 +9,47 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+### Changed
+
+- **The documentation says how many probes there are again, and a test now
+  keeps it that way.** `instance_segmentation` shipped as the seventeenth probe
+  in 0.17.0 and the front page went on saying "Sixteen probes" for five
+  releases: `README.md` (whose status line also still read v0.17.0),
+  `docs/index.md`, `docs/probes/overview.md` and two probe pages quoting a
+  thirteen-board corpus. `docs/roadmap.md` had no entry for the seventeenth
+  probe at all and still listed instance segmentation as an open candidate.
+  Nothing failed, because the counts that are *generated* — `LEADERBOARD.md`
+  and every board table — were right the whole time; only the prose around
+  them drifted. `tests/test_docs_counts.py` pins the present-tense totals in
+  eight user-facing files against `list_probes()` and `LEADERBOARD.md`'s
+  rendered sections. It is keyed to the idioms that carry a *total*, so a
+  subset count stays ordinary prose, and `CHANGELOG.md`, `ENGINEERING_LOG.md`
+  and `docs/roadmap.md` are excluded by name: a count stated as of a release is
+  correct history.
+
+- **`semantic_segmentation`'s reference page re-derives its correlations, and
+  two of the sentences carrying its finding do not survive.** The page's
+  numbers were computed against a thirteen-board corpus before the 2026-09-13
+  tie fix, and both moved them — grid +0.545 → **+0.496**, pretraining scale
+  +0.615 → **+0.689**, the `generic_segmentation` control +0.958 → **+0.878**.
+
+  **The finding itself gets stronger**: this board still does not rank by
+  feature resolution, and dropping the two DINOv2 rows now leaves **+0.071**
+  rather than +0.212, with the pretraining data held fixed still exactly
+  **0.000**. What fails is the framing. "The one dense board" is now two —
+  `detection` is a second exception (pretraining +0.752 against grid +0.649) —
+  and "the highest of all thirteen boards" is third of seventeen. That
+  superlative was also the wrong *shape* of claim: **a coefficient's rank among
+  boards is a fact about which boards are in the corpus**, where which property
+  wins on a given board is not.
+
+  The wider corpus makes a third thing visible: **a small grid coefficient was
+  never the test.** `keypoints2d` (+0.481) and `orientation` (+0.511) straddle
+  this board's +0.496 and are grid-ranked, because on them nothing else comes
+  close. No published number changes and no probe is re-run:
+  `CORPUS_FINDINGS.md` keeps the superseded entry as dated and annotates it
+  with what the same commands return now.
+
 ## [0.18.0] — 2026-09-11
 
 **The release where the records learned to describe themselves — and audited
