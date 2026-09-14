@@ -289,8 +289,8 @@ board cells.
 **Next** — there is no committed next step. What follows is a candidate pool.
 The cheap end of it is exhausted: superpixels was built and rejected, DoG-blob
 rejected on overlap, relative depth ordering rejected for failing to rank,
-BSDS500 refused by the gate, instance segmentation shipped, and optical flow
-and NYUv2 are not on this machine.
+BSDS500 refused by the gate, instance segmentation shipped, and no optical-flow
+set is on this machine.
 
 ## Future directions
 
@@ -358,6 +358,7 @@ dense probe has to test for.
 | ~~Relative depth ordering~~ | mid | **Built and rejected** — it cleared the oracle gate at a 94.0% ceiling and then reproduced the `depth` board's ordering at Spearman **+1.000** over five backbones, at 38% of its spread, with two backbones 0.0007 apart that `depth` separates by 0.0707. Kept as a control, because the rejection is a finding about `depth`: discarding scale leaves its ranking unchanged. See `results/controls/README.md` |
 | Intrinsic image decomposition (albedo vs shading) | mid | Classic Marr-style separation of appearance from geometry and lighting. Ground truth is scarce outside synthetic data |
 | Room / scene layout estimation | mid | Floor–wall–ceiling boundaries |
+| Semantic segmentation on NYUv2 (40 classes) | high | The indoor counterpart to the VOC board, on the images the depth and normal heads were fitted on. The canonical 795/654 split ships pre-extracted as stem-matched folders in `DenseFolderDataset`'s layout, and its `.npy` depth and normal targets need no new loader — `_TARGET_SUFFIXES` has accepted them since 5d. A new probe *name*, per the rule a second dataset always needs one |
 | Vanishing point / line detection | low | Published as a Taskonomy domain |
 | Color constancy / illuminant estimation | low | Needs measured illuminant ground truth |
 
@@ -368,7 +369,7 @@ dense probe has to test for.
 | Optical flow | low | Needs image pairs and a flow head. `PairViewDataset` already expresses the pairing; the head is the real cost |
 | Relative camera pose (essential / fundamental matrix) | mid | Pairwise, regressing a geometric relation rather than a per-pixel map |
 | Multi-view stereo / point-cloud / mesh recovery | mid | Multi-view input and a non-raster output; the largest departure from every probe here |
-| Motion / video object segmentation | mid | Grouping by motion, not identity. Needs video input, which nothing here consumes yet |
+| Motion / video object segmentation | mid | Grouping by motion, not identity. Needs video input, which nothing here consumes yet — **the machinery is the blocker, not the data**: DAVIS is on this machine, 90 sequences with 2016 and 2017 split lists |
 | Action / activity recognition | high | Same video constraint |
 | Amodal completion of occluded boundaries | mid | Targets extend beyond visible evidence |
 | Symmetry / repeated-structure detection | mid | Annotation is scarce |
