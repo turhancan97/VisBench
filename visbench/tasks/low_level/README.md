@@ -436,6 +436,87 @@ there and ranks backbones differently anyway, so it cannot refuse anything.
 **The missing check is the oracle gate below**, added afterwards and calibrated
 against this rejection.
 
+### Relative camera pose — parked on data, and not a rejection
+
+Mid-level, and recorded here for the reason relative depth is: the lesson
+belongs to the gauntlet. **It is the first candidate to stop without a
+verdict**, so do not quote it as a fourth rejection — the other three closed
+their line (a redundant target, an unrecoverable one, a board already
+shipped), and this one ran out of pairs with its curve still falling.
+
+Why it looked cheap: `PairViewDataset` already expresses the pairing, the head
+reads **pooled** features so there is no grid and no streaming, probe3d's
+protocol exists, and a working probe3d-style implementation sits in a sibling
+project (`adaptive_multi_layer_dense_fusion`, `data/navi_camera_pose.py`),
+whose pairing this follows. NAVI is on this machine at
+`vision/probing_3D/navi_v1/`, per-image quaternion, translation and focal
+length.
+
+**The floor is the whole finding, and it was nearly not measured.** Pairs are
+drawn within 120 degrees, so their median relative rotation is ~65 degrees and
+predicting the training *mean* scores **66.94 deg** with no features at all. On
+8217 pairs (6477 train, every usable NAVI frame at one partner per anchor),
+three seeds, probe3d's MLP head:
+
+| backbone | rot err | vs floor | seed range | margin / noise |
+|---|---|---|---|---|
+| `mae_vitb16` | **44.96** | **+21.97** | 1.75 | 12.6x |
+| `dino_vitb16` | 64.14 | +2.79 | 0.98 | 2.8x |
+| `clip_vitb16` | 66.63 | +0.31 | 0.61 | 0.5x |
+| `sam_vitb16` | 66.70 | +0.24 | 0.47 | 0.5x |
+
+**The headline statistic is the misleading half.** Spread 21.73 deg over a
+1.75 deg seed range reads as 12.4x and passes a "does it separate" test — but
+it is carried by one row. Strip `mae_vitb16` out and the other three span 2.56
+deg, and two of them sit inside their own seed range of the floor. **Quote the
+per-row margin over the floor, not the spread**: one backbone is clearly above
+chance, one marginally, two are at it.
+
+So on the hardest case this corpus offers — four ViT-B/16s at identical
+architecture, width and token count differing only in objective and recipe — it
+behaves less like a ranking than like a **detector for masked reconstruction**.
+That replicates: the sibling project's seven-backbone table is topped by
+`vjepa2` (37.1) and `mae_vitl16` (38.7), both reconstruction-style, with the
+language-supervised models last.
+
+**Nothing is converged, which is why this is parked.** Every row improved when
+the pairs went from 2055 to 8217 — `mae` −13.70, `dino` −8.38, `sam` −7.12,
+`clip` −5.14 — and no curve has flattened. Stride 1 exhausts *this pairing
+rule*, one partner per anchor, not NAVI: each anchor has many eligible
+partners, so multi-partner sampling is 4-8x more pairs and is the untried
+lever. **Do not record that the features do not carry pose** — `mae_vitb16`'s
+do, by 22 degrees.
+
+Two traps it paid for, both of which printed a plausible table rather than
+failing:
+
+- **NAVI translation is in millimetres and the reference divides by 1000.**
+  Omitted, MSE over the raw 7-vector `[quat, trans]` is dominated by a
+  translation of magnitude ~200 against a unit quaternion, so the head
+  optimises translation and never learns rotation. Every backbone then landed
+  at 107-109 deg — *worse than the floor* — with `train_loss` 466-1001. **A
+  trained head cannot lose to a constant unless the loss is not optimising the
+  scored term**, which is the tell, and the same failure as 6d-1's
+  `target_scale`. `scripts/premeasure_pose.py` now refuses to present a
+  below-floor table as a ranking.
+- **The sibling evidence was quoted as a 28.2 deg spread "clearly ranking
+  something".** Against this floor its weakest two rows (SigLIP 62.7,
+  Perception Encoder 65.2) are themselves at chance. Reading a range as signal
+  without its floor is exactly what the floor rule exists to stop, and it was
+  done here while writing the script that measures the floor.
+
+A third, cheaper than either: **the linear head is worse, not better.** All
+four rows fall below the floor with `LinearHead`'s single affine map, so the
+overfitting the MLP shows (`train_loss` ~1e-3 against a validation error at the
+floor) is not the whole story — but with 1536 input dimensions against 1612
+training pairs at stride 4, that check was itself in the n≈d regime and should
+be re-run at stride 1 before it is believed.
+
+**What was kept**: `scripts/premeasure_pose.py`, and the NAVI feature cache for
+four backbones at full stride, so any follow-up costs training time only.
+**What was not**: no task, no registration, no records — nothing that a
+registered probe is pinned by test to carry.
+
 ## The oracle gate — is the target recoverable at all?
 
 `scripts/oracle_ceiling.py`, over

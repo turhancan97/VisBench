@@ -9,6 +9,42 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+### Added
+
+- **Relative camera pose, measured and parked** — `scripts/premeasure_pose.py`,
+  with the write-up in `visbench/tasks/low_level/README.md`. **It is the first
+  candidate to stop without a verdict**, so it is not a fourth rejection: the
+  other three closed their line, and this one ran out of pairs with its curve
+  still falling. No probe, no registration, no records, and no published number
+  moves.
+
+  It is cheaper than the roadmap's "harder" tier implied, because probe3d's
+  pairwise head reads **pooled** features — no grid, no streaming — and NAVI is
+  on this machine.
+
+  **The finding is the floor.** Pairs are drawn within 120 degrees, so
+  predicting the training mean scores **66.94 deg** rotation error with no
+  features at all. Over four ViT-B/16s differing only in objective and recipe,
+  `mae_vitb16` clears that by **21.97 deg** while `dino`, `clip` and `sam`
+  clear it by 2.79, 0.31 and 0.24 — the last two inside their own seed range,
+  i.e. at chance. So on the hardest case this corpus offers it behaves less
+  like a ranking than like a detector for masked reconstruction, which
+  replicates a sibling project's seven-backbone ordering.
+
+  **Quote the per-row margin, not the spread.** 21.73 deg over a 1.75 deg seed
+  range reads as 12.4x and passes a "does it separate" test, but it is carried
+  by one row; strip that row and the rest span 2.56 deg.
+
+  Two traps it paid for, both of which printed a plausible table rather than
+  failing. **NAVI translation is in millimetres and the reference divides by
+  1000** — omit it and MSE over `[quat, trans]` optimises translation alone,
+  every backbone lands *worse* than the floor, and the tell is that a trained
+  head cannot lose to a constant unless the loss is not optimising the scored
+  term. And **the sibling project's 28.2 deg spread was quoted as evidence that
+  pose "clearly ranks something"** when, against this floor, its own weakest
+  two rows are at chance — reading a range as signal without its floor, while
+  writing the script that measures the floor.
+
 ### Changed
 
 - **The documentation says how many probes there are again, and a test now

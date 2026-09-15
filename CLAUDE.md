@@ -2076,6 +2076,28 @@ folder already here. A magnitude target is a generator plus a
 `DenseMagnitudeTask` subclass; a vector one needs its own small task base, which
 `visbench/tasks/low_level/orientation.py` provides as the second worked example.
 
+**Relative camera pose was measured and parked** (2026-09-14,
+`scripts/premeasure_pose.py`, write-up in `visbench/tasks/low_level/README.md`).
+It is the first candidate to stop **without a verdict**, so do not quote it as a
+fourth rejection. It reads *pooled* features, so it is far cheaper than the
+roadmap's "harder" tier implies, and NAVI is on this machine. The finding is the
+**floor**: pairs within 120 degrees make predicting the training mean score
+**66.94 deg**, and of four ViT-B/16s differing only in objective, `mae_vitb16`
+clears it by **21.97** while `clip` and `sam` clear it by 0.31 and 0.24 — inside
+their own seed range, i.e. at chance. **Quote the per-row margin over the floor,
+never the spread**: 21.73 deg over a 1.75 deg seed range reads as 12.4x and is
+carried entirely by one row. Nothing is converged (every row improved from 2055
+to 8217 pairs), so **do not record that the features do not carry pose**.
+
+Two traps it paid for, both of which printed a *plausible* table rather than
+failing: **NAVI translation is millimetres and the reference divides by 1000** —
+omit it and MSE over `[quat, trans]` optimises translation alone, every backbone
+lands worse than the floor, and the tell is that a trained head cannot lose to a
+constant; and **a sibling project's 28.2 deg spread was quoted as evidence pose
+"clearly ranks"** when its own weakest two rows sit at this floor. Reading a
+range as signal without its floor is what the floor rule exists to stop, and it
+was done while writing the script that measures the floor.
+
 Three hazards to carry into any of them, all paid for: **check the tail** before
 assuming the magnitude protocol transfers (`edge_occlusion` at 46% of its mass
 in the strongest 1% of pixels is where L1 and Pearson pull apart and the probe
