@@ -436,13 +436,19 @@ there and ranks backbones differently anyway, so it cannot refuse anything.
 **The missing check is the oracle gate below**, added afterwards and calibrated
 against this rejection.
 
-### Relative camera pose — parked on data, and not a rejection
+### Relative camera pose — it ranks, and it needs a nonlinear head
 
 Mid-level, and recorded here for the reason relative depth is: the lesson
-belongs to the gauntlet. **It is the first candidate to stop without a
-verdict**, so do not quote it as a fourth rejection — the other three closed
-their line (a redundant target, an unrecoverable one, a board already
-shipped), and this one ran out of pairs with its curve still falling.
+belongs to the gauntlet. **It is not a rejection** — the other three candidates
+closed their line (a redundant target, an unrecoverable one, a board already
+shipped) and this one separates four backbones cleanly. It is unbuilt for two
+different reasons, stated at the end: what its numbers converge to, and whether
+a board whose head cannot be `LinearHead` belongs in this corpus.
+
+**Read this section in order, because its first conclusion was wrong.** The
+one-partner table below says two of four backbones sit at chance; the
+multi-partner table after it says none do, and the gap between them is the most
+useful thing here.
 
 Why it looked cheap: `PairViewDataset` already expresses the pairing, the head
 reads **pooled** features so there is no grid and no streaming, probe3d's
@@ -465,30 +471,113 @@ three seeds, probe3d's MLP head:
 | `clip_vitb16` | 66.63 | +0.31 | 0.61 | 0.5x |
 | `sam_vitb16` | 66.70 | +0.24 | 0.47 | 0.5x |
 
-**The headline statistic is the misleading half.** Spread 21.73 deg over a
-1.75 deg seed range reads as 12.4x and passes a "does it separate" test — but
-it is carried by one row. Strip `mae_vitb16` out and the other three span 2.56
-deg, and two of them sit inside their own seed range of the floor. **Quote the
-per-row margin over the floor, not the spread**: one backbone is clearly above
-chance, one marginally, two are at it.
+**That reading was wrong, and multi-partner sampling is what refuted it**
+(2026-09-15). One partner per anchor is not what NAVI offers — each anchor has
+many eligible views — and drawing eight distinct partners per *training* anchor
+takes the split from 6,477 training pairs to **50,519** against the *same*
+1,740 validation pairs. The floor moves only 66.94 to **66.85** (it is the
+training mean, and the training set grew):
 
-So on the hardest case this corpus offers — four ViT-B/16s at identical
-architecture, width and token count differing only in objective and recipe — it
-behaves less like a ranking than like a **detector for masked reconstruction**.
-That replicates: the sibling project's seven-backbone table is topped by
-`vjepa2` (37.1) and `mae_vitl16` (38.7), both reconstruction-style, with the
-language-supervised models last.
+| backbone | rot err | vs floor | seed range | `train_loss` | was, 1 partner |
+|---|---|---|---|---|---|
+| `mae_vitb16` | **24.29** | **+42.56** | 0.73 | 0.0022 | 44.96 (+21.97) |
+| `dino_vitb16` | **31.41** | **+35.44** | 0.87 | 0.0017 | 64.14 (+2.79) |
+| `sam_vitb16` | **37.39** | **+29.45** | 0.26 | 0.0023 | 66.70 (+0.24) |
+| `clip_vitb16` | **42.34** | **+24.51** | 0.69 | 0.0041 | 66.63 (+0.31) |
 
-**Nothing is converged, which is why this is parked.** Every row improved when
-the pairs went from 2055 to 8217 — `mae` −13.70, `dino` −8.38, `sam` −7.12,
-`clip` −5.14 — and no curve has flattened. Stride 1 exhausts *this pairing
-rule*, one partner per anchor, not NAVI: each anchor has many eligible
-partners, so multi-partner sampling is 4-8x more pairs and is the untried
-lever. **Do not record that the features do not carry pose** — `mae_vitb16`'s
-do, by 22 degrees.
+**Every row clears the floor by 24 degrees or more, and every *adjacent* pair is
+separated by 5-7x the widest seed range** (gaps 7.12 / 5.98 / 4.95 against noise
+0.26-0.87). The two rows previously called "at chance" moved 29.3 and 24.3
+degrees. So pose **does** rank four ViT-B/16s that differ only in objective and
+recipe — the hardest case this corpus offers.
 
-Two traps it paid for, both of which printed a plausible table rather than
-failing:
+**The mechanism was overfitting at n≈d, and the superseded reading had already
+half-spotted it.** The head reads two concatenated pooled vectors, 1,536
+dimensions, against 6,477 training pairs; `train_loss` ~1e-3 beside a validation
+error pinned at the floor is the textbook signature. The note below flagged that
+regime for the *linear* check only, when it governed the whole table. **A
+candidate measured where the head cannot generalise looks exactly like a
+candidate that does not rank**, and that is a gauntlet rule in its own right:
+before concluding a probe fails to separate, check the training-pair count
+against the head's input width.
+
+**The curve bends but does not flatten, and the pairing rule runs out before
+it does.** Five points on the same 1,740 validation pairs, whose floor holds
+between 66.81 and 66.94 deg throughout — the yardstick does not move:
+
+| partners | train pairs | `mae` | `dino` | `sam` | `clip` | spread | seed range |
+|---|---|---|---|---|---|---|---|
+| 1 | 6,477 | 44.96 | 64.14 | 66.70 | 66.63 | 21.73 | 1.75 |
+| 2 | 12,951 | 35.92 | 55.32 | 59.38 | 61.60 | 25.68 | 1.05 |
+| 4 | 25,790 | 30.16 | 42.82 | 47.98 | 52.82 | 22.66 | 1.54 |
+| 8 | 50,519 | 24.29 | 31.41 | 37.39 | 42.34 | 18.05 | 0.87 |
+| 16 | 92,521 | **20.47** | **25.50** | **31.46** | **37.34** | 16.87 | 2.30 |
+
+Three things it settles and one it does not.
+
+**The ordering is stable over four consecutive points** — `mae > dino > sam >
+clip` from two partners on — so the *ranking* is trustworthy even though no
+value is final.
+
+**The last doubling is the first to decelerate**: −3.82 / −5.91 / −5.93 / −5.00
+against the previous −5.87 / −11.41 / −10.59 / −10.48, roughly half. Part of
+that is less data than the label suggests — 8 to 16 partners adds only **1.83x**
+pairs, not 2x, because anchors run out of eligible views. **This pairing rule is
+near exhaustion**: a further doubling would add proportionally less again, so
+the remaining lever is a different rule, not a larger number.
+
+**The spread compresses as data grows** — 25.68 at two partners to 16.87 at
+sixteen — because the weaker rows gain faster than `mae` does. Part of what a
+small-sample run reads as "MAE encodes pose far better" is **data efficiency**,
+and a board quoted at one pair count would disagree with the same board at
+another by degrees rather than decimals.
+
+**What it does not settle is where the values land.** Nothing is flat, so any
+pose board must pin its pair count as part of the protocol — the way `corner`
+pins its frame set, and for the same reason: two people's numbers are
+comparable only if they drew the same pairs.
+
+**And separation relative to noise is *worse* at sixteen than at eight.** The
+adjacent gaps are 5.03 / 5.96 / 5.88 against a widest seed range of 2.30, i.e.
+2.2-2.6x, where eight partners gave 7.12 / 5.98 / 4.95 against 0.87, i.e.
+5.7-8.2x. More data narrowed the gaps *and* widened the seed spread at three
+seeds. Do not read the largest pair count as automatically the most
+trustworthy row.
+
+**A nonlinear head is required, and that is now measured rather than assumed.**
+The same 50,519/1,740 pairs with `LinearHead`'s single affine map:
+
+| backbone | rot err | vs floor | seed range | `train_loss` | rank under the MLP |
+|---|---|---|---|---|---|
+| `clip_vitb16` | 63.35 | +3.49 | 0.03 | 0.0732 | 4th |
+| `mae_vitb16` | 63.37 | +3.48 | 0.13 | 0.0729 | **1st** |
+| `dino_vitb16` | 63.54 | +3.31 | 0.25 | 0.0725 | 2nd |
+| `sam_vitb16` | 64.14 | +2.71 | 0.04 | 0.0726 | 3rd |
+
+It **underfits**: `train_loss` 0.0725-0.0732, flat across all four backbones and
+40x the MLP's, on 50k pairs against 1,536 dimensions — the function class, not
+the sample size. It clears the floor by 2.7-3.5 degrees against the MLP's
+24.5-42.6, and the residual ordering **does not reproduce the MLP's and nearly
+inverts the top**: `clip` goes last to nominally first, 0.02 degrees ahead of
+`mae` at seed ranges of 0.03 and 0.13, which is a tie.
+
+So a pose board **cannot** be a `LinearHead` board, and shipping one means
+departing from `hidden_dim=0` deliberately and saying so. It would not be the
+first non-linear head here (`DetectionHead`, `InstanceHead`, `DPTHead`), and
+probe3d's published pose protocol *is* this MLP, so `protocol: "probe3d_pose"`
+stays honest — but the attributability argument is weaker for this board than
+for any other, and the linear table above is the control that says by how much.
+It is the sharpest form yet of the DPT control's lesson: there a *stronger* head
+reordered 24 of 174 pairs, here a *weaker* one destroys the ranking outright.
+
+**`spread / noise` has now misled in both directions and must not be the
+verdict.** At one partner it read 12.4x, carried entirely by `mae_vitb16` while
+two rows sat at chance. On the linear table it reads 3.2x, carried entirely by
+`sam_vitb16` sitting below three tied rows. **Quote the per-row margin over the
+floor and the adjacent gaps**; the spread is a summary of neither.
+
+Two traps this line paid for, both of which printed a plausible table rather
+than failing:
 
 - **NAVI translation is in millimetres and the reference divides by 1000.**
   Omitted, MSE over the raw 7-vector `[quat, trans]` is dominated by a
@@ -505,17 +594,20 @@ failing:
   without its floor is exactly what the floor rule exists to stop, and it was
   done here while writing the script that measures the floor.
 
-A third, cheaper than either: **the linear head is worse, not better.** All
-four rows fall below the floor with `LinearHead`'s single affine map, so the
-overfitting the MLP shows (`train_loss` ~1e-3 against a validation error at the
-floor) is not the whole story — but with 1536 input dimensions against 1612
-training pairs at stride 4, that check was itself in the n≈d regime and should
-be re-run at stride 1 before it is believed.
+**What exists**: `scripts/premeasure_pose.py` (`--partners` is the lever,
+`--head linear|mlp` the control), and the NAVI feature cache for four backbones
+at full stride, so any follow-up costs training time only — the eight-partner
+MLP run above is 21 minutes on 16 CPU cores. **What does not**: no task, no
+registration, no records, no board — nothing a registered probe is pinned by
+test to carry.
 
-**What was kept**: `scripts/premeasure_pose.py`, and the NAVI feature cache for
-four backbones at full stride, so any follow-up costs training time only.
-**What was not**: no task, no registration, no records — nothing that a
-registered probe is pinned by test to carry.
+**Two things must be settled before it is built**, and neither is whether the
+features carry pose, which is answered. **The pair count is a protocol
+parameter, not a tuning knob** — the curve never flattens, the spread moves by
+degrees across it, and this pairing rule is near exhaustion at sixteen
+partners, so a board must pin its pairs the way `corner` pins its frames.
+**The head**: a pose board departs from `hidden_dim=0`, which is a decision
+about what this corpus's numbers mean, not a detail — see the linear table.
 
 ## The oracle gate — is the target recoverable at all?
 

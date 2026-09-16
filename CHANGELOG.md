@@ -11,33 +11,65 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Added
 
-- **Relative camera pose, measured and parked** — `scripts/premeasure_pose.py`,
-  with the write-up in `visbench/tasks/low_level/README.md`. **It is the first
-  candidate to stop without a verdict**, so it is not a fourth rejection: the
-  other three closed their line, and this one ran out of pairs with its curve
-  still falling. No probe, no registration, no records, and no published number
-  moves.
+- **Relative camera pose, measured — it ranks, and it needs a nonlinear head.**
+  `scripts/premeasure_pose.py`, with the write-up in
+  `visbench/tasks/low_level/README.md`. No probe, no registration, no records,
+  no board, and **no published number moves** — this is a measurement that
+  decides whether a probe is worth building, not a probe.
 
   It is cheaper than the roadmap's "harder" tier implied, because probe3d's
   pairwise head reads **pooled** features — no grid, no streaming — and NAVI is
   on this machine.
 
-  **The finding is the floor.** Pairs are drawn within 120 degrees, so
-  predicting the training mean scores **66.94 deg** rotation error with no
-  features at all. Over four ViT-B/16s differing only in objective and recipe,
-  `mae_vitb16` clears that by **21.97 deg** while `dino`, `clip` and `sam`
-  clear it by 2.79, 0.31 and 0.24 — the last two inside their own seed range,
-  i.e. at chance. So on the hardest case this corpus offers it behaves less
-  like a ranking than like a detector for masked reconstruction, which
-  replicates a sibling project's seven-backbone ordering.
+  **Against a floor of 66.85 deg** (predicting the training mean, no features),
+  with eight partners per training anchor — 50,519 training pairs against 1,740
+  validation pairs — all four ViT-B/16s that differ only in objective and
+  recipe clear it decisively: `mae_vitb16` 24.29, `dino_vitb16` 31.41,
+  `sam_vitb16` 37.39, `clip_vitb16` 42.34, i.e. **+24.5 to +42.6 deg**, with
+  every adjacent pair 5-7x the widest seed range apart. That is the hardest
+  case this corpus offers, and it separates all four.
 
-  **Quote the per-row margin, not the spread.** 21.73 deg over a 1.75 deg seed
-  range reads as 12.4x and passes a "does it separate" test, but it is carried
-  by one row; strip that row and the rest span 2.56 deg.
+  **The first reading of the same data said the opposite, and why is the
+  lesson.** At one partner per anchor — 6,477 training pairs against a
+  1,536-dimension head input — `clip` and `sam` cleared the floor by 0.31 and
+  0.24, inside their own seed ranges, and it was written up as "a detector for
+  masked reconstruction" rather than a ranking. That was **overfitting at
+  n≈d**, with `train_loss` ~1e-3 beside a validation error pinned at the floor.
+  Adding partners moved those two rows by 29.3 and 24.3 deg. **Before
+  concluding that a probe fails to separate, check the training-pair count
+  against the head's input width**: a candidate measured where the head cannot
+  generalise is indistinguishable from one that does not rank.
 
-  Two traps it paid for, both of which printed a plausible table rather than
-  failing. **NAVI translation is in millimetres and the reference divides by
-  1000** — omit it and MSE over `[quat, trans]` optimises translation alone,
+  **The curve never flattens, and the pairing rule runs out before it does.**
+  Five points from 6,477 to 92,521 training pairs, floor stable within 0.13
+  deg: the ordering holds over four consecutive points, but the spread
+  compresses from 25.68 to 16.87 because the weaker rows gain faster than
+  `mae` does — so part of what a small-sample run reads as "MAE encodes pose
+  far better" is **data efficiency**, not representation. The last doubling is
+  the first to decelerate and adds only 1.83x pairs rather than 2x, because
+  anchors run out of eligible views. **A pose board would have to pin its pair
+  count as protocol**, the way `corner` pins its frame set — two people's
+  numbers are comparable only if they drew the same pairs. Separation relative
+  to noise is also *worse* at sixteen partners than at eight (2.2-2.6x against
+  5.7-8.2x), so the largest pair count is not automatically the best row.
+
+  **`LinearHead` cannot express it**, on the same 50,519 pairs: it underfits
+  (`train_loss` 0.0725-0.0732, flat across all four backbones and 40x the
+  MLP's), clears the floor by only 2.7-3.5 deg, and its residual ordering does
+  not reproduce the MLP's — `clip` goes last to nominally first, 0.02 deg ahead
+  of `mae` at seed ranges of 0.03 and 0.13. So a pose board would depart from
+  `hidden_dim=0` deliberately or not at all. It is the sharpest form yet of the
+  DPT control's lesson: there a *stronger* head reordered 24 of 174 pairs, here
+  a *weaker* one destroys the ranking.
+
+  **`spread / noise` has now misled in both directions** — 12.4x carried
+  entirely by one strong row at one partner, 3.2x carried entirely by one weak
+  row on the linear table. Quote the per-row margin over the floor and the
+  adjacent gaps; the spread summarises neither.
+
+  Two traps this line paid for, both of which printed a plausible table rather
+  than failing. **NAVI translation is in millimetres and the reference divides
+  by 1000** — omit it and MSE over `[quat, trans]` optimises translation alone,
   every backbone lands *worse* than the floor, and the tell is that a trained
   head cannot lose to a constant unless the loss is not optimising the scored
   term. And **the sibling project's 28.2 deg spread was quoted as evidence that
