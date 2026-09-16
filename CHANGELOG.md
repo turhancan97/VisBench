@@ -11,6 +11,34 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Added
 
+- **A guard that control records never reach the corpus**
+  (`tests/results/test_controls_stay_out_of_the_corpus.py`). `results/controls/`
+  holds records deliberately kept out of `results/corpus/visbench.jsonl`, and
+  one merge nearly put three of them in: `scripts/merge_corpus.sh` merges
+  everything in `results/corpus/parts/`, that directory still held the
+  2026-09-10 files from the schema-v8 `training` re-run, and three of those are
+  the A100 `fine_grained_classification` cells the re-run **held out** because
+  publishing them drops `convnext_base` below `resnet50` on the CUB board.
+
+  **The script's own protection is blind to this by construction.** It
+  deduplicates by exact JSON line, which stops a record already *in* the corpus
+  being added twice and does nothing about one deliberately kept *out*. A guard
+  inside the merge could not help either: it would read the same `parts/`
+  directory it is merging, and a directory containing an excluded record is
+  self-consistent — the same shape as the corpus-matrix guard that could not see
+  its own short probe list.
+
+  So the guard asserts the **outcome**, not the route, at two strengths of
+  match: exact JSON line (what a re-merge produces byte for byte) and
+  `(task, backbone, timestamp)` (what a re-serialised or re-schema'd copy
+  produces, which the exact check misses — verified by simulating both). Both
+  were checked against all six control files before being allowed to reject
+  anything.
+
+  `merge_corpus.sh` now documents that `parts/` is an archive rather than a
+  queue, and shows the staging-directory recipe that merges only one step's
+  parts. No measurement changes.
+
 - **`dino_vitb8`, a thirteenth backbone and its seventeen-cell board — added
   to break one confound, and it broke in the direction that costs something.**
   `vit_base_patch8_224.dino`: the same objective, pretraining set, width and
