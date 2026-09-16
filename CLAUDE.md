@@ -740,6 +740,16 @@ designed up front; extend it the same way, from a case that already runs.
     their board and answer a different question from it — the corpus says what
     a backbone scores, a control says what changes when one thing about one
     backbone moves. Nothing there feeds a generated table.
+    **`results/corpus/parts/` is an archive, not a queue** (2026-09-16):
+    `merge_corpus.sh` merges everything it finds there and dedups by exact JSON
+    line, which stops a record already *in* the corpus being re-added and does
+    nothing about one deliberately kept *out* — it re-imported the three
+    held-out A100 cells and was caught only by diffing. **Merge from a staging
+    directory holding only your step's parts**, and note that a guard reading
+    `parts/` could not have seen this;
+    `tests/results/test_controls_stay_out_of_the_corpus.py` asserts the
+    *outcome* instead, under two strengths of match because a re-serialised
+    copy passes the exact-line one.
   - **n=12.** Every correlation above has wide error bars.
 
 - **A trained probe records how its fit went, and the reason it took until
@@ -1765,12 +1775,12 @@ the measurement behind it, under the step named in brackets.**
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite **collects 2142 tests** and the **115 slow ones** were green on
+fast suite **collects 2158 tests** and the **115 slow ones** were green on
 `main` on 2026-09-11, along with all three lint steps,
-mypy and the `-W` docs build. Earlier fast counts, for dating a claim: 2126 at
-the docs-count guard, 2122 at the 0.18.0 release, 2113 at the v8 `training`
-re-run, 2082 at the 0.17.0 release, 2071 at the instance board, 1824 at the
-oracle gate. Keep this list
+mypy and the `-W` docs build. Earlier fast counts, for dating a claim: 2144 at
+`dino_vitb8`, 2126 at the docs-count guard, 2122 at the 0.18.0 release, 2113 at
+the v8 `training` re-run, 2082 at the 0.17.0 release, 2071 at the instance
+board, 1824 at the oracle gate. Keep this list
 short — it is one of the places this file accretes.
 
 **Quote the collected count, not "N passed", because the skip count is a fact
@@ -2202,7 +2212,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 2142 fast tests
+pytest                                              # 2158 fast tests
 pytest -m slow                                      # 115, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/

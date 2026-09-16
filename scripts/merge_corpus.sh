@@ -25,6 +25,24 @@
 # corpus's append-only design, and `latest_per_backbone` is what picks the
 # newest.
 #
+# **That deduplication protects the wrong direction, and `parts/` is an archive
+# rather than a queue.** It stops a record ALREADY in the corpus being added
+# twice; it does nothing about a record deliberately kept OUT of it. On
+# 2026-09-16 this merged 58 records where 19 were expected, because `parts/`
+# still held the 2026-09-10 files from the v8 `training` re-run -- including all
+# three A100 cells that re-run held out, whose publication drops `convnext_base`
+# below `resnet50` on the CUB board. Nothing here can tell an excluded record
+# from a pending one, and a guard reading this same directory could not either.
+#
+# So: **merge from a staging directory holding only the parts your step
+# produced**, and diff the corpus before trusting the result --
+#
+#   STAGE=$(mktemp -d); cp results/corpus/parts/*__<backbone>.jsonl "$STAGE"/
+#   PARTS="$STAGE" scripts/merge_corpus.sh
+#
+# `tests/results/test_controls_stay_out_of_the_corpus.py` asserts the outcome
+# afterwards, which is the check that does not read `parts/` at all.
+#
 # REBUILD=1 restores the old behaviour, for the case it was written for: the
 # whole matrix in `parts/` and a corpus to be replaced wholesale.
 
