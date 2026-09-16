@@ -2076,18 +2076,42 @@ folder already here. A magnitude target is a generator plus a
 `DenseMagnitudeTask` subclass; a vector one needs its own small task base, which
 `visbench/tasks/low_level/orientation.py` provides as the second worked example.
 
-**Relative camera pose was measured and parked** (2026-09-14,
-`scripts/premeasure_pose.py`, write-up in `visbench/tasks/low_level/README.md`).
-It is the first candidate to stop **without a verdict**, so do not quote it as a
-fourth rejection. It reads *pooled* features, so it is far cheaper than the
-roadmap's "harder" tier implies, and NAVI is on this machine. The finding is the
-**floor**: pairs within 120 degrees make predicting the training mean score
-**66.94 deg**, and of four ViT-B/16s differing only in objective, `mae_vitb16`
-clears it by **21.97** while `clip` and `sam` clear it by 0.31 and 0.24 — inside
-their own seed range, i.e. at chance. **Quote the per-row margin over the floor,
-never the spread**: 21.73 deg over a 1.75 deg seed range reads as 12.4x and is
-carried entirely by one row. Nothing is converged (every row improved from 2055
-to 8217 pairs), so **do not record that the features do not carry pose**.
+**Relative camera pose ranks, and it needs a nonlinear head** (measured
+2026-09-14, **corrected 2026-09-15**; `scripts/premeasure_pose.py`, write-up in
+`visbench/tasks/low_level/README.md`). It reads *pooled* features, so it is far
+cheaper than the roadmap's "harder" tier implies, and NAVI is on this machine.
+At eight partners per training anchor — 50,519 training pairs against the same
+1,740 validation pairs, floor **66.85 deg** — all four ViT-B/16s differing only
+in objective clear the floor by **24.5 to 42.6 deg**, with every adjacent pair
+5-7x the widest seed range apart.
+
+**Its first reading said the opposite and was wrong, which is the lesson.** At
+one partner per anchor (6,477 training pairs against a 1,536-dim head input)
+`clip` and `sam` cleared the floor by 0.31 and 0.24 — at chance — and it was
+written up as "a detector for masked reconstruction" rather than a ranking.
+That was **overfitting at n≈d**: `train_loss` ~1e-3 beside a validation error
+pinned at the floor. **Before concluding a probe fails to separate, check the
+training-pair count against the head's input width** — a candidate measured
+where the head cannot generalise looks exactly like one that does not rank.
+
+**Its curve never flattens, and the pairing rule runs out first** (five points,
+6,477 to 92,521 training pairs, floor stable within 0.13 deg). The ordering is
+stable over four consecutive points, but the spread compresses 25.68 to 16.87
+as data grows — the weak rows gain faster, so part of a small-sample gap is
+**data efficiency**, not representation. The last doubling is the first to
+decelerate and adds only **1.83x** pairs rather than 2x, because anchors run
+out of eligible views. **A pose board must pin its pair count as protocol**,
+the way `corner` pins its frame set. And separation relative to noise is
+*worse* at sixteen partners than at eight (2.2-2.6x against 5.7-8.2x), so the
+largest pair count is not automatically the most trustworthy row.
+
+**`LinearHead` cannot express it**, measured on the same 50,519 pairs: it
+underfits (`train_loss` 0.0725-0.0732, flat across all four and 40x the MLP's),
+clears the floor by only 2.7-3.5, and its residual ordering nearly inverts the
+MLP's at the top. So a pose board departs from `hidden_dim=0` deliberately or
+not at all. **And `spread / noise` has now misled in both directions** — 12.4x
+carried by one strong row, 3.2x by one weak one — so quote the per-row margin
+over the floor and the adjacent gaps, never the spread.
 
 Two traps it paid for, both of which printed a *plausible* table rather than
 failing: **NAVI translation is millimetres and the reference divides by 1000** —

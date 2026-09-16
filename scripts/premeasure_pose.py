@@ -212,15 +212,31 @@ def camera_matrix(ann: dict) -> torch.Tensor:
 # --------------------------------------------------------------------------
 
 
-def build_pairs(root: Path, max_angle: float, stride: int, seed: int) -> list[dict]:
+def build_pairs(
+    root: Path, max_angle: float, stride: int, seed: int, partners: int = 1
+) -> list[dict]:
     """One anchor per image, partner within ``max_angle`` degrees of rotation.
 
     Seeded and independent of the backbone, so every backbone is scored on the
     *same* pairs. Returns dicts carrying both image paths, the 7D relative pose
     and the split the anchor belongs to.
+
+    ``partners`` > 1 draws that many *distinct* partners per **training**
+    anchor, which is the lever the parked measurement named: one partner per
+    anchor exhausts this pairing rule at stride 1, not NAVI, since each anchor
+    has many eligible views.
+
+    **Validation stays at one partner however high ``partners`` goes**, and the
+    first partner for every anchor is drawn from the same generator in the same
+    order as before, so the val set is bit-identical to the one-partner run and
+    the floor it defines does not move. Growing both halves would change the
+    yardstick and the thing being measured at once, leaving no way to tell a
+    real improvement from an easier split -- the mistake `--stride` alone
+    already avoids.
     """
     generator = torch.Generator().manual_seed(seed)
     pairs: list[dict] = []
+    contexts: list[dict] = []
 
     for ann_path in sorted(root.glob("*/multiview_*/annotations.json")):
         scene = ann_path.parent
@@ -253,8 +269,48 @@ def build_pairs(root: Path, max_angle: float, stride: int, seed: int) -> list[di
                     "split": anchor.get("split", "train"),
                 }
             )
+            contexts.append({"scene": scene, "usable": usable, "rts": rts, "i": i, "taken": {j}})
 
-    return pairs[::stride] if stride > 1 else pairs
+    if stride > 1:
+        pairs, contexts = pairs[::stride], contexts[::stride]
+    if partners <= 1:
+        return pairs
+
+    # A second generator, so the first partner of every anchor above is drawn
+    # from an untouched stream and the one-partner run reproduces exactly.
+    extra_generator = torch.Generator().manual_seed(seed + 1)
+    extras: list[dict] = []
+    for pair, context in zip(pairs, contexts, strict=True):
+        if pair["split"] != "train":
+            continue
+        rts, i = context["rts"], context["i"]
+        rotations = rts[:, :3, :3]
+        rel = rotations[i].unsqueeze(0) @ rotations.transpose(-1, -2)
+        trace = rel[:, 0, 0] + rel[:, 1, 1] + rel[:, 2, 2]
+        angle = torch.rad2deg(torch.acos(((trace - 1.0) / 2.0).clamp(-1.0, 1.0)))
+        eligible = (angle > 0) & (angle <= max_angle)
+        eligible[i] = False
+        for used in context["taken"]:
+            eligible[used] = False
+        wanted = min(partners - 1, int(eligible.sum()))
+        if wanted <= 0:
+            continue
+        drawn = torch.multinomial(
+            eligible.double(), wanted, replacement=False, generator=extra_generator
+        )
+        for k in drawn.tolist():
+            rt01 = rts[k] @ torch.linalg.inv(rts[i])
+            pose = torch.cat([matrix_to_quaternion(rt01[:3, :3]), rt01[:3, 3]]).float()
+            extras.append(
+                {
+                    "a": pair["a"],
+                    "b": context["scene"] / "images" / context["usable"][k]["filename"],
+                    "pose": pose,
+                    "split": "train",
+                }
+            )
+
+    return pairs + extras
 
 
 class _Frames(BaseDataset):
@@ -402,6 +458,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max-angle", type=float, default=120.0)
     parser.add_argument("--stride", type=int, default=4, help="subsample pairs")
     parser.add_argument("--pair-seed", type=int, default=8)
+    parser.add_argument(
+        "--partners",
+        type=int,
+        default=1,
+        help="distinct partners per TRAINING anchor; val stays at one",
+    )
     parser.add_argument("--seeds", type=int, default=3, help="head seeds per backbone")
     parser.add_argument("--epochs", type=int, default=30)
     parser.add_argument(
@@ -418,7 +480,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"NAVI not found at {args.data}; pass --data", file=sys.stderr)
         return 1
 
-    pairs = build_pairs(args.data, args.max_angle, args.stride, args.pair_seed)
+    pairs = build_pairs(args.data, args.max_angle, args.stride, args.pair_seed, args.partners)
     if not pairs:
         print("no pairs built -- check --data and --max-angle", file=sys.stderr)
         return 1
