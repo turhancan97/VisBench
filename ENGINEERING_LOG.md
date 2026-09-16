@@ -1230,6 +1230,34 @@ The four most recent entries were lifted out of `CLAUDE.md` on 2026-09-03,
 when that file passed the 150k-character limit it is loaded under for the second
 time. Nothing was rewritten; each paragraph is as its release recorded it.
 
+**`0.19.0` is fully released** (2026-09-16). On PyPI — wheel and sdist both
+(412,766 and 1,366,436 bytes, wheel sha256 `c6d425ac…`, sdist `68f43498…`) —
+tagged `v0.19.0`, **annotated** (tag object `ba7b279`), on merge commit
+`3c9a08e`, with a GitHub release cut from that tag (published
+2026-09-16T11:31:28Z) and archived by Zenodo as version DOI
+**`10.5281/zenodo.22794701`**, the **fourteenth**. The concept DOI
+`10.5281/zenodo.21822684` resolves to record 22794701 with `metadata.version`
+`v0.19.0`, read off Zenodo's API with `-L`. Both artifacts match the locally
+built ones byte for byte, checked against PyPI's own digests.
+
+**Verified out of the published wheel by import** — `__version__` 0.19.0,
+`SCHEMA_VERSION` **9**, seventeen probes, **thirteen** registered backbones,
+four heads — **retrospectively, on 2026-09-16 while cutting 0.20.0.** That is
+the gap worth recording: this release shipped without its wheel check and
+without this entry, because the session that cut it moved straight on to the
+next piece of work, and neither omission is visible from `main`. The check
+passed. **A release is not done when the upload succeeds**; the record of what
+the upload contained is part of it, and nothing in CI or the test suite fails
+when it is missing.
+
+**The registered-backbone count dates this wheel precisely, and that is the
+useful detail.** It reports thirteen names *without* `dino_vitb8`, whose
+registration merged after the tag — so the thirteenth here is
+`dinov2_vitb14_196`, the resolution control that is not a corpus column.
+Reading "thirteen backbones" out of a wheel and "thirteen backbones a board"
+out of `CLAUDE.md` and concluding they are the same set would be wrong in both
+directions at once.
+
 **`0.18.0` is fully released** (2026-09-12). On PyPI — wheel and sdist both
 (408,877 and 1,317,230 bytes, wheel sha256 `54b85a27…`, sdist `d0c6deea…`) —
 tagged `v0.18.0`, **annotated** (tag object `73015e4`), on merge commit

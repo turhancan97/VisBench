@@ -9,6 +9,46 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+## [0.20.0] — 2026-09-16
+
+**The release that broke a confound, and then found that the boards it
+publishes cannot see what it broke.**
+
+A thirteenth backbone, `dino_vitb8`, and the corpus goes from 204 board cells
+to **221** — seventeen boards, thirteen backbones each, schema unchanged at v9,
+and **no published value moves**.
+
+It was added to settle one question. Feature resolution is the strongest
+structural correlate of nearly every dense board, and until now every fine-grid
+backbone in the corpus was also a DINOv2 — so "grid" and "the DINOv2 recipe"
+could not be told apart. The existing control, `dinov2_vitb14_196`, could only
+ever *lower* DINOv2's grid. `dino_vitb8` raises a **non**-DINOv2's: same
+objective, data, width and depth as `dino_vitb16`, 784 tokens against 196.
+
+**The answer reverses the obvious reading, and the first draft of it was
+wrong.** Quadrupling the grid moves the published **linear** boards by a
+rounding error or the wrong way — which reads as "resolution does not matter"
+and was written up that way. The same five probes with a **DPT** head improve
+**5 of 5**, by one to two orders of magnitude more. The ceilings say why: they
+rise every time, and the share a linear head recovers of them falls every time.
+So resolution is causal about what a representation **carries** and close to
+invisible in what VisBench **reports**.
+
+That claim then stopped resting on one sibling pair. Correlating token count
+against each of the five boards twice — once with the published linear score,
+once with the DPT score on the same features — across **all ten ViTs** makes
+the grid correlation stronger under a DPT head on **4 of 5** probes (mean rho
++0.388 against **+0.701**; `keypoints2d` +0.096 against **+0.775**), and the
+gap is largest exactly where the linear head recovers least of its own oracle
+(Spearman **−0.900**).
+
+**Never quote a linear board as evidence that resolution does not help.** That
+rule is now in the public board-reading guide, which previously carried only
+the control that could lower a grid.
+
+Also here: a guard that control records cannot reach the corpus, after a merge
+nearly re-imported three records a previous re-run had deliberately held out.
+
 ### Added
 
 - **The resolution finding widened from one sibling pair to all ten ViTs**
@@ -4613,7 +4653,8 @@ API philosophy.
 [#2]: https://github.com/turhancan97/VisBench/issues/2
 [#4]: https://github.com/turhancan97/VisBench/issues/4
 [#3]: https://github.com/turhancan97/VisBench/issues/3
-[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.19.0...HEAD
+[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.20.0...HEAD
+[0.20.0]: https://github.com/turhancan97/VisBench/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/turhancan97/VisBench/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/turhancan97/VisBench/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/turhancan97/VisBench/compare/v0.16.1...v0.17.0
