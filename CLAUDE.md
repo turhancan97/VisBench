@@ -67,6 +67,7 @@ step is next rather than attempting the whole roadmap in one session.
 | 14a-3 | Instance segmentation: the head, proved end to end on DINOv2-S | done |
 | 14a-4 | Instance segmentation: the 12-backbone board and the probe's own page | done |
 | 15a | `dino_vitb8`: the grid control, raised rather than lowered | done |
+| 15b | The grid finding at n=10: DPT-vs-linear across every ViT | done |
 
 **A closed step's full write-up lives in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md), not here.** That file is the archive
@@ -724,8 +725,9 @@ designed up front; extend it the same way, from a case that already runs.
   - **Two backbones' high-level scores are close to in-distribution recall**,
     not transfer: `convnext_base` and `supervised_vitb16` are ImageNet-1k
     supervised and Imagenette's classes are ImageNet-1k wnids.
-  - **Feature resolution correlates with nearly every dense board and is
-    largely NOT causal** (`dino_vitb8`, 2026-09-16 — the grid control that
+  - **Feature resolution correlates with nearly every dense board, is causal
+    about what a representation carries, and the LINEAR board cannot see it**
+    (`dino_vitb8`, 2026-09-16 — the grid control that
     *raises* a non-DINOv2's grid, where `dinov2_vitb14_196` could only lower
     DINOv2's). Tokens is the strongest structural correlate on eight of the
     eleven grid-reading boards (`semantic_segmentation`, `detection`, and
@@ -738,7 +740,20 @@ designed up front; extend it the same way, from a case that already runs.
     head sits at 88-97% of the ceiling at both grids. So resolution is causal
     about what the representation *carries* and invisible in what VisBench
     *reports*. **Never quote a linear board as evidence that resolution does
-    not help** — the first draft of this finding did exactly that. Holding weights fixed and cutting DINOv2-B from 256 to 196 tokens
+    not help** — the first draft of this finding did exactly that, and its
+    headline here said "largely NOT causal" above a body saying the opposite
+    until 2026-09-16.
+
+    **That is not an n=2 claim any more.** Correlating token count against each
+    of the five boards twice — once with the published linear score, once with
+    the DPT score on the same features — over **all ten ViTs** (49/196/256/784
+    tokens, four objectives) makes the grid correlation *stronger under the DPT
+    head on 4 of 5 probes*, mean rho +0.388 to **+0.701**; `keypoints2d` goes
+    +0.096 to **+0.775**. And it moves **exactly where the linear head recovers
+    least** — Spearman(linear recovered share, rho change) = **−0.900**, with
+    `corner` at 77.6% recovered not moving at all and `keypoints2d` at 35.5%
+    moving most. n=5 probes, so that mechanism fits rather than is established.
+    `scripts/analyse_dpt_control.py --group vit --grid` reprints it. Holding weights fixed and cutting DINOv2-B from 256 to 196 tokens
     costs under 3% on all five dense boards and keeps its lead over the whole
     ViT-B/16 pack on both boards it led; on the other three it never led, so
     there was nothing to explain. **Check who leads a board before explaining
@@ -1789,9 +1804,10 @@ the measurement behind it, under the step named in brackets.**
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite **collects 2158 tests** and the **115 slow ones** were green on
+fast suite **collects 2160 tests** and the **115 slow ones** were green on
 `main` on 2026-09-11, along with all three lint steps,
-mypy and the `-W` docs build. Earlier fast counts, for dating a claim: 2144 at
+mypy and the `-W` docs build. Earlier fast counts, for dating a claim: 2158 at
+the control guard, 2144 at
 `dino_vitb8`, 2126 at the docs-count guard, 2122 at the 0.18.0 release, 2113 at
 the v8 `training` re-run, 2082 at the 0.17.0 release, 2071 at the instance
 board, 1824 at the oracle gate. Keep this list
@@ -2226,7 +2242,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 2158 fast tests
+pytest                                              # 2160 fast tests
 pytest -m slow                                      # 115, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/

@@ -303,3 +303,45 @@ def test_a_dpt_head_fits_every_group(monkeypatch):
         )
         with torch.no_grad():
             assert head(features["dense_layers"]).shape == (1, 1, 224, 224)
+
+
+class TestTheCopiedTokenTable:
+    """`analyse_dpt_control.TOKENS` against the table it mirrors.
+
+    The grid section needs a token count per backbone, and
+    `analyse_board_correlates.STRUCTURE` already carries one. It is **copied**
+    rather than imported, for the reason that file copies `HEADLINE_METRICS`:
+    a script reaching into another script's namespace breaks when either moves,
+    and these are scripts rather than package modules.
+
+    A copy is only safe if something compares the two. Left untested, the
+    realistic failure is a backbone added to one and not the other -- which is
+    silent in the direction that matters, because a `KeyError` would at least
+    be loud while a *stale* count quietly correlates a board against the wrong
+    grid and prints a confident number.
+    """
+
+    def test_it_agrees_with_the_structure_table(self):
+        import sys
+
+        sys.path.insert(0, str(ROOT / "scripts"))
+        from analyse_board_correlates import STRUCTURE
+        from analyse_dpt_control import TOKENS
+
+        mirrored = {name: STRUCTURE[name].tokens for name in TOKENS}
+        assert TOKENS == mirrored, (
+            "analyse_dpt_control.TOKENS has drifted from "
+            f"analyse_board_correlates.STRUCTURE: {TOKENS} vs {mirrored}"
+        )
+
+    def test_it_covers_every_vit_the_control_ran(self):
+        """A missing entry raises, but only once someone runs `--grid`."""
+        import sys
+
+        sys.path.insert(0, str(ROOT / "scripts"))
+        from analyse_dpt_control import TOKENS
+
+        control = ROOT / "results" / "controls" / "dpt_head.jsonl"
+        lines = [row for row in control.read_text().splitlines() if row.strip()]
+        ran = {json.loads(line)["backbone"] for line in lines}
+        assert ran <= set(TOKENS), f"no token count for {sorted(ran - set(TOKENS))}"

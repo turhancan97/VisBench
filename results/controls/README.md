@@ -154,6 +154,54 @@ far above the drift, so the flips are real — but **n=3**, so two of those rho
 values are one swap each. Read this as "head choice can invert a CNN board",
 not as a measured effect size.
 
+### The ViT group answers a second question it was not built for
+
+Added 2026-09-16, no new records: `scripts/analyse_dpt_control.py --group vit
+--grid`. The `dino_vitb8` board had just shown, on **one sibling pair**, that
+quadrupling the feature grid at fixed objective, data, width and depth moves
+the published linear boards by a rounding error while moving the DPT rows by
+one to two orders of magnitude more. The ViT group here is ten backbones
+spanning 49, 196, 256 and 784 tokens with a DPT score beside every linear one,
+so it can ask the same question at n=10 instead of n=2: **does the DPT board
+track the feature grid harder than the linear board does?**
+
+| probe | Spearman(tokens, linear) | Spearman(tokens, DPT) | change |
+| --- | --- | --- | --- |
+| `edge` | +0.322 | **+0.555** | +0.233 |
+| `keypoints2d` | +0.096 | **+0.775** | +0.679 |
+| `occlusion_edge` | +0.480 | **+0.843** | +0.363 |
+| `corner` | +0.665 | +0.665 | +0.000 |
+| `orientation` | +0.377 | **+0.665** | +0.288 |
+| **mean** | **+0.388** | **+0.701** | **+0.313** |
+
+**Stronger under the DPT head on 4 of 5, never weaker.** The sibling pair's
+direction, over ten backbones and four training objectives, so it is not one
+pair restated.
+
+**And the gap is where a linear head recovers least**, which is the sibling
+pair's ceiling argument seen from the other side. Average each probe's linear
+score as a share of its own oracle across the ten, and it runs opposite to how
+much the correlation moves — Spearman **-0.900**:
+
+| probe | linear recovers | rho change |
+| --- | --- | --- |
+| `corner` | 77.6% | +0.000 |
+| `edge` | 73.0% | +0.233 |
+| `occlusion_edge` | 51.8% | +0.363 |
+| `orientation` | 49.8% | +0.288 |
+| `keypoints2d` | 35.5% | +0.679 |
+
+`corner` is the control inside the control: the head already recovers 77.6% of
+what the grid offers, there is little left for a decoder to uncover, and the
+correlation does not move at all. **n=5 probes**, so read the mechanism as one
+that fits rather than one that is established.
+
+**The CNN group is excluded deliberately, and not for sample size.** A CNN's
+DPT run reads a finer map than its linear one (`_grid_of` takes the finest),
+so its two rows are not two readings of one grid — the comparison would be
+between two bottlenecks rather than between two heads, which is the same
+reason only the DPT/linear *gain* is comparable there.
+
 ### What each group licenses
 
 - **The gate's description**, corrected: a bar for a linear head, exceeded only
@@ -164,6 +212,10 @@ not as a measured effect size.
   out of 174 on ViTs and three inverted boards on CNNs, rather than one
   reversal. This is the demonstration behind CLAUDE.md's rule to report the
   linear number when comparing representations.
+- **How much of a dense board's grid correlation its own head can see**, which
+  is a statement about the readout rather than about the representations: on
+  four of five probes, less than a DPT head sees, and least where the linear
+  head recovers least of its oracle.
 - **A new caveat on the corpus's dense boards**: they may understate CNNs by
   more than ViTs, and the reason is a choice of which stage a linear head reads
   rather than a property of the representation. See `CORPUS_FINDINGS.md`.
