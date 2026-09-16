@@ -100,6 +100,8 @@ case "$GROUP" in
       "supervised_vitb16=2 5 8 11"
       "dino_vitb16=2 5 8 11"
       "sam_vitb16=2 5 8 11"
+      # Same twelve blocks as the rest of the group; only the patch differs.
+      "dino_vitb8=2 5 8 11"
     )
     RESULTS=${RESULTS:-results/controls/dpt_head.jsonl}
     ;;

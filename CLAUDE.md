@@ -66,6 +66,7 @@ step is next rather than attempting the whole roadmap in one session.
 | 14a-2 | Instance segmentation: mask AP, by making VOC's matching IoU-agnostic | done |
 | 14a-3 | Instance segmentation: the head, proved end to end on DINOv2-S | done |
 | 14a-4 | Instance segmentation: the 12-backbone board and the probe's own page | done |
+| 15a | `dino_vitb8`: the grid control, raised rather than lowered | done |
 
 **A closed step's full write-up lives in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md), not here.** That file is the archive
@@ -120,13 +121,15 @@ precedent for shipping one: **v0.7.0** (contributor-facing) and **v0.16.0**
 (documentation). **v0.6.1** is the other one to know — it corrects a
 correspondence board that shipped ranked upside down; see step 6f.
 
-**The corpus file is 360 records resolving to 204 board cells** — seventeen
-boards, twelve backbones a board. The two numbers differ because the corpus is
-**append-only** and two re-runs have appended beside records they supersede:
-0.15.0 re-ran the five low-level boards for their `ceiling_*`, and the
+**The corpus file is 379 records resolving to 221 board cells** — seventeen
+boards, thirteen backbones a board. The two numbers differ because the corpus
+is **append-only** and re-runs have appended beside records they supersede:
+0.15.0 re-ran the five low-level boards for their `ceiling_*`, the
 schema-v8 `training` re-run (2026-09-10) re-ran the eight trained boards that
-predated that field, with three cells of it landing on 2026-09-11. `latest_per_backbone` picks the newest. Quote 204 for
-coverage and 360 only for the file, and re-read both off `LEADERBOARD.md` and
+predated that field, with three cells of it landing on 2026-09-11, and
+`dino_vitb8`'s two smoke-test cells were re-run inside its own array.
+`latest_per_backbone` picks the newest. Quote 221 for
+coverage and 379 only for the file, and re-read both off `LEADERBOARD.md` and
 `wc -l` rather than from here.
 
 Two standing consequences of that history, both of which have already cost a
@@ -684,7 +687,8 @@ designed up front; extend it the same way, from a case that already runs.
     thirteen boards that gap is more than a third of the whole objective spread,
     and nothing in a record says which board you are on.
   - **The semantic segmentation board separates neither training objectives nor
-    feature resolution**, which nine of the eleven grid-reading boards rank by.
+    feature resolution**, which eight of the eleven grid-reading boards rank
+    by.
     Do not present it as evidence about an objective. **Not "the one dense
     board" — `detection` is a second exception** (2026-09-14), and the test is
     whether another property *beats* the grid, never whether the grid
@@ -720,11 +724,21 @@ designed up front; extend it the same way, from a case that already runs.
   - **Two backbones' high-level scores are close to in-distribution recall**,
     not transfer: `convnext_base` and `supervised_vitb16` are ImageNet-1k
     supervised and Imagenette's classes are ImageNet-1k wnids.
-  - **Feature resolution is the strongest correlate of nearly every dense
-    board, and it is not what DINOv2's lead is made of.** Nine of the eleven
-    grid-reading boards (`semantic_segmentation` and `detection` are the
-    exceptions), and a board's *fit* tracks the grid too — 11 of 11, mean rho
-    −0.681. Holding weights fixed and cutting DINOv2-B from 256 to 196 tokens
+  - **Feature resolution correlates with nearly every dense board and is
+    largely NOT causal** (`dino_vitb8`, 2026-09-16 — the grid control that
+    *raises* a non-DINOv2's grid, where `dinov2_vitb14_196` could only lower
+    DINOv2's). Tokens is the strongest structural correlate on eight of the
+    eleven grid-reading boards (`semantic_segmentation`, `detection`, and
+    marginally `keypoints2d`), and a board's *fit* tracks the grid too — 11 of
+    11, mean rho −0.681. **Quadrupling the grid at fixed objective, data, width
+    and depth moves the published LINEAR boards by a rounding error or the
+    wrong way — and the same pair with a DPT head improves 5 of 5, by one to
+    two orders of magnitude more.** The ceilings say why: they rise every time,
+    a linear head's recovered share falls every time (five of five), and a DPT
+    head sits at 88-97% of the ceiling at both grids. So resolution is causal
+    about what the representation *carries* and invisible in what VisBench
+    *reports*. **Never quote a linear board as evidence that resolution does
+    not help** — the first draft of this finding did exactly that. Holding weights fixed and cutting DINOv2-B from 256 to 196 tokens
     costs under 3% on all five dense boards and keeps its lead over the whole
     ViT-B/16 pack on both boards it led; on the other three it never led, so
     there was nothing to explain. **Check who leads a board before explaining

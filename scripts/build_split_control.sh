@@ -102,6 +102,7 @@ BACKBONE_LIST=(
   dinov2_vits14 dinov2_vitb14 clip_vitb16 clip_vitb32
   resnet18 resnet50 convnext_base mae_vitb16
   siglip_vitb16 supervised_vitb16 dino_vitb16 sam_vitb16
+  dino_vitb8
 )
 
 if [[ -n ${BACKBONES:-} ]]; then

@@ -51,6 +51,7 @@ the same path and schedule as object `classification`.
 | `clip_vitb32` | 0.3890 | 0.6769 |
 | `dinov2_vitb14` | 0.3865 | 0.6562 |
 | `resnet50` | 0.3575 | 0.6525 |
+| `dino_vitb8` | 0.3530 | 0.6418 |
 | `dinov2_vits14` | 0.3529 | 0.6430 |
 | `sam_vitb16` | 0.3430 | 0.6318 |
 | `dino_vitb16` | 0.3410 | 0.6320 |
