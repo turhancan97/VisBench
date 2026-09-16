@@ -11,6 +11,35 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Added
 
+- **The resolution finding widened from one sibling pair to all ten ViTs**
+  (`scripts/analyse_dpt_control.py --grid`). The `dino_vitb8` board showed that
+  quadrupling the feature grid at fixed objective, data, width and depth moves
+  the published linear boards by a rounding error and the DPT rows by one to
+  two orders of magnitude more — on **n=2**. The DPT control already held a DPT
+  score beside every linear one for ten ViTs spanning 49, 196, 256 and 784
+  tokens, so the same question can be asked at n=10 over data already
+  committed, with no new run.
+
+  Correlate token count against each of the five boards twice, once with the
+  published linear score and once with the DPT score on the same features, and
+  **the grid correlation is stronger under the DPT head on 4 of 5 probes**,
+  mean rho **+0.388 → +0.701**. `keypoints2d` moves +0.096 → **+0.775**: the
+  difference between "this board does not rank by resolution" and "this board
+  ranks by resolution and its head cannot read it".
+
+  **The mechanism is visible in the same table.** Average each probe's linear
+  score as a share of its own oracle across the ten backbones, and it runs
+  opposite to how much the correlation moves — Spearman **−0.900**. `corner`
+  already recovers 77.6% linearly and does not move at all (+0.000);
+  `keypoints2d` recovers 35.5% and moves most (+0.679). n=5 probes, so that is
+  a mechanism which fits rather than one established.
+
+  The ViT group only: a CNN's DPT run reads a finer map than its linear one, so
+  its two rows are not two readings of one grid. `TOKENS` is copied from
+  `analyse_board_correlates.STRUCTURE` for the reason that file copies
+  `HEADLINE_METRICS`, and a test pins the copy against both the source table
+  and the backbones the control actually ran.
+
 - **A guard that control records never reach the corpus**
   (`tests/results/test_controls_stay_out_of_the_corpus.py`). `results/controls/`
   holds records deliberately kept out of `results/corpus/visbench.jsonl`, and

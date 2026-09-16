@@ -366,6 +366,51 @@ Two standing cautions apply to everything below:
   31.0% for the linear row on the same features. Nothing about the
   representation changed between those two readings.
 
+  **The sibling pair is n=2, and the same claim holds over all ten ViTs**
+  (2026-09-16, `scripts/analyse_dpt_control.py --group vit --grid`; no new
+  record, the DPT control's ViT group and the corpus both already carried it).
+  Correlate token count against each board twice -- once with the linear score
+  the corpus publishes and once with the DPT score on the same features -- and
+  the grid correlation is **stronger under the DPT head on 4 of 5 probes**:
+
+  | probe | linear rho | DPT rho | change |
+  | --- | --- | --- | --- |
+  | `edge` | +0.322 | **+0.555** | +0.233 |
+  | `keypoints2d` | +0.096 | **+0.775** | +0.679 |
+  | `occlusion_edge` | +0.480 | **+0.843** | +0.363 |
+  | `corner` | +0.665 | +0.665 | +0.000 |
+  | `orientation` | +0.377 | **+0.665** | +0.288 |
+  | **mean** | **+0.388** | **+0.701** | **+0.313** |
+
+  Ten ViT-B/16-class backbones spanning 49, 196, 256 and 784 tokens, four
+  training objectives and two patch sizes -- so this is not the sibling pair
+  restated, and the direction is the pair's. `keypoints2d` is the case the
+  linear boards make look settled: **+0.096 published, +0.775 with a decoder**,
+  which is the difference between "this board does not rank by resolution" and
+  "this board ranks by resolution and its head cannot read it".
+
+  **And the effect sits exactly where the linear head recovers least**, which
+  is the mechanism rather than a second observation. Average each probe's
+  linear score as a share of its own oracle over the ten, and that share runs
+  **opposite** to how much the correlation moves: Spearman **-0.900** over the
+  five probes.
+
+  | probe | linear recovers | rho change |
+  | --- | --- | --- |
+  | `corner` | 77.6% | +0.000 |
+  | `edge` | 73.0% | +0.233 |
+  | `occlusion_edge` | 51.8% | +0.363 |
+  | `orientation` | 49.8% | +0.288 |
+  | `keypoints2d` | 35.5% | +0.679 |
+
+  `corner` is the control inside the control: its linear head already recovers
+  77.6% of what the grid makes available, so there is little for a decoder to
+  uncover and the correlation does not move **at all** (+0.000). `keypoints2d`
+  recovers 35.5% and moves most. **n=5 probes**, so this is a mechanism that
+  fits rather than one that is established -- but it is the mechanism the
+  sibling pair's ceilings predicted, arrived at from ten backbones instead of
+  two.
+
   So the resolution correlation **is** causal about what the representation
   makes available. It is **not actionable through the readout VisBench
   reports**: one affine map per patch extracts a falling share of a growing

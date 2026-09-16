@@ -78,6 +78,25 @@ whole ViT-B/16 pack on both boards it led.
 boards DINOv2-B never led, so there was nothing to explain — a first reading of
 the correlation table treated all five as confounded.
 
+### But never read a linear board as evidence that resolution does not help
+
+That control could only *lower* a grid. Raising one — `dino_vitb8` against
+`dino_vitb16`, same objective, data, width and depth, 784 tokens against 196 —
+moves the published boards on this site by a rounding error or the wrong way,
+and moves the same five probes **with a DPT head** by one to two orders of
+magnitude more, improving 5 of 5. The ceilings say why: they rise every time,
+and the share a linear head recovers of them falls every time.
+
+The effect is not confined to that pair. Across all ten ViTs in the corpus
+(49 to 784 tokens), the correlation between token count and score is
+**stronger under a DPT head on 4 of 5 low-level boards** — mean +0.388 against
++0.701, and `keypoints2d` +0.096 against +0.775 — and it is largest exactly
+where the linear head recovers least of its own oracle.
+
+So feature resolution is causal about what a representation **carries** and
+close to invisible in what these boards **report**. The boards are linear on
+purpose (see above); the price is that this is one thing they cannot show you.
+
 ## Two boards are close to in-distribution recall, not transfer
 
 `convnext_base` and `supervised_vitb16` are ImageNet-1k supervised, and

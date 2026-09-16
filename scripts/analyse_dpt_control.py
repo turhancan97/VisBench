@@ -218,15 +218,108 @@ def report(group: str, linear: dict, dpt: dict) -> None:
         print("     DPT score over the linear one -- is the comparable column.")
 
 
+#: Token counts, mirroring ``analyse_board_correlates.STRUCTURE``. Copied for
+#: the reason that file copies ``HEADLINE_METRICS``: a script that reaches into
+#: another script's namespace breaks when either moves, and the duplication is
+#: pinned by a test rather than trusted.
+TOKENS = {
+    "clip_vitb16": 196,
+    "clip_vitb32": 49,
+    "dino_vitb16": 196,
+    "dino_vitb8": 784,
+    "dinov2_vitb14": 256,
+    "dinov2_vits14": 256,
+    "mae_vitb16": 196,
+    "sam_vitb16": 196,
+    "siglip_vitb16": 196,
+    "supervised_vitb16": 196,
+}
+
+
+def report_grid(linear: dict, dpt: dict) -> None:
+    """Does the DPT board track the feature grid harder than the linear one?
+
+    The `dino_vitb8` board measured this on **one sibling pair** -- same
+    objective, data, width and depth, 784 tokens against 196 -- and found that a
+    4x finer grid moves the published linear boards by a rounding error while
+    moving the DPT rows by one to two orders of magnitude more. This asks the
+    same question of all ten ViTs at once, over data already committed, so the
+    claim does not rest on a single pair.
+
+    The prediction, if resolution is real but invisible to a linear readout: the
+    DPT scores should correlate with token count *more strongly* than the linear
+    scores do, probe by probe.
+    """
+    vits = sorted({b for (_, b) in dpt})
+    tokens = [float(TOKENS[b]) for b in vits]
+    print(f"\n-- does the grid correlation survive the head? ({len(vits)} ViTs)")
+    print(f"   token counts: {sorted(set(int(v) for v in tokens))}")
+    print(f"   {'probe':16s} {'linear':>8s} {'DPT':>8s} {'change':>8s}")
+
+    totals = [0.0, 0.0]
+    stronger = 0
+    recovered: list[float] = []
+    changes: list[float] = []
+    for task, (metric, direction) in HEADLINE.items():
+        sign = 1.0 if direction == "higher" else -1.0
+        lin_scores = [sign * linear[(task, b)]["metrics"][metric] for b in vits]
+        dpt_scores = [sign * dpt[(task, b)]["metrics"][metric] for b in vits]
+        rho_lin = spearman(tokens, lin_scores)
+        rho_dpt = spearman(tokens, dpt_scores)
+        totals[0] += rho_lin
+        totals[1] += rho_dpt
+        stronger += rho_dpt > rho_lin
+        shares = [
+            fraction(
+                linear[(task, b)]["metrics"][metric],
+                linear[(task, b)]["metrics"]["ceiling_" + metric],
+                direction,
+            )
+            for b in vits
+        ]
+        recovered.append(sum(shares) / len(shares))
+        changes.append(rho_dpt - rho_lin)
+        print(f"   {task:16s} {rho_lin:+8.3f} {rho_dpt:+8.3f} {rho_dpt - rho_lin:+8.3f}")
+
+    n = len(HEADLINE)
+    print(
+        f"   {'mean':16s} {totals[0] / n:+8.3f} {totals[1] / n:+8.3f} "
+        f"{(totals[1] - totals[0]) / n:+8.3f}"
+    )
+    print(f"   the DPT board tracks the grid more strongly on {stronger} of {n} probes")
+
+    print("\n   ...and it is hidden exactly where a linear head recovers least:")
+    print(f"   {'probe':16s} {'linear recovers':>16s} {'rho change':>12s}")
+    for task, share, change in zip(HEADLINE, recovered, changes, strict=True):
+        print(f"   {task:16s} {share:15.1%} {change:+12.3f}")
+    print(
+        f"   Spearman(recovered, change) = {spearman(recovered, changes):+.3f} over "
+        f"{n} probes -- n={n}, so this is a mechanism that fits rather than one "
+        "that is established."
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--group", choices=["vit", "cnn", "both"], default="both")
+    parser.add_argument(
+        "--grid",
+        action="store_true",
+        help="also ask whether the DPT board tracks the feature grid harder "
+        "than the linear one (ViTs only -- a CNN's DPT run moves the oracle too)",
+    )
     args = parser.parse_args()
 
     linear = latest([r for r in load(CORPUS) if r["task"] in HEADLINE])
     groups = ["vit", "cnn"] if args.group == "both" else [args.group]
     for group in groups:
         report(group, linear, latest(load(CONTROLS[group])))
+
+    if args.grid:
+        # ViTs only. A CNN's DPT run reads finer input than its linear one, so
+        # the two are not two readings of one grid and the comparison would be
+        # between different bottlenecks rather than between two heads.
+        report_grid(linear, latest(load(CONTROLS["vit"])))
 
     print(
         "\nRead the two groups separately. A ViT's four blocks share one grid, so "
