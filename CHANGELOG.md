@@ -9,6 +9,33 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+## [0.19.0] — 2026-09-16
+
+**The release that measured a probe and declined to build it — and corrected
+two things it had already published.**
+
+No probe, no backbone, no metric, and **no board value moves**: the corpus is
+still 17 probes x 12 backbones, 204 cells, schema v9. What changes is what the
+project *says*, in three places where it had drifted from what it measured.
+
+Relative camera pose is measured end to end and deliberately left unbuilt. It
+**ranks** four ViT-B/16s that differ only in objective, it **cannot** use
+`LinearHead`, and its **pair count is a protocol parameter** rather than a
+tuning knob — three answers that together make the build a decision rather than
+a guess. The first reading of the same data said the opposite and was
+overfitting at n<=d; the correction is in this release too, because a committed
+write-up that has been refuted steers the next reader wrong.
+
+Alongside it: the documentation says how many probes there are again — it had
+said "sixteen" for five releases after the seventeenth shipped — and a test now
+keeps it true; and `semantic_segmentation`'s reference page re-derives
+correlations that were computed against a thirteen-board corpus before the
+2026-09-13 tie fix.
+
+v0.7.0 and v0.16.0 are the precedent for shipping a release that moves no
+measurement; v0.14.0 is the precedent for one whose content is a refusal. This
+is both.
+
 ### Added
 
 - **Relative camera pose, measured — it ranks, and it needs a nonlinear head.**
@@ -4479,7 +4506,8 @@ API philosophy.
 [#2]: https://github.com/turhancan97/VisBench/issues/2
 [#4]: https://github.com/turhancan97/VisBench/issues/4
 [#3]: https://github.com/turhancan97/VisBench/issues/3
-[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.18.0...HEAD
+[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.19.0...HEAD
+[0.19.0]: https://github.com/turhancan97/VisBench/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/turhancan97/VisBench/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/turhancan97/VisBench/compare/v0.16.1...v0.17.0
 [0.16.1]: https://github.com/turhancan97/VisBench/compare/v0.16.0...v0.16.1
