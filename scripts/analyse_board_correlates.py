@@ -136,6 +136,11 @@ STRUCTURE: dict[str, Structure] = {
     "siglip_vitb16": Structure(196, 768, "ViT", "WebLI", 1.0e10, "language"),
     "mae_vitb16": Structure(196, 768, "ViT", "IN1k", 1.28e6, "reconstruction"),
     "dino_vitb16": Structure(196, 768, "ViT", "IN1k", 1.28e6, "ssl-discriminative"),
+    # The grid control: `dino_vitb16`'s objective, data, width and depth at a
+    # patch of 8, so 784 tokens against 196 -- the finest grid in the corpus,
+    # and the only fine one that is not a DINOv2. Before it, grid size was
+    # confounded with the DINOv2 objective and LVD-142M in every dense board.
+    "dino_vitb8": Structure(784, 768, "ViT", "IN1k", 1.28e6, "ssl-discriminative"),
     "supervised_vitb16": Structure(196, 768, "ViT", "IN1k", 1.28e6, "supervised"),
     "sam_vitb16": Structure(196, 768, "ViT", "IN1k", 1.28e6, "supervised"),
     "clip_vitb32": Structure(49, 768, "ViT", "WIT-400M", 4.0e8, "language"),
