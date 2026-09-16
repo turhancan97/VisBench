@@ -25,6 +25,7 @@ What `visbench show semantic_segmentation` draws. {doc}`How to read it </guides/
 | `supervised_vitb16` | 0.5791 | 0.5877 | 0.8681 | 0.6761 |
 | `siglip_vitb16` | 0.5405 | 0.3210 | 0.8539 | 0.6511 |
 | `dino_vitb16` | 0.5063 | 0.3221 | 0.8632 | 0.5964 |
+| `dino_vitb8` | 0.4975 | 0.2150 | 0.8613 | 0.5923 |
 | `convnext_base` | 0.4880 | 0.4596 | 0.8310 | 0.5902 |
 | `resnet50` | 0.4574 | 0.5163 | 0.8322 | 0.5248 |
 | `resnet18` | 0.4212 | 0.4497 | 0.8205 | 0.4915 |

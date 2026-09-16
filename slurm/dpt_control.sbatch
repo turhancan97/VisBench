@@ -76,7 +76,8 @@ PROBES=(
 GROUP=${VISBENCH_GROUP:-vit}
 case "$GROUP" in
   vit) BACKBONE_LIST=(dinov2_vits14 dinov2_vitb14 clip_vitb16 clip_vitb32 \
-                      mae_vitb16 siglip_vitb16 supervised_vitb16 dino_vitb16 sam_vitb16) ;;
+                      mae_vitb16 siglip_vitb16 supervised_vitb16 dino_vitb16 sam_vitb16 \
+                      dino_vitb8) ;;
   cnn) BACKBONE_LIST=(resnet18 resnet50 convnext_base) ;;
   *)   echo "VISBENCH_GROUP must be vit or cnn, got '$GROUP'" >&2; exit 1 ;;
 esac

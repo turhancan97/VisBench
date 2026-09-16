@@ -161,7 +161,7 @@ def test_every_vit_reads_four_evenly_spaced_blocks(build_text):
         for name, spec in specs.items()
         if "resnet" not in name and "convnext" not in name
     }
-    assert len(vits) == 9, f"expected nine ViTs, got {sorted(vits)}"
+    assert len(vits) == 10, f"expected ten ViTs, got {sorted(vits)}"
     assert set(vits.values()) == {"2 5 8 11"}, "the ViT group must share one layer spec"
 
 
@@ -239,6 +239,10 @@ LAYER_SPECS = {
     "supervised_vitb16": ([2, 5, 8, 11], 12),
     "dino_vitb16": ([2, 5, 8, 11], 12),
     "sam_vitb16": ([2, 5, 8, 11], 12),
+    # The grid control. Patch 8 rather than 16, and the SAME twelve blocks --
+    # verified, not assumed, because a different depth would make 2/5/8/11 the
+    # wrong taps and the DPT number plausible but meaningless.
+    "dino_vitb8": ([2, 5, 8, 11], 12),
     # A ResNet's `feature_info` carries the stem at index 0, so its last four
     # stages are 1..4. ConvNeXt has no separate stem entry and exposes four,
     # whose last four are 0..3. Reading the second off the first is exactly the

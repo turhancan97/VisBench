@@ -39,6 +39,7 @@ features at 224px. Humans chose "right" 49.1% of the time, so chance is ~51%:
 | backbone | `accuracy` | `f1` | `tie_rate` |
 | --- | --- | --- | --- |
 | `dino_vitb16` | **0.9019** | **0.9004** | 0.0000 |
+| `dino_vitb8` | 0.8887 | 0.8867 | 0.0000 |
 | `dinov2_vits14` | 0.8701 | 0.8687 | 0.0000 |
 | `sam_vitb16` | 0.8695 | 0.8675 | 0.0000 |
 | `dinov2_vitb14` | 0.8580 | 0.8575 | 0.0000 |

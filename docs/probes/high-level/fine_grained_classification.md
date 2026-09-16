@@ -101,6 +101,7 @@ Linear probe on pooled features, the same path and schedule as object
 | `clip_vitb16` | 0.8045 | 0.9591 |
 | `sam_vitb16` | 0.7927 | 0.9486 |
 | `siglip_vitb16` | 0.7839 | 0.9427 |
+| `dino_vitb8` | 0.7679 | 0.9304 |
 | `dino_vitb16` | 0.7520 | 0.9253 |
 | `clip_vitb32` | 0.7344 | 0.9289 |
 | `convnext_base` | 0.7311 | 0.9210 |

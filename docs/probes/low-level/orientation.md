@@ -48,6 +48,7 @@ travels in `dataset_params` and splits the comparability groups on its own.
 | backbone | `orientation_error` | `d1` | `d2` | `ceiling_d1` | `ceiling_d2` | `ceiling_orientation_error` |
 | --- | --- | --- | --- | --- | --- | --- |
 | `mae_vitb16` | **18.8206** | **0.5820** | **0.7268** | 0.7047 | 0.8450 | 12.1822 |
+| `dino_vitb8` | 20.7234 | 0.5343 | 0.6961 | 0.8477 | 0.9391 | 6.6019 |
 | `dino_vitb16` | 21.4352 | 0.5244 | 0.6850 | 0.7047 | 0.8450 | 12.1822 |
 | `sam_vitb16` | 21.7203 | 0.5231 | 0.6811 | 0.7047 | 0.8450 | 12.1822 |
 | `dinov2_vits14` | 22.1286 | 0.4962 | 0.6688 | 0.7321 | 0.8652 | 11.0211 |

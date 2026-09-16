@@ -1712,6 +1712,98 @@ changed default: so the published wheel was put on `sys.path` and imported, and
 default value, read it back through an import, not out of the source text** —
 source inspection cannot rule out a runtime override.
 
+## 15a — `dino_vitb8`: crossing the grid axis from the other side
+
+**2026-09-16.** A thirteenth backbone and its seventeen-cell board, added for
+one reason: `CORPUS_FINDINGS.md`'s resolution control could only lower a grid,
+never raise one, and said so — "it is one-sided because nothing else here can
+be raised". `dinov2_vitb14_196` cut DINOv2 from 256 tokens to 196 at fixed
+weights; nothing could take a non-DINOv2 the other way, because open_clip does
+not interpolate position embeddings and timm needs `dynamic_img_size`.
+
+`vit_base_patch8_224.dino` needs neither. It is the same objective, the same
+pretraining set, the same width and the same depth as `dino_vitb16`, at a patch
+of 8 — **784 tokens against 196**, and the only fine grid in the corpus that is
+not a DINOv2. Registered in one step (PR #117), boarded in this one.
+
+### What the run cost, and the two cells that skipped
+
+Seventeen cells, `--array=0-16%4` on `dgx2`/`dgxa100`, V100s throughout.
+Per-cell elapsed ran from **18 s** to **37 m 33 s**, the long one being
+`scene_classification` on Places365 — which would have overrun the script's
+45-minute `#SBATCH --time` default had a two-cell smoke test not been run first
+to size it. 784 tokens is 4x a B/16's, so dense features are 4x the size; that
+showed up in wall clock far less than expected, because extraction dominates
+and it is decode-bound.
+
+**`corner` and `orientation` failed in under a second**, which is the signature
+of `build_corpus.sh`'s missing-data guard rather than a crash:
+`data/corner_frames/` is gitignored and absent from a fresh checkout.
+`scripts/stage_corner_frames.py` fixed it, and the staging was **verified
+set-equal to the frames `edge` reads** on both splits, 600 each, rather than
+assumed equal — the claim earning `corner` its place is that it ranks
+differently from `edge` despite a 0.52 target correlation, which is only exact
+on identical pixels.
+
+Two process notes from that, both worth more than the cells:
+
+- **A failure filter that greps for `Traceback|CANCELLED|error:` reports
+  "none" when a script exits cleanly with `!!! SKIPPED`.** Silence looked like
+  success. Widen a monitor's alternation to the *terminal states* rather than
+  the crash shapes you predicted.
+- **A verification check that guesses a format can only ever fail.** The first
+  set-equality check reconstructed stems as `{building}__{point}` from the row
+  tuple and reported `False` with near-zero overlap. The rows are
+  `(building, point, view)` and the link is
+  `{building}__point_{point}_view_{view}.png`. Near-zero overlap was the tell
+  that the *check* was wrong; a real mismatch would have overlapped partially.
+
+### `merge_corpus.sh` re-imports records deliberately held out
+
+**The most expensive thing this step found, and it was one command from
+landing.** Run as documented, the merge added **58** records where 19 were
+expected. The other 39 were 2026-09-10 files still sitting in
+`results/corpus/parts/` — including **all three A100
+`fine_grained_classification` cells** that the v8 `training` re-run held out of
+the corpus on purpose and parked in `results/controls/hardware_a100.jsonl`.
+
+The script deduplicates by exact JSON line. That stops it re-adding what is
+*already* in the corpus and gives no protection at all against records
+deliberately kept *out* of it — and merging these three is precisely the
+ranking change holding them out prevented: `convnext_base` below `resnet50` on
+the CUB board, caused by a variable no record carried.
+
+It was caught only by diffing the merge against the corpus before trusting it,
+which is the standing rule. The corpus was restored and re-merged from a
+staging directory holding the 17 new files alone: **+19, all `dino_vitb8`,
+zero pre-existing records lost.** `parts/` is not a queue of pending work; it
+is an archive with excluded records in it, and the merge cannot tell the
+difference.
+
+### Free reproducibility check
+
+`classification` and `edge` were each run twice — once in the smoke test, once
+in the array — so their parts files carry two records. `classification` is
+**bit-identical**. `edge` reproduces to **~1e-7 relative** (`edge_correlation`
+0.48245614 against 0.48245651). That matches the documented behaviour of the
+linear dense boards exactly, on a backbone that had never been run before.
+
+### The measurement
+
+Corpus **360 -> 379 records**, `LEADERBOARD.md` **204 -> 221 cells**, 17 boards
+at 13 backbones each. The reading is in `CORPUS_FINDINGS.md`; the short version
+is that the resolution *correlation* survives at n=13 — tokens is still the
+strongest structural correlate on **8 of 11** grid-reading boards against 9 of
+11 — while the controlled pair says it is largely **not causal**. A 4x finer
+grid at fixed objective and data gains 0.2861 on `correspondence`, where the
+grid genuinely is the floor, and moves every other dense board by a rounding
+error or the wrong way.
+
+The mechanism is in the ceilings: they rise every time, as they must, and the
+share a linear head recovers **falls every time, five of five**.
+
+---
+
 ## Steps 7a-14a — write-ups lifted from `CLAUDE.md`
 
 Moved on 2026-09-13, when `CLAUDE.md` passed the 150k-character limit it is

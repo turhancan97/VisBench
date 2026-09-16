@@ -52,6 +52,7 @@ separate those classes.
 | `supervised_vitb16` | 0.9972 | 0.9997 |
 | `clip_vitb16` | 0.9954 | 0.9997 |
 | `dinov2_vits14` | 0.9939 | 0.9997 |
+| `dino_vitb8` | 0.9939 | 0.9995 |
 | `siglip_vitb16` | 0.9936 | 0.9995 |
 | `dino_vitb16` | 0.9931 | 0.9997 |
 | `clip_vitb32` | 0.9921 | 0.9992 |
