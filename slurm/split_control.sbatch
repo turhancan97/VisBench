@@ -3,10 +3,10 @@
 # Run the split control as a Slurm array: one task per (config, backbone).
 #
 #   mkdir -p logs results/controls/parts
-#   sbatch --array=0-23%4 slurm/split_control.sbatch
+#   sbatch --array=0-25%4 slurm/split_control.sbatch
 #   scripts/merge_controls.sh
 #
-# 2 configs x 12 backbones = 24 tasks. The array range is NOT derived from the
+# 2 configs x 13 backbones = 26 tasks. The array range is NOT derived from the
 # lists below and cannot be: #SBATCH directives are read before any of this
 # runs, so --array must be passed to match, and the guard below is what turns a
 # mismatch into an error rather than a quietly short control.
@@ -22,7 +22,7 @@
 #SBATCH --ntasks=1
 #SBATCH --job-name=visbench-split-control
 #SBATCH --time=01:00:00
-#SBATCH --array=0-23%4
+#SBATCH --array=0-25%4
 #SBATCH --output=logs/split_control_%A_%a.log
 
 set -euo pipefail
@@ -56,6 +56,7 @@ BACKBONE_LIST=(
   dinov2_vits14 dinov2_vitb14 clip_vitb16 clip_vitb32
   resnet18 resnet50 convnext_base mae_vitb16
   siglip_vitb16 supervised_vitb16 dino_vitb16 sam_vitb16
+  dino_vitb8
 )
 
 expected=$(( ${#CONFIGS[@]} * ${#BACKBONE_LIST[@]} ))

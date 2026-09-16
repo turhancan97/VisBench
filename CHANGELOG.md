@@ -39,33 +39,53 @@ so it stands on its own rather than assuming you have read the ones above it.
   queue, and shows the staging-directory recipe that merges only one step's
   parts. No measurement changes.
 
-
-### Added
-
-- **`dino_vitb8`, a thirteenth backbone that exists to break a confound.**
+- **`dino_vitb8`, a thirteenth backbone and its seventeen-cell board — added
+  to break one confound, and it broke in the direction that costs something.**
   `vit_base_patch8_224.dino`: the same objective, pretraining set, width and
-  depth as `dino_vitb16`, with a patch of 8 instead of 16 — **784 tokens
-  against 196**, the finest grid in the corpus and the only fine one that is
-  not a DINOv2.
+  depth as `dino_vitb16` at a patch of 8, so **784 tokens against 196** — the
+  finest grid in the corpus and the only fine one that is not a DINOv2.
 
-  **Why that matters.** Feature resolution is the strongest correlate of nearly
+  **Why it was added.** Feature resolution is the strongest correlate of nearly
   every dense board, and until now *the only backbones carrying a fine grid
   were the two DINOv2s* — so grid size, the DINOv2 objective and LVD-142M
-  pretraining moved as one variable and no dense board could say which of the
-  three it had ranked. This row is the mirror of `dinov2_vitb14_196`: that
-  control cut DINOv2's grid **down** at fixed weights, this raises a
-  non-DINOv2's **up** at fixed objective and data. Between them the grid axis
-  is crossed with the objective axis in both directions, which neither does
-  alone.
+  pretraining moved as one variable. The existing resolution control could only
+  lower a grid (DINOv2 at 196px) and said so in as many words: "it is one-sided
+  because nothing else here can be raised." This raises the other side.
 
-  It is **not** a seventh member of the six identical ViT-B/16s — the patch
-  size changes the token count, which is exactly the variable it moves — and a
-  fast test pins that so it cannot be quietly recruited into a claim about
-  objectives. It is also the most expensive row here: 784 tokens is 4x a
-  B/16's, so its dense features are 4x the size.
+  **What it found, in two halves that say opposite-looking things.** On the
+  published *linear* boards, quadrupling the grid at fixed objective, data,
+  width and depth gains **+0.2861 on `correspondence`** — where a match can
+  only land on a patch centre, so the grid genuinely is the floor — and moves
+  every other dense board by a rounding error or the wrong way: `edge` +0.0007,
+  `occlusion_edge` −0.0060, `detection` −0.0186, `keypoints2d` −0.0283.
 
-  Registered and verified only; **no board, no records and no published number
-  moves**. The seventeen-cell corpus run is a separate step.
+  **The ceilings say why.** A ceiling is computed from the target and the grid
+  with no weights involved, so it must rise with resolution, and does. The
+  share a *linear* head recovers **falls every time, five of five**: `edge`
+  78.9% → 65.1%, `corner` 82.7% → 72.5%, `keypoints2d` 42.7% → 31.0%,
+  `occlusion_edge` 56.9% → 48.3%, `orientation` 56.8% → 31.9%.
+
+  **The DPT control reverses the obvious conclusion**
+  (`results/controls/dpt_head.jsonl`, 5 cells added). With a DPT head the same
+  finer grid helps **5 of 5** rather than 3 of 5, by one to two orders of
+  magnitude more — `edge` +0.1365, `keypoints2d` +0.1520, `corner` +0.0933,
+  `occlusion_edge` +0.0237, `orientation` +2.96 deg — and that head sits at
+  88–97% of the ceiling at *both* grids. So the resolution correlation **is**
+  causal about what the representation makes available, and is simply
+  **invisible to the readout VisBench reports**: one affine map per patch
+  extracts a falling share of a growing target and the two cancel.
+
+  Quoting a linear board as evidence that resolution does not help is therefore
+  a mistake — one this changelog entry made in its first draft, before the
+  control was run. It is the sharpest case of the DPT control's standing
+  lesson: a head decides not just the ordering but whether an effect is visible
+  at all. `CORPUS_FINDINGS.md` carries the reading and the caveats, including
+  that the controlled half rests on a single sibling pair.
+
+  Corpus **360 → 379 records**, `LEADERBOARD.md` **204 → 221 cells**, 17 boards
+  at 13 backbones each; the DPT control goes 55 → 60 records and the split
+  control 24 → 26, so both again cover every corpus backbone. No existing
+  measurement changes.
 
 ## [0.19.0] — 2026-09-16
 

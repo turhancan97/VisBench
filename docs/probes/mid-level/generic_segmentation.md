@@ -33,6 +33,7 @@ What `visbench show generic_segmentation` draws. {doc}`How to read it </guides/v
 | --- | --- | --- | --- |
 | `dinov2_vitb14` | **0.7556** | **0.8408** | **0.9360** |
 | `dinov2_vits14` | 0.7494 | 0.8338 | 0.9324 |
+| `dino_vitb8` | 0.7064 | 0.8015 | 0.9060 |
 | `dino_vitb16` | 0.6838 | 0.7835 | 0.8999 |
 | `clip_vitb16` | 0.6787 | 0.7818 | 0.9027 |
 | `sam_vitb16` | 0.6667 | 0.7687 | 0.8913 |

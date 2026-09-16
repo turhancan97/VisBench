@@ -241,6 +241,15 @@ Two standing cautions apply to everything below:
   accounts for **21%** of the `generic_segmentation` lead and **7%** of the
   `depth` one; between 79% and 93% survives.
 
+  **The 21% became 30% on 2026-09-16 without anything being re-measured**, and
+  the reason is the rule about counts one bullet up: it is a fraction *of a
+  lead over the best rival*, so it moves when the corpus gains a better rival.
+  `dino_vitb8` is a fine-grid non-DINOv2 and takes second place on
+  `generic_segmentation` at 0.7064, against `dino_vitb16`'s 0.6838 — a nearer
+  rival, a smaller denominator, the same numerator. `depth` is unchanged at 7%
+  because `mae_vitb16` still leads the rivals there. Quote the *property* — a
+  real but minority share — rather than either number.
+
   **The confound was narrower than it first looked, and saying so is half the
   finding.** On `surface_normal`, `edge` and `corner` DINOv2-B never led at all
   — `mae_vitb16` is ahead on all three — so there was no lead for resolution to
@@ -279,6 +288,109 @@ Two standing cautions apply to everything below:
   caveat from the other side. Do not read an oracle drop as a predicted score
   drop: it bounds what is available, not what a backbone recovers — `corner`
   reaches 80% of its oracle and `keypoints2d` 41%.
+
+- **The other side of that control now exists: the grid effect is real and
+  large, and a LINEAR head cannot see it** (`dino_vitb8`, 2026-09-16, 17 corpus
+  cells and 7 control cells;
+  `scripts/analyse_board_correlates.py` reproduces the correlations and the
+  corpus carries the pair). The entry above ends "it is one-sided because
+  nothing else here can be raised". `dino_vitb8` is what raises the other side:
+  `vit_base_patch8_224.dino`, the same objective, pretraining set, width and
+  depth as `dino_vitb16` at a patch of 8, so **784 tokens against 196** — the
+  finest grid in the corpus and the only fine one that is not a DINOv2.
+
+  **A 4x finer grid, with everything else held fixed, buys almost nothing on
+  most dense boards, and costs on six.**
+
+  | board | B/8 (784) | B/16 (196) | change |
+  | --- | --- | --- | --- |
+  | `correspondence` | 0.6427 | 0.3566 | **+0.2861** |
+  | `generic_segmentation` | 0.7064 | 0.6838 | +0.0227 |
+  | `corner` | 0.6707 | 0.6657 | +0.0050 |
+  | `edge` | 0.4825 | 0.4817 | +0.0007 |
+  | `occlusion_edge` | 0.2868 | 0.2928 | **-0.0060** |
+  | `semantic_segmentation` | 0.4975 | 0.5063 | **-0.0088** |
+  | `detection` | 0.1471 | 0.1657 | **-0.0186** |
+  | `keypoints2d` | 0.2567 | 0.2850 | **-0.0283** |
+
+  Above its sibling on 11 boards of 17, below on 6.
+
+  **`correspondence` is the exception that shows what a real grid effect looks
+  like**: +0.2861 and straight to first place. That board's floor *is* the grid
+  — a match can only land on a patch centre — so it is the one place resolution
+  is the mechanism rather than a correlate. Everything else moves by a
+  rounding error or the wrong way.
+
+  **The ceilings say why, and they are the mechanism.** A ceiling is computed
+  from the target and the grid with no weights involved, so it must rise with
+  resolution, and it does — every time. What falls, every time, is the share a
+  linear head recovers:
+
+  | probe | ceiling B/8 | ceiling B/16 | recovered B/8 | recovered B/16 |
+  | --- | --- | --- | --- | --- |
+  | `edge` | 0.7409 | 0.6106 | 65.1% | **78.9%** |
+  | `corner` | 0.9253 | 0.8053 | 72.5% | **82.7%** |
+  | `keypoints2d` | 0.8273 | 0.6674 | 31.0% | **42.7%** |
+  | `occlusion_edge` | 0.5943 | 0.5150 | 48.3% | **56.9%** |
+  | `orientation` (deg, lower better) | 6.6019 | 12.1822 | 31.9% | **56.8%** |
+
+  **Five of five.** More signal is made available and a linear head extracts a
+  smaller fraction of it, netting out to roughly zero. **That is a fact about
+  what one affine map per patch can use, not about what the representation
+  contains** — and the DPT control below proves the distinction rather than
+  merely asserting it.
+
+  **The DPT control settles what the linear boards could not, and it reverses
+  the obvious reading** (`results/controls/dpt_head.jsonl`, 5 cells added). The
+  first draft of this entry concluded "the resolution correlation is largely
+  not causal". That was wrong, and the same five probes with a DPT head say so:
+
+  | probe | linear, B/8 − B/16 | DPT, B/8 − B/16 |
+  | --- | --- | --- |
+  | `edge` | +0.0007 | **+0.1365** |
+  | `corner` | +0.0050 | **+0.0933** |
+  | `keypoints2d` | −0.0283 | **+0.1520** |
+  | `occlusion_edge` | −0.0060 | **+0.0237** |
+  | `orientation` (deg) | +0.7117 | **+2.9567** |
+
+  **A finer grid helps 3 of 5 with a linear head and 5 of 5 with a DPT one**,
+  by one to two orders of magnitude more. And the DPT head sits at **88-97% of
+  the ceiling on `edge`, `corner` and `keypoints2d` at both grids** — so as the
+  ceiling rises, its score rises with it, which is exactly what the linear head
+  fails to do.
+
+  **And the head decides who leads.** Under a DPT head `dino_vitb8` takes
+  first place on `edge` (from `mae_vitb16`) and on `keypoints2d` (from
+  `dino_vitb16`) — two boards where its *linear* row is second and fifth of
+  thirteen. Its DPT-to-oracle ratios are 97.3% and 88.3%, against 65.1% and
+  31.0% for the linear row on the same features. Nothing about the
+  representation changed between those two readings.
+
+  So the resolution correlation **is** causal about what the representation
+  makes available. It is **not actionable through the readout VisBench
+  reports**: one affine map per patch extracts a falling share of a growing
+  target, and the two cancel. The corpus note warned that grid size, the DINOv2
+  objective and LVD-142M moved together; separating them shows the grid half is
+  real and that the linear board is blind to it.
+
+  **What to say, then.** Tokens remains the strongest structural correlate on
+  **8 of the 11** grid-reading boards, against 9 of 11 at n=12. A finer grid
+  genuinely buys recoverable signal — and **quoting a linear board as evidence
+  that it does not is the mistake this entry was first written to make**. It is
+  the sharpest case yet of the DPT control's standing lesson that a head is not
+  a neutral magnifying glass: here the head decides not just the ordering but
+  whether an effect is visible at all.
+
+  **The new exception is marginal and must not be over-read.** `keypoints2d`
+  joins `detection` and `semantic_segmentation` as a board whose strongest
+  correlate is not tokens, at |−0.509| for pretraining against |+0.470| for
+  tokens — a gap of 0.039 at n=13, and the pretraining correlation is
+  *negative*. Treat it as a tie, not a third documented exception.
+
+  **n=13, and one pair.** Every coefficient here still has wide error bars, and
+  the controlled half rests on a single sibling pair. It is one pair more than
+  the corpus had yesterday, and the direction it points is not the one the
+  correlation predicted.
 
   **The control is deliberately not in the corpus**, though it passes
   `comparability_key` against every board it ran on — the five records land in

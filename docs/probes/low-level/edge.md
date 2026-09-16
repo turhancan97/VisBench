@@ -33,7 +33,8 @@ Taskonomy's splits are **disjoint by building** — 25 rooms train, 4 validate,
 
 | backbone | `edge_correlation` | `rmse` | `mae` | `ceiling_edge_correlation` | `ceiling_mae` | `ceiling_rmse` |
 | --- | --- | --- | --- | --- | --- | --- |
-| `mae_vitb16` | **0.4982** | **0.9150** | **0.4687** | 0.6106 | 0.4560 | 0.7906 |
+| `mae_vitb16` | **0.4982** | 0.9150 | **0.4687** | 0.6106 | 0.4560 | 0.7906 |
+| `dino_vitb8` | 0.4825 | **0.9082** | 0.4888 | 0.7409 | 0.3709 | 0.6754 |
 | `dino_vitb16` | 0.4817 | 0.9150 | 0.4789 | 0.6106 | 0.4560 | 0.7906 |
 | `sam_vitb16` | 0.4734 | 0.9286 | 0.4784 | 0.6106 | 0.4560 | 0.7906 |
 | `clip_vitb16` | 0.4565 | 0.9340 | 0.4882 | 0.6106 | 0.4560 | 0.7906 |
