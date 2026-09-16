@@ -153,6 +153,62 @@ class TestTheVariantTable:
         assert sam_tag == "sam_in1k", "an in21k tag would move the pretraining data too"
         assert sam_tag != supervised_tag
 
+    def test_the_grid_control_moves_only_the_patch_size(self):
+        """`dino_vitb8` is a control on the *grid*, and only on the grid.
+
+        The corpus's most load-bearing confound was that **the only backbones
+        carrying a fine grid were the two DINOv2s**, so grid size, the DINOv2
+        objective and LVD-142M pretraining moved together and no dense board
+        could say which of the three it had ranked -- and feature resolution is
+        the strongest correlate of nearly every dense board.
+
+        This row breaks it from the other side. Same objective, same pretraining
+        set, same width and same depth as `dino_vitb16`; a patch of 8 instead of
+        16, so 784 tokens against 196. It is the mirror of `dinov2_vitb14_196`,
+        which cut DINOv2's grid *down* at fixed weights.
+
+        Pinned because the tempting edit is a "stronger" tag, and any tag but
+        `dino` would move the objective or the data and the row would stop
+        isolating the grid -- the same failure the objective family is pinned
+        against, one variable over.
+        """
+        fine_model, fine_tag = _VARIANTS["dino_vitb8"]
+        coarse_model, coarse_tag = _VARIANTS["dino_vitb16"]
+
+        assert fine_tag == coarse_tag == "dino", (
+            "the grid control must share its sibling's objective and data; a "
+            f"different tag moves more than the patch size: {fine_tag} vs {coarse_tag}"
+        )
+        assert (fine_model, coarse_model) == ("vit_base_patch8_224", "vit_base_patch16_224")
+        assert fine_model != coarse_model, "the patch size is the variable"
+
+    def test_the_grid_control_is_not_a_seventh_identical_vitb16(self):
+        """It must not be recruited into the group whose token count is fixed.
+
+        Six backbones in this corpus are ViT-B/16 at 196 tokens, and several
+        published readings rest on that group holding everything but the
+        objective fixed. `dino_vitb8` changes the token count *by design*, so
+        counting it among them would import the grid difference into a claim
+        about objectives -- the mistake `sam_vitb16` is pinned against in the
+        other direction.
+
+        `clip_vitb16` is the sixth member and is deliberately absent here: it is
+        an open_clip backbone registered in `backbones/clip.py`, so it has no
+        row in this table. Five of the six are checkable from `_VARIANTS`, and
+        that is what this checks.
+        """
+        identical = (
+            "mae_vitb16",
+            "siglip_vitb16",
+            "supervised_vitb16",
+            "dino_vitb16",
+            "sam_vitb16",
+        )
+        for name in identical:
+            model, _ = _VARIANTS[name]
+            assert "patch16" in model, f"{name} is no longer a patch-16 model: {model}"
+        assert "patch16" not in _VARIANTS["dino_vitb8"][0]
+
     def test_deit3_is_not_in_the_objective_family(self):
         """The near-miss, excluded by measurement rather than by name.
 

@@ -111,6 +111,26 @@ _VARIANTS = {
     # (both mean/std 0.5), which the objective family cannot do across all
     # three of its members.
     "sam_vitb16": ("vit_base_patch16_224", "sam_in1k"),
+    # The same objective, the same data, the same width and the same depth as
+    # `dino_vitb16` -- and a patch of 8 instead of 16, so 784 tokens against
+    # 196. It is in the corpus to break its single most load-bearing confound:
+    # **the only backbones carrying a fine grid were the two DINOv2s**, so grid
+    # size, the DINOv2 objective and LVD-142M pretraining moved together and no
+    # dense board could say which of the three it had ranked.
+    #
+    # It is the mirror of `dinov2_vitb14_196`. That control cut DINOv2's grid
+    # *down* while holding its weights fixed; this raises a non-DINOv2's grid
+    # *up* while holding its objective and data fixed. Between them the grid
+    # axis is crossed with the objective axis in both directions, which neither
+    # can do alone.
+    #
+    # It is **not** a fourth member of the six identical ViT-B/16s: the patch
+    # size changes the token count, which is exactly the variable it exists to
+    # move, so that control group stays six.
+    #
+    # It is also the most expensive row here -- 784 tokens is 4x a B/16's, so
+    # its dense features are 4x the size and every dense probe pays for it.
+    "dino_vitb8": ("vit_base_patch8_224", "dino"),
     # The *GAP* SigLIP, not the canonical one. SigLIP's own head is an
     # `AttentionPoolLatent` (`global_pool='map'`), a learned pooling VisBench
     # has no mode for; this official sibling pools by global average, which is
@@ -185,6 +205,7 @@ def describe_transformer(model: object, model_name: str) -> tuple[bool, int, str
 @register_backbone("mae_vitb16", variant="mae_vitb16")
 @register_backbone("supervised_vitb16", variant="supervised_vitb16")
 @register_backbone("dino_vitb16", variant="dino_vitb16")
+@register_backbone("dino_vitb8", variant="dino_vitb8")
 @register_backbone("sam_vitb16", variant="sam_vitb16")
 @register_backbone("siglip_vitb16", variant="siglip_vitb16")
 class TimmBackbone(BaseBackbone):

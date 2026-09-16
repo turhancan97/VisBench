@@ -9,6 +9,33 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+### Added
+
+- **`dino_vitb8`, a thirteenth backbone that exists to break a confound.**
+  `vit_base_patch8_224.dino`: the same objective, pretraining set, width and
+  depth as `dino_vitb16`, with a patch of 8 instead of 16 — **784 tokens
+  against 196**, the finest grid in the corpus and the only fine one that is
+  not a DINOv2.
+
+  **Why that matters.** Feature resolution is the strongest correlate of nearly
+  every dense board, and until now *the only backbones carrying a fine grid
+  were the two DINOv2s* — so grid size, the DINOv2 objective and LVD-142M
+  pretraining moved as one variable and no dense board could say which of the
+  three it had ranked. This row is the mirror of `dinov2_vitb14_196`: that
+  control cut DINOv2's grid **down** at fixed weights, this raises a
+  non-DINOv2's **up** at fixed objective and data. Between them the grid axis
+  is crossed with the objective axis in both directions, which neither does
+  alone.
+
+  It is **not** a seventh member of the six identical ViT-B/16s — the patch
+  size changes the token count, which is exactly the variable it moves — and a
+  fast test pins that so it cannot be quietly recruited into a claim about
+  objectives. It is also the most expensive row here: 784 tokens is 4x a
+  B/16's, so its dense features are 4x the size.
+
+  Registered and verified only; **no board, no records and no published number
+  moves**. The seventeen-cell corpus run is a separate step.
+
 ## [0.19.0] — 2026-09-16
 
 **The release that measured a probe and declined to build it — and corrected
