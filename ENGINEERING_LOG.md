@@ -1882,6 +1882,45 @@ share a linear head recovers **falls every time, five of five**.
 
 ## Steps 7a-14a — write-ups lifted from `CLAUDE.md`
 
+### 10a — `TimmBackbone` learns to read a ViT
+
+Lifted from `CLAUDE.md` on 2026-09-17, when that file crossed its budget for
+the fourth time. The rule it left behind is there; this is the derivation.
+
+**`TimmBackbone` reads a model's own structure; it used to assume a CNN's**
+  (10a). `has_cls_token` and `patch_size` were *class* attributes declaring
+  "CNN" for everything, so timm ViTs were refused outright — and a false
+  `has_cls_token` discards the CLS token while the record claims there was none
+  to keep. Read per instance from `num_prefix_tokens` and `patch_embed`, any
+  timm ViT becomes usable *and honest*, which added ConvNeXt-B, MAE ViT-B/16
+  and SigLIP-GAP ViT-B/16 in one change rather than three. Three decisions
+  inside it, each of which produces a silently wrong number rather than an
+  error — which is why `describe_transformer` is a module-level function with
+  **fast** tests over a stub, when every real timm test needs weights and is
+  `slow`:
+
+  **`default` pooling is read from timm's `global_pool`**, not inferred from
+  whether a CLS token exists. "CLS if there is one, mean otherwise" is only a
+  proxy: MAE reports `token` and SigLIP-GAP reports `avg`, so `default` means
+  different things for two models of identical shape — each matching what the
+  model hands its own classifier.
+
+  **SigLIP is the `_gap_` variant deliberately.** Canonical SigLIP pools with an
+  `AttentionPoolLatent` (`global_pool='map'`) — a *trained module*, not a
+  reduction over tokens, so it cannot be a pooling mode over cached features,
+  and `describe_transformer` refuses `map` by name. Do not "add a map mode"
+  without first deciding a pooling mode may carry weights.
+
+  **ConvNeXt breaks the "pooled is what the model hands its classifier" rule**,
+  and the exception is documented rather than smoothed over: its head is
+  `avg -> LayerNorm2d`, so the model's vector is `norm(mean(x))` where this
+  class returns `mean(x)` — max absolute difference 27.5 on one frame. Both
+  invariants cannot hold, and the one kept is structural: **`pooled` is always a
+  reduction of `dense`**, because the cache stores dense features and every
+  pooling task reduces them. A test pins which four backbones match their own
+  head and that ConvNeXt does not, in both directions.
+
+
 Moved on 2026-09-13, when `CLAUDE.md` passed the 150k-character limit it is
 loaded under for the **third** time — and for the reason that file records
 after the first two: the growth is retrospective narrative, not rules. Each

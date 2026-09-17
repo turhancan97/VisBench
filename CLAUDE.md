@@ -80,22 +80,23 @@ several of those decisions look wrong until you read the numbers.
 to `ENGINEERING_LOG.md`, and anything about *what a board means* to
 [`CORPUS_FINDINGS.md`](CORPUS_FINDINGS.md); add at most a few lines here.**
 This file is loaded into every session's context whole, so it has a budget, and
-it has now been over that budget **three times**: 203k on 2026-08-20, split
-three ways; 151k on 2026-09-03, trimmed to 134k by moving the per-release upload
-records and the v0.1/v0.2 scope to `ENGINEERING_LOG.md`; and **158k on
-2026-09-13, trimmed to ~141k** by moving fourteen closed steps' write-ups —
-14a's four bullets, the split control, the oracle gate, the 9a viewer, the 9d
-gallery, 13a's docs bullets, the 8a derived-target pair, the cluster's node
-history, the v8 re-run, the library-surface backlog and the dataset survey — to
-that file's new "Steps 7a-14a" section, collapsing the v0.1-v0.3 build-table
-rows to one line each, and replacing the three per-release paragraphs with the
-four rules they left behind.
+it has now been over that budget **four times** — 203k, 151k, 158k and **150k
+on 2026-09-17**, trimmed to ~134k by compressing eleven
+retrospective blocks to the rules they left behind: the corpus-claim list (the
+largest single block in the file, and a restatement of `CORPUS_FINDINGS.md` in
+the same detail), the pose write-up, 9a, 9d, 10a, the DPT control, the
+optional-extra trap, the split control, the second-dataset edit list, the
+closed library-surface backlog, the derived-target gauntlet and schema v8.
+**10a was the only one whose derivation was not already filed elsewhere**, so
+its full text moved to `ENGINEERING_LOG.md`; the rest were pointed at the file
+that already owned them.
 
-**All three times the growth was retrospective narrative, not rules** — so when
-it next crosses, look for a closed step's write-up or a per-release paragraph
-before touching "decisions already paid for", which is the bulk of the file and
-is what the file is for. **Each move keeps the rule here and sends the
-derivation there**; nothing is deleted, and the log's section says so.
+**Every time, the growth was retrospective narrative rather than rules** — so
+when it next crosses, look for a closed step's write-up, a per-release
+paragraph, or a claim restated here in the same detail as the file that owns
+it, before touching "decisions already paid for", which is the bulk of this
+file and is what it is for. **Each move keeps the rule here and sends the
+derivation there**; nothing is deleted, and the owning file says so.
 
 **Read `CORPUS_FINDINGS.md` before quoting any board** —
 this file keeps only the claims, and several of them corrected an earlier
@@ -675,142 +676,71 @@ designed up front; extend it the same way, from a case that already runs.
 
 - **What the corpus says is in
   [`CORPUS_FINDINGS.md`](CORPUS_FINDINGS.md), and you must read it before
-  quoting any board.** The claims are below; the evidence, the numbers and the
-  readings each one corrected are in that file, and
+  quoting any board.** Only the *rules* are below — every number, the evidence,
+  and the earlier published reading each one corrected are in that file, and
   `scripts/analyse_board_correlates.py` reproduces the correlational ones.
+  **Trimmed to rules on 2026-09-17**; nothing was lost, because each claim's
+  derivation already lived in that file, in `results/controls/README.md`, or in
+  `scripts/merge_corpus.sh`.
 
-  - **"Which backbone is best" is not a well-formed question against this
-    corpus.** `mae_vitb16` is first on six boards and last on four; a summary
-    that picks a winner is discarding the result.
-  - **A count over a corpus is a fact about that corpus, not about a backbone.**
-    Three of MAE's counts have moved without its features changing — twice
-    because a column was added, once because a *board* was. Re-read counts off
-    `LEADERBOARD.md`.
+  - **"Which backbone is best" is not well-formed against this corpus.**
+    `mae_vitb16` is first on six boards and last on four.
+  - **A count over a corpus is a fact about that corpus, not a backbone.**
+    Re-read counts off `LEADERBOARD.md`.
   - **Quote an objective gap against the *recipe* gap on the same board, never
-    against zero.** `sam_vitb16` and `supervised_vitb16` share architecture,
-    data, labels and normalisation and differ only in recipe; on seven of
-    thirteen boards that gap is more than a third of the whole objective spread,
-    and nothing in a record says which board you are on.
-  - **The semantic segmentation board separates neither training objectives nor
-    feature resolution**, which eight of the eleven grid-reading boards rank
-    by.
-    Do not present it as evidence about an objective. **Not "the one dense
-    board" — `detection` is a second exception** (2026-09-14), and the test is
-    whether another property *beats* the grid, never whether the grid
-    coefficient is small: `keypoints2d` +0.481 and `orientation` +0.511
-    straddle this board's +0.496 and are grid-ranked. **A coefficient's rank
-    among boards is a fact about which boards are in the corpus** — "the
-    highest of all thirteen" is now third of seventeen, at a value that moved
-    too.
-  - **The high-level tier is two clusters, not one** — `classification`/
-    `retrieval` (image-level categorisation) against `detection`/
-    `semantic_segmentation`/`scene_classification`/`fine_grained_classification`
-    (localised / spatial-context prediction) — which barely correlate.
-    **Two probes that are mechanically object classification with a different
-    folder both land in the *localised* cluster**, the replication that makes
-    this a property of the cluster rather than a fact about Places365:
-    `fine_grained_classification`'s strongest partner in the whole corpus is
-    `detection` at **+0.832**, against +0.322 with the object board it
-    subclasses. Treat `high_level` as a folder, not a quantity to average over;
-    mid- and low-level cohere, and the tier-mean-vs-cross-tier sign is noise
-    that has flipped both ways with corpus composition. This is not the taxonomy
-    being wrong.
-  - **That clustering is not a shared-dataset artefact**, checked: identical
-    pixels are neither sufficient nor necessary — the three same-image VOC pairs
-    span +0.378 to +0.909, and the weakest of all six VOC pairs is a same-image
-    one.
-  - **Quote `detection` to three decimals, not four**, and treat
-    `clip_vitb16`/`clip_vitb32` as **tied** — their gap is 0.0001 on a board
-    that drifts by more than that. It is GPU non-determinism a discrete metric
-    can see, and there is nothing to fix. The v8 re-run corrected two things:
-    the drift is not confined to the two 16x16-grid backbones, since every
-    14x14-token ViT-B/16 moved too, and the two CLIP rows were not "verified
-    rather than lucky" — they swapped.
-  - **Two backbones' high-level scores are close to in-distribution recall**,
-    not transfer: `convnext_base` and `supervised_vitb16` are ImageNet-1k
-    supervised and Imagenette's classes are ImageNet-1k wnids.
+    against zero** — `sam_vitb16` against `supervised_vitb16`, and nothing in a
+    record says which board you are on.
+  - **`semantic_segmentation` and `detection` are the two boards that rank by
+    neither objective nor grid.** The test is whether another property *beats*
+    the grid, never whether the grid coefficient is small — and a coefficient's
+    rank among boards is a fact about which boards are in the corpus.
+  - **The high-level tier is two clusters, not one**, and two probes that are
+    mechanically object classification land in the *localised* one. Treat
+    `high_level` as a folder, not a quantity to average over. **Never quote a
+    cluster as a property of a *task*** — the split control showed it is a
+    property of a board as configured. Not a shared-dataset artefact, checked.
+  - **Quote `detection` and `instance_segmentation` to three decimals**, and
+    treat `clip_vitb16`/`clip_vitb32` as tied. GPU non-determinism a discrete
+    metric can see; there is nothing to fix.
+  - **`convnext_base` and `supervised_vitb16` high-level scores are close to
+    in-distribution recall**, not transfer — ImageNet-1k supervised on
+    Imagenette's ImageNet-1k wnids.
   - **Feature resolution correlates with nearly every dense board, is causal
     about what a representation carries, and the LINEAR board cannot see it**
-    (`dino_vitb8`, 2026-09-16 — the grid control that
-    *raises* a non-DINOv2's grid, where `dinov2_vitb14_196` could only lower
-    DINOv2's). Tokens is the strongest structural correlate on eight of the
-    eleven grid-reading boards (`semantic_segmentation`, `detection`, and
-    marginally `keypoints2d`), and a board's *fit* tracks the grid too — 11 of
-    11, mean rho −0.681. **Quadrupling the grid at fixed objective, data, width
-    and depth moves the published LINEAR boards by a rounding error or the
-    wrong way — and the same pair with a DPT head improves 5 of 5, by one to
-    two orders of magnitude more.** The ceilings say why: they rise every time,
-    a linear head's recovered share falls every time (five of five), and a DPT
-    head sits at 88-97% of the ceiling at both grids. So resolution is causal
-    about what the representation *carries* and invisible in what VisBench
-    *reports*. **Never quote a linear board as evidence that resolution does
-    not help** — the first draft of this finding did exactly that, and its
-    headline here said "largely NOT causal" above a body saying the opposite
-    until 2026-09-16.
+    (`dino_vitb8`, 2026-09-16). Quadrupling the grid at fixed objective, data,
+    width and depth moves the published linear boards by a rounding error and
+    the same probes under a DPT head by one to two orders of magnitude more —
+    over one sibling pair, and over all ten ViTs (stronger under DPT on 4 of 5,
+    largest where the linear head recovers least of its oracle).
+    **Never quote a linear board as evidence that resolution does not help**;
+    the first draft of this finding did exactly that, and its headline here
+    contradicted its own body until 2026-09-16. `analyse_dpt_control.py --grid`
+    reprints it. Separately: **check who leads a board before explaining their
+    lead.**
+  - **The `depth` board is not ranking by metric accuracy** — it ranks ordering
+    plus feature resolution and reports it in metres. Not a defect; it
+    reproduces probe3d's protocol.
+  - **A control is rankable and still must not be listed beside the corpus**
+    (`results/controls/`, nothing there feeds a generated table). And
+    **`results/corpus/parts/` is an archive, not a queue** — `merge_corpus.sh`
+    dedups by exact JSON line, which cannot see a record deliberately kept
+    *out*; merge from a staging directory holding only your step's parts.
+  - **n=13.** Every correlation above has wide error bars.
 
-    **That is not an n=2 claim any more.** Correlating token count against each
-    of the five boards twice — once with the published linear score, once with
-    the DPT score on the same features — over **all ten ViTs** (49/196/256/784
-    tokens, four objectives) makes the grid correlation *stronger under the DPT
-    head on 4 of 5 probes*, mean rho +0.388 to **+0.701**; `keypoints2d` goes
-    +0.096 to **+0.775**. And it moves **exactly where the linear head recovers
-    least** — Spearman(linear recovered share, rho change) = **−0.900**, with
-    `corner` at 77.6% recovered not moving at all and `keypoints2d` at 35.5%
-    moving most. n=5 probes, so that mechanism fits rather than is established.
-    `scripts/analyse_dpt_control.py --group vit --grid` reprints it. Holding weights fixed and cutting DINOv2-B from 256 to 196 tokens
-    costs under 3% on all five dense boards and keeps its lead over the whole
-    ViT-B/16 pack on both boards it led; on the other three it never led, so
-    there was nothing to explain. **Check who leads a board before explaining
-    their lead.** The 2026-09-13 tie fix corrected three published coefficients
-    here and **every published board-*pair* number survived it unchanged**.
-  - **The `depth` board is not ranking by metric accuracy.** A readout that
-    discards scale and shift entirely reproduces its ranking at Spearman
-    **+1.000** over five backbones, so the board ranks *ordering plus feature
-    resolution* and reports it in metres. Not a defect: it reproduces probe3d's
-    protocol, which is why its numbers compare to anything.
-  - **A control is rankable and still must not be listed beside the corpus.**
-    `results/controls/` holds records that pass `comparability_key` against
-    their board and answer a different question from it — the corpus says what
-    a backbone scores, a control says what changes when one thing about one
-    backbone moves. Nothing there feeds a generated table.
-    **`results/corpus/parts/` is an archive, not a queue** (2026-09-16):
-    `merge_corpus.sh` merges everything it finds there and dedups by exact JSON
-    line, which stops a record already *in* the corpus being re-added and does
-    nothing about one deliberately kept *out* — it re-imported the three
-    held-out A100 cells and was caught only by diffing. **Merge from a staging
-    directory holding only your step's parts**, and note that a guard reading
-    `parts/` could not have seen this;
-    `tests/results/test_controls_stay_out_of_the_corpus.py` asserts the
-    *outcome* instead, under two strengths of match because a re-serialised
-    copy passes the exact-line one.
-  - **n=12.** Every correlation above has wide error bars.
-
-- **A trained probe records how its fit went, and the reason it took until
-  schema v8 is worth keeping** (2026-08-28). Every trained probe computed
+- **A trained probe records how its fit went** (schema v8, 2026-08-28; the
+  derivation is in `ENGINEERING_LOG.md`). Every trained probe computed
   `train_loss` — and the classification family `train_top1` — printed it to a
-  log line, and dropped it before the record, so 156 trained records could not
-  answer the one question this file says matters most about a low score:
-  whether the probe **underfitted**, which *understates* a backbone, or whether
-  the representation genuinely does not carry the answer. Those are opposite
-  conclusions from the same number, and the binary-segmentation bullet above is
-  the proof — 0.16 IoU at the defaults against 0.87 at `epochs=40`, identical
-  features. Found by friction rather than audit: the CUB write-up could claim
-  "does not underfit" for the six backbones run by hand and not for the six run
-  on the cluster, whose `train_top1` existed only in a Slurm log.
-
-  **`training` is a separate field, not entries in `metrics`.** `metrics` is
-  what `evaluate()` returned about the *evaluation* split, and every leaderboard
-  path reads it; a training number there is one the ranking code can only
-  refuse. `DIAGNOSTIC_METRICS` would have worked, which is why this was a real
-  choice — it was rejected because it blurs what `metrics` means and widens the
-  key-collision surface the `ceiling_` guard exists for. **An open dict**, for
-  `task_params`' stated reason. **`None`, not `{}`,** for the three zero-shot
-  probes: no fit happened, which is a different statement from "trained and
-  reported nothing", and it is what every pre-v8 record carries by absence.
-
-  **Never rank on it.** A probe that fits its training data perfectly has said
-  nothing yet about a backbone; on CUB every backbone reaches `train_top1`
-  1.0000, including the one that comes last.
+  log line and dropped it before the record, so 156 trained records could not
+  answer the question this file says matters most about a low score: whether the
+  probe **underfitted**, which *understates* a backbone, or whether the
+  representation genuinely does not carry the answer. Opposite conclusions from
+  the same number. **`training` is a separate field, not entries in `metrics`**,
+  because `metrics` is what `evaluate()` returned about the *evaluation* split
+  and a training number there is one the ranking code can only refuse; an open
+  dict, and **`None` rather than `{}`** for the three zero-shot probes, since no
+  fit happened is a different statement from trained and reported nothing.
+  **Never rank on it** — on CUB every backbone reaches `train_top1` 1.0000,
+  including the one that comes last.
 
 - **A re-run replaces a published record only where it *reproduces* it**
   (the schema-v8 `training` re-run, 2026-09-10; the evidence is in
@@ -941,47 +871,27 @@ designed up front; extend it the same way, from a case that already runs.
   an S-versus-B gap of 0.0035; the score alone looked like "a hard task", and
   the gap is what showed it was measuring nothing.
 - **A second dataset for an existing probe needs a new probe *name*, not a
-  flag** (`scene_classification`, 2026-08-27). `scripts/render_tables.py::board_for`
-  renders exactly one table per task and **refuses a task with more than one
+  flag** (`scene_classification` 2026-08-27, confirmed edit for edit by
+  `fine_grained_classification`; the full edit list is in `ENGINEERING_LOG.md`).
+  `board_for` renders one table per task and **refuses a task with more than one
   comparability group**, and `comparability_key` groups by dataset name and
-  fingerprint — so a Places365 record under `task="classification"` does not
-  merge with the Imagenette board, it makes that board *unrenderable*. Scene
-  classification is therefore `SceneClassificationTask(ClassificationTask)` with
-  `self.name = "scene_classification"` and a `protocol` string, exactly as
-  `corner` is a renamed `DenseMagnitudeTask`. Adding the name means touching
-  every fixed table that a `test_show_command.py` assertion pins equal to
-  `list_probes()`: `_REGISTRATION_MODULES`, `HEADLINE_METRICS`, the CLI `SPECS`
-  row, `TARGET_STYLES`, both corpus-script probe arrays, the gallery `figures()`
-  map and a committed `docs/_static/gallery/<name>.png`, and
-  `analyse_board_correlates.py`'s copied `HEADLINE_METRICS`. Then the board step
-  adds `analyse_board_correlates.py`'s `SOURCE_IMAGES` (hand-written, a test
-  fails without it), a board marker on its own `docs/probes/<level>/<name>.md`
-  page (which `render_tables.py` derives from `list_probes()`, so the page must
-  exist or `--check` fails), and — because a fourteenth
-  high-level board shifts every tier and source correlation — a deliberate
-  rewrite of the tier-coherence test and finding. A probe that is "just a
-  dataset swap" is still a dozen small edits plus a corpus analysis, because
-  the name is load-bearing everywhere and the board is not inert.
+  fingerprint — so a second dataset under the same task name does not merge with
+  the old board, it makes that board **unrenderable**. The name is load-bearing
+  in roughly a dozen fixed tables that a test pins equal to `list_probes()`
+  (`_REGISTRATION_MODULES`, `HEADLINE_METRICS`, the CLI `SPECS` row,
+  `TARGET_STYLES`, both corpus-script arrays, the gallery map and its committed
+  figure, `analyse_board_correlates.py`'s copies), plus a `docs/probes/` page
+  and a corpus analysis, because **a new board is not inert**. Treat that list
+  as complete rather than re-deriving it. Three probes now share one
+  implementation and ask three questions — basic-level, place, subordinate — and
+  a test pins all three identities *and* that their `protocol` strings differ,
+  since the failure mode is two collapsing into one board. One thing the list
+  did not cover: **a guard's budget should express what it documents** — the
+  gallery's flat 4 MB total let an oversized page pass while there was slack and
+  then fired on someone else's reasonable figure, so it is per figure now.
+  **Raising a budget to make a guard pass is usually wrong; check first whether
+  the budget was measuring the right thing.**
 
-  **Confirmed a second time by `fine_grained_classification`** (CUB-200-2011,
-  2026-08-28), which followed that edit list exactly and needed nothing not on
-  it — so treat the list as complete rather than re-deriving it. Three probes
-  now share one implementation and ask three questions, which is the point:
-  `classification` is basic-level, `scene_classification` is place, and
-  `fine_grained_classification` is subordinate. A test pins all three
-  identities *and* that their three `protocol` strings are distinct, since the
-  failure mode is two of them collapsing into one board.
-
-  One thing that list did *not* cover, found by the sixteenth probe: **the
-  gallery had a flat 4 MB size budget, and a new figure failed it by existing.**
-  The gallery was at 4.03 MB with a perfectly ordinary 220 KB page, and these
-  are photographs — ~80k distinct colours, so lossless re-encoding buys under
-  1% and there was nothing to shrink. The guard was also not expressing what it
-  documents: a *total* budget lets one page rendered at four times its intended
-  size pass while there is slack, then fires on someone else's reasonable
-  figure later. It is per figure now (`MAX_FIGURE_BYTES`), with the total scaled
-  by `len(list_probes())`. **Raising a budget to make a guard pass is usually
-  wrong; check first whether the budget was measuring the right thing.**
 - **The instance probe is `DetectionTask` plus a mask branch, and every
   decision in it is about staying attributable** (14a-3/14a-4). `InstanceHead`
   is a `DetectionHead` plus **one 1x1 convolution** over RoI-aligned features,
@@ -1017,33 +927,18 @@ designed up front; extend it the same way, from a case that already runs.
   split control settled the rest** (2026-09-09) — see the next bullet.
 
 - **A board's cluster membership is partly a property of its *split*, and
-  `detection` is the proof** (the split control,
-  `results/controls/detection_split.jsonl`, 24 records;
-  `scripts/analyse_split_control.py` reprints every number, and
-  `CORPUS_FINDINGS.md` carries the reading). Run `detection` on the instance
-  probe's 1464/1449 `ImageSets/Segmentation` images instead of its own 600
-  `Main` frames — same probe, head, losses, matcher and metric — and it
-  **changes cluster**: `occlusion_edge` +0.483 to **+0.965**, mean **+0.784**
-  against mid-level. Once images and size match, `detection` and
-  `instance_segmentation` rank the same board (**+0.958**), and neither half of
-  the data explains it alone. `mae_vitb16` shows it plainly: **0.1296 on the
-  published board (tenth of twelve) against 0.3371 on the segmentation split
-  (first)**.
-
-  **Never quote a cluster as a property of a *task*** — it is a property of a
-  board as configured. The two-cluster structure and mid/low coherence are
-  untouched, and **no published number moves**: what was contingent was always
-  the reading. Three more things it settled. The published board *does*
-  underfit relative to the full split, **12/12** backbones (mean `train_loss`
-  1.3500 against 1.3071) — a question only the v8 `training` field could answer.
-  It **retired an already-published finding's argument**: "the clustering is not
-  a shared-dataset artefact" no longer rests on the weakest VOC pair, since this
-  probe is a third board on those same 1449 images and is
-  `generic_segmentation`'s nearest neighbour of all; the conclusion survives on
-  different evidence, so **do not quote the old ordering**. And **the control as
-  first written down was impossible** — `CORPUS_FINDINGS.md` called for the
-  instance head on `ImageSets/Main --limit 600`, where 459 of those 600 stems
-  have no mask — so checking beat assuming, and inverting it was the better
+  `detection` is the proof** (the split control; every number in
+  `results/controls/README.md`, reprinted by `scripts/analyse_split_control.py`,
+  with the reading in `CORPUS_FINDINGS.md`). Run `detection` on the instance
+  probe's segmentation images instead of its own 600 — same probe, head, losses,
+  matcher and metric — and it **changes cluster**. **Never quote a cluster as a
+  property of a *task***; it is a property of a board as configured, and **no
+  published number moves** — what was contingent was always the reading. It also
+  showed the published board underfits relative to the full split (12/12, a
+  question only v8's `training` could answer), and **retired an earlier
+  finding's argument while the conclusion survived on different evidence**, so
+  do not quote the old ordering. **The control as first written down was
+  impossible** — checking beat assuming, and inverting it was the better
   experiment anyway.
 
 - **Mask AP is the detection protocol with the overlap swapped, and the
@@ -1301,34 +1196,19 @@ designed up front; extend it the same way, from a case that already runs.
   would make it stop demonstrating the library.
 
 - **A derived target is the cheapest kind to add and the easiest to fool
-  yourself with** (8a). Corner detection computes its target from the RGB frame,
-  so it needs no dataset — and three things had to be measured before it was
-  worth shipping, none of which a probe run would have revealed. The numbers are
-  in `visbench/tasks/low_level/README.md`; the rules are:
-
-  **Check the tail, before writing the task.** Every raw corner response was
-  more concentrated than `edge_occlusion`'s 0.46 — the case that scored 0.088
-  and ranked nothing; `log1p(1e4·λ_min)` brings it to 0.089, and **Shi-Tomasi
-  rather than Harris**, since λ_min is non-negative by construction and has no
-  `k`.
-
-  **Check the overlap with what already ships**, which nothing previously asked
-  for. The corner target correlates **0.52** with `edge_texture` where that and
-  `keypoints2d` correlate 0.147 with each other, and the overlap is *intrinsic*,
-  holding across eight transforms: a corner is a pixel whose gradient is large
-  in two directions and an edge map is gradient magnitude. A first pass blamed
-  the `log1p` and was wrong.
-
-  **A correlated target can still rank differently, and that is the criterion.**
-  Spread over six backbones 0.1603 against edge's 0.1136, with CLIP-B/16 first
-  on edges and third on corners; had the ordering matched, it should not have
-  shipped. **Do not read one pair as a failure to rank** — DINOv2-S and B differ
-  by 0.0014 here, which looks like the occlusion-edge failure and is not; ask
-  about the spread over the full set.
-
-  **Computing the target after the crop deletes the alignment hazard rather
-  than testing for it.** No second geometry, no resampling of the response —
-  the strongest property of this class of target, and why
+  yourself with** (8a; the numbers are in `visbench/tasks/low_level/README.md`).
+  It needs no dataset, and three things had to be measured before it was worth
+  shipping, none of which a probe run would have revealed. **Check the tail
+  before writing the task** — `edge_occlusion`'s concentration is the case that
+  scored 0.088 and ranked nothing, so `corner` uses `log1p` and **Shi-Tomasi
+  rather than Harris**, λ_min being non-negative by construction with no `k`.
+  **Check the overlap with what already ships**: the corner target correlates
+  0.52 with `edge_texture`, *intrinsically*, holding across eight transforms —
+  a first pass blamed the `log1p` and was wrong. **A correlated target can still
+  rank differently, and that is the criterion**; had the ordering matched, it
+  should not have shipped, and **one pair is not a failure to rank** — ask about
+  the spread over the full set. **Computing the target after the crop deletes
+  the alignment hazard rather than testing for it**, which is why
   `DerivedTargetDataset` does not subclass `DenseFolderDataset`.
 
 - **The gauntlet asks whether a target is distinctive; it never asked whether
@@ -1378,20 +1258,20 @@ designed up front; extend it the same way, from a case that already runs.
     and measure it on the samples the metric will use;
     `scripts/premeasure_ordering.py` is the worked example.
   - **It models a *linear* head exactly, and it is a bar for the head VisBench
-    reports rather than a bound on what is achievable** (widened from two
-    backbones to the whole corpus 2026-09-04; full write-up in
-    `results/controls/README.md`). A DPT head reaches **54-104%** of the oracle
-    across the five probes and nine twelve-block ViTs, exceeding it in 2 of 45
-    cells, both `mae_vitb16` — **not a property of decoders**, which is the
-    reading the two-backbone version invited. **A head is not a neutral
-    magnifying glass** either: two of five ViT boards change leader and 24 of
-    174 separable pairs reorder, and on the CNNs `convnext_base` goes first to
-    last — the demonstration behind reporting the *linear* number when comparing
-    representations. **A DPT number is good to three decimals**, where the
-    linear boards reproduce at ~1e-7, so count a reordering only over pairs both
-    boards separate by more than that drift. A CNN's DPT run moves the oracle
-    too (`_grid_of` takes the finest map), so only the DPT/linear *gain* is
-    comparable there, and the ViT group is the clean control.
+    reports rather than a bound on what is achievable** (the DPT control; every
+    number is in `results/controls/README.md`, which
+    `scripts/analyse_dpt_control.py` reprints). A DPT head reaches 54-104% of
+    the oracle across five probes and nine ViTs, exceeding it only for
+    `mae_vitb16` — **not a property of decoders**, which is the reading the
+    n=2 version invited. **A head is not a neutral magnifying glass**: two of
+    five ViT boards change leader, 24 of 174 separable pairs reorder, and on
+    the CNNs `convnext_base` goes first to last — the demonstration behind
+    reporting the *linear* number when comparing representations. **A DPT
+    number is good to three decimals** where the linear boards reproduce at
+    ~1e-7, so count a reordering only over pairs both boards separate by more
+    than that. **A CNN's DPT run moves the oracle too**, so only the
+    DPT/linear *gain* is comparable there and the ViT group is the clean
+    control.
 
   **It has now refused something** (2026-09-01). The BSDS500 probe was not built
   because the gate put a linear probe's ceiling at **0.4193 ODS** on the 16x16
@@ -1437,52 +1317,20 @@ designed up front; extend it the same way, from a case that already runs.
   `Kind` of its own mapping `2θ` to hue and coherence to brightness, so a flat
   patch reads as black rather than a confident wrong colour.
 
-- **A viewer that applies its own geometry is worse than no viewer** (9a). This
-  is the single rule `visbench/viz/` exists to keep, and it inverts the usual
-  cost/benefit: a panel's entire evidential content is whether the image and the
-  target line up, so a viewer that resizes for layout, re-reads the source file
-  or re-crops can make a *misaligned pipeline look fine and a correct one look
-  broken*. It is guaranteed by pasting `np.asarray(dataset[i][0])` unchanged,
-  which is cheap only because dense datasets already yield a PIL image at the
-  working resolution rather than a normalised tensor — there is nothing to
-  invert. A fast test pins the image panel byte-for-byte.
-
-  **Four validity conventions, one listed table, no fallback.** They are
-  invisible in a tensor's shape or dtype, so `TARGET_STYLES` is keyed per probe
-  and `style_for` raises on an unlisted one — `METRIC_DIRECTIONS`' posture, for
-  the same reason. A "scalar map, mask the zeros" default is right for depth and
-  silently wrong for the four probes where 0 is a real reading, and it
-  *renders*: the panel comes out looking like a target full of holes.
-
-  **A prediction is drawn against the target's range, not its own.** Scaling
-  each panel to its own extremes is the obvious implementation and it hides the
-  most common way a regression head is wrong: a prediction uniformly half the
-  target's magnitude renders identically to a correct one. The test asserts both
-  halves — that the shared range separates them, *and* that independent ranges
-  do not — because only the second one fails if someone "simplifies" it back.
-
-  **Magenta for invalid, chosen because no colouriser here can produce it**, and
-  a test asserts that as a *distance*, so a future colouriser cannot make the
-  marker ambiguous. That matters because `depth` is drawn as a **ramp** rather
-  than grey (2026-09-06): greyscale's no-dependency argument holds everywhere,
-  but its "a ramp's transitions read as edges" argument is a fact about a
-  *magnitude*, and depth is not one — mid-grey means nothing to the eye for "how
-  far". The anchors are viridis **with its purple end dropped**, four degrees
-  from magenta; `magnitude` stays grey. When adding a colouriser assert the
-  luminance is **non-decreasing plus a rising endpoint** — `>= 0`, never `> 0`;
-  the ramp has 5 ties in 255 steps because it spans only ~205 uint8 levels — and
-  start a fixture at 0.1, since a row starting at 0 is painted with the invalid
-  marker and every property is then measured against *that*.
-
-  **A range caption reads `"1.632 to 7.014 m"`.** A magnitude probe's
-  `_activate` is the identity, so a head may predict below zero and often does;
-  `-0.3318--1.956` reads as a subtraction. `to` rather than an en dash, per the
-  ASCII rule the bitmap font imposes.
-
-  One thing it is deliberately **not**: it does not train. That is
-  `run --save-probe`, added alongside, because `--push-to` needed a Hub account
-  and the prediction column otherwise had no CLI-producible input.
-  `correspondence` was out of scope for 9a and is covered by 9b, below.
+- **A viewer that applies its own geometry is worse than no viewer** (9a; the
+  measurements and the four bugs are in `ENGINEERING_LOG.md`). A panel's entire
+  evidential content is whether the image and the target line up, so a viewer
+  that resizes, re-reads the source or re-crops can make a *misaligned pipeline
+  look fine and a correct one look broken*. Guaranteed by pasting
+  `np.asarray(dataset[i][0])` unchanged; a fast test pins it byte-for-byte.
+  Four rules: **four validity conventions, one listed table, no fallback**
+  (`TARGET_STYLES`, `style_for` raises — a "mask the zeros" default is silently
+  wrong for the four probes where 0 is real, and it *renders*); **a prediction
+  is drawn against the target's range, not its own**, and the test asserts both
+  halves, since only the second fails if someone simplifies it back; **magenta
+  marks invalid** because no colouriser here can produce it, asserted as a
+  distance; and **captions are ASCII** (PIL's built-in font draws an empty box
+  for an em dash). It deliberately does not train — that is `run --save-probe`.
 
 - **The three probes with no spatial target draw their *decision*** (9c).
   `classification`, `retrieval` and `similarity` have nothing to lay beside the
@@ -1525,70 +1373,36 @@ designed up front; extend it the same way, from a case that already runs.
   describes.
 
 - **`TimmBackbone` reads a model's own structure; it used to assume a CNN's**
-  (10a). `has_cls_token` and `patch_size` were *class* attributes declaring
-  "CNN" for everything, so timm ViTs were refused outright — and a false
-  `has_cls_token` discards the CLS token while the record claims there was none
-  to keep. Read per instance from `num_prefix_tokens` and `patch_embed`, any
-  timm ViT becomes usable *and honest*, which added ConvNeXt-B, MAE ViT-B/16
-  and SigLIP-GAP ViT-B/16 in one change rather than three. Three decisions
-  inside it, each of which produces a silently wrong number rather than an
-  error — which is why `describe_transformer` is a module-level function with
-  **fast** tests over a stub, when every real timm test needs weights and is
-  `slow`:
+  (10a; derivation in `ENGINEERING_LOG.md`). `has_cls_token` and `patch_size`
+  were *class* attributes declaring "CNN" for everything, so timm ViTs were
+  refused — and a false `has_cls_token` discards the CLS token while the record
+  claims there was none to keep. Read per instance, any timm ViT becomes usable
+  *and honest*. Three decisions inside it, each producing a silently wrong
+  number rather than an error — which is why `describe_transformer` is a
+  module-level function with **fast** tests over a stub: **`default` pooling is
+  read from timm's `global_pool`**, not inferred from whether a CLS token
+  exists (MAE reports `token`, SigLIP-GAP `avg`); **SigLIP is the `_gap_`
+  variant deliberately**, since canonical SigLIP pools with a *trained module*
+  that cannot be a pooling mode over cached features, and `map` is refused by
+  name; and **ConvNeXt breaks the "pooled is what the model hands its
+  classifier" rule**, documented rather than smoothed over, because the
+  invariant kept is structural — **`pooled` is always a reduction of `dense`**.
 
-  **`default` pooling is read from timm's `global_pool`**, not inferred from
-  whether a CLS token exists. "CLS if there is one, mean otherwise" is only a
-  proxy: MAE reports `token` and SigLIP-GAP reports `avg`, so `default` means
-  different things for two models of identical shape — each matching what the
-  model hands its own classifier.
-
-  **SigLIP is the `_gap_` variant deliberately.** Canonical SigLIP pools with an
-  `AttentionPoolLatent` (`global_pool='map'`) — a *trained module*, not a
-  reduction over tokens, so it cannot be a pooling mode over cached features,
-  and `describe_transformer` refuses `map` by name. Do not "add a map mode"
-  without first deciding a pooling mode may carry weights.
-
-  **ConvNeXt breaks the "pooled is what the model hands its classifier" rule**,
-  and the exception is documented rather than smoothed over: its head is
-  `avg -> LayerNorm2d`, so the model's vector is `norm(mean(x))` where this
-  class returns `mean(x)` — max absolute difference 27.5 on one frame. Both
-  invariants cannot hold, and the one kept is structural: **`pooled` is always a
-  reduction of `dense`**, because the cache stores dense features and every
-  pooling task reduces them. A test pins which four backbones match their own
-  head and that ConvNeXt does not, in both directions.
-
-- **The docs gallery is real photographs, and the licence rule that made it
-  generated was satisfied by better sourcing rather than waived** (9d, replaced
-  2026-08-19). **VOC, ImageNet, NYUv2, Taskonomy and NIGHTS all restrict
-  redistribution and appear nowhere in this repository.** Open Images'
-  validation split is CC BY 2.0, so `scripts/fetch_gallery_frames.py` reads from
-  there, the frames are committed (`assets/gallery_frames/`, 1.5 MB) and **the
-  licence is verified per frame rather than inherited**, refusing any frame
-  lacking an author or landing page. `CREDITS.md` is generated beside them and a
-  test fails on an uncredited photograph, because CC BY compliance rots
-  silently: the page renders correctly either way.
-
-  **Four probes cannot have a target column and must not be given one** —
-  `depth`, `surface_normal`, `keypoints2d` and `occlusion_edge` need sensor or
-  reconstruction geometry no redistributable photograph carries, so they render
-  `image | prediction` from a *published* Hub head with a footer saying so; an
-  invented middle column would teach the wrong convention to exactly the reader
-  who came to learn it. Two details cost an attempt each: a trained head's
-  `output_size` is **fitted state**, so these emit 224x224 whatever they are fed
-  and the figure must be rendered at 224; and they are drawn on **interiors**,
-  since the heads were fitted on NYUv2 rooms.
-
-  **The figures live under `docs/_static/`, not `assets/`** — Sphinx cannot
-  follow a relative path escaping its source tree and MyST does not warn, so
-  `-W` would not catch `../assets/...`; the site would simply have holes. The
-  README points at the same files through `raw.githubusercontent.com`, and they
-  are excluded from the sdist.
-
-  **Every gallery bug so far was found by looking at the output, never by a
-  test** — five of them now, the newest an instance colour that blended into the
-  magenta invalid marker (14a-4). **When a page cannot be rendered in the fast
-  suite, make what it *says* a pure function** — `frame_stem`/`frame_label` in
-  `panels.py`, shared by both pages so they cannot drift again.
+- **The docs gallery is real photographs, and the licence rule was satisfied by
+  better sourcing rather than waived** (9d/11a; full write-up in
+  `ENGINEERING_LOG.md`). **VOC, ImageNet, NYUv2, Taskonomy and NIGHTS all
+  restrict redistribution and appear nowhere in this repository**; Open Images
+  validation is CC BY 2.0, the frames are committed, and **the licence is
+  verified per frame rather than inherited** because CC BY compliance rots
+  silently — the page renders correctly either way. **Four probes cannot have a
+  target column and must not be given one** (`depth`, `surface_normal`,
+  `keypoints2d`, `occlusion_edge`): they need sensor geometry no redistributable
+  photograph carries, so they render `image | prediction` from a published head
+  with a footer saying so. **The figures live under `docs/_static/`**, since
+  Sphinx cannot follow a path escaping its source tree and `-W` would not catch
+  it. **Every gallery bug so far was found by looking at the output, never by a
+  test** — so when a page cannot be rendered in the fast suite, make what it
+  *says* a pure function.
 
 - **`show` and `run` compose their flags from one callable, and that is a
   correctness property rather than tidiness** (9a). `ProbeSpec.show_arguments`
@@ -1724,36 +1538,19 @@ designed up front; extend it the same way, from a case that already runs.
   deliberately excluded from that check and carries no `doi` key**: it is the
   deposit's *input*, so a `doi` there claims a pre-reserved identifier rather
   than recording the minted one.
-- **The optional-extra trap has now been hit four times.** v0.6.0's hub tests
-  needed `huggingface_hub` at monkeypatch time and CI installs `.[dev]` only;
-  7c's issue-template test needed PyYAML, present locally via timm; **13a's
-  docstring guard needed `sphinx` and `docutils`**, which are in the `docs`
-  extra, and it reached a pull request — seven red tests on both Pythons after
-  all six local checks were green. The second was caught *before* pushing by
-  blocking the import the way `CONTRIBUTING.md` documents (the `find_spec`
-  recipe). **The third was not, and the reason is worth keeping: the docs build
-  had been run and passed, which felt like it covered Sphinx.** It does not —
-  that build installs `.[all,docs]` and the *test* suite does not. Run the
-  blocker whenever a fast test touches `clip`, `timm`, `hub`, `yaml`,
-  `datasets` or `sphinx`; the six verification commands cannot catch this,
-  because they run in the environment that has everything.
-
-  **Declare it; do not skip it.** A `pytest.importorskip` would have made the
-  suite green and left the guard uninstalled in exactly the environment that
-  gates every pull request — the `slow`-only failure with a different label.
-
-  **The fourth instance is not a package: `.venv/` itself** (2026-09-10). Four
-  tests running `slurm/corpus.sbatch` pointed `VISBENCH_REPO` at the real
-  repository, so the script's "Not a VisBench checkout with a .venv" guard fired
-  on CI — which installs into the runner's own environment — while passing
-  locally. The family is wider than optional extras: **a test must not depend on
-  anything that exists because of how this machine is set up.** The fix is a
-  stub the test builds itself, which is also what makes it a test of the script
-  rather than of the checkout.
-
-**The bullets below were lifted out of the v0.3 step write-ups when those moved
-to [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md). Each states the rule; the log has
-the measurement behind it, under the step named in brackets.**
+- **The optional-extra trap has now been hit four times** (the four instances
+  are in `ENGINEERING_LOG.md`). CI installs `.[dev]`, so a fast test that needs
+  `clip`, `timm`, `hub`, `yaml`, `datasets` or `sphinx` is green locally and red
+  on every pull request. **Run the `find_spec` import blocker `CONTRIBUTING.md`
+  documents whenever a fast test touches one**; the six verification commands
+  cannot catch this, because they run in the environment that has everything.
+  **Having run the docs build is not coverage for Sphinx** — that build installs
+  `.[all,docs]` and the test suite does not, which is how the third one reached
+  a PR. **Declare it; do not skip it**: a `pytest.importorskip` makes the suite
+  green and leaves the guard uninstalled in exactly the environment that gates
+  every PR. **The fourth instance is not a package but `.venv/` itself**, so the
+  family is wider — **a test must not depend on anything that exists because of
+  how this machine is set up**; build the stub the test needs itself.
 
 - **Boxes are `xyxy`, absolute post-transform pixels, 0-indexed — convert at the
   loader boundary and nowhere else** (6c). VOC stores `xyxy` and is *1*-indexed,
@@ -2121,50 +1918,28 @@ folder already here. A magnitude target is a generator plus a
 `visbench/tasks/low_level/orientation.py` provides as the second worked example.
 
 **Relative camera pose ranks, and it needs a nonlinear head** (measured
-2026-09-14, **corrected 2026-09-15**; `scripts/premeasure_pose.py`, write-up in
-`visbench/tasks/low_level/README.md`). It reads *pooled* features, so it is far
-cheaper than the roadmap's "harder" tier implies, and NAVI is on this machine.
-At eight partners per training anchor — 50,519 training pairs against the same
-1,740 validation pairs, floor **66.85 deg** — all four ViT-B/16s differing only
-in objective clear the floor by **24.5 to 42.6 deg**, with every adjacent pair
-5-7x the widest seed range apart.
+2026-09-14, **corrected 2026-09-15**; `scripts/premeasure_pose.py`, and the
+full derivation — every pair count, the floor, the curve and the two traps — in
+`visbench/tasks/low_level/README.md`, trimmed from here 2026-09-17). It reads
+*pooled* features, so it is far cheaper than the roadmap's "harder" tier
+implies, and NAVI is on this machine. Four rules survive:
 
-**Its first reading said the opposite and was wrong, which is the lesson.** At
-one partner per anchor (6,477 training pairs against a 1,536-dim head input)
-`clip` and `sam` cleared the floor by 0.31 and 0.24 — at chance — and it was
-written up as "a detector for masked reconstruction" rather than a ranking.
-That was **overfitting at n≈d**: `train_loss` ~1e-3 beside a validation error
-pinned at the floor. **Before concluding a probe fails to separate, check the
-training-pair count against the head's input width** — a candidate measured
-where the head cannot generalise looks exactly like one that does not rank.
-
-**Its curve never flattens, and the pairing rule runs out first** (five points,
-6,477 to 92,521 training pairs, floor stable within 0.13 deg). The ordering is
-stable over four consecutive points, but the spread compresses 25.68 to 16.87
-as data grows — the weak rows gain faster, so part of a small-sample gap is
-**data efficiency**, not representation. The last doubling is the first to
-decelerate and adds only **1.83x** pairs rather than 2x, because anchors run
-out of eligible views. **A pose board must pin its pair count as protocol**,
-the way `corner` pins its frame set. And separation relative to noise is
-*worse* at sixteen partners than at eight (2.2-2.6x against 5.7-8.2x), so the
-largest pair count is not automatically the most trustworthy row.
-
-**`LinearHead` cannot express it**, measured on the same 50,519 pairs: it
-underfits (`train_loss` 0.0725-0.0732, flat across all four and 40x the MLP's),
-clears the floor by only 2.7-3.5, and its residual ordering nearly inverts the
-MLP's at the top. So a pose board departs from `hidden_dim=0` deliberately or
-not at all. **And `spread / noise` has now misled in both directions** — 12.4x
-carried by one strong row, 3.2x by one weak one — so quote the per-row margin
-over the floor and the adjacent gaps, never the spread.
-
-Two traps it paid for, both of which printed a *plausible* table rather than
-failing: **NAVI translation is millimetres and the reference divides by 1000** —
-omit it and MSE over `[quat, trans]` optimises translation alone, every backbone
-lands worse than the floor, and the tell is that a trained head cannot lose to a
-constant; and **a sibling project's 28.2 deg spread was quoted as evidence pose
-"clearly ranks"** when its own weakest two rows sit at this floor. Reading a
-range as signal without its floor is what the floor rule exists to stop, and it
-was done while writing the script that measures the floor.
+- **`LinearHead` cannot express it** — it underfits, and its residual ordering
+  nearly inverts the MLP's at the top. **So a pose board departs from
+  `hidden_dim=0` deliberately or not at all**, which is a decision about what
+  VisBench's boards mean, not an implementation detail.
+- **A pose board must pin its pair count as protocol**, the way `corner` pins
+  its frame set. The curve never flattens, the pairing rule runs out first, and
+  the spread *compresses* as data grows — so part of a small-sample gap is
+  **data efficiency**, not representation.
+- **Before concluding a probe fails to separate, check the training-pair count
+  against the head's input width.** The first reading said the opposite of the
+  corrected one and was **overfitting at n≈d**; a candidate measured where the
+  head cannot generalise looks exactly like one that does not rank.
+- **Quote the per-row margin over the floor and the adjacent gaps, never the
+  spread** — `spread / noise` has now misled in *both* directions. And reading
+  a range as signal without its floor is what the floor rule exists to stop; it
+  was done while writing the script that measures the floor.
 
 Three hazards to carry into any of them, all paid for: **check the tail** before
 assuming the magnitude protocol transfers (`edge_occlusion` at 46% of its mass
@@ -2177,31 +1952,19 @@ the smoothing and the non-maximum suppression all move the target.
 
 ### The library-surface backlog — closed 2026-08-28
 
-Added 2026-08-14, after a read of what a new user would reach for and not find.
-All three shipped — `visbench show` (9a-9d), `examples/custom_backbone.py`, and
+All three shipped — `visbench show` (9a-9d), `examples/custom_backbone.py` and
 the **dataset bridges** — and **none was a defect**: each was already reachable
-by writing Python, and what was missing was the shortest path, so it changed no
-number, as v0.7 did. `docs/roadmap.md` has the public version and the
-pre-bridge reasoning for each; the full write-up is in the engineering log.
-
-**What the bridges left as rules.** `TorchvisionDataset` and
-`HuggingFaceDataset` (`visbench/data/bridges.py`) are thin `BaseDataset`
-adapters; `datasets` is an extra, imported lazily so `import visbench` never
-needs it, and declared in `dev` too, or the bridge tests skip in CI — the
-optional-extra trap, pre-empted. On the CLI, `--dataset torchvision:CIFAR10` /
-`--dataset hf:cifar100:name=cifar100` replaces `--data` on the three
-**image-level** probes only; a dense, pair or triplet probe raises, because an
-HF dataset carrying a dense target is a much larger surface (per-probe
-target-column plumbing, loader/dtype selection, the four validity conventions).
+by writing Python, so the backlog changed no number, as v0.7 did.
+`docs/roadmap.md` has the public version and `ENGINEERING_LOG.md` the full
+write-up. What the bridges left as rules: `datasets` is an extra imported
+lazily and **declared in `dev` too**, or the bridge tests skip in CI;
+`--dataset torchvision:… / hf:…` replaces `--data` on the three **image-level**
+probes only, since a dense, pair or triplet target is a much larger surface;
 **`cache_identity` is the method a bridge must not skip** — return `None` and
-every run re-decodes every image forever while appearing to work, the
-`view_identity` failure — so both lean on index-order immutability: an HF
-`_fingerprint` plus the row, and for torchvision the `ImageFolder` family's
-path/size/mtime with a **weaker** `repr(dataset)` sha256 otherwise, documented
-on the class rather than hidden. `describe()` adds `dataset_source` so a bridge
+every run re-decodes every image forever while appearing to work, so both lean
+on index-order immutability; and `describe()` adds `dataset_source` so a bridge
 record lands in its own comparability group rather than merging with a folder
-board. And `balanced_subset` lives on `BaseDataset` now, since it needs only
-`labels()` and `subset()`.
+board.
 
 ---
 
