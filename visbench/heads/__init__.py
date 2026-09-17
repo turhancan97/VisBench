@@ -10,6 +10,7 @@ from visbench.heads.detection import DetectionHead
 from visbench.heads.dpt import DPTHead
 from visbench.heads.instance import InstanceHead
 from visbench.heads.linear import LinearHead
+from visbench.heads.pose import PoseHead
 
 __all__ = [
     "BaseHead",
@@ -17,6 +18,7 @@ __all__ = [
     "DPTHead",
     "DetectionHead",
     "InstanceHead",
+    "PoseHead",
     "register_head",
     "get_head",
     "build_head",

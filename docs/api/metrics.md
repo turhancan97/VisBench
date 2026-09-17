@@ -65,6 +65,15 @@ BSDS500's ODS/OIS/AP, written from the paper and validated against its published
    :members:
 ```
 
+## Camera pose
+
+probe3d's pairwise protocol: a wxyz quaternion and a translation in metres. The floor lives here beside the score because a rotation error is uninterpretable on its own — pairs drawn within 120 degrees have a median near 65, so predicting a constant already scores about 67.
+
+```{eval-rst}
+.. automodule:: visbench.metrics.pose
+   :members:
+```
+
 ## Detection
 
 VOC's protocol, including the subtlety that `difficult` objects are *ignored* rather than dropped. Measured on oracle predictions the difference is 4.3 mAP, and the wrong one is **lower** — so it reads as a weak detector rather than as a scoring bug.

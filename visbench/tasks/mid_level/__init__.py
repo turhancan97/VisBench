@@ -8,12 +8,15 @@ v0.2: depth, surface normals and generic segmentation (trained heads on frozen
 features), plus mid-level image similarity (zero-shot 2AFC).
 v0.4: occlusion-edge detection, the geometric counterpart of the low-level
 texture-edge probe — same implementation, different target, one level apart.
+16a-2: relative camera pose — pairwise 7D regression over *pooled* features,
+and the one probe here whose head is deliberately not linear.
 """
 
 from visbench.tasks.mid_level.correspondence import CorrespondenceTask
 from visbench.tasks.mid_level.depth import DepthTask
 from visbench.tasks.mid_level.generic_segmentation import GenericSegmentationTask
 from visbench.tasks.mid_level.occlusion_edge import OcclusionEdgeTask
+from visbench.tasks.mid_level.pose import RelativePoseTask
 from visbench.tasks.mid_level.similarity import MidLevelSimilarityTask
 from visbench.tasks.mid_level.surface_normal import SurfaceNormalTask
 
@@ -23,5 +26,6 @@ __all__ = [
     "GenericSegmentationTask",
     "MidLevelSimilarityTask",
     "OcclusionEdgeTask",
+    "RelativePoseTask",
     "SurfaceNormalTask",
 ]

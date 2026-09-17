@@ -68,6 +68,9 @@ step is next rather than attempting the whole roadmap in one session.
 | 14a-4 | Instance segmentation: the 12-backbone board and the probe's own page | done |
 | 15a | `dino_vitb8`: the grid control, raised rather than lowered | done |
 | 15b | The grid finding at n=10: DPT-vs-linear across every ViT | done |
+| 16a-1 | Relative camera pose: the NAVI pair set and the pose metric | done |
+| 16a-2 | Pose: `PoseHead` + the task, proved against the pre-measurement | done |
+| 16a-3 | Pose: registration, the 13-backbone board, the viewer, the docs page | next |
 
 **A closed step's full write-up lives in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md), not here.** That file is the archive
@@ -154,8 +157,15 @@ published claim:
   refuted half of 10d's own published claim before either shipped, and the
   three-tier separation 10b announced no longer holds for *high-level*.
 
-**There is no `next` step, and no open candidate line.** The remaining work is
-the candidate task backlog further down this file; its cheap end is exhausted,
+**The open line is relative camera pose**, an eighteenth probe in three steps
+(16a-1 done; 16a-2 next). Its two protocol decisions were taken on 2026-09-17
+and are not to be reopened as implementation details: **the pair count is
+pinned at eight partners per training anchor**, and **the board uses probe3d's
+MLP with the linear run kept as a committed control** — the first VisBench
+board whose head is not a linear map (`DPTHead` is nonlinear and is a
+*control*; every head a published board uses is an affine layer or a 1x1
+convolution). Everything else is the candidate task backlog
+further down this file; its cheap end is exhausted,
 and **three candidates were built and rejected** — photometric
 superpixels (0.021-0.043, which bought the oracle gate), DoG blobs (0.51 overlap
 with `corner`) and **relative depth ordering** (2026-09-04, the first rejected
@@ -458,9 +468,15 @@ visbench/
                  bsds.py (BSDS500Dataset — every annotator's boundary map, 4-9
                    per image; native resolution, NO resize or crop; target() is
                    the consensus mean and is NOT the scoring ground truth)
+                 navi.py (NaviPoseDataset — unique frames + pairing BY INDEX,
+                   the TwoAFCDataset move; the sampler is protocol and is in
+                   the fingerprint, val is always 1 partner, mm -> m here)
                  base.py (BaseDataset, list_files — scandir, never a stat/entry;
                    balanced_subset lives here now, not on ImageFolderDataset)
   heads/         base.py (register_head/build_head), linear.py, dpt.py,
+                 pose.py (PoseHead — BatchNorm + 512/256/128 over a CONCATENATED
+                   pooled PAIR; the first head a BOARD here uses that is not
+                   a linear map, and the only one reading pooled vectors; 16a-2)
                  detection.py (DetectionHead — cls + box branches, focal prior)
                  instance.py (InstanceHead — a DetectionHead plus ONE 1x1 conv
                    for masks, reachable as mask_logits(); one module so both
@@ -473,6 +489,9 @@ visbench/
                    correspond_pixels (exact min-cost max-cardinality;
                    sparse, pads the SMALLER side), image_counts,
                    boundary_metrics. Reproduces published human ODS)
+                 pose.py (quaternion maths, geodesic rotation error and the
+                   no-feature FLOOR — `floor_*`, the `ceiling_*` convention;
+                   acos is ill-conditioned at 0, so its own noise is 0.03 deg)
                  dense.py
                  (+ magnitude_metrics — per-image Pearson, masks NaN;
                     edge_metrics is it under the published key;
@@ -494,7 +513,11 @@ visbench/
                               instance_segmentation (DetectionTask + RoIAlign +
                                 a mask BCE; 14a-4)
                  mid_level/   correspondence, depth, surface_normal,
-                              generic_segmentation, similarity, occlusion_edge
+                              generic_segmentation, similarity, occlusion_edge,
+                              pose (RelativePoseTask — pooled pairs by index;
+                                the FLOOR travels as floor_*, and train_pairs
+                                is in task_params because the score has not
+                                converged in it; 16a-2)
                  low_level/   edge (6d-1), keypoints (Keypoint2DTask, 6d-2),
                               corner (CornerTask, 8a — derived target),
                               orientation (OrientationTask — derived, a
@@ -1605,9 +1628,11 @@ designed up front; extend it the same way, from a case that already runs.
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite **collects 2160 tests** and the **115 slow ones** were green on
-`main` on 2026-09-11, along with all three lint steps,
-mypy and the `-W` docs build. Earlier fast counts, for dating a claim: 2158 at
+fast suite **collects 2261 tests**, green on 2026-09-17 along with all three
+lint steps, mypy and the `-W` docs build. The slow suite is **116** since
+16a-1, whose own slow test was run then; the other 115 were last green on
+`main` on 2026-09-11. Earlier fast counts, for dating a claim: 2222 at 16a-1,
+2160 at the grid finding, 2158 at
 the control guard, 2144 at
 `dino_vitb8`, 2126 at the docs-count guard, 2122 at the 0.18.0 release, 2113 at
 the v8 `training` re-run, 2082 at the 0.17.0 release, 2071 at the instance
@@ -1918,11 +1943,12 @@ folder already here. A magnitude target is a generator plus a
 `visbench/tasks/low_level/orientation.py` provides as the second worked example.
 
 **Relative camera pose ranks, and it needs a nonlinear head** (measured
-2026-09-14, **corrected 2026-09-15**; `scripts/premeasure_pose.py`, and the
-full derivation — every pair count, the floor, the curve and the two traps — in
-`visbench/tasks/low_level/README.md`, trimmed from here 2026-09-17). It reads
-*pooled* features, so it is far cheaper than the roadmap's "harder" tier
-implies, and NAVI is on this machine. Four rules survive:
+2026-09-14, **corrected 2026-09-15**, and **being built since 16a-1**;
+`scripts/premeasure_pose.py`, and the full derivation — every pair count, the
+floor, the curve and the traps — in `visbench/tasks/low_level/README.md`,
+trimmed from here 2026-09-17). It reads *pooled* features, so it is far cheaper
+than the roadmap's "harder" tier implies, and NAVI is on this machine. Six
+rules survive, the last two from 16a-1:
 
 - **`LinearHead` cannot express it** — it underfits, and its residual ordering
   nearly inverts the MLP's at the top. **So a pose board departs from
@@ -1940,6 +1966,29 @@ implies, and NAVI is on this machine. Four rules survive:
   spread** — `spread / noise` has now misled in *both* directions. And reading
   a range as signal without its floor is what the floor rule exists to stop; it
   was done while writing the script that measures the floor.
+- **A pre-measurement that assembles its own data stops predicting the probe.**
+  The script opened NAVI's frames without their EXIF orientation, and **327 of
+  8,217 carry a half-turn tag whose camera pose describes the *turned* image**
+  — checked against the untagged frames of the one mixed scene, not assumed —
+  so 4.0% of the release was supervised against its own negation and the parked
+  tables were measured on those pixels. `NaviPoseDataset` owns the pairing now
+  and the script reads it.
+- **A correction is read against the noise, exactly like a score** (16a-2).
+  The EXIF fix was right — 4.0% of NAVI was supervised against its own negation
+  — and it moves a pose number **−1.38 on `mae_vitb16` against seed ranges near
+  1.0, and −0.02 on `clip_vitb16`**, i.e. not beyond noise. Quoting the first
+  row alone as "worth 1.4 degrees" is the floor rule's mistake wearing a
+  correction's clothes. What *did* show is per-epoch reshuffling: same
+  direction on both rows and a seed range cut 3-5x. And **`train_loss` from two
+  code paths is two statistics** — the pre-measurement reports the last
+  training batch in train mode, the task a full split in eval mode.
+- **A metric can be unable to validate the conversion feeding it.** Scored
+  through `rotation_error_deg`, Shepperd's branch and the naive one read 0.0485
+  against 0.0560 deg and both fail a 1e-3 tolerance, because `acos` of the
+  trace is ill-conditioned at zero error — its own noise floor is 0.028 deg on
+  a quaternion against *itself*. On components they are 1.2e-07 against
+  1.2e-04, three orders apart. **Validate a conversion on components; the angle
+  is for scoring a probe.**
 
 Three hazards to carry into any of them, all paid for: **check the tail** before
 assuming the magnitude protocol transfers (`edge_occlusion` at 46% of its mass
@@ -2009,8 +2058,8 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 2160 fast tests
-pytest -m slow                                      # 115, real DINOv2/CLIP weights
+pytest                                              # 2261 fast tests
+pytest -m slow                                      # 116, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/
 mypy visbench/ examples/ --ignore-missing-imports   # reads [tool.mypy], py 3.12

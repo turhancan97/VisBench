@@ -87,6 +87,15 @@ Boxes are `xyxy`, absolute post-transform pixels, 0-indexed.
    :members:
 ```
 
+## NAVI — camera pose
+
+A flat frame list plus pairing by index, the move `TwoAFCDataset` makes for triplets. The pair count is protocol rather than a knob: rotation error keeps falling as partners are added, so two pose numbers are comparable only if they drew the same pairs, and the fingerprint folds every sampler parameter in.
+
+```{eval-rst}
+.. automodule:: visbench.data.navi
+   :members:
+```
+
 ## torchvision and Hugging Face bridges
 
 Both derive a real `cache_identity` by leaning on one property: the wrapped dataset is immutable in index order.

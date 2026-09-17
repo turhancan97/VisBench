@@ -47,3 +47,12 @@ Genuinely multiscale, and the reason multi-layer extraction exists. It refuses a
 .. automodule:: visbench.heads.detection
    :members:
 ```
+
+## Pose
+
+The one head here that is deliberately **not** linear, and the only one that reads *pooled* vectors rather than a feature map. A single affine map cannot express pairwise pose: it underfits, clears the no-feature floor by 2.7-3.5 degrees where this head clears it by 24.5-42.6, and produces an ordering that nearly inverts this one's top two. The linear run is kept as a committed control rather than as an argument.
+
+```{eval-rst}
+.. automodule:: visbench.heads.pose
+   :members:
+```

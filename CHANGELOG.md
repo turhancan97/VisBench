@@ -9,6 +9,117 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+### Added
+
+- **NAVI and the pose geometry — the dataset and metric halves of relative
+  camera pose** (16a-1). `NaviPoseDataset` presents the *unique frames* its
+  pairs refer to and puts the pairing in `labels()` as indices into itself,
+  which is the move `TwoAFCDataset` makes for triplets; at eight partners per
+  training anchor the split is 50,519 pairs over 8,217 frames, so pairing by
+  presentation would extract every frame eight times to hold one copy of it.
+  `visbench.metrics.pose` carries the quaternion maths, the geodesic rotation
+  error, the accuracy thresholds and the **no-feature floor**. No task, no
+  registration, no records: the head arrives in 16a-2 and is judged by a scorer
+  that was already cross-checked, which is the order step 6c used for
+  detection.
+
+  Three things the class treats as protocol rather than configuration, each
+  measured rather than assumed:
+
+  - **The pair count.** Rotation error keeps falling as partners are added and
+    the ordering only settles from two partners on, so two pose numbers are
+    comparable only if they drew the same pairs. Every sampler parameter is in
+    `describe()` and folded into the fingerprint, so two pair counts cannot
+    land in one comparability group.
+  - **Validation stays at one partner** however high `partners` goes, and its
+    fingerprint is identical either way. It is the yardstick the floor is
+    measured on; growing both halves would change the measurement and the thing
+    measured at once.
+  - **Millimetres become metres at the loader.** Omitting that does not read as
+    a units bug — it reads as every backbone scoring *worse than a constant*,
+    because an MSE loss over `[quat, trans]` then optimises a translation four
+    orders of magnitude larger than the quaternion.
+
+  The shipped class reproduces the parked pre-measurement exactly: 6,477
+  training pairs at one partner, 50,519 at eight, 1,740 validation pairs
+  either way, and a no-feature floor of **66.94** / **66.85** degrees.
+
+- **`PoseHead` and `RelativePoseTask` — the probe, and the first board here
+  whose head is not a linear map of the features** (16a-2). `DPTHead` has been
+  nonlinear since v0.2 and is a control rather than a board; every head a
+  published board actually uses is an affine layer or a 1x1 convolution. probe3d's pairwise protocol:
+  concatenate two frames' *pooled* features, regress `[quat, trans]` under MSE,
+  score the geodesic rotation error. Registered as a head (`pose`) but **not
+  yet as a probe** — a probe name is load-bearing in a dozen fixed tables a
+  test pins equal to `list_probes()`, so registration ships with the board, the
+  CLI row and the viewer in 16a-3. `visbench.run()` and `load_probe()` both
+  take a constructed task, which is what the end-to-end proof runs through.
+
+  Four decisions inside it, each recorded rather than assumed:
+
+  - **The head departs from `hidden_dim=0` and the record says so.** A single
+    affine map underfits this task — `train_loss` 40x the MLP's, a margin over
+    the floor of 2.7-3.5 degrees against 24.5-42.6, and an ordering that nearly
+    inverts the MLP's top two. `hidden_dims=()` reaches that control by name
+    and `task_params["head"]` says which produced a number.
+  - **The floor travels with the score** as `floor_*`, through the mechanism
+    `ceiling_*` already uses. A backbone at 66 degrees is *at chance*, not
+    weak, and the score alone cannot say which.
+  - **`train_pairs` is in `task_params`**, and therefore in the comparability
+    key: the scored split is the validation one, which says nothing about how
+    many pairs the head was fitted on — and that is the parameter this probe
+    has not converged in.
+  - **The fitted floor is in `probe_state()`.** It is the one piece of state
+    that does not change a prediction, which is exactly why it is easy to lose
+    — a reloaded probe without it scores identically and can no longer say
+    whether that score beats a constant. Two hub tests pin the round trip.
+
+  Also `examples/pose.py`, which prints the margin over the floor rather than
+  the score, and refuses to let a run at chance read as a result.
+
+  **Proved end to end on NAVI against the parked pre-measurement**, at the
+  pinned protocol (eight partners, 50,519 training pairs, 1,740 validation),
+  three seeds per backbone, with the six records committed as
+  `results/controls/pose_protocol.jsonl`:
+
+  | backbone | shipped | vs floor | seed range | parked |
+  | --- | --- | --- | --- | --- |
+  | `mae_vitb16` | 21.84 | +45.01 | 0.21 | 24.29 |
+  | `clip_vitb16` | 40.50 | +26.35 | 0.41 | 42.34 |
+
+  **The floor reads 66.85 in every record — the parked value to the digit** —
+  which is what says the shipped dataset drew the pairs the pre-measurement
+  drew. Of the two changes between them, the **EXIF fix moves neither row
+  beyond seed noise** (−1.38 on `mae` against seed ranges near 1.0, −0.02 on
+  `clip`; it was a correctness fix, not a numbers fix) while **per-epoch
+  reshuffling moves both in the same direction and cuts the seed range three to
+  five times**. The two middle rows of the parked ordering were left to 16a-3's
+  board rather than run twice.
+
+### Fixed
+
+- **NAVI's EXIF orientation is applied, and 327 of its 8,217 frames need it.**
+  All 327 carry a half-turn tag, and the camera poses describe the image with
+  that tag applied — checked in the one scene where tagged and untagged frames
+  sit together, where the tagged cameras' up vectors are 0.7 to 22.8 degrees
+  from the untagged mean against the 180 the other convention would give.
+  Reading them as stored supervises 4.0% of the release against its own
+  negation, silently. `scripts/premeasure_pose.py` did exactly that, so the
+  tables it parked in `visbench/tasks/low_level/README.md` were measured on
+  4.0% different pixels; the script now reads its pairs out of
+  `NaviPoseDataset` rather than from a second copy of the loader, which is what
+  let the two diverge.
+
+- **A cache warmed by that script was not warm for the library.** The feature
+  cache keys on the pooling *string*, and the two paths asked different
+  questions: the script asked for `"default"` where `visbench.run()` asks for
+  the `"cls"` it resolves to, so the same tensors were written under two keys
+  and the first probe run re-extracted all 8,215 frames. The script now
+  resolves pooling the way `run()` does. Measured on the way: NAVI extraction
+  runs at about **3 frames/s** single-threaded on its 12-megapixel JPEGs, so a
+  pose board is decode-bound — roughly an hour per backbone against a couple of
+  minutes to fit the head.
+
 ## [0.20.0] — 2026-09-17
 
 **The release that broke a confound, and then found that the boards it

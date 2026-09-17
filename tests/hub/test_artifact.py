@@ -287,3 +287,65 @@ def test_the_rebuilt_head_is_the_registered_class(fitted, fake_vit, tmp_path):
     save_probe(fitted, tmp_path / "probe.pt", backbone=fake_vit)
     loaded = load_probe(tmp_path / "probe.pt", backbone=fake_vit)
     assert isinstance(loaded.head, nn.Linear)
+
+
+# --------------------------------------------------------------------------
+# Relative pose — a probe whose fitted state is not the answer but the yardstick
+# --------------------------------------------------------------------------
+
+
+@pytest.fixture
+def pose_pairs(fake_vit):
+    """Pooled features plus a pairing, in the shape `RelativePoseTask` reads."""
+    torch.manual_seed(2)
+    features = {"pooled": torch.randn(24, fake_vit.embed_dim)}
+    index = torch.randint(0, 24, (60, 2))
+    index = index[index[:, 0] != index[:, 1]]
+    pose = torch.zeros(len(index), 7)
+    pose[:, 0] = 1.0
+    pose[:, 4:] = torch.randn(len(index), 3) * 0.1
+    return features, (index, pose)
+
+
+@pytest.fixture
+def fitted_pose(pose_pairs):
+    from visbench.tasks.mid_level.pose import RelativePoseTask
+
+    features, labels = pose_pairs
+    return RelativePoseTask(epochs=3, batch_size=8).fit(features, labels)
+
+
+def test_a_pose_probe_round_trips_through_an_artifact(fitted_pose, fake_vit, pose_pairs, tmp_path):
+    """`task=` rather than the registry: this probe is not registered yet.
+
+    Worth pinning now rather than at registration, because the failure it
+    guards is the one 9a found a release late — a saved probe that loads,
+    predicts, and has quietly lost fitted state that lived outside the head.
+    """
+    from visbench.tasks.mid_level.pose import RelativePoseTask
+
+    features, labels = pose_pairs
+    before = fitted_pose.predict(features, labels)
+    save_probe(fitted_pose, tmp_path / "pose.pt", backbone=fake_vit)
+    loaded = load_probe(
+        tmp_path / "pose.pt", backbone=fake_vit, task=RelativePoseTask(epochs=3, batch_size=8)
+    )
+    assert torch.equal(before, loaded.predict(features, labels))
+
+
+def test_the_pose_floor_travels_with_the_weights(fitted_pose, fake_vit, pose_pairs, tmp_path):
+    """The floor is fitted state that does not affect a prediction at all.
+
+    Which is exactly why it is easy to leave behind: the reloaded probe scores
+    the same and can no longer say whether that score beats a constant, and a
+    pose number without its floor states the wrong thing about a backbone.
+    """
+    from visbench.tasks.mid_level.pose import RelativePoseTask
+
+    features, labels = pose_pairs
+    save_probe(fitted_pose, tmp_path / "pose.pt", backbone=fake_vit)
+    loaded = load_probe(
+        tmp_path / "pose.pt", backbone=fake_vit, task=RelativePoseTask(epochs=3, batch_size=8)
+    )
+    assert loaded.context_metrics(features, labels) == fitted_pose.context_metrics(features, labels)
+    assert loaded.context_metrics(features, labels) != {}
