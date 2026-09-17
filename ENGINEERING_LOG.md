@@ -1230,6 +1230,54 @@ The four most recent entries were lifted out of `CLAUDE.md` on 2026-09-03,
 when that file passed the 150k-character limit it is loaded under for the second
 time. Nothing was rewritten; each paragraph is as its release recorded it.
 
+**`0.20.0` is fully released** (2026-09-17). On PyPI — wheel and sdist both
+(413,207 and 1,388,208 bytes, wheel sha256 `3ab9c1c3…`, sdist `1a750ada…`) —
+tagged `v0.20.0`, **annotated** (tag object `9c75104`), on merge commit
+`7f440c0`, with a GitHub release cut from that tag (published
+2026-09-17T09:36:32Z) and archived by Zenodo as version DOI
+**`10.5281/zenodo.22809873`**, the **fifteenth**, minted within twenty seconds
+of the release. The concept DOI `10.5281/zenodo.21822684` resolves to record
+22809873 with `metadata.version` `v0.20.0`, read off Zenodo's API with `-L`.
+
+**Verified out of the published wheel by import**, and by *installing from PyPI
+by name* rather than from `dist/`: `__version__` 0.20.0, `SCHEMA_VERSION` **9**,
+seventeen probes, **fourteen** registered backbones with `dino_vitb8` among
+them, four heads, and `threshold_units` reading back `"pixel"` through an
+import. Both artifacts match the locally built ones byte for byte against
+PyPI's own digests. **Tag, wheel, release and `main` all agree at `7f440c0`** —
+the **eighth** release running with no gap.
+
+**It is a minor release because a registered name appears**, not because the
+schema moves: v9 is unchanged, so a v0.19.0 install reads every record this one
+writes. The corpus goes 360 → 379 records and **204 → 221 board cells**, and no
+published value moves.
+
+**The registry count is fourteen and the board count is thirteen, and they are
+different sets.** `dinov2_vitb14_196` is registered and is *not* a corpus
+column. v0.19.0's wheel reported thirteen registered names not including
+`dino_vitb8`; this one reports fourteen including it. Reading either number as
+"how many backbones a board has" is wrong, and the two happened to coincide at
+thirteen for one release, which is the trap.
+
+**The CLI check is the one worth repeating on a release that adds a backbone.**
+`visbench list` on a core-only install shows `dino_vitb8` marked *(needs the
+'timm' extra)* rather than the registry raising "Unknown backbone" — the
+behaviour the v0.2.0 wheel test established, still holding after a
+registration.
+
+**Both archive abstracts were hand-checked before the tag and read back after.**
+Record 22809873 carries "Seventeen probes" — correct, no probe shipped — and
+states **no backbone count at all**, which is why a thirteenth backbone needed
+no abstract edit. Confirmed by reading the deposited description rather than
+assuming the file that produced it.
+
+**The release date moved by one day, before the tag.** `date-released` and the
+CHANGELOG header were written on the 16th and the release was cut on the 17th.
+Zenodo shows `date-released` as the publication date and a deposit cannot be
+edited afterwards, so the fix had to land *before* the tag — which it did, with
+no tag moved. `tests/test_citation.py` only asserts the field parses as a date,
+correctly, since it cannot know the intended day.
+
 **`0.19.0` is fully released** (2026-09-16). On PyPI — wheel and sdist both
 (412,766 and 1,366,436 bytes, wheel sha256 `c6d425ac…`, sdist `68f43498…`) —
 tagged `v0.19.0`, **annotated** (tag object `ba7b279`), on merge commit

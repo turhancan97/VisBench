@@ -111,7 +111,7 @@ number — every measurement v0.6.1 reported, v0.7.0 reports identically.
 
 ## Current state
 
-**Everything through v0.19.0 is shipped**, and every numbered step in the build
+**Everything through v0.20.0 is shipped**, and every numbered step in the build
 table before 14a is done — every task, all three backbone families, the CLI,
 fine-tuning, detection, the low-level probes, the leaderboard and probe
 sharing. Each release's narrative is in `CHANGELOG.md`, its derivation in
@@ -287,11 +287,11 @@ was ever found. And **do not pipe a long publishing run through `tail`**: it
 buffers, so a run killed part-way leaves no log and the Hub has to be queried to
 find out what shipped.
 
-**Fourteen releases are archived, `0.19.0` the newest** (2026-09-16). Byte
+**Fifteen releases are archived, `0.20.0` the newest** (2026-09-17). Byte
 counts, wheel digests, the commit each tag resolves to and what every
 `__version__`/`SCHEMA_VERSION` import read back are recorded release by release
 in [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md) under "Release history"; read them
-there. `0.19.0` is the **seventh running with no gap** between tag, wheel, release
+there. `0.20.0` is the **eighth running with no gap** between tag, wheel, release
 and `main`; `0.18.0` is the only release to move the schema (v8 -> v9), so a
 v0.17.0 install cannot read a record written by it while older records read
 fine here. **`0.19.0` shipped without its wheel check and without its
@@ -322,9 +322,9 @@ Four rules those releases left behind, beyond the standing list below:
   `__version__` reports the new one. A bump always moves the lockfile.
 
 **The concept DOI is `10.5281/zenodo.21822684`**, unchanged across all
-**fourteen** version DOIs and now resolving to v0.19.0 (confirmed against
-Zenodo's API on 2026-09-16 — record 21822684 redirects to `id` 22794701, which
-reports `metadata.version` `v0.19.0` — rather than assumed).
+**fifteen** version DOIs and now resolving to v0.20.0 (confirmed against
+Zenodo's API on 2026-09-17 — record 21822684 redirects to `id` 22809873, which
+reports `metadata.version` `v0.20.0` — rather than assumed).
 
 **That API 302s, and without `-L` the check lies to you**: `curl` alone returns
 a 229-byte HTML redirect page and the JSON parse fails with a traceback that
