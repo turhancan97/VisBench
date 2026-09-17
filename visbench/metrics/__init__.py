@@ -37,6 +37,19 @@ from visbench.metrics.instance import (
     mask_average_precision,
     masks_from_instance_map,
 )
+from visbench.metrics.pose import (
+    POSE_COLUMNS,
+    ROTATION_ACC_THRESHOLDS,
+    matrix_to_quaternion,
+    mean_pose_floor,
+    pose_metrics,
+    pose_vector,
+    quaternion_to_matrix,
+    relative_pose,
+    rotation_angle_deg,
+    rotation_error_deg,
+    translation_error,
+)
 from visbench.metrics.retrieval import mean_average_precision, recall_at_k
 
 __all__ = [
@@ -63,4 +76,15 @@ __all__ = [
     "instance_metrics",
     "mask_average_precision",
     "masks_from_instance_map",
+    "POSE_COLUMNS",
+    "ROTATION_ACC_THRESHOLDS",
+    "quaternion_to_matrix",
+    "matrix_to_quaternion",
+    "relative_pose",
+    "pose_vector",
+    "rotation_angle_deg",
+    "rotation_error_deg",
+    "translation_error",
+    "pose_metrics",
+    "mean_pose_floor",
 ]

@@ -23,6 +23,13 @@ from visbench.data.instance import (
     VOCInstanceDataset,
     load_instance_map,
 )
+from visbench.data.navi import (
+    MAX_ANGLE,
+    TRANSLATION_SCALE,
+    NaviPoseDataset,
+    PosePairs,
+    camera_matrix,
+)
 from visbench.data.pair_dataset import HomographyPairDataset, PairDataset, PairViewDataset
 from visbench.data.taskonomy import (
     TASKONOMY_DOMAINS,
@@ -49,6 +56,11 @@ __all__ = [
     "load_label_map",
     "load_edge_map",
     "TwoAFCDataset",
+    "NaviPoseDataset",
+    "PosePairs",
+    "camera_matrix",
+    "TRANSLATION_SCALE",
+    "MAX_ANGLE",
     "DetectionFolderDataset",
     "load_voc_boxes",
     "VOC_CLASSES",

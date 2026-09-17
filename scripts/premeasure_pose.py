@@ -3,10 +3,22 @@
 
     scripts/premeasure_pose.py
     scripts/premeasure_pose.py --backbones mae_vitb16,dino_vitb16 --seeds 1
+    scripts/premeasure_pose.py --partners 8 --head linear
 
 Run before building a pose probe. It trains the probe3d-style pairwise head on
 NAVI over a handful of backbones and prints what separates them -- nothing is
 registered, nothing reaches the corpus, and no board is spent.
+
+**Since 16a-1 it reads the pairs out of the library** rather than building its
+own. :class:`~visbench.data.NaviPoseDataset` and
+:mod:`visbench.metrics.pose` own the sampler, the quaternion maths, the
+millimetre scaling and the floor; what stays here is the head, the training
+loop and the reporting. A pre-measurement whose data is assembled by a second
+copy of the loader stops predicting the probe the moment either copy moves --
+and this one had already diverged: the script opened frames without applying
+their EXIF orientation, which is wrong on 327 of NAVI's 8,217 images. **The
+tables in `visbench/tasks/low_level/README.md` were measured that way**, on
+4.0% different pixels.
 
 **The question it asks is not the one the gauntlet usually asks.** The oracle
 gate asks whether a target is *recoverable*; `premeasure_ordering.py` asks
@@ -15,7 +27,7 @@ was already answered: a working probe3d-style implementation in a sibling
 project ranks seven backbones from 37.1 to 65.2 deg at a per-cell seed std of
 0.1-0.7.
 
-**Read that range against the floor this script measures, which is 65.4 deg.**
+**Read that range against the floor this script prints, which is 66.9 deg.**
 The sibling spread is not 28 deg of signal above zero -- its *weakest* two rows
 (SigLIP 62.7, Perception Encoder 65.2) sit at chance, and only its strongest
 backbones clear the floor at all. An earlier draft of this docstring quoted the
@@ -47,42 +59,39 @@ seed-to-seed range is not a ranking, and `duration_seconds` in this project is
 the standing example of a number that looked solid and was not.
 
 The floor is reported beside the scores because a pose error means nothing on
-its own. `mean_pose` predicts the training set's mean rotation and translation
-for every pair -- no features at all -- and any backbone near it is *at chance*
-rather than merely weak, which is a different claim about a backbone and the
-reason this project refuses to quote a gap against zero.
+its own. It predicts the training set's mean pose for every pair -- no features
+at all -- and any backbone near it is *at chance* rather than merely weak,
+which is a different claim about a backbone and the reason this project refuses
+to quote a gap against zero.
 
-Data: NAVI multiview (`--data`), whose per-image `annotations.json` carries the
-camera quaternion and translation. The pairing follows probe3d's protocol as
-implemented in the sibling AMDF project (`data/navi_camera_pose.py`): one anchor
-per image, a partner drawn uniformly among views whose relative rotation is in
-(0, --max-angle] degrees, seeded so the pair set is fixed across backbones.
-**The same pairs must reach every backbone**, or the comparison measures the
-sampler.
+**`--partners` is the lever and it is protocol, not tuning.** One partner per
+training anchor is where the head overfits at ``n ~ d`` and two of four
+backbones read as at chance; eight is where every row clears the floor by 24
+deg or more. Nothing has converged at any pair count measured, so a board must
+pin the one it used.
 
 Nothing here is a metric, nothing is written back, and the head is deliberately
 probe3d's MLP rather than this project's `LinearHead` -- the point is to
 reproduce the protocol that is known to rank, not to pre-judge the head a probe
-would ship with.
+would ship with. `--head linear` measures what that choice costs.
 """
 
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from pathlib import Path
 
 import numpy as np
 import torch
-from PIL import Image
 from torch import nn
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from visbench import get_backbone  # noqa: E402
 from visbench.cache import FeatureCache  # noqa: E402
-from visbench.data.base import BaseDataset  # noqa: E402
+from visbench.data import NaviPoseDataset  # noqa: E402
+from visbench.metrics.pose import mean_pose_floor, pose_metrics  # noqa: E402
 
 #: NAVI as staged on this machine. Overridable; nothing here assumes the path.
 DEFAULT_DATA = Path("/shared/sets/datasets/vision/probing_3D/navi_v1")
@@ -92,285 +101,15 @@ DEFAULT_DATA = Path("/shared/sets/datasets/vision/probing_3D/navi_v1")
 DEFAULT_BACKBONES = ("mae_vitb16", "dino_vitb16", "sam_vitb16", "clip_vitb16")
 
 
-# --------------------------------------------------------------------------
-# Pose maths. Quaternions are (w, x, y, z), matching NAVI's annotations.
-# --------------------------------------------------------------------------
-
-
-def quaternion_to_matrix(q: torch.Tensor) -> torch.Tensor:
-    """``(..., 4)`` wxyz quaternion -> ``(..., 3, 3)`` rotation matrix."""
-    q = q / q.norm(dim=-1, keepdim=True).clamp(min=1e-8)
-    w, x, y, z = torch.unbind(q, dim=-1)
-    return torch.stack(
-        [
-            1 - 2 * (y * y + z * z),
-            2 * (x * y - z * w),
-            2 * (x * z + y * w),
-            2 * (x * y + z * w),
-            1 - 2 * (x * x + z * z),
-            2 * (y * z - x * w),
-            2 * (x * z - y * w),
-            2 * (y * z + x * w),
-            1 - 2 * (x * x + y * y),
-        ],
-        dim=-1,
-    ).reshape(*q.shape[:-1], 3, 3)
-
-
-def matrix_to_quaternion(m: torch.Tensor) -> torch.Tensor:
-    """``(..., 3, 3)`` -> ``(..., 4)`` wxyz, choosing the largest component.
-
-    The naive ``w = sqrt(1 + trace) / 2`` form then divides the off-diagonals
-    by ``w``, which loses all precision as the rotation approaches 180 degrees
-    -- and these pairs sample to ``--max-angle``, 120 by default, with a
-    fallback that can exceed it. A wrong target quaternion is a silently wrong
-    number, not an error, so the branch is chosen per element from whichever of
-    ``w, x, y, z`` is largest (Shepperd's method).
-
-    Measured on 2000 random rotations, the naive form fails to round-trip
-    within 1e-3 degrees on **66** of them. This one round-trips to **2.4e-07**
-    per quaternion component and 4.8e-07 per matrix entry over 5000 rotations,
-    which is float32 exact.
-
-    **It does not follow that the reported angle round-trips that well, and the
-    difference is the metric rather than the conversion.** `rotation_error_deg`
-    takes ``acos`` of the trace, whose derivative is unbounded as the relative
-    rotation approaches zero, so a 5e-07 perturbation of an exact matrix shows
-    up as up to **0.05 degrees** when the true error is nil. That is
-    ill-conditioning where the answer is already right, it does not grow at the
-    20-60 degree scale this probe reports, and it is the same family as
-    `orientation`'s recorded ill-conditioning. Do not read it as conversion
-    error, and do not tighten a tolerance against it.
-    """
-    m = m.to(torch.float64)
-    xx, yy, zz = m[..., 0, 0], m[..., 1, 1], m[..., 2, 2]
-    candidates = torch.stack(
-        [1.0 + xx + yy + zz, 1.0 + xx - yy - zz, 1.0 - xx + yy - zz, 1.0 - xx - yy + zz],
-        dim=-1,
-    )
-    branch = candidates.argmax(dim=-1)
-    scale = torch.sqrt(candidates.gather(-1, branch.unsqueeze(-1)).squeeze(-1).clamp(min=1e-12))
-    half = 0.5 / scale
-
-    zy, yz = m[..., 2, 1], m[..., 1, 2]
-    xz, zx = m[..., 0, 2], m[..., 2, 0]
-    yx, xy = m[..., 1, 0], m[..., 0, 1]
-    options = torch.stack(
-        [
-            torch.stack([0.5 * scale, (zy - yz) * half, (xz - zx) * half, (yx - xy) * half], -1),
-            torch.stack([(zy - yz) * half, 0.5 * scale, (xy + yx) * half, (xz + zx) * half], -1),
-            torch.stack([(xz - zx) * half, (xy + yx) * half, 0.5 * scale, (yz + zy) * half], -1),
-            torch.stack([(yx - xy) * half, (xz + zx) * half, (yz + zy) * half, 0.5 * scale], -1),
-        ],
-        dim=-2,
-    )
-    q = options.gather(-2, branch[..., None, None].expand(*branch.shape, 1, 4)).squeeze(-2)
-    q = q / q.norm(dim=-1, keepdim=True).clamp(min=1e-12)
-    return q.to(torch.float32)
-
-
-def rotation_error_deg(pred_q: torch.Tensor, true_q: torch.Tensor) -> torch.Tensor:
-    """Geodesic angle between two rotations, in degrees.
-
-    Computed from the matrices rather than from ``|<q1, q2>|`` because a
-    predicted quaternion is not normalised and need not be a rotation at all;
-    projecting through the matrix is what the metric of record does.
-    """
-    rel = quaternion_to_matrix(pred_q) @ quaternion_to_matrix(true_q).transpose(-1, -2)
-    trace = rel[..., 0, 0] + rel[..., 1, 1] + rel[..., 2, 2]
-    return torch.rad2deg(torch.acos(((trace - 1.0) / 2.0).clamp(-1.0, 1.0)))
-
-
-#: NAVI stores translation in millimetres. The reference implementation divides
-#: by this, and **it is not cosmetic**: the loss is MSE over the raw 7-vector
-#: ``[quat, trans]``, so a translation of magnitude ~200 outweighs a unit
-#: quaternion by ~4 orders of magnitude, the head optimises translation alone,
-#: and rotation is never learned.
-#:
-#: Omitting it is what the first run of this script did, and the failure is
-#: worth keeping because it does not look like a units bug: every backbone
-#: landed at 107-109 deg rotation error against a no-feature floor of 65.4,
-#: i.e. **worse than predicting a constant**, with train_loss 466-1001. A
-#: trained head cannot lose to a constant unless the loss is not optimising
-#: that term -- which is the tell, and is the same failure as 6d-1's
-#: ``target_scale``: a gradient does not rescale itself to match its target.
-TRANSLATION_SCALE = 1000.0
-
-
-def camera_matrix(ann: dict) -> torch.Tensor:
-    """A NAVI annotation's 4x4 world-to-camera matrix, translation in metres."""
-    q = torch.tensor(ann["camera"]["q"], dtype=torch.float64)
-    t = torch.tensor(ann["camera"]["t"], dtype=torch.float64) / TRANSLATION_SCALE
-    rt = torch.eye(4, dtype=torch.float64)
-    rt[:3, :3] = quaternion_to_matrix(q)
-    rt[:3, 3] = t
-    return rt
-
-
-# --------------------------------------------------------------------------
-# Pairs
-# --------------------------------------------------------------------------
-
-
-def build_pairs(
-    root: Path, max_angle: float, stride: int, seed: int, partners: int = 1
-) -> list[dict]:
-    """One anchor per image, partner within ``max_angle`` degrees of rotation.
-
-    Seeded and independent of the backbone, so every backbone is scored on the
-    *same* pairs. Returns dicts carrying both image paths, the 7D relative pose
-    and the split the anchor belongs to.
-
-    ``partners`` > 1 draws that many *distinct* partners per **training**
-    anchor, which is the lever the parked measurement named: one partner per
-    anchor exhausts this pairing rule at stride 1, not NAVI, since each anchor
-    has many eligible views.
-
-    **Validation stays at one partner however high ``partners`` goes**, and the
-    first partner for every anchor is drawn from the same generator in the same
-    order as before, so the val set is bit-identical to the one-partner run and
-    the floor it defines does not move. Growing both halves would change the
-    yardstick and the thing being measured at once, leaving no way to tell a
-    real improvement from an easier split -- the mistake `--stride` alone
-    already avoids.
-    """
-    generator = torch.Generator().manual_seed(seed)
-    pairs: list[dict] = []
-    contexts: list[dict] = []
-
-    for ann_path in sorted(root.glob("*/multiview_*/annotations.json")):
-        scene = ann_path.parent
-        records = json.loads(ann_path.read_text())
-        usable = [r for r in records if (scene / "images" / r["filename"]).is_file()]
-        if len(usable) < 2:
-            continue
-
-        rts = torch.stack([camera_matrix(r) for r in usable])
-        rotations = rts[:, :3, :3]
-
-        for i, anchor in enumerate(usable):
-            rel = rotations[i].unsqueeze(0) @ rotations.transpose(-1, -2)
-            trace = rel[:, 0, 0] + rel[:, 1, 1] + rel[:, 2, 2]
-            angle = torch.rad2deg(torch.acos(((trace - 1.0) / 2.0).clamp(-1.0, 1.0)))
-
-            eligible = (angle > 0) & (angle <= max_angle)
-            eligible[i] = False
-            if not bool(eligible.any()):
-                continue
-            j = int(torch.multinomial(eligible.double(), 1, generator=generator).item())
-
-            rt01 = rts[j] @ torch.linalg.inv(rts[i])
-            pose = torch.cat([matrix_to_quaternion(rt01[:3, :3]), rt01[:3, 3]]).float()
-            pairs.append(
-                {
-                    "a": scene / "images" / anchor["filename"],
-                    "b": scene / "images" / usable[j]["filename"],
-                    "pose": pose,
-                    "split": anchor.get("split", "train"),
-                }
-            )
-            contexts.append({"scene": scene, "usable": usable, "rts": rts, "i": i, "taken": {j}})
-
-    if stride > 1:
-        pairs, contexts = pairs[::stride], contexts[::stride]
-    if partners <= 1:
-        return pairs
-
-    # A second generator, so the first partner of every anchor above is drawn
-    # from an untouched stream and the one-partner run reproduces exactly.
-    extra_generator = torch.Generator().manual_seed(seed + 1)
-    extras: list[dict] = []
-    for pair, context in zip(pairs, contexts, strict=True):
-        if pair["split"] != "train":
-            continue
-        rts, i = context["rts"], context["i"]
-        rotations = rts[:, :3, :3]
-        rel = rotations[i].unsqueeze(0) @ rotations.transpose(-1, -2)
-        trace = rel[:, 0, 0] + rel[:, 1, 1] + rel[:, 2, 2]
-        angle = torch.rad2deg(torch.acos(((trace - 1.0) / 2.0).clamp(-1.0, 1.0)))
-        eligible = (angle > 0) & (angle <= max_angle)
-        eligible[i] = False
-        for used in context["taken"]:
-            eligible[used] = False
-        wanted = min(partners - 1, int(eligible.sum()))
-        if wanted <= 0:
-            continue
-        drawn = torch.multinomial(
-            eligible.double(), wanted, replacement=False, generator=extra_generator
-        )
-        for k in drawn.tolist():
-            rt01 = rts[k] @ torch.linalg.inv(rts[i])
-            pose = torch.cat([matrix_to_quaternion(rt01[:3, :3]), rt01[:3, 3]]).float()
-            extras.append(
-                {
-                    "a": pair["a"],
-                    "b": context["scene"] / "images" / context["usable"][k]["filename"],
-                    "pose": pose,
-                    "split": "train",
-                }
-            )
-
-    return pairs + extras
-
-
-class _Frames(BaseDataset):
-    """The unique images the pairs reference, so each is extracted once.
-
-    A pair task is a flat image dataset plus indices -- the rule
-    ``TwoAFCDataset`` and ``PairViewDataset`` already follow. Presenting the
-    unique frames keeps the cache, and the pairing travels by index.
-    """
-
-    def __init__(self, paths: list[Path], image_size: int = 224) -> None:
-        self.paths = paths
-        self.image_size = image_size
-
-    def __len__(self) -> int:
-        return len(self.paths)
-
-    def __getitem__(self, index: int):
-        """Short side to ``image_size`` (BICUBIC), then centre crop.
-
-        Deliberately `DenseFolderDataset._crop_image`'s geometry rather than a
-        crop-then-resize of my own: if a probe follows this measurement it must
-        read the same pixels, or the pre-measurement stops predicting it.
-        """
-        image = Image.open(self.paths[index]).convert("RGB")
-        width, height = image.size
-        scale = self.image_size / min(width, height)
-        image = image.resize(
-            (
-                max(self.image_size, round(width * scale)),
-                max(self.image_size, round(height * scale)),
-            ),
-            Image.Resampling.BICUBIC,
-        )
-        left = (image.width - self.image_size) // 2
-        top = (image.height - self.image_size) // 2
-        return image.crop((left, top, left + self.image_size, top + self.image_size)), 0
-
-    def cache_identity(self, index: int) -> str:
-        stat = self.paths[index].stat()
-        return f"{self.paths[index]}|{stat.st_size}|{stat.st_mtime_ns}"
-
-
-# --------------------------------------------------------------------------
-# The head: probe3d's, as the sibling implementation uses it
-# --------------------------------------------------------------------------
-
-
 def linear_pose_head(width: int) -> nn.Module:
-    """``[B, 2D] -> [B, 7]``, one affine map -- what VisBench would ship.
+    """``[B, 2D] -> [B, 7]``, one affine map -- what VisBench ships everywhere else.
 
-    The MLP below is probe3d's and is what the sibling evidence used, but at
-    this data scale it has ~1.2M parameters against 1612 training pairs and
-    drives `train_loss` to ~5e-4 while validation rotation error sits at the
-    no-feature floor. That is the *mirror* of the binary-segmentation case in
-    `CLAUDE.md`: there a low score came with a high training loss and meant
-    underfitting; here a low score comes with a training loss of essentially
-    zero and means the head memorised the split. Both are statements about the
-    fit, not about the representation, which is why the fit diagnostic is
-    printed beside every score.
+    Measured at 50,519 training pairs it **underfits**: ``train_loss`` 0.0725 to
+    0.0732, flat across four backbones and 40x the MLP's, clearing the floor by
+    2.7-3.5 deg against the MLP's 24.5-42.6 -- and its residual ordering does
+    not reproduce the MLP's and nearly inverts the top. That is the control
+    behind shipping a pose board with a nonlinear head, and the reason the
+    decision is about what this corpus's numbers mean rather than a detail.
     """
     return nn.Sequential(nn.BatchNorm1d(2 * width), nn.Linear(2 * width, 7))
 
@@ -378,10 +117,9 @@ def linear_pose_head(width: int) -> nn.Module:
 def pose_head(width: int) -> nn.Module:
     """``[B, 2D] -> [B, 7]``, BatchNorm then 512/256/128.
 
-    Deliberately not `LinearHead`: this reproduces the protocol known to rank
-    rather than pre-judging what a shipped probe would use. If a probe follows,
-    that choice is its own decision -- and note the BatchNorm carries running
-    statistics, which are fitted state a `probe_state()` would have to save.
+    Deliberately not `LinearHead`: this reproduces the protocol known to rank.
+    Note the BatchNorm carries running statistics, which are fitted state that
+    a probe's ``probe_state()`` has to save -- the `DetectionTask.grid_hw` trap.
     """
     return nn.Sequential(
         nn.BatchNorm1d(2 * width),
@@ -395,6 +133,36 @@ def pose_head(width: int) -> nn.Module:
     )
 
 
+def paired_features(
+    cache: FeatureCache,
+    backbone,
+    dataset: NaviPoseDataset,
+    batch_size: int,
+) -> torch.Tensor:
+    """``[P, 2D]`` -- the two frames of each pair, concatenated.
+
+    The dataset presents unique frames and pairs them by index, so a frame used
+    by eight pairs is extracted once and read eight times.
+
+    **The pooling is resolved before it is asked for**, which is what
+    `visbench.run` does and is not cosmetic: the cache keys on the string, so a
+    script asking for ``"default"`` and a probe asking for the ``"cls"`` it
+    resolves to write two sets of identical features under two keys. This
+    script warmed 8,215 frames x four backbones under the wrong one, and the
+    first probe run through `run()` re-extracted every frame -- a cache warmed
+    by a script is not warm for the library unless it asks the same question.
+    """
+    pooled = cache.extract_dataset(
+        backbone,
+        dataset,
+        batch_size=batch_size,
+        keep="pooled",
+        pooling=backbone.default_pooling(),
+    )["pooled"]
+    indices = dataset.labels().indices
+    return torch.cat([pooled[indices[:, 0]], pooled[indices[:, 1]]], dim=1).float()
+
+
 def fit_and_score(
     train_x: torch.Tensor,
     train_y: torch.Tensor,
@@ -405,7 +173,13 @@ def fit_and_score(
     device: torch.device,
     head_kind: str = "mlp",
 ) -> dict:
-    """Train the head on one seed and return validation errors."""
+    """Train the head on one seed and return what it scored, plus its fit.
+
+    ``train_loss`` is printed beside every score because the two failures this
+    probe can have look identical from the score alone: a head that underfits
+    (loss high, score at the floor) and one that memorised the split (loss ~0,
+    score at the floor) are opposite conclusions about the representation.
+    """
     torch.manual_seed(seed)
     build = linear_pose_head if head_kind == "linear" else pose_head
     head = build(train_x.shape[1] // 2).to(device)
@@ -430,25 +204,9 @@ def fit_and_score(
     head.eval()
     with torch.no_grad():
         predicted = head(val_x.to(device)).cpu()
-    return {
-        "rot_err_deg": float(rotation_error_deg(predicted[:, :4], val_y[:, :4]).mean()),
-        "trans_err": float((predicted[:, 4:] - val_y[:, 4:]).norm(dim=-1).mean()),
-        "train_loss": float(loss.detach()),
-    }
-
-
-def floor(train_y: torch.Tensor, val_y: torch.Tensor) -> dict:
-    """What predicting the training mean scores -- no features at all.
-
-    Reported beside every backbone because a rotation error is uninterpretable
-    on its own: a backbone landing here is *at chance*, which is a different
-    statement from being weak.
-    """
-    constant = train_y.mean(dim=0, keepdim=True).expand_as(val_y)
-    return {
-        "rot_err_deg": float(rotation_error_deg(constant[:, :4], val_y[:, :4]).mean()),
-        "trans_err": float((constant[:, 4:] - val_y[:, 4:]).norm(dim=-1).mean()),
-    }
+    scored = pose_metrics(predicted, val_y)
+    scored["train_loss"] = float(loss.detach())
+    return scored
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -456,7 +214,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--data", type=Path, default=DEFAULT_DATA)
     parser.add_argument("--backbones", default=",".join(DEFAULT_BACKBONES))
     parser.add_argument("--max-angle", type=float, default=120.0)
-    parser.add_argument("--stride", type=int, default=4, help="subsample pairs")
+    parser.add_argument("--stride", type=int, default=4, help="subsample anchors")
     parser.add_argument("--pair-seed", type=int, default=8)
     parser.add_argument(
         "--partners",
@@ -470,8 +228,9 @@ def main(argv: list[str] | None = None) -> int:
         "--head",
         choices=("mlp", "linear"),
         default="mlp",
-        help="mlp reproduces probe3d's; linear is what VisBench would ship",
+        help="mlp reproduces probe3d's; linear is what VisBench ships elsewhere",
     )
+    parser.add_argument("--image-size", type=int, default=224)
     parser.add_argument("--batch-size", type=int, default=32, help="extraction")
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     args = parser.parse_args(argv)
@@ -480,32 +239,31 @@ def main(argv: list[str] | None = None) -> int:
         print(f"NAVI not found at {args.data}; pass --data", file=sys.stderr)
         return 1
 
-    pairs = build_pairs(args.data, args.max_angle, args.stride, args.pair_seed, args.partners)
-    if not pairs:
-        print("no pairs built -- check --data and --max-angle", file=sys.stderr)
-        return 1
+    shared = {
+        "root": args.data,
+        "max_angle": args.max_angle,
+        "pair_seed": args.pair_seed,
+        "stride": args.stride,
+        "image_size": args.image_size,
+    }
+    train = NaviPoseDataset(split="train", partners=args.partners, **shared)
+    val = NaviPoseDataset(split="val", **shared)
+    train_y, val_y = train.labels().pose, val.labels().pose
 
-    frames = sorted({p["a"] for p in pairs} | {p["b"] for p in pairs})
-    index_of = {path: i for i, path in enumerate(frames)}
-    poses = torch.stack([p["pose"] for p in pairs])
-    is_train = torch.tensor([p["split"] == "train" for p in pairs])
-    left = torch.tensor([index_of[p["a"]] for p in pairs])
-    right = torch.tensor([index_of[p["b"]] for p in pairs])
+    print("=== NAVI pairs ===")
+    print(f"  {len(train_y)} train pairs over {len(train)} frames, {args.partners} partner(s)")
+    print(f"  {len(val_y)} val pairs over {len(val)} frames, always 1 partner")
+    angles = val.relative_rotation_deg()
+    print(f"  val relative rotation: median {angles.median():.1f} deg, max {angles.max():.1f}")
 
-    print(f"=== NAVI pairs ===\n  {len(pairs)} pairs over {len(frames)} unique frames")
-    print(f"  {int(is_train.sum())} train / {int((~is_train).sum())} val")
-    angles = rotation_error_deg(poses[:, :4], torch.tensor([[1.0, 0, 0, 0]]).expand(len(poses), 4))
-    print(f"  relative rotation: median {angles.median():.1f} deg, max {angles.max():.1f}")
-
-    base = floor(poses[is_train], poses[~is_train])
+    base = mean_pose_floor(train_y, val_y)
     print("\n=== the floor: predict the training mean, no features ===")
     print(
-        f"  mean_pose             rot {base['rot_err_deg']:7.2f} deg"
-        f"   trans {base['trans_err']:.3f}"
+        f"  mean_pose             rot {base['floor_rotation_error_deg']:7.2f} deg"
+        f"   trans {base['floor_translation_error']:.3f}"
     )
 
     cache = FeatureCache()
-    dataset = _Frames(frames)
     results: dict[str, list[dict]] = {}
 
     for name in args.backbones.split(","):
@@ -513,44 +271,45 @@ def main(argv: list[str] | None = None) -> int:
         if not name:
             continue
         backbone = get_backbone(name, device=args.device)
-        pooled = cache.extract_dataset(
-            backbone, dataset, batch_size=args.batch_size, keep="pooled"
-        )["pooled"]
-        features = torch.cat([pooled[left], pooled[right]], dim=1).float()
-        device = torch.device(args.device)
+        train_x = paired_features(cache, backbone, train, args.batch_size)
+        val_x = paired_features(cache, backbone, val, args.batch_size)
         runs = [
             fit_and_score(
-                features[is_train],
-                poses[is_train],
-                features[~is_train],
-                poses[~is_train],
+                train_x,
+                train_y,
+                val_x,
+                val_y,
                 seed=seed,
                 epochs=args.epochs,
-                device=device,
+                device=torch.device(args.device),
                 head_kind=args.head,
             )
             for seed in range(args.seeds)
         ]
         results[name] = runs
-        errors = [r["rot_err_deg"] for r in runs]
+        errors = [run["rotation_error_deg"] for run in runs]
         print(
             f"  {name:20s} rot {np.mean(errors):7.2f} deg  "
             f"(seed range {max(errors) - min(errors):.2f})  "
-            f"trans {np.mean([r['trans_err'] for r in runs]):.3f}  "
-            f"train_loss {np.mean([r['train_loss'] for r in runs]):.4f}"
+            f"trans {np.mean([run['translation_error'] for run in runs]):.3f}  "
+            f"train_loss {np.mean([run['train_loss'] for run in runs]):.4f}"
         )
 
     print("\n=== does it separate them? ===")
-    means = {n: float(np.mean([r["rot_err_deg"] for r in v])) for n, v in results.items()}
+    means = {n: float(np.mean([r["rotation_error_deg"] for r in v])) for n, v in results.items()}
     noise = max(
-        (max(r["rot_err_deg"] for r in v) - min(r["rot_err_deg"] for r in v))
+        (max(r["rotation_error_deg"] for r in v) - min(r["rotation_error_deg"] for r in v))
         for v in results.values()
     )
     spread = max(means.values()) - min(means.values())
-    for name, value in sorted(means.items(), key=lambda kv: kv[1]):
-        margin = base["rot_err_deg"] - value
-        print(f"  {name:20s} {value:7.2f} deg   {margin:+6.2f} vs the floor")
-    if min(means.values()) >= base["rot_err_deg"]:
+    floor = base["floor_rotation_error_deg"]
+    ordered = sorted(means.items(), key=lambda kv: kv[1])
+    for position, (name, value) in enumerate(ordered):
+        gap = (
+            f"  gap {ordered[position + 1][1] - value:5.2f}" if position + 1 < len(ordered) else ""
+        )
+        print(f"  {name:20s} {value:7.2f} deg   {floor - value:+6.2f} vs the floor{gap}")
+    if min(means.values()) >= floor:
         print(
             "\n  *** Every backbone is at or below the no-feature floor. ***\n"
             "  The ordering below is not a ranking of representations: a row that\n"
@@ -567,11 +326,10 @@ def main(argv: list[str] | None = None) -> int:
 
     print(f"\n  spread {spread:.2f} deg over {len(means)} backbones")
     print(f"  widest seed range {noise:.2f} deg")
-    print(f"  spread / noise {spread / noise:.1f}x" if noise > 0 else "")
     print(
-        "\n  A spread at or below the seed range is not a ranking. A backbone at "
-        "the floor\n  is at chance, not weak -- quote the margin, never the score "
-        "against zero."
+        "\n  Quote the per-row margin over the floor and the adjacent gaps above.\n"
+        "  spread / noise has misled in both directions here and is a summary of\n"
+        "  neither: a backbone at the floor is at chance, not weak."
     )
     return 0
 

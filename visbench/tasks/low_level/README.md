@@ -594,20 +594,56 @@ than failing:
   without its floor is exactly what the floor rule exists to stop, and it was
   done here while writing the script that measures the floor.
 
-**What exists**: `scripts/premeasure_pose.py` (`--partners` is the lever,
-`--head linear|mlp` the control), and the NAVI feature cache for four backbones
-at full stride, so any follow-up costs training time only — the eight-partner
-MLP run above is 21 minutes on 16 CPU cores. **What does not**: no task, no
-registration, no records, no board — nothing a registered probe is pinned by
-test to carry.
+**Both open questions were settled on 2026-09-17, and the line is being
+built.** Neither was whether the features carry pose, which the tables above
+answer.
 
-**Two things must be settled before it is built**, and neither is whether the
-features carry pose, which is answered. **The pair count is a protocol
-parameter, not a tuning knob** — the curve never flattens, the spread moves by
-degrees across it, and this pairing rule is near exhaustion at sixteen
-partners, so a board must pin its pairs the way `corner` pins its frames.
-**The head**: a pose board departs from `hidden_dim=0`, which is a decision
-about what this corpus's numbers mean, not a detail — see the linear table.
+- **The pair count is pinned at eight partners**, 50,519 training pairs against
+  the same 1,740 validation ones. Not sixteen: it scores better absolutely and
+  separates *worse* relative to noise (2.2-2.6x against 5.7-8.2x), and it is
+  where this pairing rule runs out.
+- **The board will use probe3d's MLP, with the linear run committed as a
+  control** under `results/controls/`. A pose board departs from
+  `hidden_dim=0` deliberately or not at all, and the control is what says by
+  how much — see the linear table above.
+
+**What exists after 16a-1**: `visbench.data.NaviPoseDataset` and
+`visbench.metrics.pose` — the pair sampler, the quaternion maths, the
+millimetre scaling and the floor, with 62 tests. The shipped class reproduces
+every count and floor in the tables above exactly (1,740 / 6,477 / 50,519
+pairs; 66.9379 and 66.8464 degrees). `scripts/premeasure_pose.py` now reads its
+pairs from it rather than from a second copy of the loader, and `--partners` /
+`--head linear|mlp` remain the levers. The NAVI feature cache for four
+backbones at full stride is still warm, so a follow-up costs training time only
+— the eight-partner MLP run above is 21 minutes on 16 CPU cores. **What does
+not**: no task, no head, no registration, no records, no board.
+
+**One caveat on every number above, now measured** (16a-2). The
+pre-measurement opened NAVI's frames without applying their EXIF orientation,
+and **327 of the 8,217 carry a half-turn tag whose camera pose describes the
+turned image** — checked against the untagged frames of the one mixed scene
+rather than assumed. So the tables were measured on 4.0% different pixels from
+the ones the shipped probe sees. **It moves them by less than the seed noise**:
+on the same single-shuffle training, `mae_vitb16` goes 24.29 to 22.91 against
+seed ranges of 0.73 and 1.01, and `clip_vitb16` goes 42.34 to **42.32**. Treat
+the tables above as standing, and the fix as one of correctness rather than of
+numbers.
+
+**What the shipped probe scores** at the pinned protocol, three seeds, with the
+records in `results/controls/pose_protocol.jsonl`:
+
+| backbone | shipped | vs floor | seed range | parked |
+|---|---|---|---|---|
+| `mae_vitb16` | 21.84 | +45.01 | 0.21 | 24.29 |
+| `clip_vitb16` | 40.50 | +26.35 | 0.41 | 42.34 |
+
+The **floor reads 66.85 in every record**, the parked value to the digit, which
+is what says the shipped `NaviPoseDataset` drew these pairs rather than some
+others. The remaining difference from the parked rows is per-epoch reshuffling
+(−1.07 and −1.82, and a seed range cut three to five times), which is what
+every other trained probe here already does. **The two middle rows are
+untested** — `dino_vitb16` and `sam_vitb16` come with 16a-3's board — so the
+`mae > dino > sam > clip` ordering is confirmed at its ends only.
 
 ## The oracle gate — is the target recoverable at all?
 

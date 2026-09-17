@@ -1880,6 +1880,248 @@ share a linear head recovers **falls every time, five of five**.
 
 ---
 
+## 16a-1 — NAVI and the pose geometry: the data and the scorer, before any head
+
+**2026-09-17.** The first step of the relative-camera-pose line, which the
+parked pre-measurement left with two decisions to take and no code to take them
+with. Both were taken before writing anything, because each changes what gets
+built rather than how:
+
+- **The pair count is pinned at eight partners per training anchor** — 50,519
+  training pairs against the same 1,740 validation pairs. Not sixteen, which
+  scores better in absolute terms and separates *worse* relative to noise: the
+  adjacent gaps there are 5.03 / 5.96 / 5.88 degrees against a widest seed
+  range of 2.30 (2.2-2.6x), where eight gives 7.12 / 5.98 / 4.95 against 0.87
+  (5.7-8.2x). Sixteen is also where this pairing rule runs out — it adds 1.83x
+  pairs, not 2x.
+- **The board will use probe3d's MLP, with the linear run kept as a committed
+  control.** A pose board departs from `hidden_dim=0` deliberately or not at
+  all; the control is what says by how much, and the linear table is already
+  measured (it underfits at `train_loss` 0.0725-0.0732, clears the floor by
+  2.7-3.5 degrees against the MLP's 24.5-42.6, and nearly inverts the top two).
+
+This step ships the **dataset and the metric only**, which is step 6c's order
+for detection: the scorer is cross-checked before anything is judged by it.
+
+### The reproduction check is the whole point of the step
+
+`NaviPoseDataset` builds the pair set over the whole release from a seeded
+generator and then filters to one split, rather than building per split, so a
+`"val"` dataset holds bit-identical pairs whether or not the training split was
+ever asked for. Against the pre-measurement, on the real release:
+
+| quantity | parked | shipped class |
+|---|---|---|
+| validation pairs | 1,740 | **1,740** |
+| training pairs, 1 partner | 6,477 | **6,477** |
+| training pairs, 8 partners | 50,519 | **50,519** |
+| floor, 1 partner | 66.94 deg | **66.9379** |
+| floor, 8 partners | 66.85 deg | **66.8464** |
+
+The first `n` pairs of the eight-partner draw are the one-partner draw, pose
+for pose — the extras come from a second generator for exactly that reason, and
+it is what makes the pair-count curve one experiment rather than five.
+
+### The EXIF finding, which the pre-measurement had wrong
+
+Every dataset in this project loads through
+`visbench.utils.image.load_image`, which applies EXIF orientation because the
+cache hashes decoded pixels. `scripts/premeasure_pose.py` opened NAVI's frames
+directly instead. Scanning all 8,217: **327 carry a non-trivial orientation
+tag**, all of them tag 3 (a half turn), in eight `ipad_5` scenes of which seven
+are entirely tagged.
+
+Which convention the *camera poses* follow decides whether applying the tag is
+a fix or a bug, and both readings are plausible. It was settled by measurement,
+in the one scene where tagged and untagged frames sit together
+(`schleich_bald_eagle/multiview_08_ipad_5`, 6 tagged of 27): take each camera's
+up vector in world coordinates and compare it with the untagged mean. The
+tagged frames read **0.7 to 22.8 degrees**, inside the untagged frames' own
+spread of 6 to 50 — where a pose describing the *stored* pixels would put them
+near 180. So the poses describe the turned image, `load_image` is right, and
+reading these as stored supervises 4.0% of the release against its own
+negation.
+
+**The parked tables were measured on those 4.0% different pixels.** How much
+that moves them is 16a-2's to report; it is not expected to be large and it is
+not assumed to be nil.
+
+The script now reads its pairs out of `NaviPoseDataset` — 580 lines to 326,
+with the quaternion maths, the pairing, the millimetre scaling, the frame
+loader and the floor all deleted in favour of the library's. A
+pre-measurement assembling its data from a second copy of the loader stops
+predicting the probe the moment either copy moves, which is precisely what had
+already happened.
+
+### The angle metric cannot check the conversion that feeds it
+
+`matrix_to_quaternion` uses Shepperd's branch because the naive
+`w = sqrt(1 + trace) / 2` form loses its digits as the rotation approaches 180,
+and these pairs are drawn to 120 with relative transforms that exceed it. The
+first test of that measured the two forms through `rotation_error_deg`, and it
+**failed on the correct implementation**:
+
+| instrument | Shepperd | naive |
+|---|---|---|
+| max quaternion component error | **1.2e-07** | 1.2e-04 |
+| max matrix entry error | **4.8e-07** | 2.1e-04 |
+| max angle vs truth | 0.0485 deg | 0.0560 deg |
+| count above 1e-3 deg, of 2000 | 184 | 203 |
+
+Three orders of magnitude apart on what they actually get wrong, and
+indistinguishable through the metric — because `acos` of the trace is
+ill-conditioned exactly where a round-trip check sits, at zero error. Its own
+noise floor is the giveaway: a quaternion compared with **itself** reads up to
+0.028 degrees. So every tolerance in the pose tests is 0.05 rather than 1e-3,
+`test_the_angle_cannot_tell_the_two_forms_apart` pins the reason so the
+component check is not simplified back, and `acos` is kept rather than replaced
+by a well-conditioned `atan2` form because it is probe3d's metric of record and
+comparability is the only reason to borrow a protocol.
+
+### Smaller things, each of which would have been silent
+
+- **`PosePairs.indices`, not `.index`** — a `NamedTuple` is a tuple, and
+  `index` is one of the two methods it already has. mypy caught it; nothing at
+  runtime would have.
+- **`subset()` is refused**, the `TwoAFCDataset` reason: the pairs index into
+  the frame list, so slicing it silently repoints them. `max_pairs=` is the
+  constructor argument instead — and shortening the *training* split changes
+  the protocol rather than the run's cost, since the score has not converged in
+  the pair count.
+- **A validation split reports `partners: 1` beside `partners_requested: 8`**,
+  the way a record keeps `pooling_requested` beside resolved pooling. Clamping
+  silently would name a training budget the split does not hold; raising would
+  break the CLI path, where one flag set builds both splits.
+- **The crop is the fourth copy of `DenseFolderDataset._crop_image`** and is
+  pinned pixel for pixel against it, like the other three.
+- 62 tests, and the fast suite goes 2160 to 2222 collected.
+
+## 16a-2 — the first board whose head is not a linear map, and the probe that fits it
+
+**2026-09-17.** `PoseHead` (registered as `pose`), `RelativePoseTask`,
+`examples/pose.py`, and 37 tests. The probe is deliberately **not registered**:
+a probe name is load-bearing in a dozen fixed tables a test pins equal to
+`list_probes()`, so registration belongs with the board, the CLI row and the
+viewer in 16a-3. `visbench.run()` takes a constructed task, which is what the
+proof below runs through, and `load_probe(..., task=...)` takes one too.
+
+### What the probe does differently, and why each is deliberate
+
+**The head is an MLP.** Every other board here is quoted with the least
+expressive head that can express the task, because then a gap between two
+backbones is a gap between two representations — and in practice that has
+always come out a *linear map*: an affine layer, a `LinearHead`, or the 1x1
+convolutions `DetectionHead` and `InstanceHead` are built from. `DPTHead` is
+nonlinear and is a control rather than a board, which is the distinction to
+keep: this is the first board whose number comes from a head with hidden
+layers. The linear control measured in
+16a-1's write-up is what makes this a decision rather than a convenience:
+`train_loss` 0.0725-0.0732 flat across four backbones, 40x this head's, a
+margin over the floor of 2.7-3.5 degrees against 24.5-42.6, and an ordering
+that nearly inverts this one's top two. `hidden_dims=()` reaches that control
+by name, and `task_params["head"]` records which of the two produced a number.
+
+**The floor travels with the score**, as `floor_*`, through
+`BaseTask.context_metrics` — the mechanism `ceiling_*` already uses. A rotation
+error is uninterpretable alone: pairs drawn within 120 degrees have a median
+near 65, so a constant scores about 67 and a backbone landing there is *at
+chance* rather than weak.
+
+**`train_pairs` is in `task_params`, so it is in the comparability key.** The
+scored split is the validation one, whose `describe()` says `partners: 1` and
+nothing at all about how many pairs the head was fitted on — and that count is
+the protocol parameter this probe has not converged in. Without it two boards
+drawn from different pair sets would render as one.
+
+**`probe_state()` carries the fitted floor**, which is the only piece of state
+here that does not affect a prediction. That is exactly why it is easy to leave
+behind: a reloaded probe without it scores identically and can no longer say
+whether the score beats a constant. Two hub tests pin the round trip now rather
+than at registration, because 9a found the same class of bug a release late.
+
+**`predict` follows the *head's* device**, not the task's. A probe rebuilt by
+`load_probe` gets its head from `build_head` and where that landed is a fact
+about the load; reading `self.device` instead makes a CPU-loaded head crash
+inside a BatchNorm on a machine that happens to have a GPU.
+
+### The warm cache was not warm, and the reason generalises
+
+The first run through `run()` re-extracted every frame although
+`scripts/premeasure_pose.py` had already extracted all 8,215 of them for four
+backbones. **The cache keys on the pooling string, and the two paths ask
+different questions**: the script asked for `"default"` and `run()` asks for
+the `"cls"` that `_resolve` turns it into, so the same tensors were written
+under two keys. The script now resolves pooling the way `run()` does. It is the
+same family as the EXIF divergence 16a-1 found — a script that assembles its
+own inputs stops predicting the probe — and it cost an hour of decoding per
+backbone rather than a wrong number.
+
+**Extraction, not training, is what a pose board costs.** Measured here: about
+**3 frames/s**, single-threaded, on NAVI's 12-megapixel JPEGs, so roughly an
+hour per backbone for the 8,215 training and 3,017 validation frames — against
+a couple of minutes to fit the head on a V100 once the features are on disk.
+Seeds two and three of a backbone are therefore nearly free. 16a-3 should size
+its array job by the decode, and expect the *first* seed of each cell to carry
+the whole cost.
+
+### The end-to-end proof
+
+`mae_vitb16` and `clip_vitb16` — the top and bottom rows of the parked table —
+at the pinned protocol, three seeds each, through `visbench.run()` with a
+constructed task. The six records are committed as
+`results/controls/pose_protocol.jsonl`, because 8a is the precedent for what
+happens when a published figure has no surviving record.
+
+| backbone | shipped (3 seeds) | vs floor | seed range | parked | delta |
+|---|---|---|---|---|---|
+| `mae_vitb16` | **21.84** | +45.01 | 0.21 | 24.29 | −2.45 |
+| `clip_vitb16` | **40.50** | +26.35 | 0.41 | 42.34 | −1.84 |
+
+**The floor reads 66.85 in every record, which is the check the step turns
+on.** That is the parked value to the digit, so the shipped `NaviPoseDataset`
+drew the pairs the pre-measurement drew; a floor is a property of the draw, so
+it is the one number that can say so without depending on a backbone, a head or
+a seed. The ordering holds, and the gap between the two rows widens from 18.05
+to 18.66.
+
+### Which of the two changes moved them
+
+The shipped probe differs from the pre-measurement in two ways at once — EXIF
+orientation, and reshuffling every epoch rather than once — so each was
+measured on the same features rather than attributed by argument:
+
+| configuration | `mae` | `clip` |
+|---|---|---|
+| parked — EXIF-naive, one fixed shuffle | 24.29 (range 0.73) | 42.34 (range 0.69) |
+| EXIF-fixed, one fixed shuffle | 22.91 (range 1.01) | 42.32 (range 1.36) |
+| shipped — EXIF-fixed, reshuffled each epoch | 21.84 (range 0.21) | 40.50 (range 0.41) |
+
+**The EXIF fix does not move a pose number beyond seed noise** — −1.38 on
+`mae` against seed ranges of 0.73 and 1.01, and −0.02 on `clip`. It was worth
+making because 4.0% of the release was supervised against its own negation, not
+because it changes a score, and quoting `mae`'s row alone as "the EXIF fix is
+worth 1.4 degrees" would be reading a difference the size of the noise. That is
+the floor rule applied to a *correction* rather than to a score.
+
+**Per-epoch reshuffling is the half that shows.** Same direction on both rows
+(−1.07, −1.82) and, more usefully, a seed range cut three to five times. It is
+also what every other trained probe here already does, so the shipped task
+matching them costs nothing and buys a tighter board.
+
+**`train_loss` is not comparable across those three rows** and the trap is
+worth naming: the pre-measurement reports the last training batch in *train*
+mode, the shipped task a full-split pass in *eval* mode. The numbers 0.0020 and
+0.0029 sit in the same column of a printed table and are two different
+statistics, which is exactly how a fit diagnostic gets misread as a finding.
+
+### What is not proved yet
+
+Two rows, not four: `dino_vitb16` and `sam_vitb16` were left to 16a-3's board
+rather than run twice, since a board run produces them anyway. The ordering
+claim the pre-measurement makes — `mae > dino > sam > clip` — is therefore
+**confirmed at its two ends and untested in the middle**, and should be quoted
+that way until the board lands.
+
 ## Steps 7a-14a — write-ups lifted from `CLAUDE.md`
 
 ### 10a — `TimmBackbone` learns to read a ViT

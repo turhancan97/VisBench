@@ -404,6 +404,57 @@ more than a point. So the fit diagnostics separate "different hardware" from
 backbone — read `training` before attributing a cross-silicon gap to anything
 else.
 
+## `pose_protocol.jsonl` — does the shipped pose probe measure what the pre-measurement measured?
+
+Six records: `RelativePoseTask` on NAVI at the pinned protocol — eight partners
+per training anchor, 50,519 training pairs against 1,740 validation ones,
+probe3d's MLP — for `mae_vitb16` and `clip_vitb16` over three seeds each. The
+task is deliberately **not registered** in 16a-2, so it cannot acquire a corpus
+board, a CLI row or a `TARGET_STYLES` entry by accident; the board itself is
+16a-3's.
+
+**These are here because a published figure needs a surviving record.** Step 8a
+produced six figures on an ad-hoc staging that was never committed and left
+nothing behind to check them against; the numbers below are quoted in
+`ENGINEERING_LOG.md` and in `visbench/tasks/low_level/README.md`, so they are
+kept.
+
+| backbone | rot err (3 seeds) | vs floor | seed range | parked | delta |
+| --- | --- | --- | --- | --- | --- |
+| `mae_vitb16` | 21.84 | +45.01 | 0.21 | 24.29 | −2.45 |
+| `clip_vitb16` | 40.50 | +26.35 | 0.41 | 42.34 | −1.84 |
+
+**The floor reads 66.85 in every record, which is the check that matters.** It
+is the parked value to the digit, so the shipped `NaviPoseDataset` drew the
+same pairs the pre-measurement drew — the claim 16a-1 makes and this is the
+evidence for.
+
+### What moved the scores, and what did not
+
+The shipped probe differs from the pre-measurement in two ways at once, so
+both were measured separately on the same features (single-backbone
+`scripts/premeasure_pose.py` runs, which write no records and are quoted here
+as script output):
+
+| configuration | `mae` | `clip` |
+| --- | --- | --- |
+| parked — EXIF-naive frames, one fixed shuffle | 24.29 (range 0.73) | 42.34 (range 0.69) |
+| EXIF-fixed frames, one fixed shuffle | 22.91 (range 1.01) | 42.32 (range 1.36) |
+| shipped — EXIF-fixed, reshuffled every epoch | 21.84 (range 0.21) | 40.50 (range 0.41) |
+
+**The EXIF fix does not move a pose number beyond seed noise**: −1.38 on `mae`
+against seed ranges of 0.73 and 1.01, and −0.02 on `clip`. Turning 4.0% of the
+frames the right way up was a correctness fix, not a numbers fix, and saying
+otherwise from `mae`'s row alone would be reading a difference the size of the
+noise. **Per-epoch reshuffling is the half that shows**: −1.07 and −1.82, the
+same direction on both, and it cuts the seed range **three to five times**,
+which is the more useful of the two effects for a board.
+
+**Do not compare `train_loss` across those rows.** The pre-measurement reports
+the last training batch in train mode and the shipped task reports a full-split
+pass in eval mode, so 0.0020 and 0.0029 are two different statistics. Only the
+first two rows of the table measure it the same way.
+
 ## `relative_depth.jsonl` — is the `depth` board measuring metric accuracy?
 
 Five records: `RelativeDepthTask` on the whole NYUv2 split, the same frames,

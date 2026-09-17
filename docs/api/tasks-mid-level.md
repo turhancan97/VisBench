@@ -64,3 +64,12 @@ two are kept apart even though both are "similarity"-flavoured.
 .. automodule:: visbench.tasks.mid_level.relative_depth
    :members:
 ```
+
+## `relative_pose`
+
+**Not a registered probe yet** — the board, the CLI row and the viewer arrive in 16a-3; construct the class directly until then. probe3d's pairwise 7D regression over pooled features, scored as geodesic rotation error and read against the no-feature floor it reports as `floor_*`: pairs drawn within 120 degrees have a median near 65, so a constant already scores about 67 and a backbone landing there is at chance rather than weak.
+
+```{eval-rst}
+.. automodule:: visbench.tasks.mid_level.pose
+   :members:
+```
