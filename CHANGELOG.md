@@ -9,7 +9,7 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
-## [0.20.0] — 2026-09-16
+## [0.20.0] — 2026-09-17
 
 **The release that broke a confound, and then found that the boards it
 publishes cannot see what it broke.**
