@@ -115,7 +115,7 @@ number — every measurement v0.6.1 reported, v0.7.0 reports identically.
 
 ## Current state
 
-**Everything through v0.20.0 is shipped**, and every numbered step in the build
+**Everything through v0.21.0 is shipped**, and every numbered step in the build
 table before 14a is done — every task, all three backbone families, the CLI,
 fine-tuning, detection, the low-level probes, the leaderboard and probe
 sharing. Each release's narrative is in `CHANGELOG.md`, its derivation in
@@ -311,17 +311,19 @@ was ever found. And **do not pipe a long publishing run through `tail`**: it
 buffers, so a run killed part-way leaves no log and the Hub has to be queried to
 find out what shipped.
 
-**Fifteen releases are archived, `0.20.0` the newest** (2026-09-17). Byte
+**Sixteen releases are archived, `0.21.0` the newest** (2026-09-17). Byte
 counts, wheel digests, the commit each tag resolves to and what every
 `__version__`/`SCHEMA_VERSION` import read back are recorded release by release
 in [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md) under "Release history"; read them
-there. `0.20.0` is the **eighth running with no gap** between tag, wheel, release
+there. `0.21.0` is the **ninth running with no gap** between tag, wheel, release
 and `main`; `0.18.0` is the only release to move the schema (v8 -> v9), so a
 v0.17.0 install cannot read a record written by it while older records read
 fine here. **`0.19.0` shipped without its wheel check and without its
-release-history entry** — both were done retrospectively on 2026-09-16. A
-release is not finished when the upload succeeds, and nothing red-flags the
-omission.
+release-history entry** — both were done retrospectively on 2026-09-16 — and
+**`0.21.0` stopped with PyPI complete and no GitHub release**, so Zenodo had
+archived nothing while `CITATION.cff` already named the new version. A release
+is not finished when the upload succeeds, nothing red-flags the omission, and
+**a tag is not a release**: the GitHub release is what triggers the archive.
 
 Four rules those releases left behind, beyond the standing list below:
 
@@ -346,9 +348,9 @@ Four rules those releases left behind, beyond the standing list below:
   `__version__` reports the new one. A bump always moves the lockfile.
 
 **The concept DOI is `10.5281/zenodo.21822684`**, unchanged across all
-**fifteen** version DOIs and now resolving to v0.20.0 (confirmed against
-Zenodo's API on 2026-09-17 — record 21822684 redirects to `id` 22809873, which
-reports `metadata.version` `v0.20.0` — rather than assumed).
+**sixteen** version DOIs and now resolving to v0.21.0 (confirmed against
+Zenodo's API on 2026-09-17 — record 21822684 redirects to `id` 22820090, which
+reports `metadata.version` `v0.21.0` — rather than assumed).
 
 **That API 302s, and without `-L` the check lies to you**: `curl` alone returns
 a 229-byte HTML redirect page and the JSON parse fails with a traceback that
@@ -399,7 +401,9 @@ under "Release history"; what recurs is:
   `packaging`**: the conda env has twine 7.0.0 beside `packaging` 23.2, which
   has no `packaging.errors`, so `twine upload` dies in an import before it
   reaches the network, while the throwaway venv's 26.3 works. "Conda's twine is
-  broken" was the wrong diagnosis, twice.
+  broken" was the wrong diagnosis **three times** — 0.21.0 hit it again, with
+  the identical traceback. Upload from the venv that built and checked the
+  artifacts.
 - **Verify out of the published wheel, by import.** Download it from the JSON
   API, check its SHA256 against PyPI's digest, extract it, put it *first* on
   `sys.path` and **import** it, with an assert on `visbench.__file__` so the

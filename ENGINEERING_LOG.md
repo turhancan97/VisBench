@@ -1230,6 +1230,46 @@ The four most recent entries were lifted out of `CLAUDE.md` on 2026-09-03,
 when that file passed the 150k-character limit it is loaded under for the second
 time. Nothing was rewritten; each paragraph is as its release recorded it.
 
+**`0.21.0` is fully released** (2026-09-17). On PyPI — wheel and sdist both
+(441,064 and 1,456,336 bytes, wheel sha256 `b9bda312…`, sdist `7268cea9…`) —
+tagged `v0.21.0`, **annotated** (tag object `42f9af3`), on merge commit
+`3be9043`, with a GitHub release cut from that tag (published
+2026-09-17T20:49:54Z) and archived by Zenodo as version DOI
+**`10.5281/zenodo.22820090`**, the **sixteenth**. The concept DOI
+`10.5281/zenodo.21822684` resolves to record 22820090 with `metadata.version`
+`v0.21.0`, read off Zenodo's API with `-L`. Both artifacts match the locally
+built ones **byte for byte**, checked against PyPI's own digests.
+
+**Verified out of the published wheel by import** — `__version__` 0.21.0,
+`SCHEMA_VERSION` **9**, **eighteen** probes with `relative_pose` among them,
+**fourteen** registered backbones, five heads
+(`detection, dpt, instance, linear, pose`), `show_probes() == list_probes()`,
+and the pose probe reporting `protocol: probe3d_pose` with hidden dims
+`(512, 256, 128)` — with an assert on `visbench.__file__` so the editable
+checkout could not answer in its place.
+
+**The archive abstract reads "Eighteen probes span"**, hand-checked on record
+22820090 before this entry was written. That check exists because it cannot be
+done afterwards: three older archives say "Fifteen" and always will. It is
+right here because `CITATION.cff` and `.zenodo.json` were updated in the step
+that added the probe, not in the release.
+
+**The upload failed once first, and the diagnosis is the one already written
+down.** `twine upload` from the conda environment died in an import —
+`ImportError: cannot import name 'errors' from 'packaging'` — because that
+environment pairs twine 7.0.0 with `packaging` **23.2**, which has no
+`packaging.errors`. The throwaway venv built for the release check has 26.3 and
+uploaded without complaint. "Conda's twine is broken" has now been the wrong
+diagnosis three times; the pin that matters is `packaging`, not twine.
+
+**It also stopped half-done, in the way the standing rule predicts.** The tag
+was pushed and PyPI was complete, and there was **no GitHub release** — so
+Zenodo had archived nothing and the concept DOI still resolved to v0.20.0,
+while `CITATION.cff` on `main` already said 0.21.0. A tag is not a release: the
+GitHub release is what triggers the archive. Found by checking rather than by
+anything failing, which is the same shape as `0.19.0` shipping without its
+wheel check.
+
 **`0.20.0` is fully released** (2026-09-17). On PyPI — wheel and sdist both
 (413,207 and 1,388,208 bytes, wheel sha256 `3ab9c1c3…`, sdist `1a750ada…`) —
 tagged `v0.20.0`, **annotated** (tag object `9c75104`), on merge commit
