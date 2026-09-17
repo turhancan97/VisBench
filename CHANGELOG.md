@@ -9,6 +9,41 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+## [0.21.0] — 2026-09-17
+
+**The release that departs from a linear head, and measures what that costs.**
+
+An eighteenth probe, `relative_pose`: two views of one rigid scene and the
+rigid transform between the cameras, under probe3d's pairwise protocol on NAVI.
+The corpus goes from 221 board cells to **234** — eighteen boards, thirteen
+backbones each — the schema is unchanged at v9, and **no number on the
+seventeen existing boards moves**.
+
+It is the first VisBench board whose head is **not a linear map**. Every other
+board is quoted with the least expressive head that can express the task,
+because then a gap between two backbones is a gap between two representations;
+in practice that has always come out an affine layer or a 1x1 convolution.
+A single affine map cannot express pairwise pose — it sits at or near chance
+for all thirteen backbones — so this board ships with probe3d's MLP **and with
+the linear run committed beside it**, because the honest form of "we used a
+bigger head" is a measurement of what the smaller one did.
+
+Three things this probe does that no other one here does. Its score travels
+with a **floor** rather than a ceiling: pairs are drawn within 120 degrees, so
+predicting a constant already scores about 67 and a backbone landing there is
+*at chance* rather than weak. Its **training pair count is protocol** and sits
+in the comparability key, because the error has not converged in it. And it is
+the first board close to **orthogonal** to the semantic tier — mean rho +0.099
+against the seven high-level boards against +0.701 against the low-level ones —
+so a pose number is close to independent evidence about a backbone.
+
+**Read it to whole degrees.** Two extractions of the same frames differ by
+~1e-5 in the feature vectors, and thirty epochs of a 1,536-dimensional MLP
+amplify that into about a degree of rotation error; against one cache it
+reproduces bit for bit. Five adjacent pairs on the board are ties, and the
+rendered caveat says so.
+
+
 ### Added
 
 - **NAVI and the pose geometry — the dataset and metric halves of relative
@@ -4831,7 +4866,8 @@ API philosophy.
 [#2]: https://github.com/turhancan97/VisBench/issues/2
 [#4]: https://github.com/turhancan97/VisBench/issues/4
 [#3]: https://github.com/turhancan97/VisBench/issues/3
-[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.20.0...HEAD
+[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.21.0...HEAD
+[0.21.0]: https://github.com/turhancan97/VisBench/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/turhancan97/VisBench/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/turhancan97/VisBench/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/turhancan97/VisBench/compare/v0.17.0...v0.18.0
