@@ -59,6 +59,7 @@ Kind = Literal[
     "sheet",
     "ranking",
     "triplet",
+    "pose",
 ]
 
 
@@ -210,13 +211,23 @@ TARGET_STYLES: dict[str, TargetStyle] = {
         invalid=None,
         note="reference and two candidates, with the human vote marked",
     ),
+    "relative_pose": TargetStyle(
+        kind="pose",
+        invalid=None,
+        unit="deg",
+        note=(
+            "two views of one object and how far the camera turned between "
+            "them; the footer says what a constant already scores, because an "
+            "angular error means nothing against zero"
+        ),
+    ),
 }
 
 #: Kinds that are not a panel beside their image, and are drawn by their own
 #: renderer instead. Listed so a caller can ask before reaching for
 #: :func:`~visbench.viz.colour.target_to_rgb`, which refuses both by name.
 COMPOSITE_KINDS: frozenset[str] = frozenset(
-    {"boxes", "instances", "matches", "sheet", "ranking", "triplet"}
+    {"boxes", "instances", "matches", "sheet", "ranking", "triplet", "pose"}
 )
 
 

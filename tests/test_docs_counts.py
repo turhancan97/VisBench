@@ -133,3 +133,99 @@ def test_board_total_matches_the_leaderboard(path, line, word, board_word):
     assert word == board_word, (
         f"{path}:{line} says '{word} boards' where LEADERBOARD.md renders {board_word}"
     )
+
+
+#: "`mae_vitb16` is first on five of the eighteen boards and last on four" —
+#: the one claim here that is a *count over the corpus* rather than a count of
+#: it, and the one that has gone stale without anything noticing.
+#:
+#: It was published as "six ... four", which was right at twelve backbones and
+#: wrong from `dino_vitb8` onward: the new backbone took `corner` and
+#: `correspondence` off `mae_vitb16`, leaving four, and `relative_pose` later
+#: gave one back. Nothing failed, because the guard above pins the number of
+#: *boards* and had no opinion about the number beside it.
+LEADER_CLAIM = re.compile(
+    r"`(?P<backbone>\w+)` is first on \*{0,2}(?P<first>[A-Za-z]+)\*{0,2} "
+    r"of the (?P<boards>[A-Za-z]+) boards and last on \*{0,2}(?P<last>[A-Za-z]+)\*{0,2}"
+)
+
+#: Small counts, for the leader claim. Separate from WORDS, which starts at
+#: twelve because it spells *totals*.
+SMALL_WORDS = {
+    0: "zero",
+    1: "one",
+    2: "two",
+    3: "three",
+    4: "four",
+    5: "five",
+    6: "six",
+    7: "seven",
+    8: "eight",
+    9: "nine",
+    10: "ten",
+    11: "eleven",
+}
+
+
+def _leader_counts() -> dict[str, tuple[int, int]]:
+    """How many boards each backbone leads and trails, from the corpus.
+
+    Computed the way `LEADERBOARD.md` is — one board per comparability group,
+    ranked by that task's headline metric — rather than parsed back out of the
+    rendered tables, because the rendered ordering is what this claim is *about*
+    and reading it from the same place twice would check nothing.
+    """
+    from collections import Counter
+
+    from visbench.results.leaderboard import group_comparable, latest_per_backbone, rank
+    from visbench.results.render import HEADLINE_METRICS
+    from visbench.results.writer import iter_records
+
+    records = list(iter_records(ROOT / "results" / "corpus" / "visbench.jsonl"))
+    first: Counter = Counter()
+    last: Counter = Counter()
+    for key, group in group_comparable(records).items():
+        ordered = [row for row, _ in rank(latest_per_backbone(group), HEADLINE_METRICS[key.task])]
+        first[ordered[0].backbone] += 1
+        last[ordered[-1].backbone] += 1
+    return {name: (first[name], last[name]) for name in set(first) | set(last)}
+
+
+def _leader_claims() -> list[tuple[str, int, str, str, str, str]]:
+    found = []
+    for name in CURRENT_STATE:
+        text = (ROOT / name).read_text(encoding="utf-8")
+        for number, line in enumerate(text.splitlines(), 1):
+            # The claim spans two lines in two of the three files, so match on
+            # the joined text and report the line the backbone appears on.
+            window = "\n".join(text.splitlines()[number - 1 : number + 1]).replace("\n", " ")
+            match = LEADER_CLAIM.search(window)
+            if match and match.group("backbone") in line:
+                found.append(
+                    (
+                        name,
+                        number,
+                        match.group("backbone"),
+                        match.group("first").lower(),
+                        match.group("boards").lower(),
+                        match.group("last").lower(),
+                    )
+                )
+    return found
+
+
+def test_the_leader_guard_reaches_something():
+    assert _leader_claims(), "no 'first on N boards' claim found; the idiom changed"
+
+
+@pytest.mark.parametrize(("path", "line", "backbone", "first", "boards", "last"), _leader_claims())
+def test_the_leader_count_matches_the_corpus(path, line, backbone, first, boards, last, board_word):
+    """A count over the corpus is a fact about that corpus, not a backbone."""
+    leads, trails = _leader_counts()[backbone]
+    assert boards == board_word, f"{path}:{line} says '{boards} boards'"
+    assert first == SMALL_WORDS[leads], (
+        f"{path}:{line} says {backbone} is first on '{first}' boards; the corpus says {leads}"
+    )
+    assert last == SMALL_WORDS[trails], (
+        f"{path}:{line} says {backbone} is last on '{last}' boards; the corpus says {trails}"
+    )

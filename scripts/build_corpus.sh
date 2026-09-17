@@ -58,6 +58,7 @@ CUB=/shared/sets/datasets/vision/CUB-200/images_train_test
 NIGHTS=/shared/sets/datasets/vision/nights
 TASKONOMY=/shared/sets/datasets/taskonomy-dataset/taskonomy
 NYU=/shared/sets/datasets/vision/probing_3D/nyuv2_new
+NAVI=/shared/sets/datasets/vision/probing_3D/navi_v1
 
 RESULTS=${RESULTS:-results/corpus/visbench.jsonl}
 BACKBONES=${BACKBONES:-"dinov2_vits14 dinov2_vitb14"}
@@ -309,6 +310,31 @@ probe_surface_normal() {
     --image-dir images --target-dir normals
 }
 
+probe_relative_pose() {
+  # NAVI multiview, probe3d's pairwise protocol. Every flag here is protocol
+  # rather than a speed knob and is left at its default deliberately:
+  # --partners 8 pins the training pair count (error keeps falling as pairs are
+  # added, so two pose numbers are comparable only if they drew the same
+  # pairs), --max-angle 120 pins which pairs are eligible and therefore the
+  # no-feature floor, and --pair-seed 8 pins the draw itself. All three travel
+  # in dataset_params, so a run at another setting lands in its own
+  # comparability group rather than being ranked against these.
+  #
+  # This is also the one board here whose head is not a linear map: the default
+  # --hidden-dims is probe3d's MLP, and it is recorded in task_params. The
+  # linear control is a separate file under results/controls/, not a corpus
+  # column.
+  #
+  # Slow for a pooled probe, and the cost is decode rather than training: NAVI
+  # ships 12-megapixel JPEGs and extraction runs at ~3 frames/s single-threaded,
+  # so the first seed of a backbone is about an hour and later ones are minutes.
+  if [[ ! -d "$NAVI" ]]; then
+    echo "!!! SKIPPED relative_pose: no NAVI release at $NAVI" >&2
+    return
+  fi
+  run relative_pose --data "$NAVI"
+}
+
 ALL_PROBES=(
   classification
   scene_classification
@@ -327,6 +353,7 @@ ALL_PROBES=(
   occlusion_edge
   corner
   orientation
+  relative_pose
 )
 
 main() {

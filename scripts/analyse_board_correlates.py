@@ -64,6 +64,7 @@ HEADLINE_METRICS: dict[str, str] = {
     "keypoints2d": "keypoint_correlation",
     "corner": "corner_correlation",
     "orientation": "orientation_error",
+    "relative_pose": "rotation_error_deg",
     "occlusion_edge": "occlusion_edge_correlation",
 }
 
@@ -72,7 +73,7 @@ HEADLINE_METRICS: dict[str, str] = {
 #: Listed rather than inferred, for the reason ``METRIC_DIRECTIONS`` is listed:
 #: a heuristic that guessed wrong would silently invert a board and the output
 #: would read as a finding rather than a bug.
-LOWER_IS_BETTER: frozenset[str] = frozenset({"surface_normal", "orientation"})
+LOWER_IS_BETTER: frozenset[str] = frozenset({"surface_normal", "orientation", "relative_pose"})
 
 
 #: Boards whose head reads **one feature vector per patch**, so the feature grid
@@ -93,6 +94,11 @@ GRID_READING_BOARDS: frozenset[str] = frozenset(
         "orientation",
         "detection",
         "instance_segmentation",
+        # `relative_pose` is deliberately absent: its head reads two *pooled*
+        # vectors, so there is no grid for the feature resolution to be a
+        # property of, and averaging it in would dilute the quantity this set
+        # exists to measure — the same reason the three image-level
+        # classification boards are out.
     }
 )
 
@@ -195,6 +201,7 @@ SOURCE_IMAGES: dict[str, str] = {
     "corner": "Taskonomy",
     "orientation": "Taskonomy",
     "similarity": "NIGHTS",
+    "relative_pose": "NAVI",
 }
 
 

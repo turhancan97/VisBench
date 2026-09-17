@@ -206,6 +206,15 @@ This is a multi-month roadmap, built one reviewed step at a time.
       21.84 deg and `clip_vitb16` 40.50 against a no-feature floor of **66.85,
       the parked value to the digit**, which is what says the shipped dataset
       drew the same pairs
+- [x] **16a-3.** the eighteenth probe registered, with its thirteen-backbone
+      board, its `visbench show` renderer, its gallery figure and its page.
+      Registration turned **16 tests red at once**, each naming a table that has
+      to agree with `list_probes()` — which is the argument for that guard:
+      none of them can be found by reading the code that adds the probe. The
+      board is the first here close to *orthogonal* to the high-level tier
+      (mean rho +0.099 against it, +0.701 against low-level), and it must be
+      read to whole degrees: two extractions of the same features differ by
+      ~1e-5 and thirty epochs of this head turn that into about a degree
 
 ## Roadmap
 
@@ -310,12 +319,11 @@ plausible wrong numbers while reporting success, which only the new fit
 diagnostics could tell. The corpus goes from 264 records to **360**, still 204
 board cells.
 
-**Next** — **relative camera pose**, an eighteenth probe, in three steps: the
-NAVI dataset and the pose metric (16a-1, done), then the head and the task
-proved end to end against the pre-measurement, then the board, the viewer and
-the documentation. It is the first probe here whose head is **not** linear, and
-that departure is the reason it needed two decisions taken before any code —
-see the table above.
+**Next** — there is no committed next step. Relative camera pose is **done**
+(16a-1 to 16a-3): an eighteenth probe, its board, and the linear control
+committed beside it, because it is the first board here whose head is not a
+linear map and the honest form of "we used a bigger head" is a measurement of
+what the smaller one did.
 
 The rest of what follows is a candidate pool. Its cheap end is exhausted:
 superpixels was built and rejected, DoG-blob rejected on overlap, relative
@@ -397,7 +405,7 @@ dense probe has to test for.
 | Task | Level | Note |
 |---|---|---|
 | Optical flow | low | Needs image pairs and a flow head. `PairViewDataset` already expresses the pairing; the head is the real cost |
-| Relative camera pose (essential / fundamental matrix) | mid | **Being built** — probe3d's pairwise 7D regression on NAVI, which is on this machine. It reads *pooled* features, so it is cheaper than this table implies. Multi-partner sampling settled it: at eight partners per training anchor every one of four ViT-B/16s clears the no-feature floor by 24 deg or more and every adjacent pair is separated by 5-7x the widest seed range. The dataset and the metric ship (16a-1); the head and the task follow. Two decisions were taken first, both protocol rather than tuning — the pair count is **pinned** at eight partners, and the board departs from `hidden_dim=0` for probe3d's MLP with the linear run kept as a control. See `visbench/tasks/low_level/README.md` |
+| ~~Relative camera pose (essential / fundamental matrix)~~ | mid | **Done** — probe3d's pairwise 7D regression on NAVI, which is on this machine. It reads *pooled* features, so it is cheaper than this table implies. Multi-partner sampling settled it: at eight partners per training anchor every one of four ViT-B/16s clears the no-feature floor by 24 deg or more and every adjacent pair is separated by 5-7x the widest seed range. The dataset and the metric ship (16a-1); the head and the task follow. Two decisions were taken first, both protocol rather than tuning — the pair count is **pinned** at eight partners, and the board departs from `hidden_dim=0` for probe3d's MLP with the linear run kept as a control. See `visbench/tasks/low_level/README.md` |
 | Multi-view stereo / point-cloud / mesh recovery | mid | Multi-view input and a non-raster output; the largest departure from every probe here |
 | Motion / video object segmentation | mid | Grouping by motion, not identity. Needs video input, which nothing here consumes yet — **the machinery is the blocker, not the data**: DAVIS is on this machine, 90 sequences with 2016 and 2017 split lists |
 | Action / activity recognition | high | Same video constraint |

@@ -13,9 +13,9 @@ corrected, is in
 
 ## "Which backbone is best" is not a well-formed question
 
-`mae_vitb16` is first on **six** of the seventeen boards and last on **four**. A
+`mae_vitb16` is first on **five** of the eighteen boards and last on **four**. A
 summary that picks a winner is discarding the result — the whole point of
-seventeen boards is that a representation is good *at things*, not good.
+eighteen boards is that a representation is good *at things*, not good.
 
 ## A count is a fact about the corpus, not about a backbone
 
@@ -128,10 +128,18 @@ low-level cohere.
 - **`orientation`'s two middle rows are not separable.** Its metric is a
   coherence-weighted `acos`, which is ill-conditioned at its endpoints, and it
   drifts 1.8e-03 where the other four boards drift 1e-7.
+- **Quote `relative_pose` to whole degrees, and treat rows closer than about
+  one degree as ties.** This is the largest of the four by far, and it is not
+  the metric: two extractions of the same features differ by ~1e-5, and thirty
+  epochs of its 1,536-dimensional MLP amplify that into about a degree. Against
+  one cache it reproduces bit for bit, and every recorded field — seed,
+  fingerprint, `hardware` — is identical across the two runs that differ, so
+  there is no field to check instead of counting digits.
 
-## n = 12
+## n = 13
 
-Every correlation above has wide error bars.
+Every correlation above has wide error bars, and coefficients quoted from
+before `dino_vitb8` were measured at n=12.
 
 ## What may sit in one table at all
 

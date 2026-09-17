@@ -96,7 +96,74 @@ so it stands on its own rather than assuming you have read the ones above it.
   five times**. The two middle rows of the parked ordering were left to 16a-3's
   board rather than run twice.
 
+- **`relative_pose` is registered — the eighteenth probe** (16a-3), with its
+  CLI row, its `visbench show` renderer, its gallery figure, its documentation
+  page and its board. Registration is what makes a probe *reachable*, and it is
+  not a one-line change: adding the decorator turned **16 tests red at once**,
+  each naming a table that has to agree with `list_probes()` — the headline
+  metric, the CLI spec, the drawable-target table, both corpus shell arrays, the
+  probe total in seven user-facing files, the figure gallery, the generated
+  board tables and three analysis scripts' copies of the headline table.
+
+  Three things the registration itself changed:
+
+  - **The leaderboard learned a second context prefix.** `CONTEXT_PREFIX` was
+    the single string `"ceiling_"`. A `floor_*` metric it does not recognise is
+    not refused — it is *skipped*, so the floor this probe is read against would
+    have quietly not appeared on its own board. It is `CONTEXT_PREFIXES` now,
+    and the docstring says what the pair means: a context metric qualifies a
+    score from either side, and ranking on either would rank the split.
+  - **The accuracy metrics are parametrised names**, `rotation_acc@15deg`
+    rather than `rotation_acc_15`, so the leaderboard directs them by stem. An
+    exact name nobody listed is dropped from a board rather than refused, which
+    is the failure the parametrised table was added for.
+  - **The gallery gained a fourth kind of figure.** Two views of one rigid
+    scene cannot come from a single redistributable photograph, so the pair is
+    *made*: rotating a frame about its centre is exactly a camera rotation about
+    the optical axis, giving a degenerate but **exact** pose. The first render
+    drew the same scene twice — pairs are built scene by scene and each scene
+    yields both directions — which no test would have caught and looking at the
+    figure did.
+
+  **Its board is the first here that is close to orthogonal to the semantic
+  boards.** Thirteen cells, `floor_rotation_error_deg` **66.8464** in every
+  record — the floor is a property of the draw, so thirteen identical floors is
+  what says all thirteen backbones were scored on the same pairs — and **nothing
+  is at chance**: the rows span 22.70 (`mae_vitb16`) to 43.14 (`clip_vitb32`)
+  and every one clears the floor by 23.7 to 44.2 degrees. Mean Spearman is
+  **+0.701** against the low-level boards, **+0.642** against its own mid-level
+  tier and **+0.099** against the seven high-level ones, five of which sit
+  within ±0.12 of zero. The corpus goes from 221 board cells to **234**.
+
+  **The linear control ships beside it** (`results/controls/pose_linear.jsonl`,
+  `scripts/build_pose_linear_control.sh`). The same thirteen backbones on the
+  same features with one affine map score **62.94–65.99**, clearing the floor by
+  **0.85 to 3.91 degrees** against the MLP's 23.7 to 44.2, with `train_loss`
+  flat at 25x the MLP's — a linear head is at or near chance here for every
+  backbone, and its ordering is not the MLP's (Spearman +0.681, `mae_vitb16`
+  third rather than first). That is what the departure from `hidden_dim=0` costs
+  and buys, measured rather than argued.
+
+  **Read it to whole degrees.** The `mae_vitb16` cell run against a second
+  extraction of the same frames scores **21.77** where the board says **22.70**
+  — every recorded field identical, both on a V100, the floor identical to four
+  decimals. The two caches' feature vectors differ by up to 1.1e-05 and thirty
+  epochs of a 1,536-dimensional MLP amplify that into about a degree; against
+  the same cache it reproduces bit for bit. Five adjacent pairs on the board are
+  therefore ties, and the board's own caveat says so.
+
 ### Fixed
+
+- **Two claims that went stale at v0.20.0, found by the counts guard forcing
+  the lines around them to be touched.** `mae_vitb16` is first on **five** of
+  the eighteen boards and last on four; the published "six of the seventeen"
+  was measured at twelve backbones and was already wrong at thirteen, because
+  `dino_vitb8` took `corner` and `correspondence` off it. And three pretraining
+  coefficients on the `semantic_segmentation` page were twelve-backbone values
+  (+0.689 / +0.858 / +0.752, now +0.707 / +0.811 / +0.761) — the ordering the
+  page argues from is unchanged, which is how that kind of staleness lasts.
+  `tests/test_docs_counts.py` now recomputes the leader count from the corpus,
+  where before it pinned only the number of boards in the same sentence.
 
 - **NAVI's EXIF orientation is applied, and 327 of its 8,217 frames need it.**
   All 327 carry a half-turn tag, and the camera poses describe the image with

@@ -202,6 +202,30 @@ Ordered by `occlusion_edge_correlation`, which **disagrees with `mae`, `rmse`** 
 
 <sub>occlusion_edge on taskonomy_edge_occlusion/val, protocol=visbench_occlusion_edge_regression, frozen [d12a4923]</sub>
 
+### relative_pose
+
+| backbone | `rotation_acc@15deg` | `rotation_acc@30deg` | `rotation_error_deg` | `rotation_median_deg` | `translation_error` | `floor_rotation_acc@15deg` | `floor_rotation_acc@30deg` | `floor_rotation_error_deg` | `floor_rotation_median_deg` | `floor_translation_error` |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `mae_vitb16` | **0.5017** | **0.8046** | **22.6984** | **14.9383** | **0.0991** | 0.0374 | 0.1563 | 66.8464 | 65.6347 | 0.2411 |
+| `dinov2_vits14` | 0.4466 | 0.7690 | 25.3698 | 16.5657 | 0.1020 | 0.0374 | 0.1563 | 66.8464 | 65.6347 | 0.2411 |
+| `dino_vitb8` | 0.4517 | 0.7437 | 27.0987 | 16.5571 | 0.1036 | 0.0374 | 0.1563 | 66.8464 | 65.6347 | 0.2411 |
+| `dino_vitb16` | 0.3891 | 0.7023 | 29.0404 | 18.7155 | 0.1123 | 0.0374 | 0.1563 | 66.8464 | 65.6347 | 0.2411 |
+| `dinov2_vitb14` | 0.3879 | 0.7115 | 29.0808 | 18.0390 | 0.1101 | 0.0374 | 0.1563 | 66.8464 | 65.6347 | 0.2411 |
+| `sam_vitb16` | 0.3086 | 0.6138 | 35.0188 | 22.6655 | 0.1284 | 0.0374 | 0.1563 | 66.8464 | 65.6347 | 0.2411 |
+| `resnet50` | 0.2874 | 0.5845 | 37.0125 | 24.6576 | 0.1354 | 0.0374 | 0.1563 | 66.8464 | 65.6347 | 0.2411 |
+| `convnext_base` | 0.2707 | 0.5770 | 37.6031 | 25.0400 | 0.1424 | 0.0374 | 0.1563 | 66.8464 | 65.6347 | 0.2411 |
+| `siglip_vitb16` | 0.2799 | 0.5776 | 38.2885 | 24.6272 | 0.1385 | 0.0374 | 0.1563 | 66.8464 | 65.6347 | 0.2411 |
+| `clip_vitb16` | 0.2489 | 0.5621 | 40.5643 | 26.0582 | 0.1449 | 0.0374 | 0.1563 | 66.8464 | 65.6347 | 0.2411 |
+| `supervised_vitb16` | 0.2351 | 0.5098 | 41.4298 | 29.3044 | 0.1529 | 0.0374 | 0.1563 | 66.8464 | 65.6347 | 0.2411 |
+| `resnet18` | 0.2316 | 0.5149 | 43.0147 | 28.5317 | 0.1569 | 0.0374 | 0.1563 | 66.8464 | 65.6347 | 0.2411 |
+| `clip_vitb32` | 0.2316 | 0.5115 | 43.1388 | 29.3872 | 0.1544 | 0.0374 | 0.1563 | 66.8464 | 65.6347 | 0.2411 |
+
+Ordered by `rotation_error_deg`, which **disagrees with `rotation_acc@15deg`, `rotation_acc@30deg`, `rotation_median_deg`, `translation_error`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
+
+> **Read this first.** **Read every row against `floor_rotation_error_deg`, never against zero.** Pairs are drawn within 120 degrees of rotation, so predicting the training set's mean pose — no features at all — already scores about 67 degrees, and a backbone landing there is *at chance* rather than weak. This is also the one board here whose head is **not a linear map**: probe3d's MLP, because a single affine layer underfits the task badly enough to nearly invert the ordering, so a gap between two rows is less purely a gap between two representations than elsewhere in this corpus. The **training pair count is part of the protocol** and is in `task_params`: error keeps falling as pairs are added, so two pose numbers are comparable only if they drew the same pairs. **Read it to whole degrees**: two extractions of the same features differ by ~1e-5, which thirty epochs of this head turn into about a degree of rotation error, so adjacent rows closer than that are ties.
+
+<sub>relative_pose on navi_v1/val, protocol=probe3d_pose, frozen [67965158]</sub>
+
 ### similarity
 
 | backbone | `accuracy` | `f1` | `precision` | `recall` | `tie_rate` |

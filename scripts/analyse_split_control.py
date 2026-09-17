@@ -70,11 +70,12 @@ HEADLINE_METRICS: dict[str, str] = {
     "keypoints2d": "keypoint_correlation",
     "corner": "corner_correlation",
     "orientation": "orientation_error",
+    "relative_pose": "rotation_error_deg",
     "occlusion_edge": "occlusion_edge_correlation",
 }
 
 #: Boards whose headline metric is an error, so a lower number is better.
-LOWER_IS_BETTER = {"surface_normal", "orientation"}
+LOWER_IS_BETTER = {"surface_normal", "orientation", "relative_pose"}
 
 
 def load(path: Path) -> list[dict]:

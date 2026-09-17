@@ -17,7 +17,6 @@ that reads as a finding rather than a bug.
 from collections.abc import Iterable, Sequence
 
 from visbench.results.leaderboard import (
-    CONTEXT_PREFIX,
     DIAGNOSTIC_METRICS,
     ComparabilityKey,
     UnknownMetric,
@@ -28,6 +27,7 @@ from visbench.results.leaderboard import (
     rank,
     ranking_disagreements,
     shared_metrics,
+    strip_context_prefix,
 )
 from visbench.results.schema import ResultRecord
 
@@ -73,6 +73,11 @@ HEADLINE_METRICS: dict[str, str] = {
     "corner": "corner_correlation",
     "orientation": "orientation_error",
     "occlusion_edge": "occlusion_edge_correlation",
+    # Mean geodesic rotation error, in degrees. The median rides along because
+    # the two can rank differently — a mean over pairs drawn to 120 degrees is
+    # pulled about by the failures — and `floor_` beside both, because a row at
+    # 66 degrees is at chance rather than weak.
+    "relative_pose": "rotation_error_deg",
 }
 
 #: What a reader must know before reading a board's ordering as a ranking.
@@ -95,6 +100,23 @@ CAVEATS: dict[str, str] = {
         "single-scale, so it has no feature pyramid and small objects fall "
         "between cells. The board ranks representations, which is what it is "
         "for — it is not a detector benchmark."
+    ),
+    "relative_pose": (
+        "**Read every row against `floor_rotation_error_deg`, never against "
+        "zero.** Pairs are drawn within 120 degrees of rotation, so predicting "
+        "the training set's mean pose — no features at all — already scores "
+        "about 67 degrees, and a backbone landing there is *at chance* rather "
+        "than weak. This is also the one board here whose head is **not a "
+        "linear map**: probe3d's MLP, because a single affine layer underfits "
+        "the task badly enough to nearly invert the ordering, so a gap between "
+        "two rows is less purely a gap between two representations than "
+        "elsewhere in this corpus. The **training pair count is part of the "
+        "protocol** and is in `task_params`: error keeps falling as pairs are "
+        "added, so two pose numbers are comparable only if they drew the same "
+        "pairs. **Read it to whole degrees**: two extractions of the same "
+        "features differ by ~1e-5, which thirty epochs of this head turn into "
+        "about a degree of rotation error, so adjacent rows closer than that "
+        "are ties."
     ),
     "scene_classification": (
         "This is *scene* category, not object category — a distinct question "
@@ -243,7 +265,7 @@ def render_board(
         extra = [
             name
             for name in extra
-            if name in DIAGNOSTIC_METRICS or name.removeprefix(CONTEXT_PREFIX) in ranked
+            if name in DIAGNOSTIC_METRICS or strip_context_prefix(name) in ranked
         ]
 
     ordered = [record for record, _ in rank(records, headline)]

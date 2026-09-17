@@ -120,8 +120,8 @@ with it.
 
 The practical consequence is that **"which backbone is best" is not a
 well-formed question here**, and the corpus now says so loudly rather than by
-implication. Six of the seventeen boards are headed by a model that is last on
-the other four. Pick the tier that matches the downstream use.
+implication. Five of the eighteen boards are headed by a model that is last on
+four others. Pick the tier that matches the downstream use.
 
 Correspondence is less exposed to that (no labels are used), but comes with its
 own caveat: ResNet's 7x7 grid means matching among 49 candidates against

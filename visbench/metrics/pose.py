@@ -328,7 +328,13 @@ def pose_metrics(
         "rotation_median_deg": float(rotation.median()),
     }
     for threshold in thresholds:
-        metrics[f"rotation_acc_{threshold:g}"] = float((rotation <= threshold).float().mean())
+        # ``@`` because the threshold is a *parameter* of the metric, not part
+        # of its identity — the same shape as ``recall@5px`` and ``auc@0.5p``,
+        # which is what lets the leaderboard direct a threshold it has never
+        # seen from the stem alone. ``rotation_acc_30`` would need one listed
+        # entry per threshold, and an unlisted one is silently dropped from a
+        # board rather than refused.
+        metrics[f"rotation_acc@{threshold:g}deg"] = float((rotation <= threshold).float().mean())
     metrics["translation_error"] = float(translation_error(pred[:, 4:], target[:, 4:]).mean())
     return metrics
 

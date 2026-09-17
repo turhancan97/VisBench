@@ -1,4 +1,4 @@
-"""The three probes whose answer is a choice among images."""
+"""The probes whose answer is not a map over an image."""
 
 import numpy as np
 import pytest
@@ -10,6 +10,8 @@ from visbench.viz import (
     WRONG,
     annotate,
     class_balance,
+    pair_balance,
+    render_pose_panels,
     render_retrieval_panels,
     render_sheet,
     render_triplet_panels,
@@ -254,3 +256,100 @@ class TestTheStyleRows:
     def test_none_of_them_claims_an_invalid_convention(self, probe):
         """A class index has no invalid value, and the table states that."""
         assert style_for(probe).invalid is None
+
+
+class _Pairs:
+    """Two frames per scene, and a relative pose of a chosen size."""
+
+    def __init__(self, turns=(30.0, 80.0)):
+        import math
+
+        from visbench.data.navi import PosePairs
+
+        self._images = [
+            Image.new("RGB", (20, 20), (c, c, c)) for c in (10, 120, 230, 60)[: 2 * len(turns)]
+        ]
+        indices, poses = [], []
+        for scene, turn in enumerate(turns):
+            half = math.radians(turn) / 2
+            indices.append([2 * scene, 2 * scene + 1])
+            poses.append([math.cos(half), 0.0, 0.0, math.sin(half), 0.0, 0.0, 0.0])
+        self._pairs = PosePairs(
+            indices=torch.tensor(indices), pose=torch.tensor(poses, dtype=torch.float32)
+        )
+
+    def __len__(self):
+        return len(self._images)
+
+    def __getitem__(self, index):
+        return self._images[index], None
+
+    def labels(self):
+        return self._pairs
+
+
+class TestPosePairs:
+    def test_a_row_is_the_two_frames_of_its_pair(self):
+        page = render_pose_panels(_Pairs(), [0, 1])
+        assert page.width > 0 and page.height > 0
+
+    def test_the_true_angle_is_stated_per_row(self):
+        """The target is a number about the pair, so the caption is the only
+        place it can appear — there is no map to lay beside either frame."""
+        page = np.asarray(render_pose_panels(_Pairs(turns=(30.0,)), [0]))
+        # The label column is drawn on the page background; a row with text is
+        # not uniformly the page colour.
+        label = page[:, :180]
+        assert len({tuple(pixel) for pixel in label.reshape(-1, 3)}) > 1
+
+    def test_without_a_prediction_neither_frame_is_judged(self):
+        page = np.asarray(render_pose_panels(_Pairs(), [0]))
+        colours = {tuple(pixel) for pixel in page.reshape(-1, 3)}
+        assert RIGHT not in colours and WRONG not in colours
+
+    def test_a_prediction_inside_thirty_degrees_is_marked_right(self):
+        """30 degrees is the threshold the board reports as
+        `rotation_acc@30deg`, so the border and the metric agree."""
+        import math
+
+        close = torch.tensor(
+            [
+                [
+                    math.cos(math.radians(31) / 2),
+                    0.0,
+                    0.0,
+                    math.sin(math.radians(31) / 2),
+                    0.0,
+                    0.0,
+                    0.0,
+                ]
+            ]
+        )
+        page = np.asarray(render_pose_panels(_Pairs(turns=(30.0,)), [0], close))
+        assert RIGHT in {tuple(pixel) for pixel in page.reshape(-1, 3)}
+
+    def test_a_prediction_outside_thirty_degrees_is_marked_wrong(self):
+        far = torch.tensor([[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
+        page = np.asarray(render_pose_panels(_Pairs(turns=(80.0,)), [0], far))
+        assert WRONG in {tuple(pixel) for pixel in page.reshape(-1, 3)}
+
+
+class TestPairBalance:
+    def test_it_reports_what_a_constant_already_scores(self):
+        """The figure that stops an angular error being read against zero."""
+        line = pair_balance(_Pairs(turns=(30.0, 80.0)).labels())
+        assert "2 pairs" in line
+        assert "own mean pose scores" in line
+        assert "rather than against zero" in line
+
+    def test_an_empty_split_does_not_divide_by_zero(self):
+        from visbench.data.navi import PosePairs
+
+        empty = PosePairs(indices=torch.zeros(0, 2, dtype=torch.long), pose=torch.zeros(0, 7))
+        assert pair_balance(empty) == "no pairs"
+
+    def test_it_is_ascii_so_the_default_font_can_draw_it(self):
+        """PIL's built-in font draws an empty box for an em dash — the bug 9c
+        found by rendering a page rather than by a test."""
+        line = pair_balance(_Pairs().labels())
+        assert line.isascii()

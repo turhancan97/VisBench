@@ -63,6 +63,7 @@ import torch.nn as nn
 
 from visbench.heads.pose import POSE_HIDDEN_DIMS, PoseHead
 from visbench.metrics.pose import mean_pose_floor, pose_metrics
+from visbench.registry import register_task
 from visbench.tasks.base import BaseTask
 from visbench.types import MetricsDict, Pooling
 from visbench.utils.device import resolve_device
@@ -70,6 +71,7 @@ from visbench.utils.device import resolve_device
 __all__ = ["RelativePoseTask"]
 
 
+@register_task("relative_pose")
 class RelativePoseTask(BaseTask):
     """Pairwise 7D pose regression over pooled features.
 

@@ -33,6 +33,15 @@ ways and each figure says which it is:
   VisBench probe predicts, pulled from the Hub. The column is headed
   ``prediction`` and the footer says there is no ground truth behind it.
 
+- **a pair this script *makes*, with exact geometry** -- ``relative_pose`` needs
+  two views of one rigid scene and the transform between the cameras, which no
+  single photograph carries. Rotating a frame about its centre **is** a camera
+  rotation about the optical axis for a pinhole camera, so the second view is
+  generated that way and the relative pose is exact rather than approximated.
+  It is a degenerate pose (one axis, no translation) where NAVI's are general,
+  and the probe's page says so. The same standing as ``correspondence``'s
+  homography, which this script also chooses.
+
 ``edge`` is the one in between and is called out on its own page: Taskonomy's
 ``edge_texture`` is itself computed from the RGB frame, so the same *kind* of
 target is computed here -- an intensity-gradient magnitude, 0 meaning "no edge"
@@ -286,6 +295,7 @@ def build_dataset(root: Path, scenes: list, classes: list[str], frames: dict) ->
     _build_flat_folder(root / "flat", scenes)
     _build_context_folder(root / "context", frames)
     _build_triplets(root / "triplets", scenes)
+    _build_navi(root / "navi", scenes)
 
 
 def _build_instances(root: Path, frames: dict, classes: list[str]) -> None:
@@ -490,6 +500,74 @@ def _build_triplets(root: Path, scenes: list) -> None:
         writer.writerows(rows)
 
 
+#: How far the generated partner view is turned, per scene, in degrees. Three
+#: distinct angles so the drawn captions differ, all inside ``--max-angle``.
+_POSE_TURNS = (24.0, 41.0, 67.0)
+
+
+def _build_navi(root: Path, scenes: list) -> None:
+    """A NAVI-shaped tree whose second view is the first, turned.
+
+    Each scene becomes one ``multiview_*`` folder holding two frames and an
+    ``annotations.json``: the photograph, and the same photograph rotated about
+    its centre. **For a pinhole camera that rotation is exactly a camera
+    rotation about the optical axis**, so the relative pose written here is
+    exact — the honesty this gallery keeps everywhere, rather than a plausible
+    number attached to an unrelated pair.
+
+    Both frames are cropped to the square inscribed in the rotation, so neither
+    carries the black corners a rotation leaves and both show the same field of
+    view. Half the scenes are marked ``train`` because the CLI builds both
+    splits for every probe and one of them is never drawn -- an empty training
+    split would raise before anything was rendered.
+    """
+    import math
+
+    for index, scene in enumerate(scenes):
+        turn = _POSE_TURNS[index % len(_POSE_TURNS)]
+        directory = root / f"object_{index:02d}" / "multiview_00_gallery"
+        (directory / "images").mkdir(parents=True, exist_ok=True)
+
+        image = Image.fromarray(scene["rgb"])
+        side = min(image.size)
+        # The square that stays inside the frame once it is turned.
+        inscribed = int(
+            side / (abs(math.cos(math.radians(turn))) + abs(math.sin(math.radians(turn))))
+        )
+        centre = (image.width // 2, image.height // 2)
+        box = (
+            centre[0] - inscribed // 2,
+            centre[1] - inscribed // 2,
+            centre[0] - inscribed // 2 + inscribed,
+            centre[1] - inscribed // 2 + inscribed,
+        )
+        image.crop(box).save(directory / "images" / "000.jpg")
+        image.rotate(turn, resample=Image.Resampling.BICUBIC).crop(box).save(
+            directory / "images" / "001.jpg"
+        )
+
+        half = math.radians(turn) / 2
+        records = [
+            {
+                "object_id": f"object_{index:02d}",
+                "camera": {"q": [1.0, 0.0, 0.0, 0.0], "t": [0.0, 0.0, 0.0]},
+                "filename": "000.jpg",
+                "scene_name": "multiview_00_gallery",
+                "split": "train" if index % 2 else "val",
+            },
+            {
+                "object_id": f"object_{index:02d}",
+                # A turn about the optical axis, which is what rotating the
+                # frame about its centre does to a pinhole camera.
+                "camera": {"q": [math.cos(half), 0.0, 0.0, math.sin(half)], "t": [0.0, 0.0, 0.0]},
+                "filename": "001.jpg",
+                "scene_name": "multiview_00_gallery",
+                "split": "train" if index % 2 else "val",
+            },
+        ]
+        (directory / "annotations.json").write_text(json.dumps(records))
+
+
 def figures(root: Path, backbone: str, classes: list[str]) -> dict[str, list[str]]:
     """The ``visbench show`` invocation behind each figure, by probe name.
 
@@ -567,6 +645,14 @@ def figures(root: Path, backbone: str, classes: list[str]) -> dict[str, list[str
             "4",
             *rows,
             *features,
+        ],
+        "relative_pose": [
+            "relative_pose",
+            "--data",
+            str(root / "navi"),
+            "--frames",
+            "3",
+            *size,
         ],
         "similarity": [
             "similarity",

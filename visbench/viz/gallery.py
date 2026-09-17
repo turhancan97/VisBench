@@ -1,9 +1,12 @@
-"""The three probes whose answer is a choice among images, not a map over one.
+"""The probes whose answer is not a map over an image.
 
 ``classification``, ``retrieval`` and ``similarity`` have no spatial target, so
 none of them fits the ``image | target | prediction`` grid. What they have
 instead is a *decision*: which class, which neighbours, which of two candidates.
-This module draws the decision.
+This module draws the decision. `relative_pose` joined them in 16a-3 for a
+related reason: its target is a number about a *pair* of frames rather than a
+map over either, so what a panel can show is the two views and how far apart
+the cameras were.
 
 Each of the three has a silent failure in this codebase's own history that the
 corresponding picture catches instantly:
@@ -36,6 +39,8 @@ __all__ = [
     "WRONG",
     "annotate",
     "class_balance",
+    "pair_balance",
+    "render_pose_panels",
     "render_retrieval_panels",
     "render_sheet",
     "render_triplet_panels",
@@ -287,3 +292,88 @@ def render_triplet_panels(
         )
         footer += f" | model agreed on {agree}/{len(triplet_indices)} drawn"
     return render_panels(rows, ["reference", "left", "right"], footer=footer)
+
+
+def pair_balance(pairs: Any) -> str:
+    """One line describing the pairs drawn, and what a constant already scores.
+
+    `relative_pose`'s equivalent of :func:`vote_balance`, and it catches the
+    same class of thing. A pose error is uninterpretable on its own: pairs drawn
+    within 120 degrees have a median relative rotation near 65, so predicting
+    one constant for every pair scores about 67 and a model reading 66 is at
+    chance rather than weak.
+
+    **This is the drawn split's own mean, not the recorded floor.** The floor in
+    a record is fitted on the *training* pairs, as any predictor is; this one is
+    computed from the pairs on the page because that is all a viewer has. It is
+    a diagnostic and is never a score — the same standing as
+    :func:`~visbench.viz.matches.error_coherence`.
+    """
+    from visbench.metrics.pose import rotation_angle_deg, rotation_error_deg
+
+    if not len(pairs.pose):
+        return "no pairs"
+    angles = rotation_angle_deg(pairs.pose[:, :4])
+    constant = pairs.pose.mean(dim=0, keepdim=True).expand(len(pairs.pose), 7)
+    chance = float(rotation_error_deg(constant[:, :4], pairs.pose[:, :4]).mean())
+    return (
+        f"{len(pairs.pose)} pairs, relative rotation median {float(angles.median()):.0f} deg "
+        f"(max {float(angles.max()):.0f}) | this split's own mean pose scores {chance:.0f} deg, "
+        "so read an error against that rather than against zero"
+    )
+
+
+def render_pose_panels(
+    dataset: Any,
+    pair_indices: Sequence[int],
+    predictions: Any | None = None,
+) -> Image.Image:
+    """One row per pair: the anchor and the partner — `relative_pose`.
+
+    The target is not a map over either frame but a *number about the two of
+    them*, so what the panel can show is the pair and how far apart the cameras
+    were. With ``predictions`` the predicted angle and the error join the
+    caption, and the partner's border turns on whether the error clears 30
+    degrees — the threshold the board reports as ``rotation_acc@30deg``.
+
+    The frames are pasted exactly as the dataset yields them, like every other
+    renderer here: a viewer that re-crops can make a misaligned pipeline look
+    fine and a correct one look broken.
+    """
+    from visbench.metrics.pose import rotation_angle_deg, rotation_error_deg
+
+    pairs = dataset.labels()
+    rows: list[tuple[str, list]] = []
+
+    for position, index in enumerate(pair_indices):
+        anchor, partner = (int(value) for value in pairs.indices[index])
+        truth = float(rotation_angle_deg(pairs.pose[index, :4]))
+
+        caption, border = "partner", NEUTRAL
+        label = f"pair {index}\ntrue: {truth:.1f} deg"
+        if predictions is not None:
+            predicted = predictions[position]
+            error = float(rotation_error_deg(predicted[:4], pairs.pose[index, :4]))
+            label += f"\npred: {float(rotation_angle_deg(predicted[:4])):.1f} deg"
+            label += f"\nerror: {error:.1f} deg"
+            caption = f"partner - error {error:.0f} deg"
+            border = RIGHT if error <= 30.0 else WRONG
+        rows.append(
+            (
+                label,
+                [
+                    annotate(dataset[anchor][0], "anchor", NEUTRAL),
+                    annotate(dataset[partner][0], caption, border),
+                ],
+            )
+        )
+
+    footer = pair_balance(pairs)
+    if predictions is not None:
+        drawn = [
+            float(rotation_error_deg(predictions[position][:4], pairs.pose[index, :4]))
+            for position, index in enumerate(pair_indices)
+        ]
+        within = sum(1 for error in drawn if error <= 30.0)
+        footer += f" | {within}/{len(drawn)} drawn pairs within 30 deg"
+    return render_panels(rows, ["anchor", "partner"], footer=footer)

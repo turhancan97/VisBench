@@ -2122,6 +2122,154 @@ claim the pre-measurement makes — `mae > dino > sam > clip` — is therefore
 **confirmed at its two ends and untested in the middle**, and should be quoted
 that way until the board lands.
 
+## 16a-3 — registering the pose probe: what a probe *name* costs
+
+**2026-09-17.** `relative_pose` becomes the **eighteenth registered probe**.
+16a-2 deliberately stopped short of this, and registering it is what showed why
+that was the right cut: adding the decorator and the `_REGISTRATION_MODULES`
+entry turned **16 tests red at once**, each naming a table that has to agree
+with `list_probes()`.
+
+That list is the one `CLAUDE.md` keeps ("a new board is not inert"), and it held
+up exactly:
+
+| red test | what it wanted |
+|---|---|
+| `test_render.py` | `HEADLINE_METRICS` |
+| `test_parser.py` | the CLI `ProbeSpec` row |
+| `test_show_command.py` | `TARGET_STYLES`, and a renderer for its kind |
+| `test_corpus_scripts.py` | **both** shell probe arrays |
+| `test_docs_counts.py` (8x) | the probe total in seven user-facing files |
+| `test_figures.py` (2x) | a gallery figure, and a docs page showing it |
+| `test_readme.py` (2x) | the generated board tables |
+| 3 analysis scripts | their *copies* of the headline table |
+
+**None of these can be found by reading the code that adds the probe**, which
+is the argument for the guard: a probe name is load-bearing in about a dozen
+places that have nothing to do with each other.
+
+### The floor needed the leaderboard to learn a second prefix
+
+`CONTEXT_PREFIX` was the single string `"ceiling_"`, which is what
+`is_context_metric` matched and what `render_board` stripped. `relative_pose`
+emits `floor_*`, and the failure mode was **silent in the direction that
+matters**: `metric_direction` would have raised `UnknownMetric` on
+`floor_rotation_error_deg`, `shared_metrics` skips a name it cannot direct, and
+the floor would simply not have appeared on the board — the number the whole
+probe is read against, dropped without a word. It is now
+`CONTEXT_PREFIXES = ("ceiling_", "floor_")` with a `strip_context_prefix`
+helper, and the docstring says what the pair of them mean: a context metric
+qualifies a score **from either side** — a ceiling says what was available, a
+floor what was already free — and ranking on either would rank the split.
+
+### The accuracy metrics were renamed before they reached a record
+
+`pose_metrics` emitted `rotation_acc_15` / `rotation_acc_30`. Those would each
+need a listed entry in `METRIC_DIRECTIONS`, and a threshold nobody listed is
+silently dropped from a board rather than refused — the failure
+`PARAMETRISED_METRIC_DIRECTIONS` was added for when `retrieval` and
+`correspondence` ranked nothing. The threshold is a *parameter*, so the names
+are now `rotation_acc@15deg` / `rotation_acc@30deg` and the stem
+`rotation_acc` is directed once. The six control records from 16a-2 were
+**re-run** rather than edited, so the committed file carries keys the library
+still emits — and all six reproduced to **+0.000000**, which is the other half
+of the reproducibility finding below: this board moves by about a degree across
+two *extractions* of the same frames and not at all within one.
+
+### The gallery figure is a fourth category, and looking at it found a bug
+
+`relative_pose` needs two views of one rigid scene and the transform between
+the cameras, which no single redistributable photograph carries. The three
+existing categories — exact ground truth computed from the frame, real human
+annotation, a prediction labelled as one — do not cover it, so there is now a
+fourth: **a pair this script makes, with exact geometry**. Rotating a frame
+about its centre *is* a camera rotation about the optical axis for a pinhole
+camera, so the relative pose written into the staged `annotations.json` is
+exact rather than plausible. It is a degenerate pose — one axis, no translation
+— where NAVI's are general, and the probe's page says so. The same standing as
+`correspondence`'s homography, which this script also chooses.
+
+**The first render was wrong and no test could have said so.** Pairs are built
+scene by scene and each scene yields both directions, so the first three pairs
+of a split are *two* scenes: the figure drew the same leopard twice. Fixed by
+treating pose like the class-grouped kinds — frames picked spread across the
+split rather than as a prefix — which also meant `_split_size` must load the
+whole split, since picking spread indices requires knowing how long it is.
+Renamed `_CLASS_GROUPED_KINDS` to `_GROUPED_KINDS`: the hazard is structure in
+the split order, and class grouping was only the first instance of it.
+
+### The board
+
+Thirteen cells, one Slurm array, **40 minutes each and no failures** — faster
+than the hour per backbone the login node predicted, and the whole array drained
+in about three and a half hours rather than the eight the QoS limit suggested.
+Every record carries `floor_rotation_error_deg` **66.8464** and `train_pairs`
+50,519, on V100s throughout: the floor is a property of the draw, so thirteen
+identical floors is the evidence that all thirteen backbones were scored on the
+same pairs.
+
+The board, its clustering and the objective/recipe comparison are in
+[`CORPUS_FINDINGS.md`](CORPUS_FINDINGS.md); the one-line version is that
+**nothing is at chance** (every row clears the floor by 23.7 to 44.2 degrees)
+and that this is the first board close to *orthogonal* to the entire high-level
+tier — mean rho +0.701 against low-level, +0.642 against its own tier, **+0.099
+against high-level**, with five of those seven boards inside ±0.12 of zero.
+
+### Merging it found two claims that had gone stale at v0.20.0
+
+Neither is about this step's work, and both were found because the counts guard
+forced the surrounding lines to be touched.
+
+**`mae_vitb16` is first on five boards, not six.** The published sentence — "first
+on six of the seventeen boards and last on four" — was measured at *twelve*
+backbones. `dino_vitb8` took `corner` and `correspondence` off it, leaving
+**four**, and `relative_pose` gives one back for **five of eighteen**. The
+existing guard pins the number of *boards* in that sentence and had no opinion
+about the number beside it, so a release that changed the count passed. There is
+now a `test_the_leader_count_matches_the_corpus` that recomputes both numbers
+from the corpus.
+
+**Three pretraining coefficients on the `semantic_segmentation` page were the
+twelve-backbone values.** +0.689 / +0.858 / +0.752 are now +0.707 / +0.811 /
++0.761. The *ordering* the page argues from is unchanged — scene, detection,
+semantic — so the claim survives its numbers being wrong, which is exactly how
+this kind of staleness lasts.
+
+**The rule both instances point at is the one already written down**: a count or
+a coefficient over the corpus is a fact about *that corpus*, and adding a column
+moves it without any backbone's features changing. What is new is that a guard
+can cover the count as well as the total, and now does.
+
+### The linear control
+
+`scripts/build_pose_linear_control.sh` runs the same thirteen backbones with
+`--hidden-dims ""` into `results/controls/pose_linear.jsonl`, so the board ships
+beside the measurement of what the smaller head would have said rather than a
+sentence about it. It is nearly free *after* the board and expensive before it,
+and what decides that is the **cache root** rather than the machine: the array
+writes to `/shared/results/common/kargin/visbench_cache`, so the control has to
+be pointed at the same one or it re-decodes 8,215 JPEGs per backbone.
+
+One trap on the way: `sbatch --wrap` hands its string to **sh**, where `source`
+does not exist, so the first submission failed in one second with
+`source: not found` — which reads like a broken venv rather than a missing shell
+builtin. `.` instead of `source`, and the script's own usage block now shows it
+that way.
+
+**The result is stronger than the four-backbone pre-measurement implied.** A
+linear head is **at or near chance for every one of the thirteen**: 62.94 to
+65.99 degrees, clearing the floor by 0.85 to 3.91 where the MLP clears it by
+23.7 to 44.2, whole spread 3.06 against 20.44, and `train_loss` flat at
+0.0680-0.0729 — twenty-five times the MLP's on identical features. `resnet50`
+at +0.85 from the floor is indistinguishable from a constant. Spearman between
+the two orderings is +0.681, which reads as agreement until the top is: the
+linear board puts `dino_vitb8` first and `mae_vitb16` third.
+
+Against this board's ~1 degree of reproducibility noise, a linear board would
+be separating thirteen rows by about three times the noise. That is the
+measurement the departure from `hidden_dim=0` rests on, and it is why the
+control ships as records rather than as a paragraph.
+
 ## Steps 7a-14a — write-ups lifted from `CLAUDE.md`
 
 ### 10a — `TimmBackbone` learns to read a ViT
