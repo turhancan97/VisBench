@@ -70,7 +70,7 @@ step is next rather than attempting the whole roadmap in one session.
 | 15b | The grid finding at n=10: DPT-vs-linear across every ViT | done |
 | 16a-1 | Relative camera pose: the NAVI pair set and the pose metric | done |
 | 16a-2 | Pose: `PoseHead` + the task, proved against the pre-measurement | done |
-| 16a-3 | Pose: registration, the 13-backbone board, the viewer, the docs page | next |
+| 16a-3 | Pose: registration, the 13-backbone board, the viewer, the docs page | done |
 
 **A closed step's full write-up lives in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md), not here.** That file is the archive
@@ -126,15 +126,15 @@ precedent for shipping one: **v0.7.0** (contributor-facing) and **v0.16.0**
 (documentation). **v0.6.1** is the other one to know — it corrects a
 correspondence board that shipped ranked upside down; see step 6f.
 
-**The corpus file is 379 records resolving to 221 board cells** — seventeen
+**The corpus file is 392 records resolving to 234 board cells** — eighteen
 boards, thirteen backbones a board. The two numbers differ because the corpus
 is **append-only** and re-runs have appended beside records they supersede:
 0.15.0 re-ran the five low-level boards for their `ceiling_*`, the
 schema-v8 `training` re-run (2026-09-10) re-ran the eight trained boards that
 predated that field, with three cells of it landing on 2026-09-11, and
 `dino_vitb8`'s two smoke-test cells were re-run inside its own array.
-`latest_per_backbone` picks the newest. Quote 221 for
-coverage and 379 only for the file, and re-read both off `LEADERBOARD.md` and
+`latest_per_backbone` picks the newest. Quote 234 for
+coverage and 392 only for the file, and re-read both off `LEADERBOARD.md` and
 `wc -l` rather than from here.
 
 Two standing consequences of that history, both of which have already cost a
@@ -151,20 +151,33 @@ published claim:
   a subset count is ordinary prose — and `CHANGELOG.md`, `ENGINEERING_LOG.md`
   and `docs/roadmap.md` are excluded by name, since a count stated *as of a
   release* is correct history and rewriting it would falsify the record.
+- **A guard on a total is not a guard on the count beside it** (16a-3). The
+  docs-count test pinned "the seventeen boards" and said nothing about "first on
+  six of them", so v0.20.0 shipped a leader count its own new backbone had made
+  wrong, and three pretraining coefficients on a probe page stayed at their
+  twelve-backbone values. Both were found only because a new probe forced those
+  lines to be edited. `tests/test_docs_counts.py` now recomputes the leader
+  count from the corpus; a coefficient cannot be guarded that way, so **re-run
+  `scripts/analyse_board_correlates.py` whenever a column is added** rather than
+  carrying its output forward.
 - **Before quoting any board, read
   [`CORPUS_FINDINGS.md`](CORPUS_FINDINGS.md)** — in particular the
   `sam_vitb16`, `dino_vitb16` and `mae_vitb16` entries. 10e's recipe control
   refuted half of 10d's own published claim before either shipped, and the
   three-tier separation 10b announced no longer holds for *high-level*.
 
-**The open line is relative camera pose**, an eighteenth probe in three steps
-(16a-1 done; 16a-2 next). Its two protocol decisions were taken on 2026-09-17
-and are not to be reopened as implementation details: **the pair count is
-pinned at eight partners per training anchor**, and **the board uses probe3d's
-MLP with the linear run kept as a committed control** — the first VisBench
-board whose head is not a linear map (`DPTHead` is nonlinear and is a
-*control*; every head a published board uses is an affine layer or a 1x1
-convolution). Everything else is the candidate task backlog
+**The relative-camera-pose line is closed** (16a-1 to 16a-3, 2026-09-17): an
+eighteenth probe, its thirteen-backbone board, and the linear control committed
+beside it. Its two protocol decisions are not to be reopened as implementation
+details: **the pair count is pinned at eight partners per training anchor**, and
+**the board uses probe3d's MLP** — the first VisBench board whose head is not a
+linear map (`DPTHead` is nonlinear and is a *control*; every head a published
+board uses is an affine layer or a 1x1 convolution). Two standing consequences:
+**read that board to whole degrees**, since two extractions of the same features
+differ by ~1e-5 and thirty epochs of that head turn it into about a degree
+(against one cache it reproduces bit for bit), and it is the first board close
+to *orthogonal* to the high-level tier, so a pose number is near-independent
+evidence about a backbone. Everything else is the candidate task backlog
 further down this file; its cheap end is exhausted,
 and **three candidates were built and rejected** — photometric
 superpixels (0.021-0.043, which bought the oracle gate), DoG blobs (0.51 overlap
@@ -257,11 +270,11 @@ probes     classification, scene_classification,
            fine_grained_classification, retrieval, correspondence,
            depth, surface_normal, generic_segmentation, semantic_segmentation,
            similarity, detection, instance_segmentation, edge,
-           keypoints2d, occlusion_edge, corner, orientation
-heads      linear, dpt, detection, instance
+           keypoints2d, occlusion_edge, corner, orientation, relative_pose
+heads      linear, dpt, detection, instance, pose
 ```
 
-The CLI exposes all seventeen probes: `visbench list`, `visbench run <probe>`,
+The CLI exposes all eighteen probes: `visbench list`, `visbench run <probe>`,
 `visbench cache stats|clear`, plus `visbench demo` (7a) and **`visbench show
 <probe>` (9a)**. A test asserts the CLI's table and `list_probes()` are the same
 set, so a probe cannot ship unreachable from a shell by accident. Since 9c
@@ -707,7 +720,9 @@ designed up front; extend it the same way, from a case that already runs.
   `scripts/merge_corpus.sh`.
 
   - **"Which backbone is best" is not well-formed against this corpus.**
-    `mae_vitb16` is first on six boards and last on four.
+    `mae_vitb16` is first on **five** of the eighteen boards and last on four —
+    a count that was six at twelve backbones and four at thirteen, which is the
+    next rule rather than an aside.
   - **A count over a corpus is a fact about that corpus, not a backbone.**
     Re-read counts off `LEADERBOARD.md`.
   - **Quote an objective gap against the *recipe* gap on the same board, never
@@ -1628,11 +1643,11 @@ designed up front; extend it the same way, from a case that already runs.
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite **collects 2261 tests**, green on 2026-09-17 along with all three
+fast suite **collects 2281 tests**, green on 2026-09-17 along with all three
 lint steps, mypy and the `-W` docs build. The slow suite is **116** since
 16a-1, whose own slow test was run then; the other 115 were last green on
 `main` on 2026-09-11. Earlier fast counts, for dating a claim: 2222 at 16a-1,
-2160 at the grid finding, 2158 at
+2261 at the pose board, 2160 at the grid finding, 2158 at
 the control guard, 2144 at
 `dino_vitb8`, 2126 at the docs-count guard, 2122 at the 0.18.0 release, 2113 at
 the v8 `training` re-run, 2082 at the 0.17.0 release, 2071 at the instance
@@ -1973,6 +1988,14 @@ rules survive, the last two from 16a-1:
   so 4.0% of the release was supervised against its own negation and the parked
   tables were measured on those pixels. `NaviPoseDataset` owns the pairing now
   and the script reads it.
+- **A context metric qualifies a score from either side, and the leaderboard
+  has to know both** (16a-3). `CONTEXT_PREFIX` was the single string
+  `"ceiling_"`; `relative_pose` emits `floor_*`, and an unknown prefix does not
+  raise — `metric_direction` refuses the name, `shared_metrics` skips what it
+  cannot direct, and **the floor silently does not appear on the board**, which
+  is the number the probe is read against. It is `CONTEXT_PREFIXES` now. Same
+  family: a *parametrised* metric name (`rotation_acc@30deg`) is directed by its
+  stem, and an exact name nobody listed is dropped rather than refused.
 - **A correction is read against the noise, exactly like a score** (16a-2).
   The EXIF fix was right — 4.0% of NAVI was supervised against its own negation
   — and it moves a pose number **−1.38 on `mae_vitb16` against seed ranges near
@@ -2058,7 +2081,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 2261 fast tests
+pytest                                              # 2281 fast tests
 pytest -m slow                                      # 116, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/

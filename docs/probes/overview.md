@@ -1,6 +1,6 @@
 # The probes
 
-Seventeen probes across three levels. Every one of them is reachable the same
+Eighteen probes across three levels. Every one of them is reachable the same
 three ways — {doc}`visbench.run() </getting-started/quickstart>`, the
 `visbench run` CLI, and an `examples/` script — and every one writes a record
 saying exactly what produced its number.
@@ -38,6 +38,7 @@ unrenderable.
 | {doc}`correspondence </probes/mid-level/correspondence>` | zero-shot geometric matching between two views, in pixels |
 | {doc}`similarity </probes/mid-level/similarity>` | perceptual resemblance as a two-alternative forced choice |
 | {doc}`occlusion_edge </probes/mid-level/occlusion_edge>` | depth discontinuities — needs scene geometry |
+| {doc}`relative_pose </probes/mid-level/relative_pose>` | how the camera moved between two views of one scene |
 
 The tier the task taxonomy treats as its core contribution. Mid-level
 **similarity** is deliberately not high-level retrieval: it judges resemblance
@@ -259,6 +260,7 @@ mid-level/generic_segmentation
 mid-level/correspondence
 mid-level/similarity
 mid-level/occlusion_edge
+mid-level/relative_pose
 ```
 
 ```{toctree}

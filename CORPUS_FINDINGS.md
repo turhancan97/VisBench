@@ -13,8 +13,11 @@ them rather than only the conclusions.
 
 **The single most important one, if you read nothing else:** "which backbone is
 best" is not a well-formed question against this corpus. `mae_vitb16` is first
-on six of the seventeen boards and last on four. A summary that picks a winner
-is discarding the result.
+on five of the eighteen boards and last on four. A summary that picks a winner
+is discarding the result. (It was *six of seventeen* when that sentence was
+written, at twelve backbones, and stayed on the page through the release that
+made it four — which is what the first caution below is about, and why
+`tests/test_docs_counts.py` now pins this count too.)
 
 Two standing cautions apply to everything below:
 
@@ -22,14 +25,129 @@ Two standing cautions apply to everything below:
   Counts here moved twice without any backbone's features changing, purely
   because a column was added. Re-read them off `LEADERBOARD.md` rather than
   quoting these paragraphs.
-- **n=12, so every correlation here has wide error bars**, and the backbone
-  properties are correlated with each other.
+- **n=13, so every correlation here has wide error bars**, and the backbone
+  properties are correlated with each other. Coefficients quoted below as n=12
+  were measured before `dino_vitb8`; where one has been re-measured the entry
+  says so.
   [`scripts/analyse_board_correlates.py`](scripts/analyse_board_correlates.py)
   reproduces the correlational findings, and its `--drop` re-runs without any
   row so you can see which conclusions survive.
 
 ---
 
+
+- **`relative_pose` is the first board that is close to *orthogonal* to the
+  whole high-level tier** (16a-3, 2026-09-17). Thirteen cells on NAVI, probe3d's
+  pairwise protocol at eight partners per training anchor, all on V100s, with
+  `floor_rotation_error_deg` reading **66.8464** in every record — the floor is
+  a property of the draw, so its being identical across thirteen backbones is
+  what says they were scored on the same pairs.
+
+  **Nothing on this board is at chance.** The rows span 22.70 degrees
+  (`mae_vitb16`) to 43.14 (`clip_vitb32`), and every one of them clears the
+  no-feature floor by between 23.7 and 44.2 degrees. That is the first thing to
+  check on a pose board and the reason the floor travels with the score: a
+  20-degree spread would mean nothing if the weakest rows sat at 66.
+
+  | rank | backbone | rotation error | vs floor |
+  | --- | --- | --- | --- |
+  | 1 | `mae_vitb16` | 22.70 | +44.15 |
+  | 2 | `dinov2_vits14` | 25.37 | +41.48 |
+  | 3 | `dino_vitb8` | 27.10 | +39.75 |
+  | 4 | `dino_vitb16` | 29.04 | +37.81 |
+  | 5 | `dinov2_vitb14` | 29.08 | +37.77 |
+  | 6 | `sam_vitb16` | 35.02 | +31.83 |
+  | 7 | `resnet50` | 37.01 | +29.83 |
+  | 8 | `convnext_base` | 37.60 | +29.24 |
+  | 9 | `siglip_vitb16` | 38.29 | +28.56 |
+  | 10 | `clip_vitb16` | 40.56 | +26.28 |
+  | 11 | `supervised_vitb16` | 41.43 | +25.42 |
+  | 12 | `resnet18` | 43.01 | +23.83 |
+  | 13 | `clip_vitb32` | 43.14 | +23.71 |
+
+  **Where it sits among the other boards** (Spearman over the same thirteen
+  backbones): mean **+0.701** against the four low-level boards, **+0.642**
+  against its own mid-level tier, and **+0.099** against the seven high-level
+  ones. Its strongest partners are `surface_normal` (+0.791), `occlusion_edge`
+  (+0.764), `corner` (+0.758) and `orientation` (+0.742); its weakest are
+  `semantic_segmentation` (**−0.115**), `scene_classification` (−0.104),
+  `classification` (−0.028), `retrieval` (−0.016) and `detection` (+0.005) —
+  **five of the seven high-level boards within ±0.12 of zero.**
+
+  That is a different shape from `instance_segmentation`, which is a
+  *high-level* board ranking with mid-level geometry. This one is a mid-level
+  board ranking with **low-level** geometry while carrying almost no
+  information about the semantic boards, which makes a pose number close to
+  independent evidence about a backbone — the property `orientation` was valued
+  for at the level of targets, arriving here at the level of boards.
+
+  **Quote the objective gap against the recipe gap, as always.**
+  `mae_vitb16` (22.70) and `supervised_vitb16` (41.43) share an architecture, a
+  width and a pretraining set and differ in what they were trained to do:
+  **18.73 degrees**. The recipe control on the same board — `sam_vitb16`
+  (35.02) against `supervised_vitb16` — is **6.41**. So the objective gap here
+  is about three times the recipe gap rather than "large".
+
+  **Two rows that are worth naming.** `dinov2_vits14` beats `dinov2_vitb14`
+  (25.37 against 29.08), another case of the smaller sibling winning. And the
+  grid pair speaks even though this probe reads **pooled** features:
+  `dino_vitb8` (27.10) against `dino_vitb16` (29.04), same objective, data,
+  width and depth at four times the tokens, is **1.94 degrees** — smaller than
+  the objective gap and only about twice this board's own reproducibility noise,
+  which the next entry measures, so it is suggestive rather than load-bearing.
+  The board-wide token correlation is +0.647, and on a pooled probe that is a
+  statement about which backbones happen to have fine grids rather than about a
+  head reading one.
+
+- **A linear head is at or near chance on the pose task, for every backbone**
+  (`results/controls/pose_linear.jsonl`, 16a-3). The same thirteen backbones,
+  the same pairs and the same features with one affine map instead of probe3d's
+  MLP: **62.94 to 65.99 degrees**, clearing the floor by **0.85 to 3.91** where
+  the MLP clears it by 23.7 to 44.2, with a whole spread of **3.06 against
+  20.44**. `train_loss` is flat at 0.0680-0.0729, twenty-five times the MLP's on
+  identical features, which is the function class rather than the sample size.
+
+  Spearman between the two orderings is **+0.681**, which reads as agreement
+  until the top is: the linear board puts `dino_vitb8` first and `mae_vitb16`
+  **third**, and lifts `convnext_base` from eighth to fifth. Against this
+  board's ~1 degree of noise a linear board would separate its rows by about
+  three times the noise, where the MLP board separates them by twenty.
+
+  **This is what the departure from `hidden_dim=0` costs and buys, measured
+  rather than argued.** A gap between two rows on the published board is less
+  purely a gap between two representations than elsewhere in this corpus — the
+  DPT control's lesson, arriving on a board that ships rather than on a control.
+
+- **A pose number reproduces exactly within one feature cache and moves by
+  about a degree across two, with every recorded field identical** (16a-3). The
+  `mae_vitb16` cell was run twice: **22.6984** on the cluster and **21.7695**
+  from a second extraction of the same frames — same seed, same fingerprint,
+  same `task_params`, same `train_pairs`, both on a V100, and a
+  `floor_rotation_error_deg` identical to four decimals, which proves the pairs
+  and targets were the same. Run twice against the *same* cache it reproduces
+  bit for bit.
+
+  **The cause is float noise in the features, amplified by the head.** The two
+  caches hold the same images under different extraction batch sizes, and their
+  stored vectors differ by up to **1.1e-05** — the edge of float32 at this
+  magnitude. Thirty epochs of a 1,536-dimensional MLP turn that into 0.93
+  degrees of rotation error and a 6% difference in `train_loss`. It is the same
+  family as `detection`'s three-decimal reproducibility, which a discrete metric
+  made visible; here it is a *chaotic optimiser* rather than a discrete metric,
+  and it is much larger.
+
+  **So read this board to whole degrees, and treat adjacent rows closer than
+  about one degree as tied.** On the current board that is
+  `dino_vitb16`/`dinov2_vitb14` (0.04 apart), `resnet50`/`convnext_base` (0.59),
+  `convnext_base`/`siglip_vitb16` (0.69), `clip_vitb16`/`supervised_vitb16`
+  (0.87) and `resnet18`/`clip_vitb32` (0.13). Every other adjacent gap is 1.7
+  degrees or more, and the tier-level findings above rest on rank correlations
+  over thirteen rows rather than on any one of those pairs.
+
+  **`hardware` does not explain it and was never going to.** Both runs record
+  the same GPU; what differs is an extraction that left no trace in any field.
+  That is the limit of what a record can carry, and the reason the rule is
+  stated as a number of digits rather than as a condition to check.
 
 - **The published boards reproduce — and the one node that disagreed was
   broken, which the fit diagnostics are what caught** (the schema-v8 re-run,
@@ -526,7 +644,15 @@ Two standing cautions apply to everything below:
   this is the corpus finally demonstrating what the taxonomy claims** (10b,
   2026-08-14; **counts re-read off the board at twelve backbones, 10e**; scene
   board added 2026-08-28, `orientation` and `fine_grained_classification`
-  boards 2026-08-28). Read
+  boards 2026-08-28).
+
+  **The counts in this entry are the twelve-backbone ones and are kept as
+  history. Current, at eighteen boards and thirteen backbones: first on five,
+  last on four** — `dino_vitb8` took `corner` and `correspondence` off it,
+  leaving four, and `relative_pose` gave one back. The pattern the entry is
+  about survives every one of those moves, which is the point of it; the
+  numbers are what `tests/test_docs_counts.py` now recomputes rather than
+  trusts. Read
   this before quoting any board. MAE leads edge (0.4982), corner (0.6669),
   correspondence (0.3577), occlusion edges (0.3273), surface normals
   (27.52° mean) and **orientation** (18.82° error) — and comes **last** on
@@ -841,7 +967,9 @@ Two standing cautions apply to everything below:
   second exception among the eleven grid-reading boards (pretraining +0.752
   against grid +0.649), so the count was overtaken by a corpus that grew.
   The superlative was overtaken the same way — +0.689 is *third* of seventeen,
-  behind `scene_classification` (+0.858) and `detection` (+0.752) — and it was
+  behind `scene_classification` (+0.858) and `detection` (+0.752) (those three
+  are the twelve-backbone values; at thirteen they are +0.707, +0.811 and
+  +0.761, and the ordering is unchanged) — and it was
   also the wrong shape of claim to make: **a coefficient's rank among boards is
   a fact about which boards happen to be in the corpus.** The durable statement
   is which property wins *on this board*, which no later board can change.

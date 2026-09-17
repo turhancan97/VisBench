@@ -64,8 +64,8 @@ this is a property of the target rather than the data, the head or the
 protocol.
 
 What it rewards instead is, weakly, pretraining breadth: corpus size is its
-best single correlate at **+0.689** — third of the seventeen boards, behind
-`scene_classification` (+0.858) and `detection` (+0.752) — and unmoved by the
+best single correlate at **+0.707** — third of the eighteen boards, behind
+`scene_classification` (+0.811) and `detection` (+0.761) — and unmoved by the
 WebLI size assumption anywhere between 4e9 and 1.8e10. But within the six
 *identical* ViT-B/16 backbones — same shape, same width, same 196 tokens — the
 spread is **0.3207 mIoU** (`clip_vitb16` 0.6546 down to `sam_vitb16` 0.3339)

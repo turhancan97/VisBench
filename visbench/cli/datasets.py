@@ -33,6 +33,7 @@ from visbench.data.dense import load_label_map, load_mask, load_normal_map
 from visbench.data.derived import DerivedTargetDataset, OrientationResponse, ShiTomasiResponse
 from visbench.data.detection import VOC_CLASSES
 from visbench.data.instance import VOCInstanceDataset
+from visbench.data.navi import MAX_ANGLE, NaviPoseDataset
 from visbench.data.pair_dataset import HomographyPairDataset
 from visbench.data.triplet import TwoAFCDataset
 
@@ -40,6 +41,7 @@ __all__ = [
     "ProbeSpec",
     "Splits",
     "CLASSIFICATION_SCHEDULE_DEFAULTS",
+    "POSE_SCHEDULE_DEFAULTS",
     "SCHEDULE_DEFAULTS",
     "SPECS",
     "showable_probes",
@@ -1117,6 +1119,93 @@ def _similarity_splits(args: argparse.Namespace) -> Splits:
     )
 
 
+#: ``_pose_flags``' own schedule defaults. probe3d's pose recipe is 30 epochs
+#: at 1e-3 with a batch of 128, which is neither the dense schedule nor the
+#: classification one — and ``show`` builds a probe with whichever table it is
+#: given, so a shared one would hand ``load_probe`` a head it then refuses.
+POSE_SCHEDULE_DEFAULTS: dict[str, Any] = {
+    "epochs": 30,
+    "lr": 1e-3,
+    "train_batch_size": 128,
+}
+
+
+def _pose_view_flags(parser: argparse.ArgumentParser) -> None:
+    """Everything that decides which pairs are drawn, plus the head's shape.
+
+    ``--hidden-dims`` is here rather than with the schedule because it is the
+    head's *shape*: ``visbench show --predict-from`` has to rebuild the module
+    before it can load someone else's weights into it.
+    """
+    parser.add_argument(
+        "--partners",
+        type=int,
+        default=8,
+        help="distinct partners per TRAINING anchor; validation always uses one "
+        "(default: 8). This is protocol rather than a speed knob -- rotation error "
+        "keeps falling as pairs are added, so two pose numbers are comparable only "
+        "if they drew the same pairs",
+    )
+    parser.add_argument(
+        "--max-angle",
+        type=float,
+        default=MAX_ANGLE,
+        help="largest relative rotation a pair may span, in degrees (default: 120). "
+        "It moves the no-feature floor, so it is part of the protocol too",
+    )
+    parser.add_argument("--pair-seed", type=int, default=8, help="seeds the partner draw")
+    parser.add_argument(
+        "--stride", type=int, default=1, help="keep every Nth anchor, for a cheap run"
+    )
+    parser.add_argument("--image-size", type=int, default=224)
+    parser.add_argument("--pooling", default=None, help="cls | mean; default is the backbone's")
+    parser.add_argument(
+        "--hidden-dims",
+        default="512,256,128",
+        help='MLP widths between the pair and the 7-vector; pass "" for the single '
+        "affine map, which is the control this board is published beside",
+    )
+
+
+def _pose_flags(parser: argparse.ArgumentParser) -> None:
+    _pose_view_flags(parser)
+    parser.add_argument("--epochs", type=int, default=30)
+    parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--train-batch-size", type=int, default=128)
+
+
+def _pose_splits(args: argparse.Namespace) -> Splits:
+    # max_pairs, not subset(): the pairs index into the frame list, so slicing
+    # the frames alone would silently repoint every one of them. Note that a
+    # --limit on the *training* split changes the protocol rather than the
+    # run's cost, since the score has not converged in the pair count.
+    shared = {
+        "root": args.data,
+        "max_angle": args.max_angle,
+        "pair_seed": args.pair_seed,
+        "stride": args.stride,
+        "image_size": args.image_size,
+        "max_pairs": args.limit,
+    }
+    return Splits(
+        evaluate=NaviPoseDataset(split="val", **shared),
+        train=NaviPoseDataset(split="train", partners=args.partners, **shared),
+    )
+
+
+def _pose_kwargs(args: argparse.Namespace) -> dict:
+    kwargs: dict[str, Any] = {
+        "hidden_dims": tuple(int(w) for w in args.hidden_dims.split(",") if w.strip()),
+        "epochs": args.epochs,
+        "lr": args.lr,
+        "batch_size": args.train_batch_size,
+        "device": args.device,
+    }
+    if args.pooling is not None:
+        kwargs["pooling"] = args.pooling
+    return kwargs
+
+
 # -- the table ---------------------------------------------------------------
 
 _FOLDER_LAYOUT = "<data>/<split>/<class>/*.jpg"
@@ -1279,6 +1368,14 @@ SPECS: dict[str, ProbeSpec] = {
         # Every flag here shapes the *matches*, so all of them survive into
         # `show`: there is no schedule half to drop, because nothing trains.
         show_arguments=_correspondence_flags,
+    ),
+    "relative_pose": ProbeSpec(
+        summary="pairwise 7D pose regression on NAVI, scored as rotation error",
+        layout="<data>/<object>/multiview_*/  (annotations.json + images/)",
+        add_arguments=_pose_flags,
+        build=_pose_splits,
+        probe_kwargs=_pose_kwargs,
+        show_arguments=_viewing(_pose_view_flags, defaults=POSE_SCHEDULE_DEFAULTS),
     ),
     "similarity": ProbeSpec(
         summary="zero-shot 2AFC against human perceptual judgements",

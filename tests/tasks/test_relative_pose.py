@@ -207,8 +207,8 @@ class TestScoring:
         assert set(probe.evaluate(features, labels)) == {
             "rotation_error_deg",
             "rotation_median_deg",
-            "rotation_acc_15",
-            "rotation_acc_30",
+            "rotation_acc@15deg",
+            "rotation_acc@30deg",
             "translation_error",
         }
 

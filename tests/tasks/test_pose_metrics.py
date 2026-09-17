@@ -214,15 +214,15 @@ class TestPoseMetrics:
         assert metrics["rotation_median_deg"] < 0.05
         assert metrics["translation_error"] < 1e-6
         for threshold in ROTATION_ACC_THRESHOLDS:
-            assert metrics[f"rotation_acc_{threshold:g}"] == 1.0
+            assert metrics[f"rotation_acc@{threshold:g}deg"] == 1.0
 
     def test_the_keys_are_what_a_board_will_carry(self):
         target = self.exact()
         assert set(pose_metrics(target, target)) == {
             "rotation_error_deg",
             "rotation_median_deg",
-            "rotation_acc_15",
-            "rotation_acc_30",
+            "rotation_acc@15deg",
+            "rotation_acc@30deg",
             "translation_error",
         }
 
@@ -240,7 +240,7 @@ class TestPoseMetrics:
         metrics = pose_metrics(pred, target)
         assert metrics["rotation_error_deg"] > 15.0
         assert metrics["rotation_median_deg"] < 0.05
-        assert metrics["rotation_acc_30"] == pytest.approx(0.9)
+        assert metrics["rotation_acc@30deg"] == pytest.approx(0.9)
 
     def test_accuracy_counts_pairs_within_the_threshold(self):
         target = torch.zeros(4, 7)
@@ -249,8 +249,8 @@ class TestPoseMetrics:
         for row, degrees in enumerate((5.0, 20.0, 40.0, 100.0)):
             pred[row, :4] = about_z(degrees)
         metrics = pose_metrics(pred, target)
-        assert metrics["rotation_acc_15"] == pytest.approx(0.25)
-        assert metrics["rotation_acc_30"] == pytest.approx(0.5)
+        assert metrics["rotation_acc@15deg"] == pytest.approx(0.25)
+        assert metrics["rotation_acc@30deg"] == pytest.approx(0.5)
 
     def test_translation_error_is_a_distance(self):
         assert float(

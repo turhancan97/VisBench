@@ -104,7 +104,7 @@ magnitude would render *identically* to a correct one.
 
 ## What it can draw
 
-**Every probe.** All seventeen, across five renderers — a test asserts
+**Every probe.** All eighteen, across six renderers — a test asserts
 `show_probes() == list_probes()`, so a new probe cannot ship undrawable.
 
 | renderer | probes | a row is |
@@ -114,6 +114,7 @@ magnitude would render *identically* to a correct one.
 | instances | `instance_segmentation` | the crop with one colour per instance |
 | matches | `correspondence` | two views and the matches between them |
 | gallery | `classification`, `retrieval`, `similarity` | the decision the probe made |
+| pose | `relative_pose` | two views of one scene, and how far the camera turned |
 
 The last three have no spatial target — nothing to lay beside the image at the
 same resolution. What they have is a *decision*: which class, which neighbours,
@@ -416,6 +417,42 @@ footer states it as a figure too:
 The candidates are presented in arbitrary order, so a balanced vote is expected;
 a figure far from 50% means the column is wrong. Backbone optional here: the
 human vote alone is the check, and it needs no features.
+
+## `relative_pose` — the pair, and how far the camera turned
+
+```bash
+visbench show relative_pose --data ./navi_v1 --frames 3 --out pose.png
+```
+
+```{image} /_static/gallery/relative_pose.png
+:alt: An anchor frame, a partner frame, and the rotation between the cameras
+:class: visbench-figure
+```
+
+The target here is not a map over either frame but a **number about the two of
+them**, so what the panel can show is the pair and the angle between the
+cameras. With `--predict-from`, the predicted angle and the error join the
+caption and the partner's border turns on whether the error clears 30 degrees —
+the threshold the board reports as `rotation_acc@30deg`.
+
+**The failure it catches** is reading an angular error as though zero were the
+reference. Pairs are drawn within 120 degrees, so a constant prediction already
+scores about 67 degrees, and a backbone at 66 is at chance rather than weak. The
+footer says so as a figure:
+
+```
+1740 pairs, relative rotation median 64 deg (max 120) | this split's own mean
+pose scores 67 deg, so read an error against that rather than against zero
+```
+
+**That figure is the drawn split's own mean, not the floor in a record.** A
+record's floor is fitted on the *training* pairs, as any predictor is; the
+viewer has only the pairs on the page. It is a diagnostic, like
+`error_coherence`, and is never a score.
+
+The pairs are also grouped by scene — consecutive ones are the same two frames
+in both directions — so the drawn pairs are picked **spread across the split**
+rather than as a prefix, the way the class-grouped sheets are.
 
 ## Adding the prediction column
 

@@ -404,6 +404,64 @@ more than a point. So the fit diagnostics separate "different hardware" from
 backbone — read `training` before attributing a cross-silicon gap to anything
 else.
 
+## `pose_linear.jsonl` — what the head this board departs from would have said
+
+Thirteen records: `relative_pose` on the same NAVI pairs, the same seed and the
+same pinned protocol as the published board, with **one affine map** in place of
+probe3d's MLP (`--hidden-dims ""`). `scripts/build_pose_linear_control.sh` runs
+it, and it is nearly free after the board because the features are the same
+ones — what decides that is the *cache root*, not the machine.
+
+**Why it exists.** Every other VisBench board is quoted with the least
+expressive head that can express the task, because then a gap between two
+backbones is a gap between two *representations*. In practice that has always
+come out a linear map: an affine layer, a `LinearHead`, or the 1x1 convolutions
+`DetectionHead` and `InstanceHead` are built from. `relative_pose` is the first
+board that departs from it, and the honest form of "we used a bigger head" is a
+measurement of what the smaller one did.
+
+| backbone | MLP | linear | linear vs floor |
+| --- | --- | --- | --- |
+| `mae_vitb16` | 22.70 | 63.06 | +3.78 |
+| `dinov2_vits14` | 25.37 | 62.94 | +3.91 |
+| `dino_vitb8` | 27.10 | 62.94 | +3.91 |
+| `dino_vitb16` | 29.04 | 63.27 | +3.58 |
+| `dinov2_vitb14` | 29.08 | 63.41 | +3.43 |
+| `sam_vitb16` | 35.02 | 64.09 | +2.75 |
+| `resnet50` | 37.01 | **65.99** | **+0.85** |
+| `convnext_base` | 37.60 | 63.44 | +3.41 |
+| `siglip_vitb16` | 38.29 | 63.95 | +2.89 |
+| `clip_vitb16` | 40.56 | 63.53 | +3.31 |
+| `supervised_vitb16` | 41.43 | 63.71 | +3.14 |
+| `resnet18` | 43.01 | 63.95 | +2.90 |
+| `clip_vitb32` | 43.14 | 64.00 | +2.85 |
+
+**A linear head is at or near chance on this task, for every backbone.** It
+clears the no-feature floor by **0.85 to 3.91 degrees** where the MLP clears it
+by 23.7 to 44.2, and `resnet50` at +0.85 is indistinguishable from predicting a
+constant. Its whole spread is **3.06 degrees against the MLP's 20.44** — and
+this board's reproducibility noise is about **one** degree, so a linear board
+would be separating its thirteen rows by roughly three times the noise, where
+the MLP board separates them by twenty.
+
+**It underfits, and `train_loss` is what says so rather than the score.**
+0.0680 to 0.0729 across all thirteen, flat — against 0.0020 to 0.0057 for the
+MLP on the identical features. Flat training loss at 25x the alternative's, on
+50,519 pairs against 1,536 input dimensions, is the function class rather than
+the sample size.
+
+**And its residual ordering is not the MLP's.** Spearman between the two is
+**+0.681**, which sounds like agreement until the top is read: the linear board
+puts `dino_vitb8` first and `mae_vitb16` **third**, and lifts `convnext_base`
+from eighth to fifth. Ordering a board by differences of a degree or two, when a
+degree is noise, is how a ranking gets manufactured.
+
+**The cost of the departure, stated plainly.** A gap between two rows on the
+published board is less purely a gap between two representations than elsewhere
+in this corpus: a deeper head can compensate for a weaker feature vector, which
+is the DPT control's lesson arriving on a board that ships. This file is what
+lets a reader see how much, rather than take a sentence for it.
+
 ## `pose_protocol.jsonl` — does the shipped pose probe measure what the pre-measurement measured?
 
 Six records: `RelativePoseTask` on NAVI at the pinned protocol — eight partners
@@ -418,6 +476,22 @@ produced six figures on an ad-hoc staging that was never committed and left
 nothing behind to check them against; the numbers below are quoted in
 `ENGINEERING_LOG.md` and in `visbench/tasks/low_level/README.md`, so they are
 kept.
+
+**They were re-run in 16a-3**, when the accuracy metrics were renamed to the
+parametrised form (`rotation_acc@30deg`), so that the committed file carries
+keys the library still emits rather than keys nothing produces. All six
+reproduced to **+0.000000** — the same cache, the same seeds, bit for bit — so
+the file's numbers are unchanged and only its metric *names* moved. That
+exactness is also the other half of the reproducibility entry below: this board
+moves by about a degree across two *extractions* and not at all within one.
+
+**They were re-run in 16a-3**, because that step renamed the accuracy metrics
+to the parametrised form (`rotation_acc@30deg`) and a committed record carrying
+keys the library no longer emits is a small landmine for whoever loads it. The
+re-run was against the same cache and reproduced **all six to 0.0e+00** — not
+"to four decimals", exactly — which is the third confirmation of the
+reproducibility entry below: bit for bit against one cache, about a degree
+across two.
 
 | backbone | rot err (3 seeds) | vs floor | seed range | parked | delta |
 | --- | --- | --- | --- | --- | --- |

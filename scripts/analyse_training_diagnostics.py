@@ -99,11 +99,12 @@ HEADLINE_METRICS: dict[str, str] = {
     "keypoints2d": "keypoint_correlation",
     "corner": "corner_correlation",
     "orientation": "orientation_error",
+    "relative_pose": "rotation_error_deg",
     "occlusion_edge": "occlusion_edge_correlation",
 }
 
 #: Boards whose headline metric is an error, so a *lower* value ranks higher.
-LOWER_IS_BETTER = {"surface_normal", "orientation"}
+LOWER_IS_BETTER = {"surface_normal", "orientation", "relative_pose"}
 
 #: The three probes that fit nothing, so ``training: None`` is correct for them
 #: rather than a gap. Stated rather than inferred: "no training block" and "a

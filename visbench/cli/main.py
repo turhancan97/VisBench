@@ -526,24 +526,33 @@ _ZERO_SHOT_KINDS = frozenset({"matches", "ranking", "triplet"})
 #: Kinds whose content is computed from features, so a backbone is not optional.
 _NEEDS_BACKBONE = frozenset({"matches", "ranking"})
 
-#: Kinds drawn from a *class-grouped* split. A labelled image folder is ordered
-#: by class, so a prefix of it is one class -- which is the artefact the sheet
-#: exists to reveal, and a viewer reproducing it would look like its own bug.
-_CLASS_GROUPED_KINDS = frozenset({"sheet", "ranking"})
+#: Kinds whose split order carries *structure*, so a prefix of it is not a
+#: sample of it.
+#:
+#: A labelled image folder is ordered by class, so the first four items are four
+#: images of class 0 -- the artefact the sheet exists to reveal, which a viewer
+#: reproducing it would look like its own bug. `relative_pose` has the same
+#: shape one level up: its pairs are built scene by scene, so consecutive pairs
+#: are the *same two frames* in both directions and a prefix of three draws two
+#: scenes rather than three.
+_GROUPED_KINDS = frozenset({"sheet", "ranking", "pose"})
 
 
 def _split_size(args: argparse.Namespace, kind: str) -> int | None:
     """How much of the split to load, which is not always how much to draw.
 
     ``--limit`` when given. Otherwise ``start + frames`` for everything drawn
-    frame by frame, and **the whole split** for ``ranking``: leave-one-out
-    retrieval over four images ranks each against three alternatives, so
-    shortening the split there does not shorten the drawing, it destroys the
-    measurement being drawn.
+    frame by frame, and **the whole split** for ``ranking`` and ``pose``.
+    Leave-one-out retrieval over four images ranks each against three
+    alternatives, so shortening the split there does not shorten the drawing,
+    it destroys the measurement being drawn. Pose pairs are built scene by
+    scene, so the first three are two scenes rather than three -- picking three
+    spread across the split means knowing how long the split is, and a prefix
+    of it would silently draw the grouping instead of a sample.
     """
     if args.limit is not None:
         return args.limit
-    if kind == "ranking":
+    if kind in ("ranking", "pose"):
         return None
     if kind == "sheet":
         # balanced_subset takes this *per class*, so `frames` alone would load
@@ -556,12 +565,13 @@ def _frame_indices(available: int, start: int, frames: int, kind: str) -> list[i
     """Which items to draw.
 
     A prefix for everything whose split order carries no structure, and **evenly
-    spread** for the class-grouped ones. ``balanced_subset`` groups by class, so
-    the first four items of an Imagenette split are four images of class 0 --
-    the very artefact the footer figure exists to report. Drawing them would
-    make a correct viewer look broken.
+    spread** for the grouped ones. ``balanced_subset`` groups by class, so the
+    first four items of an Imagenette split are four images of class 0 -- the
+    very artefact the footer figure exists to report. Pose pairs are grouped by
+    scene, so a prefix draws one scene twice before it reaches the next.
+    Drawing either would make a correct viewer look broken.
     """
-    if kind not in _CLASS_GROUPED_KINDS or start + frames >= available:
+    if kind not in _GROUPED_KINDS or start + frames >= available:
         return list(range(start, min(available, start + frames)))
     span = available - start
     step = span / frames
@@ -583,6 +593,7 @@ def _draw(
     what these five branches have in common is a signature, not behaviour.
     """
     from visbench.viz import (
+        render_pose_panels,
         render_probe_panels,
         render_retrieval_panels,
         render_sheet,
@@ -614,6 +625,26 @@ def _draw(
             render_triplet_panels(dataset, indices, predictions),
             "reference, left, right"
             + (", with the model's choice" if predictions is not None else ""),
+        )
+
+    if kind == "pose":
+        # The whole split's features, for the reason the triplet branch above
+        # takes them: the pairs index into the frame list, so the frames cannot
+        # be subset without repointing every pair -- which is why
+        # NaviPoseDataset refuses subset() outright and `_predictions`, which
+        # calls it, cannot be reused here.
+        predictions = None
+        if args.predict_from is not None:
+            from visbench.hub import load_probe
+
+            backbone = visbench.get_backbone(args.backbone, device=args.device)
+            probe = load_probe(args.predict_from, backbone=backbone, task=probe)
+            features = _pooled_features(args, probe, dataset, out)
+            predictions = probe.predict(features, dataset.labels())[indices]
+        return (
+            render_pose_panels(dataset, indices, predictions),
+            "anchor, partner"
+            + (", with the predicted rotation" if predictions is not None else ""),
         )
 
     predictions = None
