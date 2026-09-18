@@ -21,7 +21,13 @@ from pathlib import Path
 
 import pytest
 
+import visbench
+
 README = Path(__file__).resolve().parents[1] / "README.md"
+
+# ``> **Status: v0.23.0.** ...``, the front page's one claim about which release
+# a reader is looking at.
+STATUS_VERSION = re.compile(r"\*\*Status: v(\d+\.\d+\.\d+)\.?\*\*")
 
 # ``[text](target)``, and its ``![alt](target)`` image form, which differs only
 # by a leading ``!`` and so is matched by the same pattern.
@@ -196,3 +202,22 @@ def test_the_docs_link_pattern_finds_something():
     assert len(links) > 15, f"only {len(links)} links found under docs/; the pattern missed some"
     assert any(t.startswith("https://") for _, t in links), "no absolute link found"
     assert any(not t.startswith(("http", "#")) for _, t in links), "no intra-site link found"
+
+
+def test_the_status_line_names_the_shipped_version():
+    """The front page says which release it describes, and nothing read it.
+
+    A release commit moves the version in `pyproject.toml`, `visbench/__init__.py`
+    and `CITATION.cff` -- each pinned by a test -- and the README's status line
+    is a fourth literal that no test had an opinion about. It has now gone stale
+    twice running, and because the README is the long description it reaches
+    PyPI, where a version can never be re-uploaded: v0.21.0 shipped saying
+    v0.20.0 and v0.22.0 shipped saying v0.21.0.
+    """
+    found = STATUS_VERSION.findall(README.read_text(encoding="utf-8"))
+    assert found, "no '**Status: vX.Y.Z**' line in README.md; the idiom changed"
+    for version in found:
+        assert version == visbench.__version__, (
+            f"README.md's status line says v{version}, but visbench.__version__ is "
+            f"{visbench.__version__}. Bump it in the release commit."
+        )
