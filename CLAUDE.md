@@ -322,19 +322,20 @@ was ever found. And **do not pipe a long publishing run through `tail`**: it
 buffers, so a run killed part-way leaves no log and the Hub has to be queried to
 find out what shipped.
 
-**Sixteen releases are archived, `0.21.0` the newest** (2026-09-17). Byte
+**Seventeen releases are archived, `0.22.0` the newest** (2026-09-18). Byte
 counts, wheel digests, the commit each tag resolves to and what every
 `__version__`/`SCHEMA_VERSION` import read back are recorded release by release
 in [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md) under "Release history"; read them
-there. `0.21.0` is the **ninth running with no gap** between tag, wheel, release
+there. `0.22.0` is the **tenth running with no gap** between tag, wheel, release
 and `main`; `0.18.0` is the only release to move the schema (v8 -> v9), so a
 v0.17.0 install cannot read a record written by it while older records read
 fine here. **`0.19.0` shipped without its wheel check and without its
 release-history entry** — both were done retrospectively on 2026-09-16 — and
-**`0.21.0` stopped with PyPI complete and no GitHub release**, so Zenodo had
-archived nothing while `CITATION.cff` already named the new version. A release
-is not finished when the upload succeeds, nothing red-flags the omission, and
-**a tag is not a release**: the GitHub release is what triggers the archive.
+**`0.21.0` and `0.22.0` both stopped with PyPI complete and no GitHub
+release**, so Zenodo had archived nothing while `CITATION.cff` already named the
+new version. Twice running makes it structural rather than a slip: the upload is
+the step that feels like the finish line, CI went green long before, and
+**nothing anywhere turns red when the archive never happens**.
 
 Four rules those releases left behind, beyond the standing list below:
 
@@ -359,9 +360,9 @@ Four rules those releases left behind, beyond the standing list below:
   `__version__` reports the new one. A bump always moves the lockfile.
 
 **The concept DOI is `10.5281/zenodo.21822684`**, unchanged across all
-**sixteen** version DOIs and now resolving to v0.21.0 (confirmed against
-Zenodo's API on 2026-09-17 — record 21822684 redirects to `id` 22820090, which
-reports `metadata.version` `v0.21.0` — rather than assumed).
+**seventeen** version DOIs and now resolving to v0.22.0 (confirmed against
+Zenodo's API on 2026-09-18 — record 21822684 redirects to `id` 22828959, which
+reports `metadata.version` `v0.22.0` — rather than assumed).
 
 **That API 302s, and without `-L` the check lies to you**: `curl` alone returns
 a 229-byte HTML redirect page and the JSON parse fails with a traceback that
@@ -374,6 +375,17 @@ over it is the realistic mistake and it freezes every citation at one release.
 release-by-release detail is in [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md),
 under "Release history"; what recurs is:
 
+- **Cut the GitHub release, and check it exists.** The tag archives nothing:
+  the *release* is what Zenodo watches, so without it `CITATION.cff` names a
+  version no archive holds and the concept DOI still resolves to the previous
+  one. Missed on `0.21.0` **and** `0.22.0`, both times with PyPI already
+  complete, and nothing turns red either time. `gh release view vX.Y.Z` is the
+  check, and it is the last step rather than an afterthought.
+- **Advance `date-released` if the calendar has rolled since the last
+  release.** Zenodo publishes it as the deposit's date and a deposit cannot be
+  edited afterwards; `tests/test_citation.py` only checks that it parses, so a
+  day-old value passes every gate and is then permanent. `0.22.0` was cut on
+  the 18th carrying the 17th.
 - **Tag before building**, so the artifact is built from the tagged commit.
   v0.10.0 was the first release whose tag and wheel agree exactly, and v0.14.0
   through v0.17.0 are the five with no gap at all, which is what that order
