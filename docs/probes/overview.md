@@ -1,6 +1,6 @@
 # The probes
 
-Eighteen probes across three levels. Every one of them is reachable the same
+Nineteen probes across three levels. Every one of them is reachable the same
 three ways — {doc}`visbench.run() </getting-started/quickstart>`, the
 `visbench run` CLI, and an `examples/` script — and every one writes a record
 saying exactly what produced its number.
@@ -18,6 +18,7 @@ intend to quote one.**
 | {doc}`fine_grained_classification </probes/high-level/fine_grained_classification>` | subordinate category — which species, not whether it is a bird |
 | {doc}`retrieval </probes/high-level/retrieval>` | zero-shot nearest neighbours by cosine over pooled features |
 | {doc}`semantic_segmentation </probes/high-level/semantic_segmentation>` | multi-class per-pixel labels |
+| {doc}`scene_parsing </probes/high-level/scene_parsing>` | every pixel of an indoor scene, forty classes — stuff, not things |
 | {doc}`detection </probes/high-level/detection>` | anchor-free single-scale boxes from one feature map |
 | {doc}`instance_segmentation </probes/high-level/instance_segmentation>` | which *object* a pixel belongs to, not just which class |
 
@@ -246,6 +247,7 @@ high-level/scene_classification
 high-level/fine_grained_classification
 high-level/retrieval
 high-level/semantic_segmentation
+high-level/scene_parsing
 high-level/detection
 high-level/instance_segmentation
 ```

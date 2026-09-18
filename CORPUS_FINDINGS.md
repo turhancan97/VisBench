@@ -36,6 +36,45 @@ Two standing cautions apply to everything below:
 ---
 
 
+- **`scene_parsing` ranks with the *semantic* boards, and it does so against
+  the boards it shares images with** (19a, 2026-09-18). Thirteen cells on
+  NYUv2-40, forty classes on the canonical 795/654 split, all on V100s. The
+  board spans **0.4959** (`dinov2_vitb14`) to **0.1419** (`resnet18`) on
+  dataset-level mIoU.
+
+  **Its four strongest partners are semantic and its four weakest are
+  geometric**: `fine_grained_classification` **+0.868**,
+  `semantic_segmentation` **+0.852**, `detection` +0.791 and
+  `generic_segmentation` +0.714, against `correspondence` +0.093, `orientation`
+  **−0.022**, `keypoints2d` −0.027 and `retrieval` −0.038. Mean rho is **+0.553**
+  against the seven high-level boards, +0.414 against mid-level and **+0.136**
+  against the four low-level ones.
+
+  **The interesting part is which images those are.** This probe reads the
+  *same 795/654 frames* as `depth` and `surface_normal` — identical pixels,
+  three probes — and correlates with them at **+0.533** and **+0.423**, while
+  correlating **+0.852** with a VOC board that shares no image with it at all.
+  So on this pair of boards the *question* dominates the *data*, which is the
+  complement of the split control rather than a contradiction of it: that
+  control showed a board's cluster can move when its split moves, and this
+  shows the split alone does not decide it.
+
+  **It also replicates the two-cluster split of `high_level`** on a new board.
+  `scene_parsing` sits with the *localised* cluster — semantic segmentation,
+  detection, fine-grained — at +0.79 to +0.87, and near zero with the
+  image-level one: `classification` +0.204 and `retrieval` −0.038. That is the
+  third probe to land that way and the first one that is dense.
+
+  **`mae_vitb16` is twelfth of thirteen here** (0.1484) and first on five other
+  boards. Its `train_loss` is 1.6169 against `dinov2_vitb14`'s 0.7238, so this
+  is the representation rather than an unconverged fit — the check that
+  separates the two readings, and the reason the fit diagnostic is in the
+  record.
+
+  **Not comparable with the VOC board as a number**: forty classes on 795
+  training images against twenty-one on 1,464, so the absolute mIoU is lower by
+  construction. Comparable as an ordering, which is what a board is for.
+
 - **`relative_pose` is the first board that is close to *orthogonal* to the
   whole high-level tier** (16a-3, 2026-09-17). Thirteen cells on NAVI, probe3d's
   pairwise protocol at eight partners per training anchor, all on V100s, with

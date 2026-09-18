@@ -10,7 +10,7 @@ multimodal or language model's behaviour. *Bench* — the output is a
 produced it, and explicit rules decide which records may be ranked together.
 
 VisBench answers one question with as little ceremony as possible: *what does
-this vision backbone actually encode?* Eighteen probes, three backbone
+this vision backbone actually encode?* Nineteen probes, three backbone
 families, one `run()` call, and a result record that says exactly how every
 number was produced.
 
@@ -31,7 +31,7 @@ Installation · Quickstart · The command line
 :link: probes/overview
 :link-type: doc
 
-Eighteen probes across three levels. Each page states what it measures, the
+Nineteen probes across three levels. Each page states what it measures, the
 data it expects, its `protocol` string, and its thirteen-backbone board.
 +++
 High level · Mid level · Low level · Leaderboard
@@ -80,7 +80,7 @@ against is not a crash, it is a plausible wrong answer.
 
 | | |
 | --- | --- |
-| Eighteen probes against thirteen backbones, ranked | [LEADERBOARD.md](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md) |
+| Nineteen probes against thirteen backbones, ranked | [LEADERBOARD.md](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md) |
 | What each board means, and the readings it corrected | [CORPUS_FINDINGS.md](https://github.com/turhancan97/VisBench/blob/main/CORPUS_FINDINGS.md) |
 | Setting up, the checks, and how to add a probe | [CONTRIBUTING.md](https://github.com/turhancan97/VisBench/blob/main/CONTRIBUTING.md) |
 | What each step measured, rejected and decided | [ENGINEERING_LOG.md](https://github.com/turhancan97/VisBench/blob/main/ENGINEERING_LOG.md) |

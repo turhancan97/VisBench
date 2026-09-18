@@ -125,6 +125,7 @@ PROBES=(
   corner
   orientation
   relative_pose
+  scene_parsing
 )
 # Which probes the matrix covers. `PROBES` above stays the full list -- the
 # test pins it equal to build_corpus.sh's ALL_PROBES -- and this narrows the

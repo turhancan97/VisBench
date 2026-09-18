@@ -215,6 +215,15 @@ This is a multi-month roadmap, built one reviewed step at a time.
       (mean rho +0.099 against it, +0.701 against low-level), and it must be
       read to whole degrees: two extractions of the same features differ by
       ~1e-5 and thirty epochs of this head turn that into about a degree
+- [x] **19a.** `scene_parsing` — NYUv2-40 as the **nineteenth** probe, the same
+      implementation `semantic_segmentation` runs asking a different question:
+      forty classes of *stuff* in a room against twenty-one objects on a
+      background. The label convention was measured rather than assumed (255 is
+      void, 0 is `wall`), so it needed no loader and no fifth validity rule. Its
+      board ranks with the **semantic** boards (+0.553 mean against high-level,
+      +0.136 against low-level) *including* against the two boards that read its
+      identical frames — the question dominating the data, which complements the
+      split control
 
 ## Roadmap
 
@@ -319,7 +328,8 @@ plausible wrong numbers while reporting success, which only the new fit
 diagnostics could tell. The corpus goes from 264 records to **360**, still 204
 board cells.
 
-**Next** — there is no committed next step. Relative camera pose is **done**
+**Next** — there is no committed next step. NYUv2 scene parsing is **done**
+(19a), and relative camera pose is **done**
 (16a-1 to 16a-3): an eighteenth probe, its board, and the linear control
 committed beside it, because it is the first board here whose head is not a
 linear map and the honest form of "we used a bigger head" is a measurement of
@@ -396,7 +406,7 @@ dense probe has to test for.
 | ~~Relative depth ordering~~ | mid | **Built and rejected** — it cleared the oracle gate at a 94.0% ceiling and then reproduced the `depth` board's ordering at Spearman **+1.000** over five backbones, at 38% of its spread, with two backbones 0.0007 apart that `depth` separates by 0.0707. Kept as a control, because the rejection is a finding about `depth`: discarding scale leaves its ranking unchanged. See `results/controls/README.md` |
 | Intrinsic image decomposition (albedo vs shading) | mid | Classic Marr-style separation of appearance from geometry and lighting. Ground truth is scarce outside synthetic data |
 | Room / scene layout estimation | mid | Floor–wall–ceiling boundaries |
-| Semantic segmentation on NYUv2 (40 classes) | high | The indoor counterpart to the VOC board, on the images the depth and normal heads were fitted on. The canonical 795/654 split ships pre-extracted as stem-matched folders in `DenseFolderDataset`'s layout, and its `.npy` depth and normal targets need no new loader — `_TARGET_SUFFIXES` has accepted them since 5d. A new probe *name*, per the rule a second dataset always needs one |
+| ~~Semantic segmentation on NYUv2 (40 classes)~~ | high | **Done** — shipped as `scene_parsing`, the nineteenth probe, with its thirteen-backbone board. Named for the question rather than the dataset, per this project's convention. The label convention was measured before any code: 255 is void (88.5% of border pixels against 13.7% of interior ones) and 0 is `wall`, so it is VOC's shape and needed no new loader |
 | Vanishing point / line detection | low | Published as a Taskonomy domain |
 | Color constancy / illuminant estimation | low | Needs measured illuminant ground truth |
 

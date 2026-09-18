@@ -36,6 +36,7 @@ from visbench.data.instance import VOCInstanceDataset
 from visbench.data.navi import MAX_ANGLE, NaviPoseDataset
 from visbench.data.pair_dataset import HomographyPairDataset
 from visbench.data.triplet import TwoAFCDataset
+from visbench.tasks.high_level.scene_parsing import NYU40_CLASSES, NYU40_VOID
 
 __all__ = [
     "ProbeSpec",
@@ -521,6 +522,43 @@ def _semantic_splits(args: argparse.Namespace) -> Splits:
     # No max_target: it marks out-of-range sensor readings invalid, and against
     # class indices it would erase whole categories.
     return _dense_splits(args, functools.partial(load_label_map, ignore_index=ignore))
+
+
+def _parsing_view_flags(parser: argparse.ArgumentParser) -> None:
+    """`semantic_segmentation`'s flags with NYUv2-40's defaults filled in.
+
+    The same builders run both probes — only the defaults differ — because the
+    two are one implementation asking two questions, and a second copy of the
+    flag set could build a *different* dataset from the same command line.
+
+    ``--num-classes`` has a default here where the VOC probe requires one. That
+    is deliberate and is the `corner` argument: this probe is **named for** a
+    label set, so the count is a protocol pin rather than a property of whatever
+    folder is passed. It still travels in ``task_params``, so a run at another
+    count lands in its own comparability group rather than being ranked against
+    these.
+    """
+    _split_flags(parser, evaluate="test", train="train")
+    _dense_view_flags(parser, target_dir="segmentation_nyu40")
+    parser.add_argument(
+        "--num-classes",
+        type=int,
+        default=NYU40_CLASSES,
+        help=f"NYU40's forty classes at 0..39 (default: {NYU40_CLASSES})",
+    )
+    parser.add_argument(
+        "--ignore-index",
+        type=int,
+        default=NYU40_VOID,
+        help=f"raw value marking unlabelled pixels; -1 to disable (default: {NYU40_VOID}). "
+        "255 is the depth-projection margin here, measured rather than assumed: 88.5% of "
+        "border pixels carry it against 13.7% of interior ones",
+    )
+
+
+def _parsing_flags(parser: argparse.ArgumentParser) -> None:
+    _parsing_view_flags(parser)
+    _schedule_flags(parser)
 
 
 def _detection_flags(parser: argparse.ArgumentParser) -> None:
@@ -1261,6 +1299,17 @@ SPECS: dict[str, ProbeSpec] = {
             "num_classes": args.num_classes,
         },
         show_arguments=_viewing(_semantic_view_flags),
+    ),
+    "scene_parsing": ProbeSpec(
+        summary="dense forty-class indoor parsing; reports mIoU both reductions",
+        layout=_DENSE_LAYOUT % "segmentation_nyu40",
+        add_arguments=_parsing_flags,
+        build=_semantic_splits,
+        probe_kwargs=lambda args: {
+            **_dense_probe_kwargs(args),
+            "num_classes": args.num_classes,
+        },
+        show_arguments=_viewing(_parsing_view_flags),
     ),
     "detection": ProbeSpec(
         summary="anchor-free single-scale box probe, scored mAP@50 the VOC way",

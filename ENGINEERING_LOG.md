@@ -2162,6 +2162,90 @@ claim the pre-measurement makes — `mae > dino > sam > clip` — is therefore
 **confirmed at its two ends and untested in the middle**, and should be quoted
 that way until the board lands.
 
+## 19a — `scene_parsing`: the nineteenth probe, and a vacuous check caught in time
+
+**2026-09-18.** NYUv2-40 as a distinct probe on the `semantic_segmentation`
+implementation, its thirteen-backbone board, and the fourth instance of the
+registration checklist — 19 tests red this time, two of which
+(`test_training_summary.py` and `analyse_training_diagnostics.py`'s copy of the
+zero-shot set) the pose step never touched, because they construct every
+registered probe and this one's parent demands `num_classes`.
+
+### The label convention, settled before any code
+
+The maps are mode `L` carrying **0–39 and 255**, and which of those is void
+decides whether the probe trains on anything at all. Measured over all 1,449
+maps rather than assumed from the dataset's reputation:
+
+| value | share of pixels | of border pixels | of interior pixels |
+|---|---|---|---|
+| 255 | 17.4% | **88.5%** | 13.7% |
+| 0 | 21.4% | 2.3% | **28.6%** |
+
+**255 is void** — that border concentration is the depth-projection margin, and
+a 255 pixel is 2.5x more likely than average to have depth exactly 0. **0 is a
+real class**, `wall`. So NYU40 as this copy stores it is VOC's shape exactly:
+contiguous zero-indexed classes plus a 255 void, which `load_label_map` and
+`--ignore-index 255` already handle. No new loader, and **no fifth validity
+convention** — the check `CLAUDE.md` demands for a new dense target returned
+"the one you already have".
+
+The alternative convention is the common one for this dataset (1..40 classes
+with 0 unlabelled), and adopting it here would have discarded a fifth of every
+image and trained the probe never to answer `wall`. Neither version raises.
+
+### The smoke run looked wrong and the fit diagnostic said why
+
+Forty images, four epochs: mIoU 0.0139 and pixel accuracy **0.1117**, which is
+*below* the 21.4% a majority-class predictor gets. That is the shape of a wiring
+error. `train_loss` **3.3646 against ln(40) = 3.689** settled it in one number —
+the head had barely moved from random, so it was underfitting a tiny split, not
+scoring a broken target. At full scale the same configuration reads **0.4519**
+mIoU with `train_loss` 0.8497.
+
+### A reproducibility check that would have been vacuous
+
+The board cell and the local full-scale run for `dinov2_vits14` agree **bit for
+bit** across two different feature caches — and that proves nothing, which is
+worth writing down because the write-up nearly claimed it as a contrast with
+`relative_pose`'s ~0.93 degree cross-cache movement.
+
+**The two caches' features here are identical** (0.00e+00 over the sampled
+entries), because both extractions used the CLI's default batch size on the same
+GPU model. Pose's differed by up to 1.1e-05 because its proof run extracted at
+batch size 64 against the cluster's 32. So the rule is:
+**"it reproduces across two caches" is evidence only if the caches' features
+actually differ** — check the inputs before reporting the agreement of the
+outputs, or the claim is that identical inputs give identical outputs.
+
+### What the board says
+
+Thirteen cells, 2 to 4.5 minutes each, no failures. 0.4959 (`dinov2_vitb14`)
+down to 0.1419 (`resnet18`), and the reading is in
+[`CORPUS_FINDINGS.md`](CORPUS_FINDINGS.md): it ranks with the **semantic**
+boards (+0.553 mean against high-level, +0.136 against low-level) and, most
+usefully, correlates **+0.852** with a VOC board sharing none of its images
+against **+0.533** and **+0.423** with the two boards reading its *identical*
+frames. The question dominates the data on this pair, which is the complement of
+the split control.
+
+### Two things found while building it, neither part of the work
+
+**The gallery figure's footer named a dataset it was not showing.** The
+`TARGET_STYLES` note said "forty NYU40 classes" and the gallery renders on Open
+Images labels, so the committed figure carried that caption under a photograph
+of a leopard. A style note is drawn on **whatever folder the viewer is pointed
+at**, so it must not name a dataset; it describes the palette and the void
+mapping now. Found by looking at the figure, which is where every gallery bug
+here has been found.
+
+**A raw void value never reaches a record.** Both segmentation probes record
+`ignore_index: -1`, the task's internal constant *after* the loader maps the
+dataset's 255, so two runs differing only in `--ignore-index` are
+indistinguishable by the comparability key. It affects the VOC board equally and
+is a property of the shared task, so it is recorded here and left alone — the
+same posture as the sub-pixel alignment finding.
+
 ## 16a-3 — registering the pose probe: what a probe *name* costs
 
 **2026-09-17.** `relative_pose` becomes the **eighteenth registered probe**.

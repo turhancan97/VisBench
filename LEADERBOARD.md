@@ -408,6 +408,30 @@ Ordered by `top1`, which **disagrees with `top5`** — this task does not rank i
 
 <sub>scene_classification on val/val, protocol=visbench_scene_linear_probe, frozen [9f6f94e8]</sub>
 
+### scene_parsing
+
+| backbone | `mean_acc` | `miou` | `miou_per_image` | `pixel_acc` |
+| --- | --- | --- | --- | --- |
+| `dinov2_vitb14` | **0.6199** | **0.4959** | **0.3362** | **0.7344** |
+| `dinov2_vits14` | 0.5724 | 0.4519 | 0.3014 | 0.7070 |
+| `clip_vitb16` | 0.4468 | 0.3490 | 0.2547 | 0.6458 |
+| `siglip_vitb16` | 0.4366 | 0.3241 | 0.1757 | 0.5971 |
+| `dino_vitb8` | 0.4257 | 0.3206 | 0.1542 | 0.6235 |
+| `dino_vitb16` | 0.4138 | 0.3105 | 0.1717 | 0.6118 |
+| `clip_vitb32` | 0.3823 | 0.2918 | 0.2278 | 0.5969 |
+| `convnext_base` | 0.3967 | 0.2894 | 0.1962 | 0.5781 |
+| `supervised_vitb16` | 0.3823 | 0.2817 | 0.2075 | 0.5810 |
+| `sam_vitb16` | 0.2666 | 0.1968 | 0.1790 | 0.5590 |
+| `resnet50` | 0.2478 | 0.1812 | 0.1728 | 0.5274 |
+| `mae_vitb16` | 0.2101 | 0.1484 | 0.1790 | 0.5457 |
+| `resnet18` | 0.2029 | 0.1419 | 0.1464 | 0.4924 |
+
+Ordered by `miou`, which **disagrees with `mean_acc`, `miou_per_image`, `pixel_acc`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
+
+> **Read this first.** **Forty classes on 795 training images**, where the VOC board has twenty-one on 1,464 — so the absolute mIoU here is lower by construction and the two boards are not comparable as numbers, only as orderings. Most of these pixels are *stuff* (wall, floor, ceiling) rather than things, which is the question this probe asks that `semantic_segmentation` does not. It reads the frames `depth` and `surface_normal` already read, so a cluster comparison against those two is about the question rather than about the data.
+
+<sub>scene_parsing on test/test, protocol=visbench_scene_parsing, frozen [73d37f62]</sub>
+
 ### semantic_segmentation
 
 | backbone | `mean_acc` | `miou` | `miou_per_image` | `pixel_acc` |

@@ -55,6 +55,7 @@ HEADLINE_METRICS: dict[str, str] = {
     "correspondence": "recall@5px",
     "similarity": "accuracy",
     "semantic_segmentation": "miou",
+    "scene_parsing": "miou",
     "generic_segmentation": "iou",
     "detection": "map_50",
     "instance_segmentation": "mask_map_50",
@@ -87,6 +88,7 @@ GRID_READING_BOARDS: frozenset[str] = frozenset(
         "surface_normal",
         "generic_segmentation",
         "semantic_segmentation",
+        "scene_parsing",
         "edge",
         "keypoints2d",
         "occlusion_edge",
@@ -201,6 +203,7 @@ SOURCE_IMAGES: dict[str, str] = {
     "corner": "Taskonomy",
     "orientation": "Taskonomy",
     "similarity": "NIGHTS",
+    "scene_parsing": "NYUv2",
     "relative_pose": "NAVI",
 }
 

@@ -71,6 +71,7 @@ step is next rather than attempting the whole roadmap in one session.
 | 16a-1 | Relative camera pose: the NAVI pair set and the pose metric | done |
 | 16a-2 | Pose: `PoseHead` + the task, proved against the pre-measurement | done |
 | 16a-3 | Pose: registration, the 13-backbone board, the viewer, the docs page | done |
+| 19a | `scene_parsing`: NYUv2-40 as the nineteenth probe, and its board | done |
 
 **A closed step's full write-up lives in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md), not here.** That file is the archive
@@ -126,15 +127,15 @@ precedent for shipping one: **v0.7.0** (contributor-facing) and **v0.16.0**
 (documentation). **v0.6.1** is the other one to know — it corrects a
 correspondence board that shipped ranked upside down; see step 6f.
 
-**The corpus file is 392 records resolving to 234 board cells** — eighteen
+**The corpus file is 405 records resolving to 247 board cells** — nineteen
 boards, thirteen backbones a board. The two numbers differ because the corpus
 is **append-only** and re-runs have appended beside records they supersede:
 0.15.0 re-ran the five low-level boards for their `ceiling_*`, the
 schema-v8 `training` re-run (2026-09-10) re-ran the eight trained boards that
 predated that field, with three cells of it landing on 2026-09-11, and
 `dino_vitb8`'s two smoke-test cells were re-run inside its own array.
-`latest_per_backbone` picks the newest. Quote 234 for
-coverage and 392 only for the file, and re-read both off `LEADERBOARD.md` and
+`latest_per_backbone` picks the newest. Quote 247 for
+coverage and 405 only for the file, and re-read both off `LEADERBOARD.md` and
 `wc -l` rather than from here.
 
 Two standing consequences of that history, both of which have already cost a
@@ -151,6 +152,15 @@ published claim:
   a subset count is ordinary prose — and `CHANGELOG.md`, `ENGINEERING_LOG.md`
   and `docs/roadmap.md` are excluded by name, since a count stated *as of a
   release* is correct history and rewriting it would falsify the record.
+- **"It reproduces across two caches" is evidence only if the caches differ**
+  (19a). `scene_parsing`'s board cell and a local run agreed bit for bit across
+  two cache roots, and the write-up nearly quoted that as a contrast with
+  `relative_pose`'s ~0.93 degree movement — but the two caches' *features* were
+  identical here (0.00e+00), because both extractions used the same batch size
+  on the same GPU model. Pose's differed by 1.1e-05 because one side extracted
+  at batch 64 against the other's 32. **Check the inputs before reporting that
+  the outputs agree**, or the claim is that identical inputs give identical
+  outputs.
 - **A guard on a total is not a guard on the count beside it** (16a-3). The
   docs-count test pinned "the seventeen boards" and said nothing about "first on
   six of them", so v0.20.0 shipped a leader count its own new backbone had made
@@ -270,11 +280,12 @@ probes     classification, scene_classification,
            fine_grained_classification, retrieval, correspondence,
            depth, surface_normal, generic_segmentation, semantic_segmentation,
            similarity, detection, instance_segmentation, edge,
-           keypoints2d, occlusion_edge, corner, orientation, relative_pose
+           keypoints2d, occlusion_edge, corner, orientation, relative_pose,
+           scene_parsing
 heads      linear, dpt, detection, instance, pose
 ```
 
-The CLI exposes all eighteen probes: `visbench list`, `visbench run <probe>`,
+The CLI exposes all nineteen probes: `visbench list`, `visbench run <probe>`,
 `visbench cache stats|clear`, plus `visbench demo` (7a) and **`visbench show
 <probe>` (9a)**. A test asserts the CLI's table and `list_probes()` are the same
 set, so a probe cannot ship unreachable from a shell by accident. Since 9c
@@ -526,6 +537,10 @@ visbench/
                  schedule.py (warmup_cosine/check_schedule — probe3d's schedule,
                    shared by DenseTrainingTask and DetectionTask)
                  high_level/  classification, retrieval, semantic_segmentation,
+                              scene_parsing (SceneParsingTask — NYUv2-40 on the
+                                semantic implementation; 0 is `wall` and 255 is
+                                void, MEASURED; num_classes defaults because the
+                                probe is named for a label set; 19a),
                               detection (anchor-free, single-scale, 6c-3),
                               instance_segmentation (DetectionTask + RoIAlign +
                                 a mask BCE; 14a-4)
@@ -1647,10 +1662,10 @@ designed up front; extend it the same way, from a case that already runs.
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite **collects 2281 tests**, green on 2026-09-17 along with all three
+fast suite **collects 2296 tests**, green on 2026-09-18 along with all three
 lint steps, mypy and the `-W` docs build. The slow suite is **116** since
 16a-1, whose own slow test was run then; the other 115 were last green on
-`main` on 2026-09-11. Earlier fast counts, for dating a claim: 2222 at 16a-1,
+`main` on 2026-09-11. Earlier fast counts, for dating a claim: 2281 at v0.21.0, 2222 at 16a-1,
 2261 at the pose board, 2160 at the grid finding, 2158 at
 the control guard, 2144 at
 `dino_vitb8`, 2126 at the docs-count guard, 2122 at the 0.18.0 release, 2113 at
@@ -2085,7 +2100,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 2281 fast tests
+pytest                                              # 2296 fast tests
 pytest -m slow                                      # 116, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/
