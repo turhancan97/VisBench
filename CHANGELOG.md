@@ -9,6 +9,26 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+### Changed
+
+- **The `relative_pose` board's noise is measured rather than asserted**, and
+  the explanation published with it was wrong in a specific way. The board
+  shipped quoting one comparison — the same cell at 22.6984 and 21.7695 — and
+  reading it as a dose-response: 1e-5 in the features, amplified by thirty
+  epochs of the MLP into 0.93 degrees. Repeating it gives −1.10 and −0.68 on two
+  backbones, so **about a degree holds**; but perturbing the features across a
+  thousand-fold range moves the score by the same amount at every size, and
+  changing only the seed moves it as much again. The degree is the width of the
+  fit's run-to-run scatter, reached by any disturbance at all. **No number on
+  any board moves** and the whole-degree reading rule is unchanged — what
+  changes is why, plus one new caveat: the tie list is calibrated to what
+  separates two published cells, which share a seed, not to a re-fit.
+- The extraction-batch-size mechanism behind that scatter is now **measured**
+  (the same 455 frames at batch 32 and 64 differ by 2.38e-05) rather than
+  inferred from a later probe whose caches happened to agree.
+- `scripts/measure_pose_noise.py` and `results/controls/pose_noise.json` are
+  committed; `--summarise` reprints the study.
+
 ## [0.22.0] — 2026-09-18
 
 **The release where a probe's twin asks the opposite question and gets the

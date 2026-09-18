@@ -72,6 +72,7 @@ step is next rather than attempting the whole roadmap in one session.
 | 16a-2 | Pose: `PoseHead` + the task, proved against the pre-measurement | done |
 | 16a-3 | Pose: registration, the 13-backbone board, the viewer, the docs page | done |
 | 19a | `scene_parsing`: NYUv2-40 as the nineteenth probe, and its board | done |
+| 19b | The pose board's noise, measured: a trigger rather than a dose | done |
 
 **A closed step's full write-up lives in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md), not here.** That file is the archive
@@ -155,7 +156,7 @@ published claim:
 - **"It reproduces across two caches" is evidence only if the caches differ**
   (19a). `scene_parsing`'s board cell and a local run agreed bit for bit across
   two cache roots, and the write-up nearly quoted that as a contrast with
-  `relative_pose`'s ~0.93 degree movement — but the two caches' *features* were
+  `relative_pose`'s ~1 degree movement — but the two caches' *features* were
   identical here (0.00e+00), because both extractions used the same batch size
   on the same GPU model. Pose's differed by 1.1e-05 because one side extracted
   at batch 64 against the other's 32. **Check the inputs before reporting that
@@ -183,11 +184,17 @@ details: **the pair count is pinned at eight partners per training anchor**, and
 **the board uses probe3d's MLP** — the first VisBench board whose head is not a
 linear map (`DPTHead` is nonlinear and is a *control*; every head a published
 board uses is an affine layer or a 1x1 convolution). Two standing consequences:
-**read that board to whole degrees**, since two extractions of the same features
-differ by ~1e-5 and thirty epochs of that head turn it into about a degree
-(against one cache it reproduces bit for bit), and it is the first board close
-to *orthogonal* to the high-level tier, so a pose number is near-independent
-evidence about a backbone. Everything else is the candidate task backlog
+**read that board to whole degrees**, since that head's run-to-run scatter is
+about a degree (against one cache at one seed it reproduces bit for bit), and it
+is the first board close to *orthogonal* to the high-level tier, so a pose
+number is near-independent evidence about a backbone. **The scatter is a
+trigger, not a dose** (19b, `results/controls/README.md`): it was published as
+"1e-5 in the features, amplified by thirty epochs into 0.93 degrees", and
+perturbing the features across a *thousand-fold* range moves the score by the
+same amount at every size, while changing only the seed moves it as much again —
+0.72 on `mae_vitb16` and **2.23** on `clip_vitb16`. So the tie list is
+calibrated to what separates two published cells, which share a seed, and not
+to a re-fit. Everything else is the candidate task backlog
 further down this file; its cheap end is exhausted,
 and **three candidates were built and rejected** — photometric
 superpixels (0.021-0.043, which bought the oracle gate), DoG blobs (0.51 overlap
@@ -1187,6 +1194,17 @@ designed up front; extend it the same way, from a case that already runs.
   digit, opposite conclusion. The machine is shared. Run a timing at least
   twice, and prefer the *repeat* to the first, since the first also pays for
   whatever the page cache had evicted.
+
+- **A range over three draws is not a noise estimate, and a board's reading
+  rule was built on one** (19b; the numbers are in `results/controls/README.md`).
+  `pose_protocol.jsonl` reports seed ranges of 0.21 and 0.41 for `mae_vitb16`
+  and `clip_vitb16`; re-measuring the same two backbones over the same three
+  seeds gives **0.72 and 2.23**. Both were computed correctly — the statistic is
+  just unstable, and this file already says `spread / noise` has misled in
+  *both* directions. **Quote a three-draw range as one sample of a noisy
+  statistic, and prefer a bar several independent measurements agree on.** The
+  same step's other half: **a perturbation study is how you tell a trigger from
+  a dose**, and is cheap, since it needs no new data and no new backbone.
 - **Constructing a backbone draws from the global RNG, and `run()` seeds
   *before* it constructs.** So `run("dinov2_vits14", ...)` and
   `run(get_backbone("dinov2_vits14"), ...)` fit the head from different RNG

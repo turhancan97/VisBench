@@ -166,17 +166,44 @@ Two standing cautions apply to everything below:
   and targets were the same. Run twice against the *same* cache it reproduces
   bit for bit.
 
-  **The cause is float noise in the features, amplified by the head.** The two
-  caches hold the same images under different extraction batch sizes, and their
-  stored vectors differ by up to **1.1e-05** — the edge of float32 at this
-  magnitude. Thirty epochs of a 1,536-dimensional MLP turn that into 0.93
-  degrees of rotation error and a 6% difference in `train_loss`. It is the same
-  family as `detection`'s three-decimal reproducibility, which a discrete metric
-  made visible; here it is a *chaotic optimiser* rather than a discrete metric,
-  and it is much larger.
+  **Measured again at n=2, and about a degree holds** (19b, every number in
+  `results/controls/README.md`, reprinted by `scripts/measure_pose_noise.py
+  --summarise`). Scoring `mae_vitb16` and `clip_vitb16` from each of the two
+  cache roots moves them **−1.1033** and **−0.6796** — bracketing the 0.93 this
+  entry first reported from a single comparison, and differing from each other
+  by a factor of 1.6, which is why the figure is stated as "about a degree" and
+  no tighter.
+
+  **The mechanism is extraction batch size, now measured rather than inferred.**
+  This entry used to argue it from a *later* probe whose two caches happened to
+  agree — consistent with the hypothesis and not a test of it. Extracting the
+  same 455 frames at batch 32 and batch 64 on one GPU gives a max difference of
+  **2.38e-05**, the size the two caches carry, with 7 of 455 frames bit-identical.
+
+  **But the amplification is not a dose-response, and this entry used to say it
+  was.** The old wording — 1.1e-05 in the features, "thirty epochs of a
+  1,536-dimensional MLP turn that into 0.93 degrees" — is a causal chain from a
+  perturbation size to a movement size. Injecting noise of known size into the
+  features and refitting shows no such relation: across ±1e-06 to ±1e-03, a
+  thousand-fold range, `mae_vitb16` moves 0.82 / 0.21 / 0.56 / 0.79 degrees and
+  `clip_vitb16` moves 0.27 / 0.76 / 1.25 / 1.04, with no trend and no agreement
+  between the two on the shape. **Changing only the seed moves them 0.72 and
+  2.23 with no perturbation at all, and 18 of 24 perturbed scores land inside
+  that seed range.**
+
+  So the degree is **the width of this fit's run-to-run scatter**, reached by any
+  disturbance whatever rather than produced in proportion to one. It remains the
+  same family as `detection`'s three-decimal reproducibility — a chaotic
+  optimiser rather than a discrete metric, and much larger — but "float noise
+  amplified by the head" names a trigger, not a dose.
 
   **So read this board to whole degrees, and treat adjacent rows closer than
-  about one degree as tied.** On the current board that is
+  about one degree as tied** — unchanged by 19b, and better founded, since the
+  scatter is what both the n=2 movement and the perturbation study measure.
+  **The tie list is calibrated to what separates two published cells** — same
+  seed, same code, two extractions — and *not* to what re-fitting at another
+  seed would do, which for `clip_vitb16` is 2.23 degrees. On the current board
+  that is
   `dino_vitb16`/`dinov2_vitb14` (0.04 apart), `resnet50`/`convnext_base` (0.59),
   `convnext_base`/`siglip_vitb16` (0.69), `clip_vitb16`/`supervised_vitb16`
   (0.87) and `resnet18`/`clip_vitb32` (0.13). Every other adjacent gap is 1.7
