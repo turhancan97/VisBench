@@ -44,6 +44,25 @@
 # similarity train nothing, so there is no head to share.
 #
 #   PUSH_TO=you DRY_RUN=1 scripts/build_corpus.sh   # see exactly what would go out
+#
+# SWEEPING SEEDS (20b)
+#
+#   SEEDS=5 RESULTS=results/controls/seeds/corner.jsonl \
+#     scripts/build_corpus.sh corner
+#
+# re-runs each (probe, backbone) at seeds 0..SEEDS-1 instead of once. It lives
+# here, rather than in a per-probe sweep script, for the reason this file exists
+# at all: a sweep has to re-fit the PUBLISHED configuration, and the published
+# configuration is the flags below. A second script would be a second copy of
+# them, free to drift -- and a sweep measured under drifted flags produces a
+# noise figure for some adjacent probe, which reads exactly like a noise figure
+# for this one.
+#
+# SEEDS>1 REFUSES TO WRITE TO THE CORPUS, and that is not caution. `seed` is not
+# in `comparability_key`, so a sweep's records land in the published board's own
+# group and `latest_per_backbone` hands the board to whichever seed was written
+# last. The corpus is append-only, so there is no undo. Point RESULTS at
+# `results/controls/seeds/<probe>.jsonl`.
 
 set -euo pipefail
 
@@ -63,6 +82,11 @@ NAVI=/shared/sets/datasets/vision/probing_3D/navi_v1
 RESULTS=${RESULTS:-results/corpus/visbench.jsonl}
 BACKBONES=${BACKBONES:-"dinov2_vits14 dinov2_vitb14"}
 DRY_RUN=${DRY_RUN:-}
+
+# How many seeds per (probe, backbone). 1 is the corpus: no --seed is passed at
+# all, so a board run is byte-identical to what this script has always produced.
+# Anything above 1 is a seed sweep (20b) and must not reach the corpus.
+SEEDS=${SEEDS:-1}
 
 # Hub owner to publish the trained heads under; empty means publish nothing.
 # Uploading is opt-in for the same reason `visbench run` needs --push-to: a
@@ -88,6 +112,37 @@ VISBENCH_CACHE=${VISBENCH_CACHE:-}
 TASKONOMY_LIMIT=600
 DETECTION_LIMIT=600
 
+if (( SEEDS < 1 )); then
+  echo "!!! SEEDS must be at least 1, got $SEEDS" >&2
+  exit 1
+fi
+
+if (( SEEDS > 1 )); then
+  # The dangerous combination, refused rather than warned about. A sweep's rows
+  # carry the published configuration and differ only in `seed`, which
+  # `comparability_key` does not read -- so merged into the corpus they are
+  # rankable rows in the board's own group, and the newest wins.
+  case "$RESULTS" in
+    *results/corpus/*)
+      echo "!!! SEEDS=$SEEDS with RESULTS=$RESULTS" >&2
+      echo "!!! A seed sweep must never be written to the corpus: seed is not in" >&2
+      echo "!!! comparability_key, so these rows would land in the published" >&2
+      echo "!!! board's own group and latest_per_backbone would hand it to" >&2
+      echo "!!! whichever seed was written last. The corpus is append-only." >&2
+      echo "!!! Use RESULTS=results/controls/seeds/<probe>.jsonl" >&2
+      exit 1
+      ;;
+  esac
+  if [[ -n "$PUSH_TO" ]]; then
+    # One repo id per (probe, backbone), so five seeds would overwrite one
+    # another and the surviving head would be whichever seed finished last --
+    # silently, since a push reports success either way.
+    echo "!!! PUSH_TO with SEEDS=$SEEDS: every seed would push to the same" >&2
+    echo "!!! repository and the last one would win. Sweep or publish, not both." >&2
+    exit 1
+  fi
+fi
+
 mkdir -p "$(dirname "$RESULTS")"
 
 # Probes that fit nothing. `visbench run --push-to` refuses these before it
@@ -111,21 +166,34 @@ run() {
   fi
 
   for backbone in $BACKBONES; do
-    echo "=== $probe / $backbone"
     # The repo id carries both halves of the identity, because that is what a
     # visitor needs before the weights mean anything -- and one repo per pair,
     # since a head fitted on one backbone is refused against any other.
     [[ ${#push_args[@]} -gt 0 ]] && push_args[1]="$PUSH_TO/visbench-$probe-$backbone"
 
-    if [[ -n "$DRY_RUN" ]]; then
-      echo "visbench run $probe --backbone $backbone $* ${cache_args[*]} ${push_args[*]} --results $RESULTS"
-      continue
-    fi
-    # Deliberately not `set -e`-fatal: one probe failing should not discard the
-    # runs already appended. The summary at the end reports what is missing.
-    visbench run "$probe" --backbone "$backbone" "$@" \
-      "${cache_args[@]}" "${push_args[@]}" --results "$RESULTS" || \
-      echo "!!! FAILED: $probe / $backbone" >&2
+    # Backbone outer, seed inner: a sweep killed part-way then leaves whole
+    # rows rather than one seed of everything, and a whole row is analysable.
+    for ((seed = 0; seed < SEEDS; seed++)); do
+      local seed_args=()
+      local label="$probe / $backbone"
+      # At SEEDS=1 no --seed is passed, so a corpus run is exactly what it was
+      # before this loop existed rather than a run that merely agrees with it.
+      if (( SEEDS > 1 )); then
+        seed_args=(--seed "$seed")
+        label="$label / seed $seed"
+      fi
+      echo "=== $label"
+
+      if [[ -n "$DRY_RUN" ]]; then
+        echo "visbench run $probe --backbone $backbone $* ${seed_args[*]} ${cache_args[*]} ${push_args[*]} --results $RESULTS"
+        continue
+      fi
+      # Deliberately not `set -e`-fatal: one probe failing should not discard the
+      # runs already appended. The summary at the end reports what is missing.
+      visbench run "$probe" --backbone "$backbone" "$@" \
+        "${seed_args[@]}" "${cache_args[@]}" "${push_args[@]}" --results "$RESULTS" || \
+        echo "!!! FAILED: $label" >&2
+    done
   done
 }
 
@@ -385,6 +453,7 @@ main() {
   started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
   echo "corpus -> $RESULTS"
   echo "backbones: $BACKBONES"
+  (( SEEDS > 1 )) && echo "seeds:     0..$((SEEDS - 1))  (SEED SWEEP, not a board)"
   echo "started:   $started"
   echo
 
@@ -398,7 +467,16 @@ main() {
 
   echo
   echo "done. records in $RESULTS:"
-  [[ -f "$RESULTS" ]] && wc -l < "$RESULTS"
+  # Spelled out rather than `[[ -f ... ]] && wc -l`, which is the script's last
+  # command: under `set -e` a missing file makes that the failing exit status of
+  # a run that did everything asked of it. Harmless while RESULTS was always the
+  # committed corpus; a sweep writes somewhere new, so a first run reported
+  # failure with an empty stderr and nothing wrong.
+  if [[ -f "$RESULTS" ]]; then
+    wc -l < "$RESULTS"
+  else
+    echo "  (no file yet)"
+  fi
 }
 
 main "$@"
