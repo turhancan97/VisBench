@@ -9,6 +9,39 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+## [0.22.0] — 2026-09-18
+
+**The release where a probe's twin asks the opposite question and gets the
+opposite answer.**
+
+A nineteenth probe, `scene_parsing`: every pixel of an indoor scene in forty
+NYU40 classes, on the canonical 795/654 split. The corpus goes from 234 board
+cells to **247** — nineteen boards, thirteen backbones each — the schema is
+unchanged at v9, and **no number on the eighteen existing boards moves**.
+
+It is the same implementation `semantic_segmentation` runs. What differs is the
+question: VOC's twenty classes are objects on a background, NYU40's are a room,
+and most of these pixels are *stuff* — wall, floor, ceiling — rather than
+things. A distinct probe **name** rather than a dataset flag, for the reason
+`scene_classification` is one.
+
+**Its board ranks with the semantic boards, against the boards it shares images
+with.** Mean rho +0.553 against the seven high-level boards and +0.136 against
+the four low-level ones — and it reads the *identical* frames `depth` and
+`surface_normal` read while correlating with them at +0.533 and +0.423, against
+**+0.852** with a VOC board that shares no image with it. On this pair of boards
+the question dominates the data, which complements the split control rather than
+contradicting it.
+
+**The label convention was measured before any code was written.** The maps
+carry 0–39 and 255, and which is void decides whether the probe trains on
+anything: 255 is 88.5% of *border* pixels against 13.7% of interior ones — the
+depth-projection margin — while 0 shows the inverse pattern and is `wall`. So it
+is VOC's shape, needing no new loader and no fifth validity convention. The
+other common convention for this dataset would have discarded a fifth of every
+image, and neither version raises.
+
+
 ### Added
 
 - **`scene_parsing` — the nineteenth probe: every pixel of an indoor scene, in
@@ -4904,7 +4937,8 @@ API philosophy.
 [#2]: https://github.com/turhancan97/VisBench/issues/2
 [#4]: https://github.com/turhancan97/VisBench/issues/4
 [#3]: https://github.com/turhancan97/VisBench/issues/3
-[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.21.0...HEAD
+[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.22.0...HEAD
+[0.22.0]: https://github.com/turhancan97/VisBench/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/turhancan97/VisBench/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/turhancan97/VisBench/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/turhancan97/VisBench/compare/v0.18.0...v0.19.0
