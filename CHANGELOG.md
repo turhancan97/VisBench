@@ -9,24 +9,42 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
-### Changed
+## [0.23.0] — 2026-09-18
 
-- **The `relative_pose` board's tie list is re-derived from a seed sweep**, and
-  the rule it rested on is retired. All thirteen backbones were re-fitted at
-  five seeds in the published configuration (`results/controls/pose_seeds.jsonl`,
-  65 records; every seed-0 row reproduces its published cell at delta 0.0).
-  The published list named the right five pairs, but **two of them are not ties
-  — the board's order is the minority outcome**: across seeds `dinov2_vitb14`
-  beats `dino_vitb16` by 0.80 and `clip_vitb32` beats `resnet18` by **2.08**,
-  against published gaps of 0.04 and 0.12 the other way.
-- **A gap threshold turns out to be the wrong instrument**, so the rule is now
-  a pointer at the sweep rather than a number. Widening the one-degree
-  threshold to the measured median range would have called two solidly ordered
-  pairs tied and still missed the reversal — pairs 1.58 apart are ordered while
-  a pair 0.12 apart is reversed by 2.08, and only 11% of the seed variance is
-  common-mode. **No published number moves.**
-- `scripts/build_pose_seed_sweep.sh` and `scripts/analyse_pose_seeds.py` are
-  committed.
+**The release that measures the noise it had been asserting, and retires the
+instrument built on it.**
+
+No probe is added, no metric changes, the schema is unchanged at v9, and **no
+number on any of the nineteen boards moves.** What moves is how one board may be
+read. `relative_pose` shipped in v0.21.0 with a reading rule — whole degrees,
+and a list of adjacent pairs too close to call — and that rule was calibrated
+against a single comparison. This release measures the quantity it was
+calibrated against, twice, and the rule does not survive either measurement.
+
+**The board's degree of scatter is a trigger, not a dose.** It shipped as a
+dose-response: 1e-5 in the features, amplified by thirty epochs of the MLP into
+0.93 degrees. Perturbing the features across a *thousand-fold* range moves the
+score by the same amount at every size, and changing only the seed moves it as
+much again — 0.72 degrees on `mae_vitb16` and **2.23** on `clip_vitb16`. About a
+degree holds; what was wrong is why. The degree is the width of this fit's
+run-to-run scatter, and any disturbance at all reaches it.
+
+**A gap threshold is then the wrong instrument, and widening it would be
+worse.** All thirteen backbones were re-fitted at five seeds in the published
+configuration, and **two of the five pairs the published tie list names come out
+the other way round**: `dinov2_vitb14` beats `dino_vitb16` by 0.80 and
+`clip_vitb32` beats `resnet18` by **2.08**, against published gaps of 0.04 and
+0.12 in the opposite direction. Widening the one-degree threshold to the
+measured spread would have called two solidly ordered pairs tied and still
+missed the reversal — pairs 1.58 apart are ordered while a pair 0.12 apart
+reverses — because only 11% of the seed variance is common-mode, so a gap is one
+draw of a quantity whose spread is unrelated to it. When runs are repeatable,
+**re-run both rows under the same seeds and test the paired difference**.
+
+**The gate that makes such a sweep mean anything is free.** The corpus cells
+were run at seed 0, so the sweep's own seed-0 rows have to reproduce them: all
+thirteen did, at delta 0.0. A sweep that could not do that would be measuring a
+different configuration and saying nothing about the published board.
 
 ### Changed
 
@@ -47,6 +65,39 @@ so it stands on its own rather than assuming you have read the ones above it.
   inferred from a later probe whose caches happened to agree.
 - `scripts/measure_pose_noise.py` and `results/controls/pose_noise.json` are
   committed; `--summarise` reprints the study.
+- **The `relative_pose` board's tie list is re-derived from a seed sweep**, and
+  the rule it rested on is retired. All thirteen backbones were re-fitted at
+  five seeds in the published configuration (`results/controls/pose_seeds.jsonl`,
+  65 records; every seed-0 row reproduces its published cell at delta 0.0).
+  The published list named the right five pairs, but **two of them are not ties
+  — the board's order is the minority outcome**: across seeds `dinov2_vitb14`
+  beats `dino_vitb16` by 0.80 and `clip_vitb32` beats `resnet18` by **2.08**,
+  against published gaps of 0.04 and 0.12 the other way.
+- **A gap threshold turns out to be the wrong instrument**, so the rule is now
+  a pointer at the sweep rather than a number. Widening the one-degree
+  threshold to the measured median range would have called two solidly ordered
+  pairs tied and still missed the reversal — pairs 1.58 apart are ordered while
+  a pair 0.12 apart is reversed by 2.08, and only 11% of the seed variance is
+  common-mode. **No published number moves.**
+- `scripts/build_pose_seed_sweep.sh` and `scripts/analyse_pose_seeds.py` are
+  committed.
+
+### Fixed
+
+- **The README's status line was stale in three ways at once**, and this is the
+  second release running to fix it. It said v0.21.0 after v0.22.0 shipped, and
+  it still described the corpus as **234 board cells** across eighteen boards
+  where the leaderboard renders **247** across nineteen. The README is package
+  metadata, so all three went to PyPI with v0.22.0 and could only be corrected
+  by this release.
+- **The guard that exists to catch exactly that could not see two of the
+  three** (`tests/test_docs_counts.py`). Its board-total idiom was anchored on
+  `boards, twelve` and so stopped matching the moment a thirteenth backbone
+  made the front page say `boards, thirteen backbones each`; and no test had
+  ever read the version out of the README, although a version bump is the one
+  edit every release makes. Both are pinned now — the board-cell *count* too,
+  read off `LEADERBOARD.md` rather than out of prose, since that is the number
+  that went stale without anything noticing.
 
 ## [0.22.0] — 2026-09-18
 
@@ -4976,7 +5027,8 @@ API philosophy.
 [#2]: https://github.com/turhancan97/VisBench/issues/2
 [#4]: https://github.com/turhancan97/VisBench/issues/4
 [#3]: https://github.com/turhancan97/VisBench/issues/3
-[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.22.0...HEAD
+[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.23.0...HEAD
+[0.23.0]: https://github.com/turhancan97/VisBench/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/turhancan97/VisBench/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/turhancan97/VisBench/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/turhancan97/VisBench/compare/v0.19.0...v0.20.0

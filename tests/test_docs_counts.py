@@ -55,7 +55,18 @@ CURRENT_STATE = (
 TOTAL_PROBES = re.compile(
     r"\bof the ([A-Za-z]+) probes\b|\b([A-Za-z]+) probes(?: across| against|, three)"
 )
-TOTAL_BOARDS = re.compile(r"\bof the ([A-Za-z]+) boards\b|\b([A-Za-z]+) boards, twelve\b")
+#: The second alternative is the front page's shape -- "nineteen boards, thirteen
+#: backbones each". It was written as `boards, twelve` and so stopped matching
+#: the moment `dino_vitb8` made that line say "thirteen": the README then carried
+#: "eighteen boards" through the release that rendered nineteen, and nothing
+#: failed. An idiom anchored on a count *beside* the one it checks is anchored on
+#: something that moves.
+TOTAL_BOARDS = re.compile(r"\bof the ([A-Za-z]+) boards\b|\b([A-Za-z]+) boards, [a-z]+ backbones\b")
+
+#: "a committed corpus covering **247 board cells**" -- the one count on the
+#: front page that is neither probes nor boards, and the one that went stale
+#: without either guard above having an opinion about it.
+TOTAL_CELLS = re.compile(r"\*{0,2}(\d+) board cells\*{0,2}")
 
 #: Only as far as this project has had to count. A count word beyond it means
 #: the corpus grew past what this table knows, which should fail loudly.
@@ -97,6 +108,21 @@ def board_word() -> str:
     return _word(len(boards))
 
 
+@pytest.fixture(scope="module")
+def cell_count() -> int:
+    """How many board cells there are, counted off the generated leaderboard.
+
+    A cell is one backbone's row on one board, which is what the front page
+    means by the number: it is the size of the corpus as *rendered*, not the
+    line count of the record file, which is larger because the corpus is
+    append-only.
+    """
+    text = (ROOT / "LEADERBOARD.md").read_text(encoding="utf-8")
+    rows = [line for line in text.splitlines() if line.startswith("| `")]
+    assert rows, "LEADERBOARD.md rendered no board rows"
+    return len(rows)
+
+
 def _claims(pattern: re.Pattern[str]) -> list[tuple[str, int, str]]:
     found = []
     for name in CURRENT_STATE:
@@ -118,6 +144,7 @@ def test_the_guard_reaches_something():
     """A pattern that matches nothing passes forever while checking nothing."""
     assert _claims(TOTAL_PROBES), "no total-probe claim found; the idiom changed"
     assert _claims(TOTAL_BOARDS), "no total-board claim found; the idiom changed"
+    assert _cell_claims(), "no board-cell claim found; the idiom changed"
 
 
 @pytest.mark.parametrize(("path", "line", "word"), _claims(TOTAL_PROBES))
@@ -132,6 +159,36 @@ def test_probe_total_matches_the_registry(path, line, word, probe_word):
 def test_board_total_matches_the_leaderboard(path, line, word, board_word):
     assert word == board_word, (
         f"{path}:{line} says '{word} boards' where LEADERBOARD.md renders {board_word}"
+    )
+
+
+def _cell_claims() -> list[tuple[str, int, str]]:
+    """Board-cell claims, matched across a line break.
+
+    The front page wraps this one mid-phrase -- "covering **247 board / cells**"
+    -- and it is inside a blockquote, so the continuation carries a `> ` that a
+    naive join puts in the middle of the number's own sentence. Both are stripped
+    before matching, exactly as the leader claim below joins two lines. The digit
+    has to appear on the reported line so a claim is not found twice.
+    """
+    found = []
+    for name in CURRENT_STATE:
+        lines = [
+            re.sub(r"^\s*>\s?", "", line)
+            for line in (ROOT / name).read_text(encoding="utf-8").splitlines()
+        ]
+        for number, line in enumerate(lines, 1):
+            window = " ".join(lines[number - 1 : number + 1])
+            for match in TOTAL_CELLS.finditer(window):
+                if match.group(1) in line:
+                    found.append((name, number, match.group(1)))
+    return found
+
+
+@pytest.mark.parametrize(("path", "line", "word"), _cell_claims())
+def test_board_cell_total_matches_the_leaderboard(path, line, word, cell_count):
+    assert int(word) == cell_count, (
+        f"{path}:{line} says '{word} board cells' where LEADERBOARD.md renders {cell_count}"
     )
 
 
