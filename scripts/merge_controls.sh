@@ -67,5 +67,19 @@ merge_group cnn results/controls/dpt_head_cnn.jsonl
 # `comparability_key` keeps them out of the published board either way.
 merge_group detection_split results/controls/detection_split.jsonl
 
+# The seed sweeps (20b): one file per swept probe, under results/controls/seeds/.
+# Derived from the parts present rather than listed, because this table would
+# otherwise have to be edited every time another board is swept -- and a probe
+# missing from it would leave its parts unmerged while the merge reported
+# success, which is the corpus array's own failure in a different file.
+for part in "$PARTS"/seeds_*__*.jsonl; do
+  [[ -e $part ]] || break
+  probe=$(basename "$part"); probe=${probe#seeds_}; probe=${probe%%__*}
+  [[ " ${swept_probes:-} " == *" $probe "* ]] && continue
+  swept_probes="${swept_probes:-} $probe"
+  mkdir -p results/controls/seeds
+  merge_group "seeds_$probe" "results/controls/seeds/$probe.jsonl"
+done
+
 echo
 echo "Parts left in $PARTS; delete them once the merge looks right."

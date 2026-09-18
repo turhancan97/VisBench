@@ -235,6 +235,50 @@ Two standing cautions apply to everything below:
   That is the limit of what a record can carry, and the reason the rule is
   stated as a number of digits rather than as a condition to check.
 
+- **Roughly two adjacent rows in five are not separable, on boards that
+  reverse nothing** (20b, 2026-09-18; the tables are in
+  `results/controls/README.md`, reprinted by `scripts/analyse_seeds.py <probe>`).
+  `relative_pose` was the only board ever re-fitted at several seeds, and it is
+  this project's only board whose head is not a linear map — so its two reversed
+  pairs could have been a property of that head. Three boards chosen to be
+  unlike it and unlike each other were swept the same way, thirteen backbones at
+  five seeds each: `classification` (saturated, image-level), `corner` (dense,
+  low-level) and `detection` (localised, discrete metric).
+
+  **The reversals do not generalise: none of the three has one.** A reader of
+  these boards is not being misled about direction, which is the reassuring half
+  and is worth stating before the rest.
+
+  **What does generalise is that a gap does not say whether two rows are
+  ordered.** Ordered / tied out of twelve adjacent pairs: `classification` 7/5,
+  `corner` 7/5, `detection` **5/7** — twenty of the forty-eight pairs across all
+  four swept boards are not ordered. And on **every one of the three**, the
+  largest *unordered* gap exceeds the smallest *ordered* one: 0.00102 against
+  0.00051, 0.00580 against 0.00380, 0.01858 against 0.00730. On pose a threshold
+  would at least have sorted the pairs (1.58 ordered against 0.87 unordered)
+  while missing the reversals; here **no threshold can even sort them**.
+  Common-mode is **8%, 8% and 17%**, so the two rows of a pair move largely
+  independently and nothing cancels in the difference.
+
+  **The gate says "reproduce", and what that means is per board.** All thirteen
+  seed-0 rows reproduce their published cell on every sweep, but exactly only
+  for `classification` and `relative_pose`; `corner` lands at **2.6e-07** and
+  `detection` at **1.2e-03**. **Every one of those runs reported a `train_loss`
+  identical to its published cell's**, which is what separates "the metric
+  moved" from "a different configuration was fitted" — a distinction only schema
+  v8 makes available. `detection`'s 1.2e-03 is this file's three-decimal rule,
+  measured over thirteen rows instead of two, and its published board carries
+  adjacent gaps of **1.1e-05** and **6.5e-05**, two orders *below* what its own
+  metric moves between identical fits. The `clip_vitb32`/`clip_vitb16` pair this
+  file already says to treat as tied comes out tied here by measurement.
+
+  **`classification` shows the other shape of it.** Two of its adjacent pairs
+  are separated by *exactly zero* (`sam_vitb16`/`supervised_vitb16`,
+  `dinov2_vits14`/`dino_vitb8`) and the sweep confirms both are level — while a
+  pair 0.0005 apart is solidly ordered. **No published number moves**, and the
+  tier-level findings in this file rest on rank correlations over thirteen rows
+  rather than on any one adjacent pair.
+
 - **The published boards reproduce — and the one node that disagreed was
   broken, which the fit diagnostics are what caught** (the schema-v8 re-run,
   2026-09-10). Ninety-six cells were re-run to give eight boards the `training`

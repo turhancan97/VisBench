@@ -225,6 +225,17 @@ This is a multi-month roadmap, built one reviewed step at a time.
       identical frames — the question dominating the data, which complements the
       split control
 
+- [x] **20b.** the seed sweep generalised — `relative_pose` was the only board
+      ever re-fitted at several seeds, and the only one whose head is not a
+      linear map, so its two reversed pairs might have been a property of that
+      head. Three boards unlike it were swept: `classification`, `corner` and
+      `detection`, thirteen backbones at five seeds each. **The reversals do not
+      generalise** — none of the three has one — but **twenty of the
+      forty-eight adjacent pairs across the four swept boards cannot be
+      ordered**, and on every new board the largest unordered gap exceeds the
+      smallest ordered one, so no gap threshold can sort them. No published
+      number moves
+
 ## Roadmap
 
 **v0.1** — prove the abstraction. DINOv2 + CLIP. Zero-shot or linear-probe-on-cached-features only; no fine-tuning, no dense training loops. Deferred: CLI, custom backbones, ResNet/timm, multi-layer extraction.

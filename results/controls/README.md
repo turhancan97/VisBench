@@ -19,6 +19,12 @@ This is the same instinct as the standing rule never to rank or average across
 `finetune`: frozen and fine-tuned numbers are both valid and answer different
 questions, so the schema keeps them apart rather than letting a table mix them.
 
+**One subdirectory here is a family rather than a file.** `seeds/<probe>.jsonl`
+holds a board re-fitted at several seeds (20b), one file per swept probe, and
+those are the most dangerous records in this directory: they differ from their
+board only in `seed`, which `comparability_key` does not read, so they would
+merge *into* the published group rather than beside it.
+
 **One file here is not records at all.** `pose_noise.json` holds a study whose
 runs perturb cached features — something no flag expresses and no
 `ResultRecord` could honestly describe — so it is JSON rather than a `.jsonl`
@@ -561,6 +567,110 @@ quantity whose spread is not a function of the gap.
 remains a correct record of it. What changes is the reading rule: **do not order
 two adjacent rows of this board from the board alone — this file says which
 pairs are ordered.**
+
+## `seeds/*.jsonl` — which rows of which boards are actually ordered? (20b)
+
+**195 records**: `classification`, `corner` and `detection`, each re-fitted at
+five seeds across all thirteen corpus backbones in the **published**
+configuration — same flags, same head, only `--seed` moves.
+`slurm/seed_sweep.sbatch` produces them through `scripts/build_corpus.sh`
+(`SEEDS=5`, so a sweep re-fits the published flags rather than a second copy of
+them) and `scripts/analyse_seeds.py <probe>` reads them.
+
+**Why these three.** `pose_seeds.jsonl` asked this of one board and found two of
+its adjacent pairs reversed — but `relative_pose` is this project's only board
+whose head is not a linear map, fitted for thirty epochs, so its scatter could
+easily have been a property of that head rather than of a VisBench board. The
+pilot picks three that are unlike it and unlike each other: a **saturated**
+image-level board (`classification`, top-1 ~0.99), a **dense** low-level one
+(`corner`), and a **localised** high-level one whose metric is discrete
+(`detection`).
+
+**Why they must not go near the corpus** is `pose_seeds.jsonl`'s reason exactly:
+these carry the published configuration and differ only in `seed`, which
+`comparability_key` does not read, so merged they would be sixty-five rankable
+rows inside each published board's own group. `build_corpus.sh` refuses
+`SEEDS>1` against a corpus path, and `tests/results/test_seed_sweeps.py` checks
+the committed files.
+
+### The gate: does a sweep reproduce the board, and what does "reproduce" mean?
+
+Every corpus cell was run at the default seed 0, so every seed-0 row here must
+reproduce its published value. It does — but **"exactly" is only right for some
+boards**, and the pilot is what measured that:
+
+| board | worst seed-0 delta | fit identical? |
+| --- | --- | --- |
+| `classification` | **0.00e+00** on all thirteen | yes |
+| `relative_pose` | **0.00e+00** on all thirteen | yes |
+| `corner` | 2.6e-07 | yes |
+| `detection` | **1.2e-03** | yes |
+
+**Every one of those runs reported a `train_loss` identical to its published
+cell's**, which is what says the sweep re-fitted the same head on the same
+features and the *metric* is what moved. That distinction is only available
+because schema v8 records the fit: a score that moves with a moved loss is a
+different configuration, and nothing about the board would follow. `detection`'s
+1.2e-03 is the three-decimal rule `CORPUS_FINDINGS.md` already states, now
+measured over thirteen rows rather than inferred from two.
+
+### The noise, per board
+
+| board | median sd over 5 seeds | min | max | board spread |
+| --- | --- | --- | --- | --- |
+| `classification` | 0.00046 | 0.00014 | 0.00107 | 0.0415 |
+| `corner` | 0.00417 | 0.00098 | 0.01080 | 0.1783 |
+| `detection` | 0.00789 | 0.00437 | 0.01230 | 0.1988 |
+
+Each board's scatter is one to two orders below its own spread, which is why
+these boards rank at all. It is the *adjacent* gaps that it is not below.
+
+### Separability, paired by seed
+
+| board | ordered | tied | reversed | smallest **ordered** gap | largest **unordered** gap |
+| --- | --- | --- | --- | --- | --- |
+| `classification` | 7 | 5 | 0 | 0.00051 | **0.00102** |
+| `corner` | 7 | 5 | 0 | 0.00380 | **0.00580** |
+| `detection` | 5 | 7 | 0 | 0.00730 | **0.01858** |
+| `relative_pose` (20a) | 7 | 3 | **2** | 1.58 | 0.87 |
+
+**Nothing reverses on the three new boards**, and that is worth saying plainly:
+the pose reversals do not generalise, and a reader of the other boards is not
+being misled about *direction*.
+
+**Twenty of the forty-eight adjacent pairs across the four boards are not
+ordered** — 5, 5, 7 and 5 — so on these boards roughly two rows in five sit
+next to a row this evidence cannot separate them from. On `detection` it is
+seven of twelve.
+
+**And on every new board the largest unordered gap is bigger than the smallest
+ordered one** — 2.0x on `classification`, 1.5x on `corner`, 2.5x on
+`detection`. That is the 20a lesson arriving by a different route: on pose a
+threshold would at least have sorted the pairs correctly (1.58 ordered against
+0.87 unordered) while missing the two reversals; here **no threshold on the gap
+can even sort them**, because which pairs separate depends on how the two rows
+happen to move, not on how far apart they are. Common-mode is 8%, 8% and 17%,
+so the two rows of a pair move largely independently and nothing cancels.
+
+Two smaller observations, both about `detection`:
+
+* its published board carries adjacent gaps of **1.1e-05** and **6.5e-05**,
+  two orders of magnitude *below* the 1.2e-03 its own metric moves between
+  identical fits — so those two pairs were never separable and the board never
+  claimed otherwise; and
+* `clip_vitb32`/`clip_vitb16` comes out tied here, which is what
+  `CORPUS_FINDINGS.md` already says to treat them as. That claim was reasoned
+  from reproducibility; this measures it.
+
+`classification` contributes the other shape of the same point: two of its
+adjacent pairs have a gap of **exactly zero** (`sam_vitb16`/`supervised_vitb16`
+and `dinov2_vits14`/`dino_vitb8`), which a threshold reads as a tie correctly
+and for the wrong reason — the sweep shows both are genuinely level, while a
+pair 0.0005 apart is solidly ordered.
+
+**No published number moves.** Every board reports what seed 0 produced and
+remains a correct record of it. What this adds is which of its adjacent rows a
+reader may order.
 
 ## `pose_noise.json` — how much does a pose number move, and what moves it?
 

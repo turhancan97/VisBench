@@ -74,6 +74,7 @@ step is next rather than attempting the whole roadmap in one session.
 | 19a | `scene_parsing`: NYUv2-40 as the nineteenth probe, and its board | done |
 | 19b | The pose board's noise, measured: a trigger rather than a dose | done |
 | 20a | The pose seed sweep: which adjacent rows are actually ordered | done |
+| 20b | The seed sweep generalised: three more boards, and what a gap cannot say | done |
 
 **A closed step's full write-up lives in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md), not here.** That file is the archive
@@ -1236,6 +1237,24 @@ designed up front; extend it the same way, from a case that already runs.
   **The gate that makes such a sweep mean anything is free**: the corpus cells
   were run at seed 0, so the sweep's own seed-0 rows must reproduce them, and
   all thirteen did at delta 0.0.
+
+  **It is not a property of the pose head, and roughly two adjacent rows in
+  five are unordered** (20b; `results/controls/seeds/`, read with
+  `scripts/analyse_seeds.py <probe>`). `classification`, `corner` and
+  `detection` — saturated, dense, discrete, none of them fitted by an MLP —
+  were swept the same way. **No reversals on any of the three**, so that half
+  does not generalise; but 5, 5 and 7 of their twelve adjacent pairs are not
+  separable, and **on every one the largest unordered gap exceeds the smallest
+  ordered one**, where pose's gaps at least sorted. So a threshold is not merely
+  badly calibrated here, it cannot exist. Sweep before ordering adjacent rows,
+  and quote `results/controls/README.md` for which pairs are ordered.
+  **A sweep re-fits the published flags** — `SEEDS=5` on `build_corpus.sh`, not
+  a second script — and **must never reach the corpus**, since `seed` is not in
+  `comparability_key`; both are refused in code and pinned by tests.
+  **And "reproduces the board" is per board**: exact for `classification` and
+  pose, 2.6e-07 for `corner`, **1.2e-03** for `detection` — every one with a
+  `train_loss` identical to its published cell's, which is the only thing that
+  separates a moved metric from a moved configuration.
 - **Constructing a backbone draws from the global RNG, and `run()` seeds
   *before* it constructs.** So `run("dinov2_vits14", ...)` and
   `run(get_backbone("dinov2_vits14"), ...)` fit the head from different RNG
@@ -1723,10 +1742,10 @@ designed up front; extend it the same way, from a case that already runs.
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite **collects 2304 tests**, green on 2026-09-18 along with all three
+fast suite **collects 2324 tests**, green on 2026-09-18 along with all three
 lint steps, mypy and the `-W` docs build. The slow suite is **116** since
 16a-1, whose own slow test was run then; the other 115 were last green on
-`main` on 2026-09-11. Earlier fast counts, for dating a claim: 2301 at 20a, 2296 at 19b, 2281 at v0.21.0, 2222 at 16a-1,
+`main` on 2026-09-11. Earlier fast counts, for dating a claim: 2304 at v0.23.0, 2301 at 20a, 2296 at 19b, 2281 at v0.21.0, 2222 at 16a-1,
 2261 at the pose board, 2160 at the grid finding, 2158 at
 the control guard, 2144 at
 `dino_vitb8`, 2126 at the docs-count guard, 2122 at the 0.18.0 release, 2113 at
@@ -2161,7 +2180,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 2301 fast tests
+pytest                                              # 2324 fast tests
 pytest -m slow                                      # 116, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/

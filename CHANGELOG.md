@@ -9,6 +9,47 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+### Added
+
+- **Seed sweeps generalised from one board to any board** (20b). `20a` re-fitted
+  `relative_pose` at five seeds and found two of its published "tie" pairs
+  reversed — but that is the only board here whose head is not a linear map, so
+  the finding could have been a property of that head. Three boards chosen to be
+  unlike it and unlike each other were swept the same way, thirteen backbones at
+  five seeds: `classification` (saturated, image-level), `corner` (dense,
+  low-level) and `detection` (localised, discrete metric). **195 records in
+  `results/controls/seeds/`, and no published number moves.**
+- **The reversals do not generalise — and the instrument still does.** None of
+  the three boards has a reversed pair. What all three do have is pairs that
+  cannot be ordered at all: 7/5, 7/5 and **5/7** ordered-to-tied out of twelve
+  adjacent pairs, so **twenty of the forty-eight pairs across the four swept
+  boards are not separable**. On every one of the three the largest *unordered*
+  gap is bigger than the smallest *ordered* one (2.0x, 1.5x, 2.5x), where on
+  pose a threshold would at least have sorted the pairs — so **no threshold on
+  the gap can even sort these**. Common-mode is 8%, 8% and 17%.
+- **What "the sweep reproduces the board" means is itself per board**, and the
+  fit is what says so. All thirteen seed-0 rows reproduce on every sweep, but
+  exactly only for `classification` and `relative_pose`; `corner` lands at
+  2.6e-07 and `detection` at **1.2e-03** — with a `train_loss` identical to its
+  published cell's in every case, so the metric moved and the configuration did
+  not. That is schema v8 earning its place, and it measures `detection`'s
+  three-decimal rule over thirteen rows rather than two.
+- `scripts/analyse_seeds.py` (probe-agnostic: the metric and its direction come
+  from `HEADLINE_METRICS` and `metric_direction`), `slurm/seed_sweep.sbatch`,
+  and `SEEDS=` in `scripts/build_corpus.sh` — a sweep re-fits the **published**
+  flags rather than a second copy of them. `SEEDS>1` is **refused** against a
+  corpus path and against `PUSH_TO`: `seed` is not in `comparability_key`, so
+  sweep rows merged into the corpus would be rankable rows inside the board's
+  own group, and five seeds pushing to one repository would leave whichever
+  finished last.
+
+### Fixed
+
+- `scripts/build_corpus.sh` exited **1** on a successful run whose results file
+  did not yet exist — `[[ -f "$RESULTS" ]] && wc -l` was the script's last
+  command, so `set -e` made a missing file the exit status. Invisible while
+  `RESULTS` was always the committed corpus.
+
 ## [0.23.0] — 2026-09-18
 
 **The release that measures the noise it had been asserting, and retires the

@@ -262,3 +262,79 @@ def test_the_default_matrix_is_unchanged_by_the_override_existing(sbatch_probes,
     result = _run_sbatch(stub_checkout, SLURM_ARRAY_TASK_ID=str(len(sbatch_probes) * 2))
     assert result.returncode == 1
     assert f"{len(sbatch_probes) * 2}-task matrix" in result.stderr
+
+
+# -- SEEDS ------------------------------------------------------------------
+#
+# `SEEDS=5 RESULTS=results/controls/seeds/<probe>.jsonl scripts/build_corpus.sh`
+# re-runs each (probe, backbone) at several seeds (20b). It lives in this script
+# rather than a per-probe sweep script so a sweep re-fits the *published* flags,
+# and that convenience puts a destructive command one environment variable away:
+# `seed` is not in `comparability_key`, so sweep rows merged into the corpus are
+# rankable rows inside the published board's own group.
+#
+# These run the real script under `DRY_RUN`, because what is being checked is
+# which commands it emits and which it refuses to emit at all.
+
+
+def _run_build(*probes: str, **env_extra: str):
+    import os
+    import subprocess
+
+    env = {**os.environ, "DRY_RUN": "1", "BACKBONES": "dinov2_vits14", **env_extra}
+    return subprocess.run(
+        ["bash", str(BUILD_CORPUS), *(probes or ("classification",))],
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
+
+
+def test_the_corpus_path_passes_no_seed_flag():
+    """SEEDS=1 is the corpus, and must be what the script always emitted.
+
+    A loop that passed `--seed 0` explicitly would produce records that agree
+    with the published ones rather than commands identical to the ones that
+    produced them, and the difference is invisible until something changes the
+    default.
+    """
+    result = _run_build()
+    assert result.returncode == 0, result.stderr
+    assert "--seed" not in result.stdout
+    assert "visbench run classification --backbone dinov2_vits14" in result.stdout
+
+
+def test_a_sweep_passes_each_seed_exactly_once():
+    result = _run_build(SEEDS="3", RESULTS="results/controls/seeds/classification.jsonl")
+    assert result.returncode == 0, result.stderr
+    for seed in (0, 1, 2):
+        assert result.stdout.count(f"--seed {seed} ") == 1, result.stdout
+    assert "--seed 3" not in result.stdout
+
+
+def test_a_seed_sweep_is_refused_against_the_corpus():
+    """The one that matters: the corpus is append-only, so there is no undo."""
+    result = _run_build(SEEDS="5")
+    assert result.returncode == 1
+    assert "comparability_key" in result.stderr
+    assert "visbench run" not in result.stdout, "a refused sweep must run nothing"
+
+
+def test_a_seed_sweep_is_refused_while_publishing():
+    """Five seeds share one repo id, so the surviving head is whichever finished last."""
+    result = _run_build(
+        SEEDS="5",
+        RESULTS="results/controls/seeds/classification.jsonl",
+        PUSH_TO="someone",
+    )
+    assert result.returncode == 1
+    assert "PUSH_TO" in result.stderr
+    assert "visbench run" not in result.stdout
+
+
+def test_a_zero_seed_sweep_is_refused():
+    """`SEEDS=0` would silently run nothing and report a completed sweep."""
+    result = _run_build(SEEDS="0", RESULTS="results/controls/seeds/classification.jsonl")
+    assert result.returncode == 1
+    assert "visbench run" not in result.stdout
