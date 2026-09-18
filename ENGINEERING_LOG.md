@@ -2281,6 +2281,84 @@ indistinguishable by the comparability key. It affects the VOC board equally and
 is a property of the shared task, so it is recorded here and left alone — the
 same posture as the sub-pixel alignment finding.
 
+## 19b — the pose board's noise, measured: a trigger rather than a dose
+
+**The question.** 16a-3 published a reproducibility claim resting on one
+comparison — `mae_vitb16` at 22.6984 and 21.7695 from a second extraction — and
+derived from it both the board's whole-degree reading rule and a list of five
+tied pairs. A rule that decides which rows a reader may separate should not rest
+on n=1, and this project's own standing instruction, bought by `duration_seconds`
+at the cost of three files and a merged PR, is to repeat a measurement before
+concluding from it.
+
+`scripts/measure_pose_noise.py` measures the three things the claim rests on;
+`--summarise` reprints the committed study, and every number is in
+`results/controls/README.md`. The runs perturb cached features, which no flag
+expresses and no `ResultRecord` could describe, so they land in
+`results/controls/pose_noise.json` rather than becoming records — the one
+non-`.jsonl` file in that directory, and deliberately so.
+
+**1. The observation, at n=2.** −1.1033 on `mae_vitb16` and −0.6796 on
+`clip_vitb16` across the two cache roots, one seed, one pair set. About a degree
+survives, bracketing the published 0.93; the two differ by a factor of 1.6,
+which is why "about a degree" is the right precision and anything tighter is
+fitting one sample. Only those two backbones are comparable — the local cache
+holds no `dino_vitb16` or `sam_vitb16` entry under the pooling this probe
+resolves, so a third row would need an hour of decode and would be the same
+experiment.
+
+**2. The mechanism, measured rather than inferred.** The claim that the two
+caches differ because one was extracted at batch 64 and the other at 32 was
+argued from a *later* probe whose two caches happened to agree — consistent with
+the hypothesis, not a test of it, and 19a had just written down that an
+agreement between identical inputs is not evidence. Extracting the same 455
+frames into two fresh roots at the two batch sizes, same GPU, minutes apart:
+max difference **2.38e-05**, mean 2.12e-07, 7 of 455 frames bit-identical. The
+hypothesis is right and is now measured.
+
+**3. The amplification, which is where the published story was wrong.** The old
+wording — 1.1e-05 in the features, "thirty epochs of a 1,536-dimensional MLP
+turn that into 0.93 degrees" — states a dose-response. Injecting uniform noise
+of known size and refitting, three draws a magnitude:
+
+| perturbation | `mae_vitb16` | `clip_vitb16` |
+| --- | --- | --- |
+| seed only (range over 3) | 0.7162 | 2.2302 |
+| ±1e-06 | 0.8215 | 0.2688 |
+| ±1e-05 | 0.2061 | 0.7565 |
+| ±1e-04 | 0.5585 | 1.2481 |
+| ±1e-03 | 0.7927 | 1.0378 |
+
+A thousand-fold change in the perturbation produces no trend, the two backbones
+do not agree on the shape, and **18 of 24 perturbed scores land inside the range
+three seeds produce with no perturbation at all**. The degree is the width of
+this fit's run-to-run scatter, reached by any disturbance whatever. Feature
+noise is a trigger, not a dose.
+
+**What this does and does not change.** No published number moves, and the
+whole-degree rule is unchanged and better founded — the scatter is what both the
+n=2 movement and the perturbation study measure. What changes is the explanation
+beneath it, and one caveat a reader now gets: the tie list is calibrated to what
+separates two *published cells*, which share a seed, not to what a re-fit at
+another seed would do.
+
+**The finding nobody was looking for.** `pose_protocol.jsonl` reports seed
+ranges of 0.21 and 0.41 for these two backbones; this study measures 0.7162 and
+2.2302 for the same backbones over the same three seeds. Both were computed
+correctly. A range over three draws is simply an unstable statistic, and a
+board's reading rule had been calibrated against the smaller of two such
+samples. That is the lesson lifted to `CLAUDE.md`, and it generalises past this
+board.
+
+**Two things about the method worth keeping.** The sign of a perturbation's
+effect was initially read as systematic — every one of `mae_vitb16`'s twelve
+moves is negative — and it is an artefact of the reference: seed 0's score is
+the *top* of that backbone's three-seed range, so any resample regresses
+downward. `clip_vitb16`'s signs are mixed, which is what showed it. And
+reporting perturbed scores against the seed *range* rather than against one
+seed's value is what makes the comparison legible; the raw moves flatter the
+dose-response reading.
+
 ## 16a-3 — registering the pose probe: what a probe *name* costs
 
 **2026-09-17.** `relative_pose` becomes the **eighteenth registered probe**.

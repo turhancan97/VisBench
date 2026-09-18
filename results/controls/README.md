@@ -19,6 +19,13 @@ This is the same instinct as the standing rule never to rank or average across
 `finetune`: frozen and fine-tuned numbers are both valid and answer different
 questions, so the schema keeps them apart rather than letting a table mix them.
 
+**One file here is not records at all.** `pose_noise.json` holds a study whose
+runs perturb cached features — something no flag expresses and no
+`ResultRecord` could honestly describe — so it is JSON rather than a `.jsonl`
+of records, and the distinction is deliberate: a record claims a run happened
+under a stated configuration, and these runs had no such configuration to
+state.
+
 Nothing here feeds a generated table. `scripts/render_tables.py` and
 `LEADERBOARD.md` read the corpus only.
 
@@ -462,6 +469,109 @@ in this corpus: a deeper head can compensate for a weaker feature vector, which
 is the DPT control's lesson arriving on a board that ships. This file is what
 lets a reader see how much, rather than take a sentence for it.
 
+## `pose_noise.json` — how much does a pose number move, and what moves it?
+
+**Not records.** The runs behind this perturb cached features, which no flag
+expresses and no `ResultRecord` could honestly describe, so the study is a JSON
+file of its own and `scripts/measure_pose_noise.py --summarise` reprints it.
+Everything else here is a `.jsonl` of real records; this one is deliberately not.
+
+**Why it was needed.** `relative_pose` shipped with a reproducibility claim
+resting on **one** comparison: the `mae_vitb16` cell scored 22.6984 on the
+cluster and 21.7695 from a second extraction, so the board is quoted to whole
+degrees and five adjacent pairs are called ties. One observation is thin for a
+rule that decides which rows a reader may separate, and this project's own
+standing instruction — the one `duration_seconds` bought, at the cost of three
+files and a merged PR — is to repeat a measurement before concluding from it.
+
+Three parts, each answering something the single observation only gestured at.
+
+### 1. The observation, at n=2
+
+Score `mae_vitb16` and `clip_vitb16` from each of the two cache roots on this
+machine, one seed, one pair set, features the only difference. Only those two
+are comparable: the local cache holds no entry for `dino_vitb16` or
+`sam_vitb16` under the pooling this probe resolves.
+
+| backbone | local | cluster | movement |
+| --- | --- | --- | --- |
+| `mae_vitb16` | 20.9461 | 22.0494 | −1.1033 |
+| `clip_vitb16` | 40.4348 | 41.1144 | −0.6796 |
+
+**About a degree survives contact with a second row**, bracketing the published
+0.93. What one observation could not show is that the two differ by a factor of
+1.6, so "about a degree" is the right precision to state it to and any tighter
+figure is fitting one sample.
+
+### 2. The mechanism, measured rather than inferred
+
+The published write-up attributed the feature difference to extraction batch
+size — the proof run used 64 where `build_corpus.sh` defaults to 32 — on the
+evidence that a *later* probe whose two caches were built at the same batch size
+came out bit-identical. That is consistent with the hypothesis and does not test
+it. Extracting the same 455 frames into two fresh roots at the two batch sizes,
+same GPU, same everything else:
+
+| | |
+| --- | --- |
+| max \|difference\| | **2.38e-05** |
+| mean \|difference\| | 2.12e-07 |
+| bit-identical frames | 7/455 (2%) |
+
+**The hypothesis is right.** Batch size alone reproduces the size of difference
+the two caches carry (1.4–1.8e-05 sampled across them), and it is the batching
+rather than the GPU, since both passes ran on the same card minutes apart.
+
+### 3. The amplification — which is where the published story was wrong
+
+Inject uniform noise of a known size into the cached features, refit, and see
+what the score does. Three draws per magnitude, against the *unperturbed*
+spread over three seeds:
+
+| perturbation | `mae_vitb16` mean \|move\| | `clip_vitb16` mean \|move\| |
+| --- | --- | --- |
+| seed only, no perturbation (range) | 0.7162 | 2.2302 |
+| ±1e-06 | 0.8215 | 0.2688 |
+| ±1e-05 | 0.2061 | 0.7565 |
+| ±1e-04 | 0.5585 | 1.2481 |
+| ±1e-03 | 0.7927 | 1.0378 |
+| every magnitude and draw (n=12) | 0.5947, max 1.3525 | 0.8278, max 1.7707 |
+
+**There is no dose-response, and the published sentence describes one.** It
+reads "their stored vectors differ by up to 1.1e-05 ... Thirty epochs of a
+1,536-dimensional MLP turn that into 0.93 degrees", which is a causal chain from
+a perturbation size to a movement size. A thousand-fold change in the
+perturbation produces no trend: `mae_vitb16` is flat and non-monotonic, and the
+two backbones do not even agree on the shape. **18 of the 24 perturbed scores
+land inside the range three seeds produce with no perturbation at all.**
+
+So the degree is **the width of this fit's run-to-run scatter**, reached by any
+disturbance whatever — a different cache, a different seed, a perturbation four
+orders of magnitude smaller than the one measured. Feature noise is a trigger,
+not a dose.
+
+**The board's reading rule is unchanged and better founded.** Quoting
+`relative_pose` to whole degrees follows from the scatter being ~1 degree, which
+is what both the n=2 cross-cache movement and the perturbation study say. What
+changes is the explanation beneath it, and one thing a reader should now know:
+the tie list is calibrated to what separates two *published cells* — same seed,
+same code, two extractions — and **not** to what a re-fit at another seed would
+do, which for `clip_vitb16` is 2.23 degrees.
+
+### A three-draw range is not a noise estimate
+
+`pose_protocol.jsonl` reports seed ranges of **0.21** and **0.41** for these two
+backbones. This study measures **0.7162** and **2.2302** for the same backbones
+and the same three seeds — 3x and 5x larger. Both are ranges over three draws,
+both were computed correctly, and they disagree because the statistic is
+unstable, not because either run is wrong.
+
+That is the standing lesson arriving on the claim it was most needed for: this
+file already says `spread / noise` has misled in **both** directions, and a
+board's reading rule was built on the smaller of two such numbers. **Quote a
+range over three draws as what it is — one sample of a noisy statistic — and
+prefer a bar that several independent measurements agree on.**
+
 ## `pose_protocol.jsonl` — does the shipped pose probe measure what the pre-measurement measured?
 
 Six records: `RelativePoseTask` on NAVI at the pinned protocol — eight partners
@@ -484,14 +594,6 @@ reproduced to **+0.000000** — the same cache, the same seeds, bit for bit — 
 the file's numbers are unchanged and only its metric *names* moved. That
 exactness is also the other half of the reproducibility entry below: this board
 moves by about a degree across two *extractions* and not at all within one.
-
-**They were re-run in 16a-3**, because that step renamed the accuracy metrics
-to the parametrised form (`rotation_acc@30deg`) and a committed record carrying
-keys the library no longer emits is a small landmine for whoever loads it. The
-re-run was against the same cache and reproduced **all six to 0.0e+00** — not
-"to four decimals", exactly — which is the third confirmation of the
-reproducibility entry below: bit for bit against one cache, about a degree
-across two.
 
 | backbone | rot err (3 seeds) | vs floor | seed range | parked | delta |
 | --- | --- | --- | --- | --- | --- |

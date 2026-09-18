@@ -130,11 +130,17 @@ low-level cohere.
   drifts 1.8e-03 where the other four boards drift 1e-7.
 - **Quote `relative_pose` to whole degrees, and treat rows closer than about
   one degree as ties.** This is the largest of the four by far, and it is not
-  the metric: two extractions of the same features differ by ~1e-5, and thirty
-  epochs of its 1,536-dimensional MLP amplify that into about a degree. Against
-  one cache it reproduces bit for bit, and every recorded field — seed,
+  the metric — it is the fit. Its 1,536-dimensional MLP lands in a different
+  place for any disturbance at all: a second extraction of the same frames
+  moves it about a degree, and so does simply changing the seed. Against one
+  cache at one seed it reproduces bit for bit, and every recorded field — seed,
   fingerprint, `hardware` — is identical across the two runs that differ, so
   there is no field to check instead of counting digits.
+
+  One thing that rule does *not* cover: it is calibrated to what separates two
+  published cells, which share a seed. Re-fitting a row at a different seed can
+  move it further — 2.2 degrees for `clip_vitb16` — so a gap you are relying on
+  should be wider than a gap you are merely reading.
 
 ## n = 13
 

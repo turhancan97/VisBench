@@ -116,10 +116,10 @@ CAVEATS: dict[str, str] = {
         "elsewhere in this corpus. The **training pair count is part of the "
         "protocol** and is in `task_params`: error keeps falling as pairs are "
         "added, so two pose numbers are comparable only if they drew the same "
-        "pairs. **Read it to whole degrees**: two extractions of the same "
-        "features differ by ~1e-5, which thirty epochs of this head turn into "
-        "about a degree of rotation error, so adjacent rows closer than that "
-        "are ties."
+        "pairs. **Read it to whole degrees**: this fit's run-to-run scatter "
+        "is about a degree of rotation error, reached by a second extraction "
+        "of the same frames or simply by a different seed, so adjacent rows "
+        "closer than that are ties."
     ),
     "scene_parsing": (
         "**Forty classes on 795 training images**, where the VOC board has "
