@@ -1230,6 +1230,41 @@ The four most recent entries were lifted out of `CLAUDE.md` on 2026-09-03,
 when that file passed the 150k-character limit it is loaded under for the second
 time. Nothing was rewritten; each paragraph is as its release recorded it.
 
+**`0.22.0` is fully released** (2026-09-18). On PyPI — wheel and sdist both
+(444,748 and 1,470,363 bytes, wheel sha256 `bc3d84a8…`, sdist `48021b9e…`) —
+tagged `v0.22.0`, **annotated** (tag object `5d09bfe`), on merge commit
+`549c111`, with a GitHub release cut from that tag (published
+2026-09-18T10:39:37Z) and archived by Zenodo as version DOI
+**`10.5281/zenodo.22828959`**, the **seventeenth**. The concept DOI
+`10.5281/zenodo.21822684` resolves to record 22828959 with `metadata.version`
+`v0.22.0`, read off Zenodo's API with `-L`. Both artifacts match the locally
+built ones byte for byte, checked against PyPI's own digests.
+
+**Verified out of the published wheel by import** — `__version__` 0.22.0,
+`SCHEMA_VERSION` **9**, **nineteen** probes with `scene_parsing` among them,
+**fourteen** registered backbones, five heads, `show_probes() == list_probes()`,
+and the new probe reporting `num_classes` 40 and `protocol`
+`visbench_scene_parsing` — with an assert on `visbench.__file__`.
+
+**The archive abstract reads "Nineteen probes span"**, hand-checked on record
+22828959. It is right because `CITATION.cff` and `.zenodo.json` were updated in
+19a, the step that added the probe, rather than in this release.
+
+**`date-released` was stale by a day and nothing would have caught it.** It
+still carried v0.21.0's `2026-09-17` when this release was cut on the 18th;
+Zenodo publishes that field as the deposit's date and a deposit cannot be
+edited afterwards, while `tests/test_citation.py` only checks that the value
+*parses*. Advanced before the tag, which is the only point at which it can be.
+
+**The GitHub release was missed again — the second release running.** PyPI was
+complete, the tag was pushed and annotated, and `gh release view v0.22.0`
+returned "release not found", so Zenodo had archived nothing while
+`CITATION.cff` on `main` already said 0.22.0. That is now a *pattern* rather
+than a slip, and the reason is structural: the upload is the step that feels
+like the finish line, CI went green long before, and **nothing anywhere turns
+red when the archive never happens**. The standing release rules now carry it
+as its own line rather than as part of v0.21.0's story.
+
 **`0.21.0` is fully released** (2026-09-17). On PyPI — wheel and sdist both
 (441,064 and 1,456,336 bytes, wheel sha256 `b9bda312…`, sdist `7268cea9…`) —
 tagged `v0.21.0`, **annotated** (tag object `42f9af3`), on merge commit
