@@ -118,7 +118,7 @@ number — every measurement v0.6.1 reported, v0.7.0 reports identically.
 
 ## Current state
 
-**Everything through v0.21.0 is shipped**, and every numbered step in the build
+**Everything through v0.23.0 is shipped**, and every numbered step in the build
 table before 14a is done — every task, all three backbone families, the CLI,
 fine-tuning, detection, the low-level probes, the leaderboard and probe
 sharing. Each release's narrative is in `CHANGELOG.md`, its derivation in
@@ -154,6 +154,12 @@ published claim:
   a subset count is ordinary prose — and `CHANGELOG.md`, `ENGINEERING_LOG.md`
   and `docs/roadmap.md` are excluded by name, since a count stated *as of a
   release* is correct history and rewriting it would falsify the record.
+  **The board-*cell* total and the README's `**Status: vX.Y.Z**` line are pinned
+  too** (0.23.0), after the front page shipped all three stale to PyPI: the
+  board idiom had been anchored on `boards, twelve` and stopped matching when a
+  thirteenth backbone made that line read `boards, thirteen backbones each`.
+  **An idiom anchored on a count beside the one it checks is anchored on
+  something that moves.**
 - **"It reproduces across two caches" is evidence only if the caches differ**
   (19a). `scene_parsing`'s board cell and a local run agreed bit for bit across
   two cache roots, and the write-up nearly quoted that as a contrast with
@@ -338,11 +344,11 @@ was ever found. And **do not pipe a long publishing run through `tail`**: it
 buffers, so a run killed part-way leaves no log and the Hub has to be queried to
 find out what shipped.
 
-**Seventeen releases are archived, `0.22.0` the newest** (2026-09-18). Byte
+**Eighteen releases are archived, `0.23.0` the newest** (2026-09-18). Byte
 counts, wheel digests, the commit each tag resolves to and what every
 `__version__`/`SCHEMA_VERSION` import read back are recorded release by release
 in [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md) under "Release history"; read them
-there. `0.22.0` is the **tenth running with no gap** between tag, wheel, release
+there. `0.23.0` is the **eleventh running with no gap** between tag, wheel, release
 and `main`; `0.18.0` is the only release to move the schema (v8 -> v9), so a
 v0.17.0 install cannot read a record written by it while older records read
 fine here. **`0.19.0` shipped without its wheel check and without its
@@ -351,7 +357,9 @@ release-history entry** — both were done retrospectively on 2026-09-16 — and
 release**, so Zenodo had archived nothing while `CITATION.cff` already named the
 new version. Twice running makes it structural rather than a slip: the upload is
 the step that feels like the finish line, CI went green long before, and
-**nothing anywhere turns red when the archive never happens**.
+**nothing anywhere turns red when the archive never happens**. `0.23.0` is the
+rule's first test and it held — the release was cut as a step of its own and
+confirmed with `gh release view`, and Zenodo had archived it a minute later.
 
 Four rules those releases left behind, beyond the standing list below:
 
@@ -376,9 +384,9 @@ Four rules those releases left behind, beyond the standing list below:
   `__version__` reports the new one. A bump always moves the lockfile.
 
 **The concept DOI is `10.5281/zenodo.21822684`**, unchanged across all
-**seventeen** version DOIs and now resolving to v0.22.0 (confirmed against
-Zenodo's API on 2026-09-18 — record 21822684 redirects to `id` 22828959, which
-reports `metadata.version` `v0.22.0` — rather than assumed).
+**eighteen** version DOIs and now resolving to v0.23.0 (confirmed against
+Zenodo's API on 2026-09-18 — record 21822684 redirects to `id` 22836524, which
+reports `metadata.version` `v0.23.0` — rather than assumed).
 
 **That API 302s, and without `-L` the check lies to you**: `curl` alone returns
 a 229-byte HTML redirect page and the JSON parse fails with a traceback that
@@ -395,8 +403,9 @@ under "Release history"; what recurs is:
   the *release* is what Zenodo watches, so without it `CITATION.cff` names a
   version no archive holds and the concept DOI still resolves to the previous
   one. Missed on `0.21.0` **and** `0.22.0`, both times with PyPI already
-  complete, and nothing turns red either time. `gh release view vX.Y.Z` is the
-  check, and it is the last step rather than an afterthought.
+  complete, and nothing turns red either time; held on `0.23.0`, cut as its own
+  step. `gh release view vX.Y.Z` is the check, and it is the last step rather
+  than an afterthought.
 - **Advance `date-released` if the calendar has rolled since the last
   release.** Zenodo publishes it as the deposit's date and a deposit cannot be
   edited afterwards; `tests/test_citation.py` only checks that it parses, so a
@@ -1714,10 +1723,10 @@ designed up front; extend it the same way, from a case that already runs.
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite **collects 2301 tests**, green on 2026-09-18 along with all three
+fast suite **collects 2304 tests**, green on 2026-09-18 along with all three
 lint steps, mypy and the `-W` docs build. The slow suite is **116** since
 16a-1, whose own slow test was run then; the other 115 were last green on
-`main` on 2026-09-11. Earlier fast counts, for dating a claim: 2296 at 19b, 2281 at v0.21.0, 2222 at 16a-1,
+`main` on 2026-09-11. Earlier fast counts, for dating a claim: 2301 at 20a, 2296 at 19b, 2281 at v0.21.0, 2222 at 16a-1,
 2261 at the pose board, 2160 at the grid finding, 2158 at
 the control guard, 2144 at
 `dino_vitb8`, 2126 at the docs-count guard, 2122 at the 0.18.0 release, 2113 at

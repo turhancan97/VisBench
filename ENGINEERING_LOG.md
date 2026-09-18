@@ -1230,6 +1230,59 @@ The four most recent entries were lifted out of `CLAUDE.md` on 2026-09-03,
 when that file passed the 150k-character limit it is loaded under for the second
 time. Nothing was rewritten; each paragraph is as its release recorded it.
 
+**`0.23.0` is fully released** (2026-09-18). On PyPI — wheel and sdist both
+(444,829 and 1,501,424 bytes, wheel sha256 `d9f82b90…`, sdist `50be3c97…`) —
+tagged `v0.23.0`, **annotated** (tag object `5111af0`), on merge commit
+`d116bf6`, with a GitHub release cut from that tag (published
+2026-09-18T18:51:59Z) and archived by Zenodo as version DOI
+**`10.5281/zenodo.22836524`**, the **eighteenth**. The concept DOI
+`10.5281/zenodo.21822684` resolves to record 22836524 with `metadata.version`
+`v0.23.0`, read off Zenodo's API with `-L`. Both artifacts match the locally
+built ones byte for byte, checked against PyPI's own digests.
+
+**Verified out of the published wheel by import** — `__version__` 0.23.0,
+`SCHEMA_VERSION` **9**, **nineteen** probes with `relative_pose` and
+`scene_parsing` among them, **fourteen** registered backbones, five heads,
+`show_probes() == list_probes()`, and `RelativePoseTask` reporting hidden dims
+`(512, 256, 128)` — with an assert on `visbench.__file__`. The published wheel
+is **byte-identical to the one built before the release commit**, which is what
+says this release moved nothing but the version and the prose.
+
+**The archive abstract reads "Nineteen probes span"**, hand-checked on record
+22836524. Right without an edit, because this release adds no probe — the
+check is still worth making, since it cannot be made afterwards.
+
+**The GitHub release was cut, on the standing rule's first test.** Missed on
+`0.21.0` and `0.22.0`, both with PyPI already complete; here it was a step of
+its own, confirmed with `gh release view v0.23.0` (`isDraft` false,
+`targetCommitish` `main`), and Zenodo had archived it by the time the concept
+DOI was read a minute later. The rule works because it names the check, not
+because the step is memorable.
+
+**A stale index read nearly became a story about ordering.** A `curl` of PyPI's
+JSON API shortly before the release reported 0.22.0, and that was written down
+as "the archive names a version that is not installable yet". The artifacts'
+own `upload_time_iso_8601` — 18:51:29Z and 18:51:31Z against the release's
+18:51:59Z — puts the upload **28 seconds earlier**, in the canonical order. The
+poll was stale, not the sequence. **Date an upload from the artifact's
+timestamp, not from when an index last answered**; this file already carries the
+same lesson pointing the other way, where `pip download` reported a version
+missing that the JSON API already listed.
+
+**What this release fixed beyond the bump.** The README's status line was stale
+in three ways at once — `v0.21.0` after `0.22.0` shipped, and **234 board
+cells** across eighteen boards where `LEADERBOARD.md` renders 247 across
+nineteen — so all three went to PyPI with `0.22.0` and could only be corrected
+here. The guard that exists for exactly this could see none of them: its
+board-total idiom was anchored on `boards, twelve` and stopped matching the
+moment a thirteenth backbone made the front page say `boards, thirteen
+backbones each`; the board-**cell** count had no guard at all; and no test had
+ever read the version out of the README, though a bump is the one edit every
+release makes. All three are pinned now, in `tests/test_docs_counts.py` and
+`tests/test_readme.py`, and each was confirmed to **fail** against the exact
+text `0.22.0` shipped before being accepted. **An idiom anchored on a count
+beside the one it checks is anchored on something that moves.**
+
 **`0.22.0` is fully released** (2026-09-18). On PyPI — wheel and sdist both
 (444,748 and 1,470,363 bytes, wheel sha256 `bc3d84a8…`, sdist `48021b9e…`) —
 tagged `v0.22.0`, **annotated** (tag object `5d09bfe`), on merge commit
