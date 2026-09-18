@@ -42,6 +42,14 @@ ways and each figure says which it is:
   and the probe's page says so. The same standing as ``correspondence``'s
   homography, which this script also chooses.
 
+``scene_parsing`` is the other one in between, and for the same reason as
+``edge``. Its board reads NYUv2-40 -- indoor scenes, forty mostly-*stuff*
+classes -- which does not ship, and unlike ``depth`` it has no published head to
+predict from. So the figure draws the **same renderer over the same
+redistributable object labels** ``semantic_segmentation`` uses, which shows
+honestly what a label-map panel looks like and does **not** claim to show NYU40
+content. Its page says so.
+
 ``edge`` is the one in between and is called out on its own page: Taskonomy's
 ``edge_texture`` is itself computed from the RGB frame, so the same *kind* of
 target is computed here -- an intensity-gradient magnitude, 0 meaning "no edge"
@@ -586,6 +594,27 @@ def figures(root: Path, backbone: str, classes: list[str]) -> dict[str, list[str
             "semantic_segmentation",
             "--data",
             scene,
+            "--target-dir",
+            "labels",
+            "--num-classes",
+            str(len(classes)),
+            "--ignore-index",
+            str(VOID),
+            *rows,
+            *size,
+        ],
+        # Same staging as `semantic_segmentation` deliberately: NYUv2 does not
+        # ship and this probe has no published head, so the figure demonstrates
+        # the renderer on redistributable labels rather than inventing a
+        # forty-class indoor target. The probe page states that.
+        "scene_parsing": [
+            "scene_parsing",
+            "--data",
+            scene,
+            # This probe defaults to NYUv2's `test`/`train` split names; the
+            # staged folder here is `val`, like every other figure's.
+            "--split",
+            "val",
             "--target-dir",
             "labels",
             "--num-classes",

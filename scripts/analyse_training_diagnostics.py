@@ -90,6 +90,7 @@ HEADLINE_METRICS: dict[str, str] = {
     "correspondence": "recall@5px",
     "similarity": "accuracy",
     "semantic_segmentation": "miou",
+    "scene_parsing": "miou",
     "generic_segmentation": "iou",
     "detection": "map_50",
     "instance_segmentation": "mask_map_50",

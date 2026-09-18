@@ -104,7 +104,7 @@ magnitude would render *identically* to a correct one.
 
 ## What it can draw
 
-**Every probe.** All eighteen, across six renderers — a test asserts
+**Every probe.** All nineteen, across six renderers — a test asserts
 `show_probes() == list_probes()`, so a new probe cannot ship undrawable.
 
 | renderer | probes | a row is |

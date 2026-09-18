@@ -310,6 +310,24 @@ probe_surface_normal() {
     --image-dir images --target-dir normals
 }
 
+probe_scene_parsing() {
+  # NYUv2-40, the same 795/654 frames probe_depth and probe_surface_normal
+  # read -- only the target folder differs, so three boards sit on identical
+  # pixels asking geometry, geometry and semantics.
+  #
+  # --num-classes 40 and --ignore-index 255 are the label set as this copy
+  # stores it, measured rather than assumed: values run 0..39 with 255 marking
+  # the depth-projection margin (88.5% of border pixels against 13.7% of
+  # interior ones). 0 is a real class -- `wall` -- so the VOC convention
+  # applies unchanged and there is no fifth validity rule.
+  #
+  # Both travel in task_params, so a run at another count or another void value
+  # lands in its own comparability group rather than being ranked against these.
+  run scene_parsing --data "$NYU" --split test --train-split train \
+    --image-dir images --target-dir segmentation_nyu40 \
+    --num-classes 40 --ignore-index 255
+}
+
 probe_relative_pose() {
   # NAVI multiview, probe3d's pairwise protocol. Every flag here is protocol
   # rather than a speed knob and is left at its default deliberately:
@@ -354,6 +372,7 @@ ALL_PROBES=(
   corner
   orientation
   relative_pose
+  scene_parsing
 )
 
 main() {

@@ -1,20 +1,20 @@
 """How each probe's target is drawn, listed per probe rather than inferred.
 
-Nine probes ship a spatial target and they use **four different conventions for
+Ten probes ship a spatial target and they use **four different conventions for
 an invalid pixel**, none of which is visible in the tensor's shape or dtype:
 
 ===================  ===============================================
 convention           probes
 ===================  ===============================================
 ``0`` is invalid     ``depth`` (and the zero *vector* for normals)
-negative is invalid  both segmentations -- ``0`` is a real class
+negative is invalid  all three segmentations -- ``0`` is a real class
 nothing is invalid   ``edge``, ``keypoints2d``, ``corner``
 ``NaN`` is invalid   ``occlusion_edge``
 ===================  ===============================================
 
 A viewer that guessed -- "one channel, mask the zeros, apply a colour map" --
 would draw a depth hole and a real 0-metre reading identically for four of the
-nine, and would erase the background class from both segmentation probes. That
+ten, and would erase the background class from all three segmentation probes. That
 is the same failure the target *loaders* already guard against, arriving one
 layer later: it renders, it looks plausible, and it says the wrong thing.
 
@@ -141,6 +141,21 @@ TARGET_STYLES: dict[str, TargetStyle] = {
         kind="labels",
         invalid=_invalid_negative,
         note="VOC's palette, so class 15 is the colour a VOC user expects",
+    ),
+    "scene_parsing": TargetStyle(
+        kind="labels",
+        invalid=_invalid_negative,
+        # Deliberately says nothing about NYU40, although that is what the
+        # board reads: a style note is drawn on whatever folder the viewer is
+        # pointed at, so naming a dataset here puts a false caption under any
+        # other one. The gallery figure is rendered on Open Images labels, and
+        # a footer reading "forty NYU40 classes" under a photograph of a
+        # leopard is exactly the failure this table exists to prevent.
+        note=(
+            "class indices in the same palette as `semantic_segmentation`; "
+            "unlabelled is negative by the time it is drawn, because the "
+            "loader maps the raw void value to the ignore index first"
+        ),
     ),
     "edge": TargetStyle(
         kind="magnitude",

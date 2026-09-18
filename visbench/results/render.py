@@ -60,6 +60,9 @@ HEADLINE_METRICS: dict[str, str] = {
     "correspondence": "recall@5px",
     "similarity": "accuracy",
     "semantic_segmentation": "miou",
+    # The dataset-level mIoU, as for VOC: it is what the segmentation
+    # literature defines and the only one comparable with published numbers.
+    "scene_parsing": "miou",
     "generic_segmentation": "iou",
     "detection": "map_50",
     # Mask AP, not box AP. `box_map_50` rides along in the record so a low
@@ -117,6 +120,16 @@ CAVEATS: dict[str, str] = {
         "features differ by ~1e-5, which thirty epochs of this head turn into "
         "about a degree of rotation error, so adjacent rows closer than that "
         "are ties."
+    ),
+    "scene_parsing": (
+        "**Forty classes on 795 training images**, where the VOC board has "
+        "twenty-one on 1,464 — so the absolute mIoU here is lower by "
+        "construction and the two boards are not comparable as numbers, only "
+        "as orderings. Most of these pixels are *stuff* (wall, floor, ceiling) "
+        "rather than things, which is the question this probe asks that "
+        "`semantic_segmentation` does not. It reads the frames `depth` and "
+        "`surface_normal` already read, so a cluster comparison against those "
+        "two is about the question rather than about the data."
     ),
     "scene_classification": (
         "This is *scene* category, not object category — a distinct question "

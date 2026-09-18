@@ -9,6 +9,44 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+### Added
+
+- **`scene_parsing` — the nineteenth probe: every pixel of an indoor scene, in
+  forty classes** (19a). NYUv2-40 on the canonical 795/654 split, which is the
+  same implementation `semantic_segmentation` runs asking a different question:
+  VOC's twenty classes are objects on a background, NYU40's are a room, and most
+  of these pixels are *stuff* — wall, floor, ceiling — rather than things. A
+  distinct probe **name** rather than a dataset flag, for the reason
+  `scene_classification` is: a second dataset under the same task name would not
+  merge with the VOC board, it would make that board unrenderable. The corpus
+  goes from 234 board cells to **247**, nineteen boards.
+
+  **It ranks with the semantic boards against the boards it shares images
+  with.** Mean rho **+0.553** against high-level, +0.414 against mid-level,
+  **+0.136** against low-level — strongest with `fine_grained_classification`
+  (+0.868) and `semantic_segmentation` (+0.852), near zero with `orientation`
+  (−0.022), `keypoints2d` (−0.027) and `retrieval` (−0.038). It reads the
+  *identical frames* `depth` and `surface_normal` read and correlates with them
+  at +0.533 and +0.423, against +0.852 with a VOC board sharing no image with
+  it: on this pair of boards the question dominates the data, which is the
+  complement of the split control rather than a contradiction of it.
+
+  **The label convention was measured, not assumed.** The maps carry 0–39 and
+  255, and which is void decides whether the probe trains on anything: 88.5% of
+  *border* pixels are 255 against 13.7% of interior ones — the depth-projection
+  margin — while value 0 shows the inverse pattern and is `wall`, 21.4% of all
+  pixels. So it is VOC's shape exactly, and needs no new loader and **no fifth
+  validity convention**.
+
+### Fixed
+
+- **The README's status line said v0.20.0 after v0.21.0 shipped.** The release
+  commit moves the version in the three files a test pins — `pyproject.toml`,
+  `visbench/__init__.py`, `CITATION.cff` — and nothing reads the prose on the
+  front page, so the stale line went to PyPI with the release and can only be
+  corrected by the next one.
+
+
 ## [0.21.0] — 2026-09-17
 
 **The release that departs from a linear head, and measures what that costs.**
