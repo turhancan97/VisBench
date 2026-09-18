@@ -469,6 +469,99 @@ in this corpus: a deeper head can compensate for a weaker feature vector, which
 is the DPT control's lesson arriving on a board that ships. This file is what
 lets a reader see how much, rather than take a sentence for it.
 
+## `pose_seeds.jsonl` — which rows of the pose board are actually ordered?
+
+Sixty-five records: all thirteen corpus backbones re-fitted at five seeds in the
+**published** configuration — same pairs, same MLP, same flags, only `--seed`
+moves. `scripts/build_pose_seed_sweep.sh` produces them and
+`scripts/analyse_pose_seeds.py` reads them.
+
+**Why these must not go near the corpus, and it is not the usual reason.** The
+other controls here differ from the board in something that lands in
+`comparability_key` — a head, a split, a layer set — so they form their own
+group and *could not* be listed beside it. These carry the published
+configuration exactly, so they land in the **identical** group, and
+`latest_per_backbone` would happily let a seed-3 run evict a published seed-0
+one. A board is one seed by construction; thirteen backbones at five seeds is
+sixty-five rankable rows describing thirteen models.
+
+**The harness check, which is the gate.** Every corpus pose cell was run at the
+default seed 0, so all thirteen seed-0 rows here must reproduce their published
+values. **All thirteen do, at delta 0.0 exactly.** Without that the other seeds
+would be measuring some adjacent configuration, and nothing below would mean
+anything.
+
+### The noise, over every row rather than two
+
+| | sd over 5 seeds | range |
+| --- | --- | --- |
+| median | 0.5160 | 1.3332 |
+| min | 0.3235 (`siglip_vitb16`) | 0.8322 |
+| max | 1.0860 (`resnet18`) | 2.4901 |
+
+19b could reach only two backbones and they disagreed 3x, which left open
+whether `clip_vitb16`'s 2.23 was typical or a freak. **It was neither.** Ranges
+run 0.83 to 2.49, so a 2.2 is unremarkable — but `clip_vitb16` itself reads
+**1.3332** here against 19b's **2.2302**, a third measurement of the same
+quantity disagreeing with the second as the second disagreed with the first.
+Different harness and five draws rather than three; both are samples of an
+unstable statistic, which is the point rather than a discrepancy to resolve.
+
+### The tie list, re-derived pairwise
+
+Not by comparing a gap against a noise figure — that needs a distributional
+assumption nothing here has earned, and **only 11% of the seed variance is
+common-mode**, so the two rows of a pair move largely independently. The same
+five seeds were run for both rows, so the **paired difference** is available and
+is what the question actually needs.
+
+| pair | board gap | mean paired diff | sd | t | verdict |
+| --- | --- | --- | --- | --- | --- |
+| `mae_vitb16` vs `dinov2_vits14` | 2.67 | 3.172 | 0.574 | 12.36 | ordered |
+| `dinov2_vits14` vs `dino_vitb8` | 1.73 | 2.351 | 0.701 | 7.50 | ordered |
+| `dino_vitb8` vs `dino_vitb16` | 1.94 | 1.185 | 0.579 | 4.57 | ordered |
+| `dino_vitb16` vs `dinov2_vitb14` | 0.04 | **−0.800** | 0.567 | **−3.15** | **REVERSED** |
+| `dinov2_vitb14` vs `sam_vitb16` | 5.94 | 6.950 | 0.698 | 22.26 | ordered |
+| `sam_vitb16` vs `resnet50` | 1.99 | 2.753 | 0.488 | 12.62 | ordered |
+| `resnet50` vs `convnext_base` | 0.59 | 0.649 | 0.679 | 2.14 | tied |
+| `convnext_base` vs `siglip_vitb16` | 0.69 | 0.672 | 0.656 | 2.29 | tied |
+| `siglip_vitb16` vs `clip_vitb16` | 2.28 | 1.643 | 0.620 | 5.92 | ordered |
+| `clip_vitb16` vs `supervised_vitb16` | 0.87 | 1.078 | 0.897 | 2.69 | tied |
+| `supervised_vitb16` vs `resnet18` | 1.58 | 2.726 | 1.026 | 5.94 | ordered |
+| `resnet18` vs `clip_vitb32` | 0.12 | **−2.083** | 1.524 | **−3.06** | **REVERSED** |
+
+`|t| >= 2.776` is the two-sided 95% critical value at df=4. **At five seeds this
+test has little power**, so a "tied" verdict is often a pair nobody measured
+enough times rather than a pair that is genuinely level.
+
+### What this says, and it is not "widen the threshold"
+
+**The published tie list named the right five pairs.** All five fail to
+separate, and three of them — `resnet50`/`convnext_base`,
+`convnext_base`/`siglip_vitb16`, `clip_vitb16`/`supervised_vitb16` — are
+genuine ties.
+
+**Two of the five are not coin flips; they lean the other way.** Across five
+seeds `dinov2_vitb14` beats `dino_vitb16` by 0.80 on average and `clip_vitb32`
+beats `resnet18` by **2.083** — seventeen times the 0.12 the board shows. Seed 0
+is the minority outcome for both. A reader who treats a tie as "could go either
+way" is right; one who reads the board's order as a weak preference is wrong for
+exactly these two.
+
+**And a gap threshold is the wrong instrument, which is the transferable part.**
+The obvious fix after 19b was to widen the one-degree rule to the measured
+median range of 1.33. That would be worse: it would newly call
+`dino_vitb8`/`dino_vitb16` (gap 1.94, t=4.57) and
+`supervised_vitb16`/`resnet18` (1.58, t=5.94) ties when both are solidly
+ordered, while *still* not noticing that the pair 0.12 apart is reversed by
+2.08. No threshold on the gap can express this, because the gap is one draw of a
+quantity whose spread is not a function of the gap.
+
+**No published number moves.** The board reports what seed 0 produced and
+remains a correct record of it. What changes is the reading rule: **do not order
+two adjacent rows of this board from the board alone — this file says which
+pairs are ordered.**
+
 ## `pose_noise.json` — how much does a pose number move, and what moves it?
 
 **Not records.** The runs behind this perturb cached features, which no flag

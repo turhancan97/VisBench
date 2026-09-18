@@ -118,8 +118,10 @@ CAVEATS: dict[str, str] = {
         "added, so two pose numbers are comparable only if they drew the same "
         "pairs. **Read it to whole degrees**: this fit's run-to-run scatter "
         "is about a degree of rotation error, reached by a second extraction "
-        "of the same frames or simply by a different seed, so adjacent rows "
-        "closer than that are ties."
+        "of the same frames or simply by a different seed. **Do not order two "
+        "adjacent rows from the gap alone** — all thirteen were re-fitted at "
+        "five seeds in `results/controls/pose_seeds.jsonl`, and two pairs the "
+        "gap calls close come out the other way round."
     ),
     "scene_parsing": (
         "**Forty classes on 795 training images**, where the VOC board has "

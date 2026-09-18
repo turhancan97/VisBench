@@ -137,10 +137,14 @@ low-level cohere.
   fingerprint, `hardware` — is identical across the two runs that differ, so
   there is no field to check instead of counting digits.
 
-  One thing that rule does *not* cover: it is calibrated to what separates two
-  published cells, which share a seed. Re-fitting a row at a different seed can
-  move it further — 2.2 degrees for `clip_vitb16` — so a gap you are relying on
-  should be wider than a gap you are merely reading.
+  **Do not order two adjacent rows from the gap alone.** All thirteen were
+  re-fitted at five seeds, and a gap threshold turns out to be the wrong
+  instrument: pairs 1.6 degrees apart are solidly ordered, while two pairs the
+  board shows as near-level come out *the other way round* across seeds —
+  `dinov2_vitb14` ahead of `dino_vitb16` by 0.80, and `clip_vitb32` ahead of
+  `resnet18` by 2.08, where the board has both losing by about a tenth. The
+  board is a correct record of one seed; `results/controls/pose_seeds.jsonl`
+  says which pairs survive a re-fit.
 
 ## n = 13
 

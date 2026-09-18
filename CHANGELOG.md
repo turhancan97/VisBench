@@ -11,6 +11,25 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Changed
 
+- **The `relative_pose` board's tie list is re-derived from a seed sweep**, and
+  the rule it rested on is retired. All thirteen backbones were re-fitted at
+  five seeds in the published configuration (`results/controls/pose_seeds.jsonl`,
+  65 records; every seed-0 row reproduces its published cell at delta 0.0).
+  The published list named the right five pairs, but **two of them are not ties
+  — the board's order is the minority outcome**: across seeds `dinov2_vitb14`
+  beats `dino_vitb16` by 0.80 and `clip_vitb32` beats `resnet18` by **2.08**,
+  against published gaps of 0.04 and 0.12 the other way.
+- **A gap threshold turns out to be the wrong instrument**, so the rule is now
+  a pointer at the sweep rather than a number. Widening the one-degree
+  threshold to the measured median range would have called two solidly ordered
+  pairs tied and still missed the reversal — pairs 1.58 apart are ordered while
+  a pair 0.12 apart is reversed by 2.08, and only 11% of the seed variance is
+  common-mode. **No published number moves.**
+- `scripts/build_pose_seed_sweep.sh` and `scripts/analyse_pose_seeds.py` are
+  committed.
+
+### Changed
+
 - **The `relative_pose` board's noise is measured rather than asserted**, and
   the explanation published with it was wrong in a specific way. The board
   shipped quoting one comparison — the same cell at 22.6984 and 21.7695 — and

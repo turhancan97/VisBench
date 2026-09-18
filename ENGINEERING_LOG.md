@@ -2359,6 +2359,82 @@ reporting perturbed scores against the seed *range* rather than against one
 seed's value is what makes the comparison legible; the raw moves flatter the
 dose-response reading.
 
+## 20a — the pose seed sweep: a gap threshold is the wrong instrument
+
+**The question 19b left open.** 19b measured the pose board's run-to-run scatter
+properly and could reach two backbones, which disagreed 3x (0.72 and 2.23
+degrees of seed range). So the published tie list — five adjacent pairs called
+tied at a one-degree threshold — rested on two rows, one of which might be an
+outlier, and on a statistic 19b had just shown to be unstable.
+
+`scripts/build_pose_seed_sweep.sh` re-fits all thirteen backbones at **five**
+seeds in the published configuration; `scripts/analyse_pose_seeds.py` reads the
+sixty-five records in `results/controls/pose_seeds.jsonl`. Five rather than
+three deliberately: measuring the fix with three draws would reproduce the
+problem it exists to correct.
+
+**The gate, and it is free.** Every corpus pose cell was run at the default seed
+0, so the sweep's own seed-0 rows must reproduce the published values. **All
+thirteen do at delta 0.0 exactly** — checked on the first record rather than
+after two hours, and again on the seventh. Without it the other four seeds would
+be describing some adjacent configuration.
+
+**The noise, over every row.** Seed-to-seed sd runs 0.3235 (`siglip_vitb16`) to
+1.0860 (`resnet18`), median 0.5160; range 0.8322 to 2.4901, median 1.3332. So
+`clip_vitb16`'s 2.23 in 19b was unremarkable as a magnitude — but that backbone
+reads **1.3332** here, a third measurement of one quantity disagreeing with the
+second as the second disagreed with `pose_protocol.jsonl`'s 0.41. Three samples,
+three answers, all computed correctly.
+
+**The tie list, re-derived from paired differences.** The same seeds were run
+for both rows of every pair, so the paired difference is available — and it is
+needed, because **only 11% of the seed variance is common-mode**, so the two
+rows of a pair move largely independently and a gap cannot be read against a
+per-row noise figure.
+
+| pair | board gap | mean paired diff | t | verdict |
+| --- | --- | --- | --- | --- |
+| `dino_vitb16` vs `dinov2_vitb14` | 0.04 | −0.800 | −3.15 | REVERSED |
+| `resnet50` vs `convnext_base` | 0.59 | 0.649 | 2.14 | tied |
+| `convnext_base` vs `siglip_vitb16` | 0.69 | 0.672 | 2.29 | tied |
+| `clip_vitb16` vs `supervised_vitb16` | 0.87 | 1.078 | 2.69 | tied |
+| `resnet18` vs `clip_vitb32` | 0.12 | −2.083 | −3.06 | REVERSED |
+
+(The seven pairs not listed all come out ordered at t 4.57 to 22.26.)
+
+**The published tie list named the right five pairs and understates two.**
+Three are genuine ties. The other two are **not coin flips — the board's order
+is the minority outcome**, and for `resnet18`/`clip_vitb32` the average
+difference is 2.083 degrees, seventeen times the published 0.12, in the other
+direction.
+
+**The finding worth carrying: a threshold on a gap cannot express this.** The
+obvious fix after 19b was to widen the one-degree rule to the measured median
+range of 1.33. That is *worse*: it would newly call `dino_vitb8`/`dino_vitb16`
+(gap 1.94, t 4.57) and `supervised_vitb16`/`resnet18` (1.58, t 5.94) tied when
+both are solidly ordered, while still not noticing that the pair 0.12 apart is
+reversed by 2.08. No function of the gap can carry the answer, because the gap
+is one draw of a quantity whose spread is unrelated to it. When runs are
+repeatable, re-run both rows under shared seeds and test the difference.
+
+**What moves.** No published number. The board is a correct record of seed 0 and
+`LEADERBOARD.md` is unchanged except for its caveat. The reading rule changes
+from a threshold to a pointer at the committed sweep.
+
+**Why these records must stay out of the corpus, and it is not the usual
+reason.** Every other control differs from its board in something that lands in
+`comparability_key`, so it forms its own group and could not be listed beside
+the corpus even if that were wanted. These carry the published configuration
+exactly, land in the *identical* group, and `latest_per_backbone` would let a
+seed-3 run evict a published seed-0 one.
+
+**A method note.** The first version of the separability test counted how often
+the better row wins, which reads as assumption-free and is underpowered: with
+two independent rows at sd 0.5 and 0.77 and a gap of 0.87, 5/5 arrives by chance
+about a third of the time. The paired t is the same data saying something a
+count cannot. At n=5 it still has little power, so a "tied" verdict here often
+means nobody measured enough times rather than that a pair is level.
+
 ## 16a-3 — registering the pose probe: what a probe *name* costs
 
 **2026-09-17.** `relative_pose` becomes the **eighteenth registered probe**.

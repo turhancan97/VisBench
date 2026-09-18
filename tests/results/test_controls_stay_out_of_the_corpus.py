@@ -98,13 +98,18 @@ def test_no_control_run_appears_in_the_corpus_under_any_spelling(path, corpus_ru
 def test_the_three_held_out_cells_are_still_held_out(corpus_runs):
     """The specific exclusion the general checks above were written for.
 
-    Named rather than left to the glob, because this one is the *dangerous*
-    kind: `hardware_a100`'s records share task, backbone, protocol, seed and
-    fingerprint with published corpus rows and differ only in the silicon,
-    which the schema did not record when they were made. They merge invisibly
-    and move a published ranking. The other control files could not collide
-    even if merged -- a different backbone name, head or probe keeps them in
-    their own comparability group.
+    Named rather than left to the glob, because this is one of the two
+    *dangerous* kinds: `hardware_a100`'s records share task, backbone,
+    protocol, seed and fingerprint with published corpus rows and differ only
+    in the silicon, which the schema did not record when they were made. They
+    merge invisibly and move a published ranking.
+
+    **`pose_seeds.jsonl` is the other, and is not covered here** -- see
+    `test_pose_seed_sweep.py`. It carries the published configuration exactly
+    and differs only in `seed`, which `comparability_key` does not read, so its
+    records land in the *identical* group as the board. Every other control file
+    could not collide even if merged: a different backbone name, head or probe
+    keeps it in its own comparability group.
     """
     held = _records(ROOT / "results" / "controls" / "hardware_a100.jsonl")
     assert len(held) == 3, f"expected the three re-run cells, found {len(held)}"
