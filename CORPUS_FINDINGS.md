@@ -197,18 +197,38 @@ Two standing cautions apply to everything below:
   optimiser rather than a discrete metric, and much larger — but "float noise
   amplified by the head" names a trigger, not a dose.
 
-  **So read this board to whole degrees, and treat adjacent rows closer than
-  about one degree as tied** — unchanged by 19b, and better founded, since the
-  scatter is what both the n=2 movement and the perturbation study measure.
-  **The tie list is calibrated to what separates two published cells** — same
-  seed, same code, two extractions — and *not* to what re-fitting at another
-  seed would do, which for `clip_vitb16` is 2.23 degrees. On the current board
-  that is
-  `dino_vitb16`/`dinov2_vitb14` (0.04 apart), `resnet50`/`convnext_base` (0.59),
-  `convnext_base`/`siglip_vitb16` (0.69), `clip_vitb16`/`supervised_vitb16`
-  (0.87) and `resnet18`/`clip_vitb32` (0.13). Every other adjacent gap is 1.7
-  degrees or more, and the tier-level findings above rest on rank correlations
-  over thirteen rows rather than on any one of those pairs.
+  **So read this board to whole degrees** — and for ordering two adjacent rows,
+  **read `results/controls/pose_seeds.jsonl` rather than the gap** (20a, the
+  table is in `results/controls/README.md`, reprinted by
+  `scripts/analyse_pose_seeds.py`). All thirteen backbones were re-fitted at
+  five seeds in the published configuration; every seed-0 row reproduces its
+  published cell at delta 0.0, so the sweep measures this board and not an
+  adjacent configuration. Seed-to-seed sd runs **0.32 to 1.09** (median 0.52)
+  and range **0.83 to 2.49** (median 1.33), so `clip_vitb16`'s 2.23 in 19b was
+  unremarkable — though that backbone reads **1.33** here, a third measurement
+  of one quantity disagreeing with the second as the second disagreed with the
+  first.
+
+  **The published tie list named the right five pairs, and understates two of
+  them.** Three are genuine ties — `resnet50`/`convnext_base` (paired t 2.14),
+  `convnext_base`/`siglip_vitb16` (2.29) and `clip_vitb16`/`supervised_vitb16`
+  (2.69). The other two are **not coin flips; the board's order is the minority
+  outcome**: across five seeds `dinov2_vitb14` beats `dino_vitb16` by **0.80**
+  (t −3.15) where the board shows it losing by 0.04, and `clip_vitb32` beats
+  `resnet18` by **2.083** (t −3.06) where the board shows it losing by 0.12 —
+  seventeen times the published gap, in the other direction.
+
+  **A gap threshold cannot express that, which is the part worth carrying.**
+  Widening the one-degree rule to the measured median range of 1.33 — the
+  obvious fix after 19b — would be *worse*: it would newly call
+  `dino_vitb8`/`dino_vitb16` (gap 1.94, t 4.57) and
+  `supervised_vitb16`/`resnet18` (1.58, t 5.94) tied when both are solidly
+  ordered, and still not notice the pair 0.12 apart that is reversed by 2.08.
+  Only **11%** of the seed variance is common-mode, so the two rows of a pair
+  move largely independently and the gap is one draw of a quantity whose spread
+  is unrelated to it. **No published number moves**; the board reports what seed
+  0 produced. The tier-level findings above rest on rank correlations over
+  thirteen rows rather than on any one adjacent pair.
 
   **`hardware` does not explain it and was never going to.** Both runs record
   the same GPU; what differs is an extraction that left no trace in any field.

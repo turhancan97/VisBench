@@ -73,6 +73,7 @@ step is next rather than attempting the whole roadmap in one session.
 | 16a-3 | Pose: registration, the 13-backbone board, the viewer, the docs page | done |
 | 19a | `scene_parsing`: NYUv2-40 as the nineteenth probe, and its board | done |
 | 19b | The pose board's noise, measured: a trigger rather than a dose | done |
+| 20a | The pose seed sweep: which adjacent rows are actually ordered | done |
 
 **A closed step's full write-up lives in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md), not here.** That file is the archive
@@ -192,9 +193,17 @@ trigger, not a dose** (19b, `results/controls/README.md`): it was published as
 "1e-5 in the features, amplified by thirty epochs into 0.93 degrees", and
 perturbing the features across a *thousand-fold* range moves the score by the
 same amount at every size, while changing only the seed moves it as much again —
-0.72 on `mae_vitb16` and **2.23** on `clip_vitb16`. So the tie list is
-calibrated to what separates two published cells, which share a seed, and not
-to a re-fit. Everything else is the candidate task backlog
+0.72 on `mae_vitb16` and **2.23** on `clip_vitb16`. **So do not order two
+adjacent rows from the gap** (20a): all thirteen were re-fitted at five seeds
+into `results/controls/pose_seeds.jsonl`, every seed-0 row reproduces its
+published cell exactly, and **two of the five pairs the tie list names come out
+the other way round** — `dinov2_vitb14` over `dino_vitb16` by 0.80 and
+`clip_vitb32` over `resnet18` by **2.08**, against published gaps of 0.04 and
+0.12 in the opposite direction. **A gap threshold is the wrong instrument and
+widening it would be worse**, since pairs 1.58 apart are solidly ordered while
+the reversed pair is 0.12 apart; only 11% of the seed variance is common-mode,
+so the gap is one draw of a quantity whose spread is unrelated to it. No
+published number moves. Everything else is the candidate task backlog
 further down this file; its cheap end is exhausted,
 and **three candidates were built and rejected** — photometric
 superpixels (0.021-0.043, which bought the oracle gate), DoG blobs (0.51 overlap
@@ -1205,6 +1214,19 @@ designed up front; extend it the same way, from a case that already runs.
   statistic, and prefer a bar several independent measurements agree on.** The
   same step's other half: **a perturbation study is how you tell a trigger from
   a dose**, and is cheap, since it needs no new data and no new backbone.
+
+- **A threshold on a gap cannot say whether two rows are ordered; a paired
+  re-fit can** (20a; the table is in `results/controls/README.md`). When runs
+  are repeatable, **re-run both rows under the same seeds and test the paired
+  difference** rather than comparing their gap to a noise figure — the gap is
+  one draw, and on the pose board pairs 1.58 apart are solidly ordered while a
+  pair 0.12 apart is **reversed by 2.08**. Widening the threshold to the
+  measured noise would have called two ordered pairs tied and still missed the
+  reversal. Only 11% of that board's seed variance is common-mode, so the two
+  rows move independently and no function of the gap can carry the answer.
+  **The gate that makes such a sweep mean anything is free**: the corpus cells
+  were run at seed 0, so the sweep's own seed-0 rows must reproduce them, and
+  all thirteen did at delta 0.0.
 - **Constructing a backbone draws from the global RNG, and `run()` seeds
   *before* it constructs.** So `run("dinov2_vits14", ...)` and
   `run(get_backbone("dinov2_vits14"), ...)` fit the head from different RNG
@@ -1692,10 +1714,10 @@ designed up front; extend it the same way, from a case that already runs.
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite **collects 2296 tests**, green on 2026-09-18 along with all three
+fast suite **collects 2301 tests**, green on 2026-09-18 along with all three
 lint steps, mypy and the `-W` docs build. The slow suite is **116** since
 16a-1, whose own slow test was run then; the other 115 were last green on
-`main` on 2026-09-11. Earlier fast counts, for dating a claim: 2281 at v0.21.0, 2222 at 16a-1,
+`main` on 2026-09-11. Earlier fast counts, for dating a claim: 2296 at 19b, 2281 at v0.21.0, 2222 at 16a-1,
 2261 at the pose board, 2160 at the grid finding, 2158 at
 the control guard, 2144 at
 `dino_vitb8`, 2126 at the docs-count guard, 2122 at the 0.18.0 release, 2113 at
@@ -2130,7 +2152,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 2296 fast tests
+pytest                                              # 2301 fast tests
 pytest -m slow                                      # 116, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/
