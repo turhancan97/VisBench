@@ -1308,6 +1308,37 @@ The four most recent entries were lifted out of `CLAUDE.md` on 2026-09-03,
 when that file passed the 150k-character limit it is loaded under for the second
 time. Nothing was rewritten; each paragraph is as its release recorded it.
 
+**`0.24.0` is fully released** (2026-09-19). On PyPI — wheel and sdist both
+(444,829 and 1,602,582 bytes, wheel sha256 `9318af39…`, sdist `bb3194f2…`) —
+tagged `v0.24.0`, **annotated** (tag object `6363f62`), on merge commit
+`bee5c07`, which is `main`, with a GitHub release cut from that tag (published
+2026-09-19T10:27:10Z) and archived by Zenodo as version DOI
+**`10.5281/zenodo.22843727`**, the **nineteenth**. The concept DOI
+`10.5281/zenodo.21822684` resolves to record 22843727 with `metadata.version`
+`v0.24.0`, read off Zenodo's API with `-L`. Both artifacts match the locally
+built ones byte for byte, checked against PyPI's own digests.
+
+**Verified out of the published wheel by import** — `__version__` 0.24.0,
+`SCHEMA_VERSION` **9**, **nineteen** probes, **fourteen** registered backbones,
+five heads, `show_probes() == list_probes()` — with an assert on
+`visbench.__file__`.
+
+**The archive abstract reads "Nineteen probes span"**, hand-checked on record
+22843727, and the deposit's publication date is **2026-09-19**, which is
+`date-released` advanced in the release commit rather than carried from
+v0.23.0's 18th. Both of those are rules this project learned the hard way and
+both now hold on their second test.
+
+**The order was upload then release, deliberately**, 17 seconds apart —
+10:26:53Z on PyPI against 10:27:10Z on GitHub. `0.23.0` recorded the opposite
+reading from a stale index poll; this one was taken from the artifacts' own
+`upload_time_iso_8601`, which is the lesson that entry left.
+
+**The GitHub release was cut, for the second release running.** It was missed on
+`0.21.0` and `0.22.0`, both with PyPI already complete and nothing turning red;
+since `0.23.0` it is a step of its own, confirmed with `gh release view`.
+Zenodo had archived this one before the concept DOI was read a minute later.
+
 **`0.23.0` is fully released** (2026-09-18). On PyPI — wheel and sdist both
 (444,829 and 1,501,424 bytes, wheel sha256 `d9f82b90…`, sdist `50be3c97…`) —
 tagged `v0.23.0`, **annotated** (tag object `5111af0`), on merge commit
