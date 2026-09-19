@@ -4,14 +4,26 @@
 # backbone), SEEDS runs inside each (20b).
 #
 #   mkdir -p logs results/controls/parts results/controls/seeds
-#   sbatch --array=0-38%4 slurm/seed_sweep.sbatch
+#   sbatch --array=0-181%4 slurm/seed_sweep.sbatch
 #   scripts/merge_controls.sh
 #   python scripts/analyse_seeds.py corner
 #
-# 3 probes x 13 backbones = 39 tasks, five seeds each. The array range is NOT
+# 14 probes x 13 backbones = 182 tasks, five seeds each. The array range is NOT
 # derived from the lists below and cannot be: #SBATCH directives are read before
 # any of this runs, so --array must be passed to match, and the guard below is
 # what turns a mismatch into an error rather than a quietly short sweep.
+#
+# The first three probes are the 20b pilot and were run at indices 0-38. That
+# ordering is kept so those indices still name the same (probe, backbone) pairs;
+# the remaining twelve were run as
+#
+#   VISBENCH_PARTIAL=1 sbatch --array=39-194%4 slurm/seed_sweep.sbatch
+#
+# against the fifteen-probe list that included `scene_classification`; the
+# indices above are the list as it stands.
+#
+# which is what VISBENCH_PARTIAL is for -- a deliberate gap, here "the boards
+# that were not already swept", rather than a short matrix nobody noticed.
 #
 # WHAT THIS MEASURES, AND WHY IT IS NOT A BOARD
 #
@@ -37,8 +49,8 @@
 #SBATCH --mem=64G
 #SBATCH --ntasks=1
 #SBATCH --job-name=visbench-seed-sweep
-#SBATCH --time=02:00:00
-#SBATCH --array=0-38%4
+#SBATCH --time=06:00:00
+#SBATCH --array=0-181%4
 #SBATCH --exclude=dgx1
 #SBATCH --output=logs/seed_sweep_%A_%a.log
 
@@ -68,15 +80,46 @@ fi
 # the problem this exists to correct.
 SEEDS=${SEEDS:-5}
 
-# The pilot: one saturated board, one dense low-level board, one localised
-# high-level board whose metric is discrete. Every probe here must have a
-# committed sweep file and vice versa, and the backbone list must equal the
-# corpus array's -- tests/scripts/test_seed_sweep_scripts.py pins both, because
-# a sweep short of a backbone is invisible afterwards.
+# Every trained board whose sweep is usable, which is all of them bar two.
+#
+#   * `relative_pose`'s sweep predates this directory and lives in
+#     `results/controls/pose_seeds.jsonl` (20a).
+#   * `scene_classification` is ABSENT DELIBERATELY. It was swept with the rest
+#     and eleven of its thirteen seed-0 rows do not reproduce their published
+#     cells -- deterministically, on identical features, with a *different* fit.
+#     Its records are kept at `results/controls/scene_classification_seeds.jsonl`
+#     rather than here, because a sweep that does not reproduce its board
+#     describes some adjacent configuration and must not be read as that board's
+#     noise. See results/controls/README.md. To re-sweep it (on other silicon,
+#     say):
+#
+#       SEEDS=5 RESULTS=results/controls/scene_classification_seeds.jsonl \
+#         scripts/build_corpus.sh scene_classification
+#
+# The three zero-shot probes -- retrieval, correspondence, similarity -- are
+# absent by construction: they fit no head, so a seed cannot move them, and a
+# test derives that from the corpus rather than trusting this comment.
+#
+# The first three are the 20b pilot, kept at the front so their finished array
+# indices keep naming the same pairs. Every probe here must have a committed
+# sweep file and vice versa, and the backbones must be the ones on the board
+# being swept -- tests/scripts/test_seed_sweep_scripts.py pins both, because a
+# sweep short of a backbone is invisible afterwards.
 PROBES=(
   classification
   corner
   detection
+  orientation
+  keypoints2d
+  occlusion_edge
+  edge
+  generic_segmentation
+  scene_parsing
+  depth
+  semantic_segmentation
+  fine_grained_classification
+  surface_normal
+  instance_segmentation
 )
 BACKBONE_LIST=(
   dinov2_vits14 dinov2_vitb14 clip_vitb16 clip_vitb32
