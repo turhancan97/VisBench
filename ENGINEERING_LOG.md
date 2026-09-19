@@ -1213,6 +1213,84 @@ predicts — DINOv2 > CLIP-16 > the 7x7 grids, matching all eight dense probes.
 
 ---
 
+## What is on this machine — the dataset survey
+
+Moved out of `CLAUDE.md` on 2026-09-19, when that file crossed its budget for
+the fifth time. It is reference material consulted when *picking* a task, not
+every session, and `CLAUDE.md` keeps the rule it taught — check both levels of
+`/shared/sets/datasets/`, and re-check a path before quoting it as a blocker —
+plus a pointer here. `docs/roadmap.md` has the public version of the candidate
+list; this is the part a contributor cannot see, checked on 2026-08-01 and
+corrected on 2026-09-14. **A candidate whose dataset is absent is not cheap,
+however simple its protocol.**
+
+**`/shared/sets/datasets/` has a `vision/` subdirectory, and a top-level listing
+does not see into it.** 96 more datasets live there, including ones a first pass
+recorded as absent — this note exists because that pass said Places365 and
+NIGHTS were missing when both are on disk. Check both levels.
+
+**Present at the top level:** `ADE20K` (`ADEChallengeData2016`), `COCO`
+(`instances_*`, `captions_*`, `person_keypoints_*` — **no panoptic and no
+stuff**), `cub_200_2011`, `stanford_cars`, `stanford_dogs`, many ImageNet
+variants, `Imagenette`. **Present under `vision/`:** `nights` (what `similarity`
+reads), `places365_standard`, `SUN397`, `mit67_indoor_scenes`, `caltech101`,
+`country211`, `CUB-200`, `oxford_flowers102`. Two of those became probes as
+dataset swaps on the linear-probe path — `scene_classification` on
+`places365_standard` and `fine_grained_classification` on
+**`vision/CUB-200/images_train_test/`**, which already holds the official
+5994/5794 split as `train/<class>/` + `val/<class>/`. Two traps there: the
+top-level `cub_200_2011/CUB_200_2011` is **permission-denied**, and `test/` is a
+**symlink to `val/`**, so naming `val` names the official test set while
+`--split test` would index the same files under a different path and so a
+different fingerprint. Stanford Cars is the same folder shape and still open;
+Stanford Dogs and Flowers102 are **not**, since both keep their splits in
+`.mat` files — a different cost class from a folder swap.
+
+**Absent at both levels:** any optical-flow set (Sintel, KITTI, FlyingChairs),
+any intrinsic-image set (IIW, SAW, MIT intrinsic). `bsds300` is the MAF
+density-estimation benchmark, not BSDS500; **BSDS500 itself is reachable only
+through a mirror**, since Berkeley times out from this machine while the network
+is otherwise fine, so `scripts/fetch_bsds500.py` reads the `BIDS/BSDS500` GitHub
+mirror at a pinned commit into gitignored `data/bsds500/`.
+
+**Two entries this survey recorded as absent are present, and both were found
+by listing rather than by the note being doubted** (2026-09-14). The lesson is
+the one the `vision/` subdirectory already taught: **a nested path defeats the
+listing that produced this section, so re-check before quoting it as a
+blocker.**
+
+- **NYUv2 is here, twice, in two cost classes.**
+  `vision/probing_3D/nyuv2_new/{train,test}/` is the **cheap** one — the
+  canonical **795/654** labeled split already extracted as stem-matched folders
+  `images/` (png), `depths/`, `normals/` (both `.npy`) and
+  `segmentation_nyu40/` (png). That is `DenseFolderDataset`'s layout, and
+  `.npy` needs no new loader: `_TARGET_SUFFIXES` has carried it since 5d and
+  `load_depth_map`/`load_normal_map` take it at face value. **A first draft of
+  this bullet said it cost a loader** — the claim was written from "every dense
+  target in the corpus is a PNG", which is true and says nothing about what the
+  loaders accept. Check the suffix table, not the datasets.
+  `vision/probing_3D/nyuv2/` is the raw form
+  (`nyu_depth_v2_labeled.mat` 2.9 GB, `nyuv2_snorm_all.pkl` 8.9 GB,
+  `labels40.mat`) — the `.mat` cost class that puts Stanford Dogs and
+  Flowers102 out of "folder swap" reach. `nyu_geonet/` is a third, per-frame
+  `.mat`.
+- **DAVIS is here.** `vision/DAVIS` has `JPEGImages/480p` and
+  `Annotations/480p` over **90 sequences** with `ImageSets/{2016,2017}/
+  {train,val}.txt`. It is the *top-level* `davis` that holds two sequences of
+  derived output — the two are different directories, and the old note named
+  the wrong one. Video still needs machinery nothing here has; what changed is
+  that the data is no longer the blocker.
+
+**The Taskonomy copy on disk carries eight domains only**: `depth_zbuffer`,
+`edge_occlusion`, `edge_texture`, `keypoints2d`, `keypoints3d`, `normal`,
+`principal_curvature`, `reshading`, plus `rgb` and `mask_valid`. Taskonomy
+*publishes* `vanishing_point`, `room_layout`, `segment_unsup2d/25d` and
+`point_matching`, and none are here — so the roadmap items that look like free
+Taskonomy wins each need a download first.
+
+
+---
+
 ## Release history — what each upload verified
 
 Moved out of `CLAUDE.md` on 2026-08-20 with the v0.3 step write-ups, and for

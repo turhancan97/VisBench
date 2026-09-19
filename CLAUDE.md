@@ -88,33 +88,31 @@ several of those decisions look wrong until you read the numbers.
 to `ENGINEERING_LOG.md`, and anything about *what a board means* to
 [`CORPUS_FINDINGS.md`](CORPUS_FINDINGS.md); add at most a few lines here.**
 This file is loaded into every session's context whole, so it has a budget, and
-it has now been over that budget **four times** — 203k, 151k, 158k and **150k
-on 2026-09-17**, trimmed to ~134k by compressing eleven
-retrospective blocks to the rules they left behind: the corpus-claim list (the
-largest single block in the file, and a restatement of `CORPUS_FINDINGS.md` in
-the same detail), the pose write-up, 9a, 9d, 10a, the DPT control, the
-optional-extra trap, the split control, the second-dataset edit list, the
-closed library-surface backlog, the derived-target gauntlet and schema v8.
-**10a was the only one whose derivation was not already filed elsewhere**, so
-its full text moved to `ENGINEERING_LOG.md`; the rest were pointed at the file
-that already owned them.
+it has now been over that budget **five times** — 203k, 151k, 158k, 150k, and
+**148k on 2026-09-19**, trimmed to **135.8k**.
 
-**Every time, the growth was retrospective narrative rather than rules** — so
-when it next crosses, look for a closed step's write-up, a per-release
-paragraph, or a claim restated here in the same detail as the file that owns
-it, before touching "decisions already paid for", which is the bulk of this
-file and is what it is for. **Each move keeps the rule here and sends the
-derivation there**; nothing is deleted, and the owning file says so.
+**Every time, the growth has been retrospective narrative rather than rules**,
+and every time the fix has been the same: keep the *rule* here and send the
+*derivation* to the file that already owns it, which then says so. Nothing is
+deleted. The 2026-09-17 pass compressed eleven blocks (the corpus-claim list,
+the pose write-up, 9a, 9d, 10a, the DPT control, the optional-extra trap, the
+split control, the second-dataset edit list, the library-surface backlog, the
+derived-target gauntlet and schema v8); the 2026-09-19 pass compressed the
+gauntlet again, the pose pre-measurement, the relative-pose paragraph, the
+post-v0.11 probe summary, the per-release rules, the closed-issue list, the Hub
+paragraphs and the node map, and **moved the dataset survey wholesale** to
+`ENGINEERING_LOG.md`. **10a and the dataset survey are the only two whose
+derivation was not already filed elsewhere**, so their full text moved rather
+than being cut.
+
+**So when it next crosses, look first for a closed step's write-up, a
+per-release paragraph, or a claim restated here in the same detail as the file
+that owns it** — before touching "decisions already paid for", which is the bulk
+of this file and is what it is for.
 
 **Read `CORPUS_FINDINGS.md` before quoting any board** —
 this file keeps only the claims, and several of them corrected an earlier
 published reading.
-
-Steps 7a-7e ship no new probe, backbone or metric. They are the **contributor-
-facing surface**: the shortest path from `pip install` to a number, where the
-reference material lives, how someone outside this file learns the rules, and
-how the work is cited. All five are **v0.7.0**, the release that changes no
-number — every measurement v0.6.1 reported, v0.7.0 reports identically.
 
 ---
 
@@ -186,47 +184,34 @@ published claim:
   refuted half of 10d's own published claim before either shipped, and the
   three-tier separation 10b announced no longer holds for *high-level*.
 
-**The relative-camera-pose line is closed** (16a-1 to 16a-3, 2026-09-17): an
-eighteenth probe, its thirteen-backbone board, and the linear control committed
-beside it. Its two protocol decisions are not to be reopened as implementation
-details: **the pair count is pinned at eight partners per training anchor**, and
-**the board uses probe3d's MLP** — the first VisBench board whose head is not a
-linear map (`DPTHead` is nonlinear and is a *control*; every head a published
-board uses is an affine layer or a 1x1 convolution). Two standing consequences:
-**read that board to whole degrees**, since that head's run-to-run scatter is
-about a degree (against one cache at one seed it reproduces bit for bit), and it
-is the first board close to *orthogonal* to the high-level tier, so a pose
-number is near-independent evidence about a backbone. **The scatter is a
-trigger, not a dose** (19b, `results/controls/README.md`): it was published as
-"1e-5 in the features, amplified by thirty epochs into 0.93 degrees", and
-perturbing the features across a *thousand-fold* range moves the score by the
-same amount at every size, while changing only the seed moves it as much again —
-0.72 on `mae_vitb16` and **2.23** on `clip_vitb16`. **So do not order two
-adjacent rows from the gap** (20a): all thirteen were re-fitted at five seeds
-into `results/controls/pose_seeds.jsonl`, every seed-0 row reproduces its
-published cell exactly, and **two of the five pairs the tie list names come out
-the other way round** — `dinov2_vitb14` over `dino_vitb16` by 0.80 and
-`clip_vitb32` over `resnet18` by **2.08**, against published gaps of 0.04 and
-0.12 in the opposite direction. **A gap threshold is the wrong instrument and
-widening it would be worse**, since pairs 1.58 apart are solidly ordered while
-the reversed pair is 0.12 apart; only 11% of the seed variance is common-mode,
-so the gap is one draw of a quantity whose spread is unrelated to it. No
-published number moves. Everything else is the candidate task backlog
-further down this file; its cheap end is exhausted,
-and **three candidates were built and rejected** — photometric
-superpixels (0.021-0.043, which bought the oracle gate), DoG blobs (0.51 overlap
-with `corner`) and **relative depth ordering** (2026-09-04, the first rejected
-for failing to *rank* rather than to be recoverable: it cleared the gate at
-94.0% and then reproduced the `depth` board at Spearman **+1.000**, kept
-unregistered as a five-record control, and its lesson is the gauntlet's floor
-rule below). **The BSDS500 line is closed at two steps** (12a-1/12a-2): the
-dataset and a validated ODS/OIS/AP metric ship, reproducing the published human
-ODS of 0.80 at **0.8030**, and the probe was **refused by the oracle gate** —
-its write-up and the two routes that could reopen it are in
-`visbench/tasks/low_level/README.md`. **Instance segmentation on VOC shipped**
-(14a-1 to 14a-4, 2026-09-08) as the seventeenth probe and board and was the
-exception to "nothing cheap remains". Re-confirm what is wanted before starting
-anything; do not assume this order is a plan.
+**The relative-camera-pose line is closed** (16a-1 to 16a-3, 2026-09-17), and
+its sweeps with it (19b, 20a, 20b, 20c). Four rules; every number is in
+`results/controls/README.md` and `CORPUS_FINDINGS.md`. **The pair count is
+pinned at eight partners per training anchor**, and **the board uses probe3d's
+MLP** — the first VisBench board whose head is not a linear map, `DPTHead` being
+nonlinear but a *control*. **Read that board to whole degrees**: its run-to-run
+scatter is about a degree, and that scatter is a **trigger rather than a dose**
+— perturbing the features across a thousand-fold range moves the score by the
+same amount at every size, and changing only the seed moves it as much again.
+**It is the first board close to orthogonal to the high-level tier**, so a pose
+number is near-independent evidence about a backbone. For ordering two adjacent
+rows, read the sweep rather than the gap — see the sweep rule below, which now
+covers every trained board.
+
+Everything else is the candidate task backlog further down this file; its cheap
+end is exhausted, and **three candidates were built and rejected** —
+photometric superpixels (which bought the oracle gate), DoG blobs (0.51 overlap
+with `corner`) and **relative depth ordering** (the first rejected for failing
+to *rank* rather than to be recoverable: it cleared the gate at 94.0% and then
+reproduced the `depth` board at Spearman **+1.000**, and its lesson is the
+gauntlet's floor rule below). **The BSDS500 line is closed at two steps**
+(12a-1/12a-2): the dataset and a validated ODS/OIS/AP metric ship, reproducing
+the published human ODS of 0.80 at **0.8030**, and the probe was **refused by
+the oracle gate** — see `visbench/tasks/low_level/README.md` for the two routes
+that could reopen it. **Instance segmentation on VOC shipped** (14a-1 to 14a-4)
+as the seventeenth probe and was the exception to "nothing cheap remains".
+Re-confirm what is wanted before starting anything; do not assume this order is
+a plan.
 
 **The one thread that was open — why `detection` alone fails to reproduce — is
 closed**: GPU non-determinism made visible by a discrete metric, never a bug,
@@ -234,27 +219,19 @@ and detection reproduces to *three* decimals rather than four. See
 [`CORPUS_FINDINGS.md`](CORPUS_FINDINGS.md) for the table; **there is no open
 lead here any more.**
 
-**Three probes shipped after v0.11.0 and each has a 12-backbone board**, with
-their readings in [`CORPUS_FINDINGS.md`](CORPUS_FINDINGS.md) and their reference
-on their own page under `docs/probes/`. `scene_classification` (14th, place) and
-`fine_grained_classification` (16th, subordinate, the official CUB-200-2011
-5994/5794 split run with no `--limit`, which is what makes it comparable to the
-published CUB literature) share the object `classification` linear-probe path
-and ask a different question each — a distinct probe *name* for the reason in
-"decisions already paid for", confirmed edit for edit the second and third time.
-`orientation` (15th) is the fourth low-level task and the second computed from
-the frame, the first whose target is a *direction*: `(cos 2θ, sin 2θ)` with its
-length set to the coherence, `orientation_error` in degrees of
-coherence-weighted angular error halved so 45 is chance, on `corner`'s pinned
-`data/corner_frames/` set.
-
-**Two findings from those boards are load-bearing enough to state here**, both
-expanded in `CORPUS_FINDINGS.md`: the two image-level classification probes
-rank with the *localised* cluster (`detection`, `semantic_segmentation`) rather
-than with the object board they subclass — `fine_grained_classification`
-correlates **+0.832 with `detection`** against +0.322 with `classification` —
-and `orientation`'s board is **not** independent even though its target is,
-ranking like `keypoints2d` (rho +0.95), `corner` (+0.82) and `edge` (+0.79).
+**Three probes shipped after v0.11.0** — `scene_classification` (14th, place),
+`orientation` (15th, the fourth low-level task and the first whose target is a
+*direction*: `(cos 2θ, sin 2θ)` with its length set to the coherence, on
+`corner`'s pinned frames) and `fine_grained_classification` (16th, subordinate,
+the official CUB 5994/5794 split run with no `--limit`, which is what makes it
+comparable to the published CUB literature). The two classification ones share
+the object `classification` linear-probe path and ask a different question each
+— a distinct probe *name* for the reason in "decisions already paid for".
+**Their readings are in [`CORPUS_FINDINGS.md`](CORPUS_FINDINGS.md) and on their
+own `docs/probes/` pages**; the two worth knowing before you quote anything are
+that the image-level classification probes rank with the *localised* cluster
+rather than with the object board they subclass, and that `orientation`'s board
+is **not** independent even though its target is.
 
 **The library-surface backlog is closed** (2026-08-28) — `visbench show`,
 `examples/custom_backbone.py` and the dataset bridges; see its section below.
@@ -272,20 +249,19 @@ the generated tables live with the reference material rather than in the README,
 and `scripts/render_tables.py` takes a list of marked files; and
 `CITATION.cff` + `.zenodo.json` are what get a release archived with a DOI.
 
-**What v0.6.0 through v0.5.0 left behind, in one paragraph** — the narratives
-are in `CHANGELOG.md` and the derivations in `ENGINEERING_LOG.md`; these are
-the facts still load-bearing. `results/corpus/visbench.jsonl` is a committed,
-**append-only** corpus of every probe against every backbone;
+**What v0.6.0 through v0.5.0 left behind, in one paragraph** — narratives in
+`CHANGELOG.md`, derivations in `ENGINEERING_LOG.md`; these are the facts still
+load-bearing. `results/corpus/visbench.jsonl` is a committed, **append-only**
+corpus of every probe against every backbone;
 `visbench/results/leaderboard.py` holds the rules for which records may be
-ranked together, `visbench/results/render.py` turns an answer into markdown,
-and every marker-delimited table plus `LEADERBOARD.md` is generated from the
-corpus with a **fast** test failing if either drifts. `visbench/hub/`
-serialises a trained head with the backbone identity beside it, behind a
-`[hub]` extra. Dense probes take `finetune_blocks=N` / `--finetune-blocks N`,
-**DINOv2 only**, recorded under schema v6's `finetune` field, with the frozen
-blocks below the cut cached separately in `PrefixCache`. Four Taskonomy domains
-declare how they mark an invalid pixel rather than exposing a mask —
-`depth_zbuffer`, `normal`, `edge_occlusion`, `keypoints3d` — and the
+ranked together, `visbench/results/render.py` turns an answer into markdown, and
+every marker-delimited table plus `LEADERBOARD.md` is generated from the corpus
+with a **fast** test failing if either drifts. `visbench/hub/` serialises a
+trained head with the backbone identity beside it, behind a `[hub]` extra. Dense
+probes take `finetune_blocks=N`, **DINOv2 only**, recorded under schema v6's
+`finetune`, with the frozen prefix cached in `PrefixCache`. Four Taskonomy
+domains declare how they mark an invalid pixel rather than exposing a mask —
+`depth_zbuffer`, `normal`, `edge_occlusion`, `keypoints3d` — and their
 `target_transform` / `invalid` / `masked` settings land in `dataset_params`,
 which is what that field was added for. Edge detection is dense magnitude
 regression on `edge_texture` recorded as `visbench_edge_regression`, **not**
@@ -332,19 +308,16 @@ collection, dry-run unless `--create`.
 against DINOv2-S/14 and DINOv2-B/14, one repository per pair at
 `turhancan97/visbench-<probe>-<backbone>`, in a collection whose URL is quoted
 in `README.md` and `docs/guides/sharing.md` — **read it from one of those two
-files rather than reconstructing it**, since a Hub collection slug carries a
-generated hash suffix. That is ten of the fourteen probes that train a head:
-`scene_classification`, `fine_grained_classification`, `orientation` and
-`instance_segmentation` all shipped after the push. The three zero-shot probes
-are deliberately absent, which is a different reason.
+files rather than reconstructing it**, since the slug carries a generated hash.
+Four probes that train a head shipped after the push, and the three zero-shot
+ones are deliberately absent.
 
 Republishing the board is `PUSH_TO=... PUSH_PUBLIC=1 scripts/build_corpus.sh`.
 **Point `RESULTS=` at a scratch file, never `results/corpus/visbench.jsonl`**,
-so the run can be diffed against the corpus instead of replacing the reference
+so the run can be diffed against the corpus rather than replacing the reference
 it would be checked against — that diff is the only reason the seeding bug below
 was ever found. And **do not pipe a long publishing run through `tail`**: it
-buffers, so a run killed part-way leaves no log and the Hub has to be queried to
-find out what shipped.
+buffers, so a run killed part-way leaves no log.
 
 **Eighteen releases are archived, `0.23.0` the newest** (2026-09-18). Byte
 counts, wheel digests, the commit each tag resolves to and what every
@@ -363,27 +336,18 @@ the step that feels like the finish line, CI went green long before, and
 rule's first test and it held — the release was cut as a step of its own and
 confirmed with `gh release view`, and Zenodo had archived it a minute later.
 
-Four rules those releases left behind, beyond the standing list below:
-
-- **When a change deletes a file the README names, the clock starts** (0.16.0).
-  A PyPI version can never be re-uploaded, so dead links on the front page are
-  only fixed by the *next* release.
-- **Read Zenodo's API before claiming an archive is wrong** (0.16.1): a
-  `CITATION.cff`/`.zenodo.json` divergence is half wrong and half fine, since
-  Zenodo prefers the latter and GitHub's cite button the former. And **when a
-  docstring states a property as absolute, check whether the test states it that
-  way too, and prefer the test's wording.**
-- **Both archive abstracts are hand-checked whenever a probe ships** (0.17.0).
-  `CITATION.cff` and `.zenodo.json` each state the probe count in prose, and
-  `tests/test_citation.py` compares the two files' *titles* only. Record
-  22681020 reads "Seventeen probes span"; three older archives say "Fifteen",
-  which is what 0.16.1 was spent discovering and cannot be fixed after the fact.
-- **An empty `uv lock` diff after a version bump is a symptom, not a pass**
-  (0.18.0, and it nearly shipped a wrong artifact). The version lives in **two**
-  literals — `pyproject.toml` and `visbench/__init__.py` — and `uv.lock` pins
-  only the former, so bumping `__init__.py` alone produces no diff, which looks
-  like success and means the wheel would build at the *old* version while
-  `__version__` reports the new one. A bump always moves the lockfile.
+Four rules those releases left behind, beyond the standing list below; the
+release-by-release detail is in `ENGINEERING_LOG.md` under "Release history".
+**A PyPI version can never be re-uploaded, so a dead link or a stale line on the
+front page is only fixed by the *next* release** (0.16.0). **Read Zenodo's API
+before claiming an archive is wrong** (0.16.1) — it prefers `.zenodo.json` where
+GitHub's cite button prefers `CITATION.cff`, so a divergence is half wrong and
+half fine. **Both archive abstracts are hand-checked whenever a probe ships**
+(0.17.0), since each states the probe count in prose and
+`tests/test_citation.py` compares only the two files' *titles*; three older
+archives say "Fifteen" and always will. **An empty `uv lock` diff after a
+version bump is a symptom, not a pass** (0.18.0): the version lives in two
+literals and the lockfile pins only one, so a bump always moves the lockfile.
 
 **The concept DOI is `10.5281/zenodo.21822684`**, unchanged across all
 **eighteen** version DOIs and now resolving to v0.23.0 (confirmed against
@@ -908,35 +872,32 @@ designed up front; extend it the same way, from a case that already runs.
   was written to correct.
 
 - **The cluster's node map, measured rather than inferred.** The usable set is
-  `dgx1`, `dgx2` and `dgxa100` — **`dgxh100` cannot run `.venv` at all**, since
-  it ships `/usr/bin/python3.12` and no 3.10, so `.venv/bin/python` is a dead
-  symlink there and a job dies in one second with "cannot execute: required file
-  not found". Its `--qos=quick` refusal (a misleading `QOSMaxGRESPerJob`, fixed
-  by `--qos=normal --gres=gpu:1`) is a *scheduling* obstacle in front of that,
-  and clearing it only buys the right to fail on the node — so a QoS fix is not
-  evidence a node is usable. `dgxa100` **is** usable, checked by importing torch
-  and visbench there rather than inferred from its Ubuntu 24.04: it ships
-  `/usr/bin/python3.10` beside 3.12.
+  `dgx1`, `dgx2` and `dgxa100`. **`dgxh100` cannot run `.venv` at all** — it
+  ships `/usr/bin/python3.12` and no 3.10, so `.venv/bin/python` is a dead
+  symlink and a job dies in one second; its `--qos=quick` refusal is a
+  *scheduling* obstacle in front of that, so **a QoS fix is not evidence a node
+  is usable**. `dgxa100` is usable, checked by importing torch there rather than
+  inferred from its Ubuntu version.
 
-  **`dgx1` is degraded and does not fail like a broken node** (found running
-  10c). It accepts work and starves it — uniformly **~600x slow**, `import
-  torch` returning in **1376.7 s** against ~2 s on dgx2 — and nothing in Slurm
-  reports it unhealthy, so a job hangs with an empty log and the first read is
-  that your new code is broken. "It hangs" is the wrong summary and invites a
-  longer walltime: given three hours it imported, then spent **4.5 hours on one
-  CUB cell** that takes 80 s on `dgxa100` and timed out having written no
-  record. **Submit with `--exclude=dgx1`**, and when a job here hangs with no
+  **`dgx1` is degraded and does not fail like a broken node**: it accepts work
+  and starves it, uniformly ~600x slow (`import torch` in **1376.7 s** against
+  ~2 s on dgx2), with nothing in Slurm reporting it unhealthy — so a job hangs
+  with an empty log and the first read is that your new code is broken. Given
+  three hours it imported, then spent 4.5 hours on one CUB cell that takes 80 s
+  elsewhere. **Submit with `--exclude=dgx1`**, and when a job hangs with no
   output, time an `import torch` on the node before suspecting the code.
 
-  **`dgx2` can go `DRAIN` mid-run** (it did, "Kill task failed"), which leaves
-  `dgxa100` as the only healthy node — and it is the one whose silicon differs.
-  An A100 has TF32 where a V100 has none, so see the reproducibility entry in
-  `CORPUS_FINDINGS.md` before putting corpus records on one: TF32 moves a dense
-  board by ~1e-6, but three `fine_grained_classification` cells do not reproduce
-  across the two. **Do not read `torch.backends.cudnn.allow_tf32` as evidence of
-  the hardware** — it is `True` by default and reads `True` on a V100 too, where
-  there is no TF32 unit for it to enable; the question is settled by
-  `get_device_name` or by measuring the effect.
+  **`dgx2` can go `DRAIN` mid-run**, which leaves `dgxa100` as the only healthy
+  node — and it is the one whose silicon differs: an A100 has TF32 where a V100
+  has none, so see the reproducibility entry in `CORPUS_FINDINGS.md` before
+  putting corpus records on one. **Do not read
+  `torch.backends.cudnn.allow_tf32` as evidence of the hardware** — it is `True`
+  by default and reads `True` on a V100 too; settle it with `get_device_name`.
+
+  **An array over 100 tasks is refused at submission** (`MaxSubmitJobsPU=100` on
+  every QoS, 2026-09-19), and the message names a job *submit* limit beside size
+  and time limits, which reads as a walltime problem. The corpus array is 247
+  tasks and the seed sweep 182, so both have to be chunked.
 
 - **The corpus matrix is defined in two files, and one of them was short by a
   probe for a whole release** (10b). `slurm/corpus.sbatch`'s `PROBES` had twelve
@@ -1361,88 +1322,51 @@ designed up front; extend it the same way, from a case that already runs.
   `DerivedTargetDataset` does not subclass `DenseFolderDataset`.
 
 - **The gauntlet asks whether a target is distinctive; it never asked whether
-  it is *recoverable*. Photometric superpixels is what that cost** (built and
-  rejected 2026-08-28). SLIC boundary regression passed every gate and then
-  scored **0.0434 / 0.0209 / 0.0238** on DINOv2-S, CLIP-B/16 and ResNet-50,
-  where the weakest shipped low-level probe scores 0.179-0.236 — spread 0.023,
-  and `train_loss` **lowest** for the worst scorers, so the heads had learned
-  the mean boundary density and nothing about location.
-
-  **The missing check was an oracle, and it now ships** (2026-09-01).
+  it is *recoverable*, and the oracle gate is what closed that** (superpixels
+  built and rejected 2026-08-28; the gate 2026-09-01. Every number is in the
+  "oracle gate" section of `visbench/tasks/low_level/README.md`, the DPT half in
+  `results/controls/README.md`, reprinted by `scripts/analyse_dpt_control.py`).
   `DenseTrainingTask.evaluate_oracle` pools the target to the feature grid,
-  upsamples it back and scores it with the probe's own metric — what a perfect
-  backbone would make available, since a dense probe sees one feature vector per
-  patch and signal finer than a patch is *absent from its input* rather than
-  merely hard to predict. No backbone, no features, no fitted head, so it costs
-  one pass over a split rather than a board.
-  `CorrespondenceTask.evaluate_ceiling` is the same idea, arrived at the same
-  way. **Run `scripts/oracle_ceiling.py` before writing the next derived
-  task**; the numbers are in the "oracle gate" section of
-  `visbench/tasks/low_level/README.md`, and the bar it calibrates is the four
-  shipped magnitude targets at 0.53–0.83 against superpixels' **0.25** on a
-  16x16 grid (0.43–0.67 against 0.11 at a ResNet's 7x7). Five things about it
-  that are not obvious:
+  upsamples it back and scores it with the probe's own metric — no backbone, no
+  features, no fitted head, so it costs one pass over a split rather than a
+  board. **Run `scripts/oracle_ceiling.py` before writing the next derived
+  task**: the bar is the four shipped magnitude targets at 0.53-0.83 against
+  superpixels' **0.25** on a 16x16 grid. Seven rules, none of them obvious:
 
   - **A probe opts in**, `TARGET_STYLES`-style, and every other dense probe
-    raises. Pooling is the right bottleneck only for a target that averages —
-    the mean of classes 1 and 15 is class 8 — and a silently defaulting oracle
-    would return a confident number about nothing, which is worse than none for
-    a gate whose job is to stop work.
+    raises — pooling is the right bottleneck only for a target that averages,
+    and a silently defaulting oracle would return a confident number about
+    nothing.
   - **The upsample is bilinear because `LinearHead`'s is**, so the gate is never
-    more permissive than the heads it protects. Even a target built from hard
-    grid cells scores ~0.88 rather than 1.0.
-  - **It is a bar, never a denominator.** Unlike `evaluate_ceiling` it is an
-    achievable score rather than a proven bound, and the ratio does not
-    discriminate anyway: `corner` reaches 80% of its oracle and `keypoints2d`
-    41%, and both rank backbones fine.
-  - **It measures a candidate's ceiling and nothing measured its floor, which
-    is the gap relative depth ordering cost** (2026-09-04). Relative depth
-    **cleared the gate at a 94.0% oracle and was rejected anyway**: "the lower
-    point in the image is nearer" scores **65.2%** with no features at all, so
-    the usable band was 0.157 wide and the three strongest backbones landed
-    **0.0007** apart. `corner` ranks fine at a comparable 0.83 ceiling *because
-    its trivial floor is near zero*. **A ceiling of 0.9 above a floor of 0.7 is
-    a worse probe than a ceiling of 0.6 above a floor of 0.** Name the cheapest
-    shortcut — an image coordinate, a per-image constant, the dataset mean —
-    and measure it on the samples the metric will use;
-    `scripts/premeasure_ordering.py` is the worked example.
-  - **It models a *linear* head exactly, and it is a bar for the head VisBench
-    reports rather than a bound on what is achievable** (the DPT control; every
-    number is in `results/controls/README.md`, which
-    `scripts/analyse_dpt_control.py` reprints). A DPT head reaches 54-104% of
-    the oracle across five probes and nine ViTs, exceeding it only for
-    `mae_vitb16` — **not a property of decoders**, which is the reading the
-    n=2 version invited. **A head is not a neutral magnifying glass**: two of
-    five ViT boards change leader, 24 of 174 separable pairs reorder, and on
-    the CNNs `convnext_base` goes first to last — the demonstration behind
-    reporting the *linear* number when comparing representations. **A DPT
-    number is good to three decimals** where the linear boards reproduce at
-    ~1e-7, so count a reordering only over pairs both boards separate by more
-    than that. **A CNN's DPT run moves the oracle too**, so only the
-    DPT/linear *gain* is comparable there and the ViT group is the clean
-    control.
+    more permissive than the heads it protects.
+  - **It is a bar, never a denominator**, and the ratio does not discriminate:
+    `corner` reaches 80% of its oracle and `keypoints2d` 41%, and both rank.
+  - **It measures a ceiling and nothing measured the floor** — relative depth
+    cleared the gate at 94.0% and was rejected anyway, because an image
+    coordinate alone scores 65.2%. **A ceiling of 0.9 above a floor of 0.7 is a
+    worse probe than a ceiling of 0.6 above a floor of 0.** Name the cheapest
+    shortcut and measure it; `scripts/premeasure_ordering.py` is the worked
+    example.
+  - **It models a *linear* head exactly**, so it bounds the head VisBench
+    reports rather than what is achievable: a DPT head reaches 54-104% of it,
+    exceeding it only for `mae_vitb16`. **A head is not a neutral magnifying
+    glass** — two of five ViT boards change leader and `convnext_base` goes
+    first to last on the CNNs — and **a DPT number is good to three decimals**
+    where the linear boards reproduce at ~1e-7.
+  - **It has refused something**: BSDS500, at a 0.4193 ODS ceiling against
+    published detectors at 0.60-0.79 — one 60-second run instead of a
+    12-backbone board, and the best DPT ratio anywhere does not reopen it. **Do
+    not read that 0.42 against superpixels' 0.25**; one is ODS and the other a
+    correlation, which an earlier draft got wrong.
+  - **Calibrate a new rejection criterion against something that already
+    passed** before letting it reject anything — a pooled-resolution overlap
+    check nearly vetoed a candidate at 0.684 until the shipped `corner` target
+    read 0.781 on the same check.
 
-  **It has now refused something** (2026-09-01). The BSDS500 probe was not built
-  because the gate put a linear probe's ceiling at **0.4193 ODS** on the 16x16
-  grid every corpus backbone produces, against published detectors at 0.60-0.79
-  and human agreement at 0.80 — one 60-second run instead of a 12-backbone
-  board. Scaling it by the best DPT ratio seen anywhere (1.038) gives ~0.435,
-  so the DPT result does not reopen it. **Do not read that 0.42 against the 0.25
-  that rejected superpixels** — one is ODS and the other Pearson correlation,
-  and an earlier draft made exactly that mistake.
-
-  **A pooled-resolution overlap check nearly became a false veto**: the
-  boundary map reads 0.267 against `edge` at full resolution and 0.684 pooled to
-  a 16x16 grid, which looked decisive until the shipped `corner` target read
-  **0.781** there and its board ranks differently from `edge` anyway.
-  **Calibrate a new rejection criterion against something that already passed
-  before letting it reject anything.**
-
-  What survived: `DerivedTargetDataset` memoises computed targets
-  (`MEMO_LIMIT`), because `CachedFeatures.__getitem__` calls
-  `dataset.target(index)` on every access — a ten-epoch streaming run was
-  recomputing every target ten times, which `corner` and `orientation` both
-  paid.
+  What else survived: `DerivedTargetDataset` memoises computed targets
+  (`MEMO_LIMIT`), because `CachedFeatures.__getitem__` calls `dataset.target()`
+  on every access and a ten-epoch streaming run was recomputing each one ten
+  times.
 
 - **The overlap check is a veto, and `orientation` is the probe that proves it
   earns its keep** (2026-08-28). DoG-blob detection was the obvious next derived
@@ -1757,21 +1681,16 @@ designed up front; extend it the same way, from a case that already runs.
 fast suite **collects 2359 tests**, green on 2026-09-19 along with all three
 lint steps, mypy and the `-W` docs build. The slow suite is **116** since
 16a-1, whose own slow test was run then; the other 115 were last green on
-`main` on 2026-09-11. Earlier fast counts, for dating a claim: 2324 at 20b, 2304 at v0.23.0, 2301 at 20a, 2296 at 19b, 2281 at v0.21.0, 2222 at 16a-1,
-2261 at the pose board, 2160 at the grid finding, 2158 at
-the control guard, 2144 at
-`dino_vitb8`, 2126 at the docs-count guard, 2122 at the 0.18.0 release, 2113 at
-the v8 `training` re-run, 2082 at the 0.17.0 release, 2071 at the instance
-board, 1824 at the oracle gate. Keep this list
-short — it is one of the places this file accretes.
+`main` on 2026-09-11. Earlier fast counts, for dating a claim: 2324 at 20b,
+2304 at v0.23.0, 2301 at 20a, 2296 at 19b, 2281 at v0.21.0, 1824 at the oracle
+gate. **Keep that list to a handful** — it is one of the places this file
+accretes, and its only job is to date a claim.
 
 **Quote the collected count, not "N passed", because the skip count is a fact
-about the environment rather than the suite.** Measured on one commit
-(`06b85bb`, 1930 collected): **1927 passed + 3 skipped on CI, 1922 + 8 on
-`.venv`, 1930 + 0 on a machine with every extra installed.** So a remembered
-"(8 skipped)" reads as universal and is wrong two ways out of three, and the
-three environments cannot all be right about "N passed".
-`pytest --collect-only` is the number that means something.
+about the environment rather than the suite.** Measured on one commit (1930
+collected): 1927 passed + 3 skipped on CI, 1922 + 8 on `.venv`, 1930 + 0 with
+every extra installed — so a remembered "(8 skipped)" is wrong two ways out of
+three. `pytest --collect-only` is the number that means something.
 
 Run the checks via `sbatch` (`.venv/bin/python` does not resolve on a `dgxh100`
 login shell) and **`--exclude=dgx1`**, per the cluster's node map above; the
@@ -1783,24 +1702,17 @@ new — do not go looking for a known cause here.
 The entries are kept because each one records a *class* of failure this
 codebase has actually shipped, and the next one will rhyme with them.
 
-- **[#2] CI never ran `-m slow`** — fixed. `.github/workflows/slow.yml` runs it
-  on every push to `main`, nightly at 03:00 UTC, and on demand, with the
-  downloaded weights cached against `HUB_REF`. It is **not** part of the gating
-  CI workflow and does not run on pull requests, so a 1.7 GB download never
-  blocks ordinary work. If you add a check that guards a *silently wrong
-  number*, it still belongs in the fast suite — this catches the ones that can
-  only be caught with real weights, a day later at worst, not instead.
-- **[#4] `zip(strict=)`** — done. `B905` is enforced, not ignored: 12 sites take
-  `strict=True`, and `zip(resolved, resolved[1:])` in `backbones/base.py` takes
-  `strict=False` because pairing a list with its own tail is meant to be ragged.
-  Most of the 12 are backstops for invariants already enforced a few lines
-  above, but one was a real hole: `CorrespondenceTask.evaluate_ceiling` never
-  length-checked its arguments, so nine geometries against ten pairs scored nine
-  and reported the number as covering the split. `evaluate` had always checked.
-  **When you add a `zip` over two things paired by index, `strict=True` is the
-  default** — the cost is nothing and the failure it prevents still trains.
-- **[#1] DINOv2 on 3.9** — fixed by raising the floor; see above.
-- **[#3] CLIP QuickGELU guard** — fixed; see above.
+The four closed entries are kept as *classes* of failure, since the next one
+will rhyme with them. **[#2] CI never ran `-m slow`** — fixed by
+`.github/workflows/slow.yml` (pushes to `main`, nightly, on demand, weights
+cached against `HUB_REF`); it does not gate pull requests, so **a check that
+guards a silently wrong number still belongs in the fast suite**. **[#4]
+`zip(strict=)`** — `B905` is enforced; the one real hole it found was
+`CorrespondenceTask.evaluate_ceiling` scoring nine geometries against ten pairs
+and reporting it as covering the split, so **`strict=True` is the default when
+you pair two things by index**. **[#1] DINOv2 on 3.9** and **[#3] the CLIP
+QuickGELU guard** are both above, under the Python floor and the dead-guard
+rules respectively.
 
 `CHANGELOG.md` is the full record of what each step added and why. Since 7b the user-facing view is **split three ways**:
 `README.md` is the arrival path (demo, install, what it is, the CLI), while the
@@ -1934,23 +1846,13 @@ ViT, so an unresolved record does not say what produced the number.
 ## Task categorization
 
 Tasks are organized into three levels, following Chen, Marks & Cheng
-(arXiv:2411.17474):
-
-```text
-tasks/
-  high_level/   classification, semantic (multi-class) segmentation, detection
-  mid_level/    generic (binary) object segmentation, depth estimation,
-                surface normal estimation, geometric correspondence,
-                mid-level image similarity, occlusion-edge detection (6d-2)
-  low_level/    edge detection (v0.4), 2D keypoint detection (6d-2)
-                — still scope only: optical flow, texture/reflectance,
-                image quality
-```
+(arXiv:2411.17474) — `tasks/{high,mid,low}_level/`, and the layout block above
+lists what is in each.
 
 The occlusion-edge and texture-edge probes **share every line of their
 implementation and sit one tier apart**, which is the cleanest statement of what
 the tiers mean that this codebase has: recovering a depth discontinuity needs
-scene geometry, recovering an intensity one does not. Taskonomy has no
+scene geometry, recovering an intensity one does not. Taskonomy ships no
 reflectance domain, so the texture/reflectance row is *not* unblocked by 6d-2's
 mask work — see `visbench/tasks/low_level/README.md`.
 
@@ -1989,76 +1891,19 @@ archived in [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md), which is where every
 steps built; the rules that still constrain new work were lifted back into
 "decisions already paid for" above.
 
-### The candidate task backlog — and what is actually on this machine
+### The candidate task backlog
 
-`docs/roadmap.md` has the public version of this list, grouped by cost. What
-follows is the part a contributor cannot see: **which of these have data on this
-machine**, checked on 2026-08-01 rather than assumed. A candidate whose dataset
-is absent is not cheap, however simple its protocol.
-
-**`/shared/sets/datasets/` has a `vision/` subdirectory, and a top-level listing
-does not see into it.** 96 more datasets live there, including ones a first pass
-recorded as absent — this note exists because that pass said Places365 and
-NIGHTS were missing when both are on disk. Check both levels.
-
-**Present at the top level:** `ADE20K` (`ADEChallengeData2016`), `COCO`
-(`instances_*`, `captions_*`, `person_keypoints_*` — **no panoptic and no
-stuff**), `cub_200_2011`, `stanford_cars`, `stanford_dogs`, many ImageNet
-variants, `Imagenette`. **Present under `vision/`:** `nights` (what `similarity`
-reads), `places365_standard`, `SUN397`, `mit67_indoor_scenes`, `caltech101`,
-`country211`, `CUB-200`, `oxford_flowers102`. Two of those became probes as
-dataset swaps on the linear-probe path — `scene_classification` on
-`places365_standard` and `fine_grained_classification` on
-**`vision/CUB-200/images_train_test/`**, which already holds the official
-5994/5794 split as `train/<class>/` + `val/<class>/`. Two traps there: the
-top-level `cub_200_2011/CUB_200_2011` is **permission-denied**, and `test/` is a
-**symlink to `val/`**, so naming `val` names the official test set while
-`--split test` would index the same files under a different path and so a
-different fingerprint. Stanford Cars is the same folder shape and still open;
-Stanford Dogs and Flowers102 are **not**, since both keep their splits in
-`.mat` files — a different cost class from a folder swap.
-
-**Absent at both levels:** any optical-flow set (Sintel, KITTI, FlyingChairs),
-any intrinsic-image set (IIW, SAW, MIT intrinsic). `bsds300` is the MAF
-density-estimation benchmark, not BSDS500; **BSDS500 itself is reachable only
-through a mirror**, since Berkeley times out from this machine while the network
-is otherwise fine, so `scripts/fetch_bsds500.py` reads the `BIDS/BSDS500` GitHub
-mirror at a pinned commit into gitignored `data/bsds500/`.
-
-**Two entries this survey recorded as absent are present, and both were found
-by listing rather than by the note being doubted** (2026-09-14). The lesson is
-the one the `vision/` subdirectory already taught: **a nested path defeats the
-listing that produced this section, so re-check before quoting it as a
-blocker.**
-
-- **NYUv2 is here, twice, in two cost classes.**
-  `vision/probing_3D/nyuv2_new/{train,test}/` is the **cheap** one — the
-  canonical **795/654** labeled split already extracted as stem-matched folders
-  `images/` (png), `depths/`, `normals/` (both `.npy`) and
-  `segmentation_nyu40/` (png). That is `DenseFolderDataset`'s layout, and
-  `.npy` needs no new loader: `_TARGET_SUFFIXES` has carried it since 5d and
-  `load_depth_map`/`load_normal_map` take it at face value. **A first draft of
-  this bullet said it cost a loader** — the claim was written from "every dense
-  target in the corpus is a PNG", which is true and says nothing about what the
-  loaders accept. Check the suffix table, not the datasets.
-  `vision/probing_3D/nyuv2/` is the raw form
-  (`nyu_depth_v2_labeled.mat` 2.9 GB, `nyuv2_snorm_all.pkl` 8.9 GB,
-  `labels40.mat`) — the `.mat` cost class that puts Stanford Dogs and
-  Flowers102 out of "folder swap" reach. `nyu_geonet/` is a third, per-frame
-  `.mat`.
-- **DAVIS is here.** `vision/DAVIS` has `JPEGImages/480p` and
-  `Annotations/480p` over **90 sequences** with `ImageSets/{2016,2017}/
-  {train,val}.txt`. It is the *top-level* `davis` that holds two sequences of
-  derived output — the two are different directories, and the old note named
-  the wrong one. Video still needs machinery nothing here has; what changed is
-  that the data is no longer the blocker.
-
-**The Taskonomy copy on disk carries eight domains only**: `depth_zbuffer`,
-`edge_occlusion`, `edge_texture`, `keypoints2d`, `keypoints3d`, `normal`,
-`principal_curvature`, `reshading`, plus `rgb` and `mask_valid`. Taskonomy
-*publishes* `vanishing_point`, `room_layout`, `segment_unsup2d/25d` and
-`point_matching`, and none are here — so the roadmap items that look like free
-Taskonomy wins each need a download first.
+`docs/roadmap.md` has the public version of this list, grouped by cost.
+**Which candidates have data on this machine is in
+[`ENGINEERING_LOG.md`](ENGINEERING_LOG.md) under "What is on this machine"**,
+moved there 2026-09-19 because it is consulted when picking a task rather than
+every session. **A candidate whose dataset is absent is not cheap, however
+simple its protocol** — and two rules about *checking* that survive here,
+because both have already cost a wrong claim: `/shared/sets/datasets/` has a
+`vision/` subdirectory a top-level listing does not see into (96 more datasets),
+and **a nested path defeats the listing that produced that survey, so re-check
+before quoting it as a blocker** — NYUv2 and DAVIS were both recorded absent and
+are both present.
 
 **The cheapest items need no dataset at all, and that is the useful
 observation**: `edge_texture` is a target Taskonomy computed from the RGB frame,
@@ -2068,61 +1913,33 @@ folder already here. A magnitude target is a generator plus a
 `DenseMagnitudeTask` subclass; a vector one needs its own small task base, which
 `visbench/tasks/low_level/orientation.py` provides as the second worked example.
 
-**Relative camera pose ranks, and it needs a nonlinear head** (measured
-2026-09-14, **corrected 2026-09-15**, and **being built since 16a-1**;
-`scripts/premeasure_pose.py`, and the full derivation — every pair count, the
-floor, the curve and the traps — in `visbench/tasks/low_level/README.md`,
-trimmed from here 2026-09-17). It reads *pooled* features, so it is far cheaper
-than the roadmap's "harder" tier implies, and NAVI is on this machine. Six
-rules survive, the last two from 16a-1:
+**Relative camera pose shipped** (16a-1 to 16a-3), and its pre-measurement's
+derivation — every pair count, the floor, the curve and the traps — is in
+`visbench/tasks/low_level/README.md`, trimmed from here 2026-09-19. Six rules
+from it still constrain new work, and only the first two are about pose:
 
-- **`LinearHead` cannot express it** — it underfits, and its residual ordering
-  nearly inverts the MLP's at the top. **So a pose board departs from
-  `hidden_dim=0` deliberately or not at all**, which is a decision about what
-  VisBench's boards mean, not an implementation detail.
+- **`LinearHead` cannot express it** — it underfits and its residual ordering
+  nearly inverts the MLP's, so a pose board departs from `hidden_dim=0`
+  deliberately or not at all. The linear run is kept as `pose_linear.jsonl`.
 - **A pose board must pin its pair count as protocol**, the way `corner` pins
-  its frame set. The curve never flattens, the pairing rule runs out first, and
-  the spread *compresses* as data grows — so part of a small-sample gap is
-  **data efficiency**, not representation.
+  its frame set: the curve never flattens and the spread *compresses* as data
+  grows, so part of a small-sample gap is data efficiency, not representation.
 - **Before concluding a probe fails to separate, check the training-pair count
-  against the head's input width.** The first reading said the opposite of the
-  corrected one and was **overfitting at n≈d**; a candidate measured where the
+  against the head's input width.** The first pose reading said the opposite of
+  the corrected one and was overfitting at n≈d; a candidate measured where the
   head cannot generalise looks exactly like one that does not rank.
-- **Quote the per-row margin over the floor and the adjacent gaps, never the
-  spread** — `spread / noise` has now misled in *both* directions. And reading
-  a range as signal without its floor is what the floor rule exists to stop; it
-  was done while writing the script that measures the floor.
 - **A pre-measurement that assembles its own data stops predicting the probe.**
-  The script opened NAVI's frames without their EXIF orientation, and **327 of
-  8,217 carry a half-turn tag whose camera pose describes the *turned* image**
-  — checked against the untagged frames of the one mixed scene, not assumed —
-  so 4.0% of the release was supervised against its own negation and the parked
-  tables were measured on those pixels. `NaviPoseDataset` owns the pairing now
-  and the script reads it.
-- **A context metric qualifies a score from either side, and the leaderboard
-  has to know both** (16a-3). `CONTEXT_PREFIX` was the single string
-  `"ceiling_"`; `relative_pose` emits `floor_*`, and an unknown prefix does not
-  raise — `metric_direction` refuses the name, `shared_metrics` skips what it
-  cannot direct, and **the floor silently does not appear on the board**, which
-  is the number the probe is read against. It is `CONTEXT_PREFIXES` now. Same
-  family: a *parametrised* metric name (`rotation_acc@30deg`) is directed by its
-  stem, and an exact name nobody listed is dropped rather than refused.
-- **A correction is read against the noise, exactly like a score** (16a-2).
-  The EXIF fix was right — 4.0% of NAVI was supervised against its own negation
-  — and it moves a pose number **−1.38 on `mae_vitb16` against seed ranges near
-  1.0, and −0.02 on `clip_vitb16`**, i.e. not beyond noise. Quoting the first
-  row alone as "worth 1.4 degrees" is the floor rule's mistake wearing a
-  correction's clothes. What *did* show is per-epoch reshuffling: same
-  direction on both rows and a seed range cut 3-5x. And **`train_loss` from two
-  code paths is two statistics** — the pre-measurement reports the last
-  training batch in train mode, the task a full split in eval mode.
-- **A metric can be unable to validate the conversion feeding it.** Scored
-  through `rotation_error_deg`, Shepperd's branch and the naive one read 0.0485
-  against 0.0560 deg and both fail a 1e-3 tolerance, because `acos` of the
-  trace is ill-conditioned at zero error — its own noise floor is 0.028 deg on
-  a quaternion against *itself*. On components they are 1.2e-07 against
-  1.2e-04, three orders apart. **Validate a conversion on components; the angle
-  is for scoring a probe.**
+  The script read NAVI without EXIF orientation, so 4.0% of the release was
+  supervised against its own negation. `NaviPoseDataset` owns the pairing now.
+- **A context metric qualifies a score from either side, and the leaderboard has
+  to know both** (16a-3). `CONTEXT_PREFIX` was one string, `"ceiling_"`; pose
+  emits `floor_*`, an unknown prefix does not raise, and the floor silently did
+  not appear on the board. It is `CONTEXT_PREFIXES` now, and a parametrised
+  metric name is directed by its stem.
+- **Validate a conversion on components; the angle is for scoring a probe.**
+  Scored through `rotation_error_deg` two quaternion branches read 0.0485 and
+  0.0560 deg and both fail a 1e-3 tolerance, because `acos` of the trace is
+  ill-conditioned at zero error; on components they are 1.2e-07 and 1.2e-04.
 
 Three hazards to carry into any of them, all paid for: **check the tail** before
 assuming the magnitude protocol transfers (`edge_occlusion` at 46% of its mass
