@@ -9,6 +9,39 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+### Changed
+
+- **Every trained board is now swept, and 20b's own conclusion does not
+  survive** (20c). Twelve more boards at five seeds x thirteen backbones, 780
+  records, so the corpus totals **119 of 180 adjacent pairs ordered, 58 tied,
+  3 reversed**. 20b swept three boards, found no reversal and concluded the
+  pose reversals "do not generalise -- they were a property of the pose head".
+  **`surface_normal` reverses** — a linear board, ten epochs, nothing like
+  `PoseHead`: the board shows `siglip_vitb16` ahead of `convnext_base` by
+  0.0376 degrees where five seeds put `convnext_base` ahead by **0.157**
+  (t −2.90). The corrected claim is that reversals are **rare and marginal**,
+  not absent: all three sit at |t| 2.90-3.15 against a 2.776 critical value.
+- **How much of a board is unorderable is a property of the board.**
+  `occlusion_edge` orders **4** of its twelve adjacent pairs, `edge` and
+  `detection` five, against **11 of 12** for `generic_segmentation` and
+  `scene_parsing` — so the corpus-wide third is an average, not a rate. On
+  **10 of 15** boards the largest unordered gap exceeds the smallest ordered
+  one, and common-mode is 2-17%, the majority on no board.
+- **A sweep's tolerance is a measured floor, listed per board.** All fourteen
+  swept boards reproduce their published cells, but *exactly* only three; the
+  nine dense boards land at 1.7e-07 to 2.9e-05 and `detection`,
+  `instance_segmentation` and `orientation` at 9.2e-04 to **2.5e-02**, the
+  three whose metric is not smooth in the prediction. Every one of those runs
+  reported a `train_loss` identical to its published cell's.
+- **`scene_classification` is held out**, in
+  `results/controls/scene_classification_seeds.jsonl` rather than
+  `results/controls/seeds/`. Eleven of its thirteen seed-0 rows do not
+  reproduce their published cells (worst **−0.0102**) **and carry a different
+  fit**, so its sweep describes some adjacent configuration and its spread is
+  not this board's noise. Different data, nondeterministic training and changed
+  features are each ruled out by measurement; what is left is the silicon,
+  which those pre-v9 records do not state. **No published number moves.**
+
 ### Added
 
 - **Seed sweeps generalised from one board to any board** (20b). `20a` re-fitted

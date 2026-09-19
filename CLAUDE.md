@@ -75,6 +75,7 @@ step is next rather than attempting the whole roadmap in one session.
 | 19b | The pose board's noise, measured: a trigger rather than a dose | done |
 | 20a | The pose seed sweep: which adjacent rows are actually ordered | done |
 | 20b | The seed sweep generalised: three more boards, and what a gap cannot say | done |
+| 20c | Every trained board swept: a reversal on a linear board, and one held out | done |
 
 **A closed step's full write-up lives in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md), not here.** That file is the archive
@@ -1238,23 +1239,34 @@ designed up front; extend it the same way, from a case that already runs.
   were run at seed 0, so the sweep's own seed-0 rows must reproduce them, and
   all thirteen did at delta 0.0.
 
-  **It is not a property of the pose head, and roughly two adjacent rows in
-  five are unordered** (20b; `results/controls/seeds/`, read with
-  `scripts/analyse_seeds.py <probe>`). `classification`, `corner` and
-  `detection` — saturated, dense, discrete, none of them fitted by an MLP —
-  were swept the same way. **No reversals on any of the three**, so that half
-  does not generalise; but 5, 5 and 7 of their twelve adjacent pairs are not
-  separable, and **on every one the largest unordered gap exceeds the smallest
-  ordered one**, where pose's gaps at least sorted. So a threshold is not merely
-  badly calibrated here, it cannot exist. Sweep before ordering adjacent rows,
-  and quote `results/controls/README.md` for which pairs are ordered.
+  **Every trained board is now swept, a third of all adjacent pairs are
+  unordered, and a reversal is rare rather than absent** (20b/20c;
+  `results/controls/seeds/`, read with `scripts/analyse_seeds.py <probe>`).
+  **119 of 180 pairs ordered, 58 tied, 3 reversed.** 20b swept three boards,
+  found no reversal and published "the reversals do not generalise"; **20c
+  refuted it the next day** — `surface_normal`, a linear board, reverses
+  `siglip_vitb16`/`convnext_base`. Say **rare and marginal** instead: all three
+  reversals sit at |t| 2.90-3.15 against 2.776 at n=5. The unorderable fraction
+  is a property of the *board* — `occlusion_edge` orders 4 of 12,
+  `generic_segmentation` 11 of 12 — and on **10 of 15** boards the largest
+  unordered gap exceeds the smallest ordered one, so a threshold cannot exist
+  there. Sweep before ordering adjacent rows, and quote
+  `results/controls/README.md` for which pairs are ordered.
   **A sweep re-fits the published flags** — `SEEDS=5` on `build_corpus.sh`, not
   a second script — and **must never reach the corpus**, since `seed` is not in
   `comparability_key`; both are refused in code and pinned by tests.
-  **And "reproduces the board" is per board**: exact for `classification` and
-  pose, 2.6e-07 for `corner`, **1.2e-03** for `detection` — every one with a
+  **And "reproduces the board" is per board**: exact for three boards, 1.7e-07
+  to 2.9e-05 for the nine dense ones (float32 reduction order), and 9.2e-04 to
+  **2.5e-02** for `detection`, `instance_segmentation` and `orientation`, whose
+  metrics are not smooth in the prediction. Every one of those runs reported a
   `train_loss` identical to its published cell's, which is the only thing that
-  separates a moved metric from a moved configuration.
+  separates a moved metric from a moved configuration — and it is what made
+  **`scene_classification` legible**: eleven of its thirteen seed-0 rows miss
+  their published cells by up to **−0.0102** *with a different fit*, so its
+  sweep is **held out** at `results/controls/scene_classification_seeds.jsonl`
+  and that board has no separability verdict. Data, nondeterminism and changed
+  features are each ruled out by measurement; what is left is the silicon, which
+  those pre-v9 records do not state. **No published number moves.**
 - **Constructing a backbone draws from the global RNG, and `run()` seeds
   *before* it constructs.** So `run("dinov2_vits14", ...)` and
   `run(get_backbone("dinov2_vits14"), ...)` fit the head from different RNG
@@ -1742,10 +1754,10 @@ designed up front; extend it the same way, from a case that already runs.
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite **collects 2324 tests**, green on 2026-09-18 along with all three
+fast suite **collects 2359 tests**, green on 2026-09-19 along with all three
 lint steps, mypy and the `-W` docs build. The slow suite is **116** since
 16a-1, whose own slow test was run then; the other 115 were last green on
-`main` on 2026-09-11. Earlier fast counts, for dating a claim: 2304 at v0.23.0, 2301 at 20a, 2296 at 19b, 2281 at v0.21.0, 2222 at 16a-1,
+`main` on 2026-09-11. Earlier fast counts, for dating a claim: 2324 at 20b, 2304 at v0.23.0, 2301 at 20a, 2296 at 19b, 2281 at v0.21.0, 2222 at 16a-1,
 2261 at the pose board, 2160 at the grid finding, 2158 at
 the control guard, 2144 at
 `dino_vitb8`, 2126 at the docs-count guard, 2122 at the 0.18.0 release, 2113 at
@@ -2180,7 +2192,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 2324 fast tests
+pytest                                              # 2359 fast tests
 pytest -m slow                                      # 116, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/

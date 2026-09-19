@@ -38,26 +38,42 @@ CORPUS = ROOT / "results" / "corpus" / "visbench.jsonl"
 
 #: How closely a seed-0 row must reproduce its published cell, per probe.
 #:
-#: Exact is the default, and `classification` and `relative_pose` meet it on all
-#: thirteen rows. The two entries here are **measured reproducibility floors**,
-#: not room made for a sweep that missed: each sits just above the worst delta
-#: observed while every one of those runs reported a `train_loss` identical to
-#: its published cell's. Same fit, moved score, so what moved is the metric.
+#: These are **measured reproducibility floors**, not room made for a sweep that
+#: missed. Every value here sits just above the worst delta observed while the
+#: run reported a `train_loss` identical to its published cell's -- same fit,
+#: moved score, so what moved is the metric. A sweep that re-fitted a slightly
+#: different configuration also lands a few decimals away, and the fit is the
+#: only thing that tells the two apart, which is what schema v8 is for.
 #:
-#:   * `corner` -- worst 2.6e-07, the float32 reduction-order noise every dense
-#:     board carries (`CORPUS_FINDINGS.md` puts those at ~1e-7 relative).
-#:   * `detection` -- worst 1.2e-03, four orders larger, because average
-#:     precision is a *ranking*: a near-tie in the score of two boxes flips the
-#:     order and the whole curve moves. This is the three-decimal rule that file
-#:     already states, now measured over thirteen rows rather than two.
+#: They fall into three groups, and the group is the reason rather than the
+#: size:
 #:
-#: Listed per probe rather than applied everywhere, because a blanket tolerance
-#: would hide the failure this gate exists to catch: a sweep that re-fitted a
-#: slightly different configuration also lands a few decimals away, and the fit
-#: is what tells the two apart.
+#:   * **exact** -- `classification`, `fine_grained_classification` and
+#:     `relative_pose` reproduce bit for bit on all thirteen rows.
+#:   * **float32 reduction order**, 1e-7 to 3e-5: every dense board. The
+#:     ordering of a sum over patches or batches is not fixed, and
+#:     `CORPUS_FINDINGS.md` already puts these at ~1e-7 relative.
+#:   * **the metric is not a smooth function of the prediction**, 1e-3 to 3e-2.
+#:     `detection` and `instance_segmentation` score a *ranking*, so a near-tie
+#:     between two boxes flips and the whole AP curve moves; `orientation`'s
+#:     angular error is ill-conditioned, which `CORPUS_FINDINGS.md` records from
+#:     the run that added its ceilings. These are the boards this project
+#:     already says to quote to three decimals.
 SEED_ZERO_TOLERANCE: dict[str, float] = {
+    # dense boards: float32 reduction order
+    "scene_parsing": 1e-6,
     "corner": 1e-6,
+    "keypoints2d": 1e-6,
+    "edge": 1e-6,
+    "generic_segmentation": 2e-6,
+    "occlusion_edge": 1e-5,
+    "surface_normal": 1e-5,
+    "semantic_segmentation": 1e-4,
+    "depth": 1e-4,
+    # metrics that are not smooth in the prediction
+    "instance_segmentation": 2e-3,
     "detection": 2e-3,
+    "orientation": 5e-2,
 }
 
 SWEEPS = sorted(SWEEP_DIR.glob("*.jsonl")) if SWEEP_DIR.is_dir() else []

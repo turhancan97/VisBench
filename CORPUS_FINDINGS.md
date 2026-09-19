@@ -235,49 +235,56 @@ Two standing cautions apply to everything below:
   That is the limit of what a record can carry, and the reason the rule is
   stated as a number of digits rather than as a condition to check.
 
-- **Roughly two adjacent rows in five are not separable, on boards that
-  reverse nothing** (20b, 2026-09-18; the tables are in
+- **A third of all adjacent rows are not separable, and a reversal is rare
+  rather than absent** (20b/20c, 2026-09-19; the tables are in
   `results/controls/README.md`, reprinted by `scripts/analyse_seeds.py <probe>`).
-  `relative_pose` was the only board ever re-fitted at several seeds, and it is
-  this project's only board whose head is not a linear map — so its two reversed
-  pairs could have been a property of that head. Three boards chosen to be
-  unlike it and unlike each other were swept the same way, thirteen backbones at
-  five seeds each: `classification` (saturated, image-level), `corner` (dense,
-  low-level) and `detection` (localised, discrete metric).
+  Every trained board has now been re-fitted at five seeds across all thirteen
+  backbones: **119 of 180 adjacent pairs ordered, 58 tied, 3 reversed.**
 
-  **The reversals do not generalise: none of the three has one.** A reader of
-  these boards is not being misled about direction, which is the reassuring half
-  and is worth stating before the rest.
+  **This corrects what 20b published a day earlier.** That step swept three
+  boards, found no reversal, and concluded the pose reversals "do not
+  generalise -- they were a property of the pose head". **`surface_normal`
+  reverses**, and it is a linear board fitted for ten epochs with nothing like
+  `PoseHead` in it: the board shows `siglip_vitb16` ahead of `convnext_base` by
+  0.0376 degrees, and across five seeds `convnext_base` is ahead by **0.157**
+  (t −2.90). Three boards in fifteen carry one. **The honest statement is rare
+  and marginal**, since all three sit at |t| 2.90-3.15 against a 2.776 critical
+  value at n=5 — each a 95% call rather than an emphatic one.
 
-  **What does generalise is that a gap does not say whether two rows are
-  ordered.** Ordered / tied out of twelve adjacent pairs: `classification` 7/5,
-  `corner` 7/5, `detection` **5/7** — twenty of the forty-eight pairs across all
-  four swept boards are not ordered. And on **every one of the three**, the
-  largest *unordered* gap exceeds the smallest *ordered* one: 0.00102 against
-  0.00051, 0.00580 against 0.00380, 0.01858 against 0.00730. On pose a threshold
-  would at least have sorted the pairs (1.58 ordered against 0.87 unordered)
-  while missing the reversals; here **no threshold can even sort them**.
-  Common-mode is **8%, 8% and 17%**, so the two rows of a pair move largely
-  independently and nothing cancels in the difference.
+  **How much of a board is unorderable is a property of that board.**
+  `occlusion_edge` orders **4** of its twelve pairs, `edge` and `detection`
+  five, against **11 of 12** for `generic_segmentation` and `scene_parsing`. So
+  "a third" is a corpus average and not a per-board rate.
 
-  **The gate says "reproduce", and what that means is per board.** All thirteen
-  seed-0 rows reproduce their published cell on every sweep, but exactly only
-  for `classification` and `relative_pose`; `corner` lands at **2.6e-07** and
-  `detection` at **1.2e-03**. **Every one of those runs reported a `train_loss`
-  identical to its published cell's**, which is what separates "the metric
-  moved" from "a different configuration was fitted" — a distinction only schema
-  v8 makes available. `detection`'s 1.2e-03 is this file's three-decimal rule,
-  measured over thirteen rows instead of two, and its published board carries
-  adjacent gaps of **1.1e-05** and **6.5e-05**, two orders *below* what its own
-  metric moves between identical fits. The `clip_vitb32`/`clip_vitb16` pair this
-  file already says to treat as tied comes out tied here by measurement.
+  **On 10 of 15 boards the largest *unordered* gap exceeds the smallest
+  *ordered* one**, so on two boards in three no threshold on the gap could sort
+  the pairs even in principle. Common-mode — the share of seed variance that
+  moves every row together and so cancels in a difference — runs **2% to 17%**
+  and is the majority on no board.
 
-  **`classification` shows the other shape of it.** Two of its adjacent pairs
-  are separated by *exactly zero* (`sam_vitb16`/`supervised_vitb16`,
-  `dinov2_vits14`/`dino_vitb8`) and the sweep confirms both are level — while a
-  pair 0.0005 apart is solidly ordered. **No published number moves**, and the
-  tier-level findings in this file rest on rank correlations over thirteen rows
-  rather than on any one adjacent pair.
+  **The gate says "reproduces", and what that means is per board.** All fourteen
+  swept boards pass, but exactly only `classification`,
+  `fine_grained_classification` and `relative_pose`; the nine dense boards land
+  at 1.7e-07 to 2.9e-05 (float32 reduction order) and `detection`,
+  `instance_segmentation` and `orientation` at 9.2e-04 to **2.5e-02** — the
+  three whose metric is not a smooth function of the prediction, which are the
+  boards this file already says to quote to three decimals. **Every one of those
+  runs reported a `train_loss` identical to its published cell's**, which is
+  what separates "the metric moved" from "a different configuration was fitted".
+
+  **`scene_classification` is the board where that distinction earned its
+  keep.** Eleven of its thirteen seed-0 rows do not reproduce their published
+  cells — worst **−0.0102** — *and* carry a different `train_loss`. Different
+  data is ruled out (fingerprints match), nondeterministic training is ruled out
+  (two further repeats agree bit for bit, and two backbones reproduce their
+  published cells exactly), and changed features are ruled out (the only cache
+  writes since are NAVI's 8,217 frames, a different dataset). What is left is
+  the silicon, which those pre-v9 records cannot state — the same shape as
+  `fine_grained_classification`'s cross-silicon disagreement, whose A100 cells
+  were held out of the corpus and whose sweep reproduces exactly today. **Its
+  sweep is held out of `results/controls/seeds/` until that is settled**, and it
+  has no separability verdict. **No published number is in question**, here or
+  anywhere else in this entry: every board reports what seed 0 produced.
 
 - **The published boards reproduce — and the one node that disagreed was
   broken, which the fit diagnostics are what caught** (the schema-v8 re-run,

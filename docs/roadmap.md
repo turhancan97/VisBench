@@ -225,6 +225,14 @@ This is a multi-month roadmap, built one reviewed step at a time.
       identical frames — the question dominating the data, which complements the
       split control
 
+- [x] **20c.** every trained board swept — twelve more at five seeds, which
+      **corrects 20b's own conclusion**: `surface_normal`, a linear board,
+      reverses a pair, so reversals are rare and marginal rather than a property
+      of the pose head. 119 of 180 adjacent pairs ordered, 58 tied, 3 reversed,
+      and on 10 of 15 boards no gap threshold could sort the pairs.
+      `scene_classification` is held out, its published cells not reproducing on
+      this silicon with a different fit — the case schema v8 exists to make
+      legible. No published number moves
 - [x] **20b.** the seed sweep generalised — `relative_pose` was the only board
       ever re-fitted at several seeds, and the only one whose head is not a
       linear map, so its two reversed pairs might have been a property of that

@@ -568,109 +568,151 @@ remains a correct record of it. What changes is the reading rule: **do not order
 two adjacent rows of this board from the board alone — this file says which
 pairs are ordered.**
 
-## `seeds/*.jsonl` — which rows of which boards are actually ordered? (20b)
+## `seeds/*.jsonl` — which rows of which boards are actually ordered? (20b, 20c)
 
-**195 records**: `classification`, `corner` and `detection`, each re-fitted at
+**910 records across fourteen boards**: every trained board except
+`relative_pose` (whose sweep is `pose_seeds.jsonl`, below) and
+`scene_classification` (held out; its own section follows), each re-fitted at
 five seeds across all thirteen corpus backbones in the **published**
 configuration — same flags, same head, only `--seed` moves.
 `slurm/seed_sweep.sbatch` produces them through `scripts/build_corpus.sh`
 (`SEEDS=5`, so a sweep re-fits the published flags rather than a second copy of
 them) and `scripts/analyse_seeds.py <probe>` reads them.
 
-**Why these three.** `pose_seeds.jsonl` asked this of one board and found two of
-its adjacent pairs reversed — but `relative_pose` is this project's only board
-whose head is not a linear map, fitted for thirty epochs, so its scatter could
-easily have been a property of that head rather than of a VisBench board. The
-pilot picks three that are unlike it and unlike each other: a **saturated**
-image-level board (`classification`, top-1 ~0.99), a **dense** low-level one
-(`corner`), and a **localised** high-level one whose metric is discrete
-(`detection`).
+**Why they must not go near the corpus**: these carry the published
+configuration and differ only in `seed`, which `comparability_key` does not
+read, so merged they would be sixty-five rankable rows inside each published
+board's own group. `build_corpus.sh` refuses `SEEDS>1` against a corpus path,
+and `tests/results/test_seed_sweeps.py` checks the committed files.
 
-**Why they must not go near the corpus** is `pose_seeds.jsonl`'s reason exactly:
-these carry the published configuration and differ only in `seed`, which
-`comparability_key` does not read, so merged they would be sixty-five rankable
-rows inside each published board's own group. `build_corpus.sh` refuses
-`SEEDS>1` against a corpus path, and `tests/results/test_seed_sweeps.py` checks
-the committed files.
+### The headline, over fifteen boards
 
-### The gate: does a sweep reproduce the board, and what does "reproduce" mean?
+| | |
+| --- | --- |
+| adjacent pairs **ordered** | 119 |
+| **tied** — not separable at five seeds | 58 |
+| **reversed** — the board's order is the minority outcome | **3** |
+| boards where the largest *unordered* gap exceeds the smallest *ordered* one | **10 of 15** |
 
-Every corpus cell was run at the default seed 0, so every seed-0 row here must
-reproduce its published value. It does — but **"exactly" is only right for some
-boards**, and the pilot is what measured that:
+**Roughly a third of all adjacent pairs cannot be ordered**, and the fraction is
+a property of the board rather than of the corpus: `occlusion_edge` orders only
+**4** of its twelve pairs and `edge` and `detection` five, against **11 of 12**
+for `generic_segmentation` and `scene_parsing`.
 
-| board | worst seed-0 delta | fit identical? |
+### 20b's own conclusion, corrected
+
+20b swept three boards, found no reversal on any of them, and published this:
+*"the reversals do not generalise — they were a property of the pose head."*
+**That is wrong, and this step is what found it.** `surface_normal` — a linear
+board, ten epochs, nothing like `PoseHead` — reverses
+`siglip_vitb16`/`convnext_base`: the board shows siglip ahead by **0.0376**
+degrees and across five seeds convnext is ahead by **0.157** (t −2.90, 1/5).
+
+The corrected statement is that **reversals are rare and marginal, not absent
+and not confined to a nonlinear head**. All three in this corpus sit at |t|
+2.90 to 3.15 against a critical value of 2.776, so each is a 95% call at n=5
+rather than an emphatic one; more seeds are what would firm them up.
+
+| board | pair | board gap | paired diff | t |
+| --- | --- | --- | --- | --- |
+| `surface_normal` | `siglip_vitb16` vs `convnext_base` | 0.0376 | **−0.157** | −2.90 |
+| `relative_pose` | `dino_vitb16` vs `dinov2_vitb14` | 0.0404 | **−0.800** | −3.15 |
+| `relative_pose` | `resnet18` vs `clip_vitb32` | 0.124 | **−2.083** | −3.06 |
+
+### Per board
+
+`ordered`/`tied`/`reversed` are over the twelve adjacent pairs of a
+thirteen-row board. `min ordered` is the smallest gap that *is* separable and
+`max unordered` the largest that is *not*; wherever the second exceeds the
+first, no threshold on the gap can sort that board's pairs.
+
+| board | ord | tie | rev | min ordered | max unordered | median sd | board spread | common-mode |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `generic_segmentation` | 11 | 1 | 0 | 0.00508 | 0.00049 | 0.00205 | 0.2199 | 7% |
+| `scene_parsing` | 11 | 1 | 0 | 0.00232 | 0.00350 | 0.00149 | 0.3540 | 14% |
+| `depth` | 10 | 2 | 0 | 0.00025 | 0.00350 | 0.00086 | 0.2536 | 9% |
+| `orientation` | 10 | 2 | 0 | 0.2851 | 0.0705 | 0.1050 | 12.32 | 5% |
+| `semantic_segmentation` | 10 | 2 | 0 | 0.00884 | 0.00224 | 0.00160 | 0.4195 | 8% |
+| `instance_segmentation` | 9 | 3 | 0 | 0.00291 | 0.00307 | 0.00247 | 0.2148 | 4% |
+| `surface_normal` | 9 | 2 | **1** | 0.2571 | 0.0719 | 0.0816 | 10.96 | 12% |
+| `classification` | 7 | 5 | 0 | 0.00051 | 0.00102 | 0.00046 | 0.0415 | 8% |
+| `corner` | 7 | 5 | 0 | 0.00380 | 0.00580 | 0.00417 | 0.1783 | 8% |
+| `fine_grained_classification` | 7 | 5 | 0 | 0.00880 | 0.03676 | 0.00141 | 0.3987 | 2% |
+| `keypoints2d` | 7 | 5 | 0 | 0.00702 | 0.01074 | 0.00629 | 0.1273 | 3% |
+| `relative_pose` | 7 | 3 | **2** | 1.585 | 0.866 | 0.516 | 20.44 | 11% |
+| `detection` | 5 | 7 | 0 | 0.00730 | 0.01858 | 0.00789 | 0.1988 | 17% |
+| `edge` | 5 | 7 | 0 | 0.00072 | 0.01571 | 0.00618 | 0.1552 | 8% |
+| `occlusion_edge` | 4 | 8 | 0 | 0.01221 | 0.03039 | 0.00686 | 0.1532 | 6% |
+
+Common-mode — the share of seed variance that moves every row together, and so
+cancels in a difference — runs **2% to 17%**. On no board is it the majority,
+which is why a gap is a poor instrument everywhere rather than only where the
+sweep happens to disagree with it.
+
+### The gate, and what "reproduces" means per board
+
+Every corpus cell was run at the default seed 0, so every seed-0 row must
+reproduce its published value. All fourteen boards pass — but *exactly* only for
+`classification` and `fine_grained_classification` (and `relative_pose`). The
+tolerances live in `tests/results/test_seed_sweeps.py` as measured floors, in
+three groups:
+
+| group | boards | worst observed |
 | --- | --- | --- |
-| `classification` | **0.00e+00** on all thirteen | yes |
-| `relative_pose` | **0.00e+00** on all thirteen | yes |
-| `corner` | 2.6e-07 | yes |
-| `detection` | **1.2e-03** | yes |
+| exact | `classification`, `fine_grained_classification`, `relative_pose` | 0 |
+| float32 reduction order | the nine dense boards | 1.7e-07 (`scene_parsing`) to 2.9e-05 (`depth`) |
+| metric not smooth in the prediction | `detection`, `instance_segmentation`, `orientation` | 9.2e-04 to **2.5e-02** |
 
 **Every one of those runs reported a `train_loss` identical to its published
 cell's**, which is what says the sweep re-fitted the same head on the same
 features and the *metric* is what moved. That distinction is only available
-because schema v8 records the fit: a score that moves with a moved loss is a
-different configuration, and nothing about the board would follow. `detection`'s
-1.2e-03 is the three-decimal rule `CORPUS_FINDINGS.md` already states, now
-measured over thirteen rows rather than inferred from two.
+because schema v8 records the fit, and it is the whole reason the
+`scene_classification` result below could be recognised for what it is.
 
-### The noise, per board
+`detection` and `instance_segmentation` score a **ranking**, so a near-tie
+between two boxes flips and the AP curve moves; `orientation`'s angular error is
+ill-conditioned, which `CORPUS_FINDINGS.md` already records from the run that
+added its ceilings. These are exactly the boards this project already says to
+quote to three decimals.
 
-| board | median sd over 5 seeds | min | max | board spread |
-| --- | --- | --- | --- | --- |
-| `classification` | 0.00046 | 0.00014 | 0.00107 | 0.0415 |
-| `corner` | 0.00417 | 0.00098 | 0.01080 | 0.1783 |
-| `detection` | 0.00789 | 0.00437 | 0.01230 | 0.1988 |
+## `scene_classification_seeds.jsonl` — a sweep that does not reproduce its board
 
-Each board's scatter is one to two orders below its own spread, which is why
-these boards rank at all. It is the *adjacent* gaps that it is not below.
+**65 records, held out of `seeds/` deliberately.** `scene_classification` was
+swept with the other fourteen and **eleven of its thirteen seed-0 rows do not
+reproduce their published cells**, worst **−0.0102** on `resnet50`. Unlike every
+other board, those rows also carry a *different* `train_loss` — which is the
+signature that says a different configuration was fitted, not that a metric
+moved.
 
-### Separability, paired by seed
+A sweep that does not reproduce its board describes some adjacent
+configuration, so its seed spread is not this board's noise and must not be read
+as such. It is kept because the disagreement is itself evidence, exactly as
+`hardware_a100.jsonl` is kept.
 
-| board | ordered | tied | reversed | smallest **ordered** gap | largest **unordered** gap |
-| --- | --- | --- | --- | --- | --- |
-| `classification` | 7 | 5 | 0 | 0.00051 | **0.00102** |
-| `corner` | 7 | 5 | 0 | 0.00380 | **0.00580** |
-| `detection` | 5 | 7 | 0 | 0.00730 | **0.01858** |
-| `relative_pose` (20a) | 7 | 3 | **2** | 1.58 | 0.87 |
+**What has been ruled out, in this order:**
 
-**Nothing reverses on the three new boards**, and that is worth saying plainly:
-the pose reversals do not generalise, and a reader of the other boards is not
-being misled about *direction*.
+* **Different data.** The dataset fingerprints match the published cells, so the
+  image set is identical — asserted, not assumed.
+* **Nondeterministic training.** Two further repeats of `resnet50` and
+  `mae_vitb16` agree **bit for bit** with each other and with the sweep. This
+  200-epoch fit is deterministic given its inputs, which is also why
+  `mae_vitb16` and `dino_vitb8` reproduce their published cells exactly.
+* **Changed features.** Every backbone's cache directory has exactly **8,217**
+  files written on 2026-09-17 — NAVI's frame count, i.e. the pose board's
+  extraction adding entries under different image hashes. No Places365 entry was
+  overwritten. (`dino_vitb8` is the one directory written wholesale, because it
+  is the newest backbone.)
 
-**Twenty of the forty-eight adjacent pairs across the four boards are not
-ordered** — 5, 5, 7 and 5 — so on these boards roughly two rows in five sit
-next to a row this evidence cannot separate them from. On `detection` it is
-seven of twelve.
+**What is left is the silicon**, and those published cells cannot say: they are
+pre-v9 records carrying `hardware: None`, which is the field added *because*
+this happened before. An A100 has TF32 where a V100 has none. The corroborating
+case is `fine_grained_classification`, whose cross-silicon disagreement is
+already recorded here — its three A100 cells were held out of the corpus, and
+its sweep reproduces exactly today on a V100.
 
-**And on every new board the largest unordered gap is bigger than the smallest
-ordered one** — 2.0x on `classification`, 1.5x on `corner`, 2.5x on
-`detection`. That is the 20a lesson arriving by a different route: on pose a
-threshold would at least have sorted the pairs correctly (1.58 ordered against
-0.87 unordered) while missing the two reversals; here **no threshold on the gap
-can even sort them**, because which pairs separate depends on how the two rows
-happen to move, not on how far apart they are. Common-mode is 8%, 8% and 17%,
-so the two rows of a pair move largely independently and nothing cancels.
-
-Two smaller observations, both about `detection`:
-
-* its published board carries adjacent gaps of **1.1e-05** and **6.5e-05**,
-  two orders of magnitude *below* the 1.2e-03 its own metric moves between
-  identical fits — so those two pairs were never separable and the board never
-  claimed otherwise; and
-* `clip_vitb32`/`clip_vitb16` comes out tied here, which is what
-  `CORPUS_FINDINGS.md` already says to treat them as. That claim was reasoned
-  from reproducibility; this measures it.
-
-`classification` contributes the other shape of the same point: two of its
-adjacent pairs have a gap of **exactly zero** (`sam_vitb16`/`supervised_vitb16`
-and `dinov2_vits14`/`dino_vitb8`), which a threshold reads as a tie correctly
-and for the wrong reason — the sweep shows both are genuinely level, while a
-pair 0.0005 apart is solidly ordered.
-
-**No published number moves.** Every board reports what seed 0 produced and
-remains a correct record of it. What this adds is which of its adjacent rows a
-reader may order.
+**No published number is in question.** The corpus records what those runs
+produced. What is open is which machine produced them, and a re-run on an A100
+is the check; until it lands this board has no separability verdict.
 
 ## `pose_noise.json` — how much does a pose number move, and what moves it?
 
