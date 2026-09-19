@@ -9,6 +9,43 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+## [0.24.0] — 2026-09-19
+
+**The release that measured which rows of its own boards may be ordered — and
+found that a third of them may not.**
+
+No probe is added, no metric changes, the schema is unchanged at v9, and **no
+number on any of the nineteen boards moves.** What this release adds is a
+statement about how far a board's ordering can be trusted, made by re-fitting
+**every trained board at five seeds** across all thirteen backbones and testing
+adjacent rows pairwise rather than by their gap.
+
+**119 of 180 adjacent pairs are ordered, 58 are tied, and 3 are reversed** —
+the board's own order being the minority outcome across seeds. A third of the
+pairs on these boards cannot be ordered from the published cell alone, and how
+large that fraction is depends on the board: `occlusion_edge` orders **4** of
+its twelve pairs against **11 of 12** for `generic_segmentation`.
+
+**A gap threshold cannot substitute for the measurement.** On **10 of 15**
+boards the largest *unordered* gap is bigger than the smallest *ordered* one, so
+no threshold could sort those pairs even in principle; common-mode noise, which
+would cancel in a difference, runs 2-17% and is the majority on no board.
+
+**This release also corrects itself.** The first half of the work swept three
+boards, found no reversal, and concluded the reversals seen on `relative_pose`
+were a property of its nonlinear head. The second half swept the rest and found
+one on `surface_normal` — a linear board, ten epochs. The published claim is now
+that reversals are **rare and marginal**, not absent: three in 180 pairs, all at
+|t| 2.90-3.15 against a 2.776 critical value at n=5.
+
+**One board is held out rather than reported.** `scene_classification`'s sweep
+does not reproduce its published cells and carries a *different fit*, so it
+describes some adjacent configuration and its spread is not that board's noise.
+Different data, nondeterministic training and changed features are each ruled
+out by measurement; what is left is the silicon, which its pre-v9 records do not
+state.
+
+
 ### Changed
 
 - **Every trained board is now swept, and 20b's own conclusion does not
@@ -5101,7 +5138,8 @@ API philosophy.
 [#2]: https://github.com/turhancan97/VisBench/issues/2
 [#4]: https://github.com/turhancan97/VisBench/issues/4
 [#3]: https://github.com/turhancan97/VisBench/issues/3
-[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.23.0...HEAD
+[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.24.0...HEAD
+[0.24.0]: https://github.com/turhancan97/VisBench/compare/v0.23.0...v0.24.0
 [0.23.0]: https://github.com/turhancan97/VisBench/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/turhancan97/VisBench/compare/v0.21.0...v0.22.0
 [0.21.0]: https://github.com/turhancan97/VisBench/compare/v0.20.0...v0.21.0
