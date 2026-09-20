@@ -20,9 +20,9 @@
 
 ---
 
-> **Status: v0.24.0.** Nineteen probes across high, mid and low level, thirteen
-> backbones from three families, and a committed corpus covering **247 board
-> cells** — nineteen boards, thirteen backbones each, every one of them
+> **Status: v0.24.0.** Twenty probes across high, mid and low level, thirteen
+> backbones from three families, and a committed corpus covering **260 board
+> cells** — twenty boards, thirteen backbones each, every one of them
 > reproducible from the flags in its own record. The full
 > documentation, including a generated API reference, is at
 > **[https://turhancan97.github.io/VisBench](https://turhancan97.github.io/VisBench/)**.
@@ -187,7 +187,7 @@ the backbone forward pass runs at most once per image per backbone.
 | Every probe, its data layout and its board | [The probes](https://turhancan97.github.io/VisBench/probes/overview.html) |
 | **How to read a board before quoting one** | [Reading a board](https://turhancan97.github.io/VisBench/guides/reading-a-board.html) |
 | Every class, function and attribute | [API reference](https://turhancan97.github.io/VisBench/api/index.html) |
-| Nineteen probes against thirteen backbones | [LEADERBOARD.md](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md) |
+| Twenty probes against thirteen backbones | [LEADERBOARD.md](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md) |
 | What each board means, and what it does not | [CORPUS_FINDINGS.md](https://github.com/turhancan97/VisBench/blob/main/CORPUS_FINDINGS.md) |
 | Setting up, the checks, adding a probe | [CONTRIBUTING.md](https://github.com/turhancan97/VisBench/blob/main/CONTRIBUTING.md) |
 | How it was built, and what might come next | [docs/roadmap.md](https://github.com/turhancan97/VisBench/blob/main/docs/roadmap.md) |
@@ -196,7 +196,7 @@ the backbone forward pass runs at most once per image per backbone.
 
 ## Reproducibility
 
-**Nineteen probes against thirteen backbones, as records:
+**Twenty probes against thirteen backbones, as records:
 [LEADERBOARD.md](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md).** Every board is generated from
 [`results/corpus/visbench.jsonl`](https://github.com/turhancan97/VisBench/blob/main/results/corpus/visbench.jsonl), the
 committed corpus, by [`scripts/render_tables.py`](https://github.com/turhancan97/VisBench/blob/main/scripts/render_tables.py).
@@ -211,7 +211,7 @@ in [`uv.lock`](https://github.com/turhancan97/VisBench/blob/main/uv.lock), and C
 **Before quoting any board**, read
 [how to read one](https://turhancan97.github.io/VisBench/guides/reading-a-board.html). The short version: "which
 backbone is best" is not a well-formed question against this corpus —
-`mae_vitb16` is first on five of the nineteen boards and last on four.
+`mae_vitb16` is first on five of the twenty boards and last on five.
 
 ## Prior art
 

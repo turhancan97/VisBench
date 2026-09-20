@@ -54,6 +54,7 @@ HEADLINE_METRICS: dict[str, str] = {
     "classification": "top1",
     "scene_classification": "top1",
     "fine_grained_classification": "top1",
+    "vehicle_classification": "top1",
     "retrieval": "mAP",
     # Pixels, not patch widths: a patch is a different physical distance on
     # every backbone, so `recall@1p` ranked this board upside down until v0.6.1.

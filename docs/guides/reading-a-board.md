@@ -13,7 +13,7 @@ corrected, is in
 
 ## "Which backbone is best" is not a well-formed question
 
-`mae_vitb16` is first on **five** of the nineteen boards and last on **four**. A
+`mae_vitb16` is first on **five** of the twenty boards and last on **five**. A
 summary that picks a winner is discarding the result — the whole point of
 nineteen boards is that a representation is good *at things*, not good.
 

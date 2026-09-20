@@ -51,6 +51,7 @@ HEADLINE_METRICS: dict[str, str] = {
     "classification": "top1",
     "scene_classification": "top1",
     "fine_grained_classification": "top1",
+    "vehicle_classification": "top1",
     "retrieval": "mAP",
     "correspondence": "recall@5px",
     "similarity": "accuracy",
@@ -193,6 +194,9 @@ SOURCE_IMAGES: dict[str, str] = {
     "classification": "Imagenette",
     "scene_classification": "Places365",
     "fine_grained_classification": "CUB-200-2011",
+    # A VisBench-pinned split of the Stanford Cars copy here, NOT the
+    # official 8,144/8,041 one -- see scripts/stage_cars_split.py.
+    "vehicle_classification": "Stanford Cars (pinned)",
     "retrieval": "Imagenette",
     "correspondence": "Imagenette",
     "depth": "NYUv2",

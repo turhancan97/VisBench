@@ -77,6 +77,7 @@ step is next rather than attempting the whole roadmap in one session.
 | 20b | The seed sweep generalised: three more boards, and what a gap cannot say | done |
 | 20c | Every trained board swept: a reversal on a linear board, and one held out | done |
 | 20d | Why one board would not reproduce: amplification, not hardware | done |
+| 21a | `vehicle_classification`: the twentieth probe, on a split we had to pin | done |
 
 **A closed step's full write-up lives in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md), not here.** That file is the archive
@@ -130,14 +131,14 @@ precedent for shipping one: **v0.7.0** (contributor-facing) and **v0.16.0**
 (documentation). **v0.6.1** is the other one to know — it corrects a
 correspondence board that shipped ranked upside down; see step 6f.
 
-**The corpus file is 405 records resolving to 247 board cells** — nineteen
+**The corpus file is 418 records resolving to 260 board cells** — twenty
 boards, thirteen backbones a board. The two numbers differ because the corpus
 is **append-only** and re-runs have appended beside records they supersede:
 0.15.0 re-ran the five low-level boards for their `ceiling_*`, the
 schema-v8 `training` re-run (2026-09-10) re-ran the eight trained boards that
 predated that field, with three cells of it landing on 2026-09-11, and
 `dino_vitb8`'s two smoke-test cells were re-run inside its own array.
-`latest_per_backbone` picks the newest. Quote 247 for
+`latest_per_backbone` picks the newest. Quote 260 for
 coverage and 405 only for the file, and re-read both off `LEADERBOARD.md` and
 `wc -l` rather than from here.
 
@@ -220,7 +221,7 @@ and detection reproduces to *three* decimals rather than four. See
 [`CORPUS_FINDINGS.md`](CORPUS_FINDINGS.md) for the table; **there is no open
 lead here any more.**
 
-**Three probes shipped after v0.11.0** — `scene_classification` (14th, place),
+**Four probes shipped after v0.11.0** — `scene_classification` (14th, place),
 `orientation` (15th, the fourth low-level task and the first whose target is a
 *direction*: `(cos 2θ, sin 2θ)` with its length set to the coherence, on
 `corner`'s pinned frames) and `fine_grained_classification` (16th, subordinate,
@@ -228,11 +229,27 @@ the official CUB 5994/5794 split run with no `--limit`, which is what makes it
 comparable to the published CUB literature). The two classification ones share
 the object `classification` linear-probe path and ask a different question each
 — a distinct probe *name* for the reason in "decisions already paid for".
+`vehicle_classification` (20th, subordinate again but on a *manufactured*
+object) is the fourth question on that one path.
 **Their readings are in [`CORPUS_FINDINGS.md`](CORPUS_FINDINGS.md) and on their
-own `docs/probes/` pages**; the two worth knowing before you quote anything are
-that the image-level classification probes rank with the *localised* cluster
-rather than with the object board they subclass, and that `orientation`'s board
-is **not** independent even though its target is.
+own `docs/probes/` pages**; three are worth knowing before you quote anything:
+the image-level classification probes rank with the *localised* cluster rather
+than with the object board they subclass; `orientation`'s board is **not**
+independent even though its target is; and **granularity is not what the
+classification family shares** — `vehicle_classification`'s closest partner is
+the *place* board (+0.901) rather than the other subordinate one (+0.863).
+
+**A probe whose data VisBench defines has no board until the data is pinned**
+(21a, the `corner` rule again). The Stanford Cars copy here is **not** the
+official 8,144/8,041 split: eleven train images are the same photograph filed
+under two class directories, seven more pairs are in test, one image is blank,
+and `train.txt`/`test.txt` index `train_cars_augmented` instead.
+`scripts/stage_cars_split.py` pins a cleaned **8,125/8,026** split under one
+rule — *no image appears twice, under any label* — with every exclusion named in
+a committed manifest and recomputed from the dataset by a test. **A cross-class
+duplicate loses both copies**, because choosing a label would be a guess. Say
+plainly that numbers on it are **not comparable with published Stanford Cars
+results**; the probe's docstring, its page and `build_corpus.sh` all do.
 
 **The library-surface backlog is closed** (2026-08-28) — `visbench show`,
 `examples/custom_backbone.py` and the dataset bridges; see its section below.
@@ -278,7 +295,8 @@ backbones  dinov2_vits14, dinov2_vitb14, clip_vitb16, clip_vitb32,
            dinov2_vitb14_196 (a resolution control, not a corpus column)
            (+ CustomBackbone, unregistered)
 probes     classification, scene_classification,
-           fine_grained_classification, retrieval, correspondence,
+           fine_grained_classification, vehicle_classification,
+           retrieval, correspondence,
            depth, surface_normal, generic_segmentation, semantic_segmentation,
            similarity, detection, instance_segmentation, edge,
            keypoints2d, occlusion_edge, corner, orientation, relative_pose,
@@ -286,7 +304,7 @@ probes     classification, scene_classification,
 heads      linear, dpt, detection, instance, pose
 ```
 
-The CLI exposes all nineteen probes: `visbench list`, `visbench run <probe>`,
+The CLI exposes all twenty probes: `visbench list`, `visbench run <probe>`,
 `visbench cache stats|clear`, plus `visbench demo` (7a) and **`visbench show
 <probe>` (9a)**. A test asserts the CLI's table and `list_probes()` are the same
 set, so a probe cannot ship unreachable from a shell by accident. Since 9c
@@ -1701,10 +1719,10 @@ designed up front; extend it the same way, from a case that already runs.
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite **collects 2362 tests**, green on 2026-09-20 along with all three
+fast suite **collects 2381 tests**, green on 2026-09-20 along with all three
 lint steps, mypy and the `-W` docs build. The slow suite is **116** since
 16a-1, whose own slow test was run then; the other 115 were last green on
-`main` on 2026-09-11. Earlier fast counts, for dating a claim: 2359 at v0.24.0, 2324 at 20b,
+`main` on 2026-09-11. Earlier fast counts, for dating a claim: 2362 at 20d, 2359 at v0.24.0, 2324 at 20b,
 2304 at v0.23.0, 2301 at 20a, 2296 at 19b, 2281 at v0.21.0, 1824 at the oracle
 gate. **Keep that list to a handful** — it is one of the places this file
 accretes, and its only job is to date a claim.
@@ -2032,7 +2050,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 2362 fast tests
+pytest                                              # 2381 fast tests
 pytest -m slow                                      # 116, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/

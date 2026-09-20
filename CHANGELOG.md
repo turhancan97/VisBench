@@ -9,6 +9,42 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+### Added
+
+- **`vehicle_classification` — the twentieth probe: which car model, not which
+  car** (21a). The fourth question asked by one linear-probe implementation and
+  the second at subordinate granularity, on a VisBench-pinned Stanford Cars
+  split. The corpus goes from 247 board cells to **260** — twenty boards,
+  thirteen backbones each — the schema is unchanged at v9, and **no number on
+  the nineteen existing boards moves**.
+- **It separates granularity from what the classification family shares.** Both
+  Cars and CUB ask for subordinate categories inside one basic-level class, so
+  granularity was the property this probe was built to isolate — and its closest
+  partner is the **place** board (`scene_classification` **+0.901**) rather than
+  the other subordinate one (+0.863). Mean rho +0.525 against high-level, +0.149
+  against mid-level, **−0.190** against low-level.
+- **`siglip_vitb16` leads at 0.8603**, where it is fifth on CUB, ahead of both
+  DINOv2 rows; `supervised_vitb16` is twelfth of thirteen. ImageNet-1k holds car
+  classes but none at *model* granularity.
+- **It was measured before it was built**, against the standard relative depth
+  was rejected on: a candidate that merely reproduces an existing board's
+  ordering is a copy. Cars reads +0.863 against CUB, where a dozen existing
+  board pairs in this corpus are *more* correlated than that.
+
+### Fixed
+
+- **The Stanford Cars copy on this machine is not the official split**, and the
+  probe would have shipped an uncitable board without saying so. Train holds
+  8,148 images against the official 8,144, **eleven of them the same photograph
+  filed under two class directories**; test has seven more such pairs; one image
+  is blank; and `train.txt`/`test.txt` index a different directory again
+  (`train_cars_augmented`, 195,456 images). `scripts/stage_cars_split.py` pins a
+  cleaned **8,125/8,026** split under one rule — no image appears twice, under
+  any label — with every exclusion named in `data/cars_split_manifest.json` and
+  recomputed from the dataset by a test. The probe's docstring, its docs page
+  and the board's flags all state that **numbers on it are not comparable with
+  published Stanford Cars results**.
+
 ### Changed
 
 - **Why `scene_classification` alone failed to reproduce its board, measured**

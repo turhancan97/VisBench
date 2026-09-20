@@ -110,6 +110,7 @@ PROBES=(
   classification
   scene_classification
   fine_grained_classification
+  vehicle_classification
   retrieval
   correspondence
   similarity

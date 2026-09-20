@@ -1,10 +1,11 @@
 # `visbench.tasks.high_level`
 
-Semantic and category understanding. Six probes — and three of them share one
-implementation while asking three different questions: `classification` is
+Semantic and category understanding. Nine probes — and four of them share one
+implementation while asking four different questions: `classification` is
 basic-level, `scene_classification` is place, `fine_grained_classification` is
-subordinate. Each is a distinct probe *name* because a board is keyed on the
-task name, so a second dataset under one name makes that board unrenderable
+subordinate on a natural kind and `vehicle_classification` is subordinate on a
+manufactured one. Each is a distinct probe *name* because a board is keyed on
+the task name, so a second dataset under one name makes that board unrenderable
 rather than merely mixed.
 
 ## The `high_level` package
@@ -32,6 +33,13 @@ rather than merely mixed.
 
 ```{eval-rst}
 .. automodule:: visbench.tasks.high_level.fine_grained_classification
+   :members:
+```
+
+## `vehicle_classification`
+
+```{eval-rst}
+.. automodule:: visbench.tasks.high_level.vehicle_classification
    :members:
 ```
 

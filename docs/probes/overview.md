@@ -1,6 +1,6 @@
 # The probes
 
-Nineteen probes across three levels. Every one of them is reachable the same
+Twenty probes across three levels. Every one of them is reachable the same
 three ways — {doc}`visbench.run() </getting-started/quickstart>`, the
 `visbench run` CLI, and an `examples/` script — and every one writes a record
 saying exactly what produced its number.
@@ -16,18 +16,22 @@ intend to quote one.**
 | {doc}`classification </probes/high-level/classification>` | basic-level object category, linear probe on pooled features |
 | {doc}`scene_classification </probes/high-level/scene_classification>` | the category of the *place*, not of an object in it |
 | {doc}`fine_grained_classification </probes/high-level/fine_grained_classification>` | subordinate category — which species, not whether it is a bird |
+| {doc}`vehicle_classification </probes/high-level/vehicle_classification>` | subordinate category again, on a manufactured object — which car model |
 | {doc}`retrieval </probes/high-level/retrieval>` | zero-shot nearest neighbours by cosine over pooled features |
 | {doc}`semantic_segmentation </probes/high-level/semantic_segmentation>` | multi-class per-pixel labels |
 | {doc}`scene_parsing </probes/high-level/scene_parsing>` | every pixel of an indoor scene, forty classes — stuff, not things |
 | {doc}`detection </probes/high-level/detection>` | anchor-free single-scale boxes from one feature map |
 | {doc}`instance_segmentation </probes/high-level/instance_segmentation>` | which *object* a pixel belongs to, not just which class |
 
-Three of those seven share one implementation and ask three different questions:
+Four of those eight share one implementation and ask four different questions:
 `classification` is basic-level, `scene_classification` is place,
-`fine_grained_classification` is subordinate. Each is a distinct probe *name*
-rather than a dataset flag, because a board is keyed on the task name — a second
-dataset under one name does not merge into that board, it makes it
-unrenderable.
+`fine_grained_classification` is subordinate on a natural kind, and
+`vehicle_classification` is subordinate on a manufactured one. Each is a
+distinct probe *name* rather than a dataset flag, because a board is keyed on
+the task name — a second dataset under one name does not merge into that board,
+it makes it unrenderable. And the four do not form a granularity ladder in the
+corpus: `vehicle_classification` correlates **+0.901** with the *place* board
+against +0.863 with the other subordinate one.
 
 ## Mid level — geometry and structure, before naming anything
 
@@ -245,6 +249,7 @@ the signal.
 high-level/classification
 high-level/scene_classification
 high-level/fine_grained_classification
+high-level/vehicle_classification
 high-level/retrieval
 high-level/semantic_segmentation
 high-level/scene_parsing

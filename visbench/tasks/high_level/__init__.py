@@ -13,6 +13,7 @@ from visbench.tasks.high_level.fine_grained_classification import (
 from visbench.tasks.high_level.retrieval import RetrievalTask
 from visbench.tasks.high_level.scene_classification import SceneClassificationTask
 from visbench.tasks.high_level.semantic_segmentation import SemanticSegmentationTask
+from visbench.tasks.high_level.vehicle_classification import VehicleClassificationTask
 
 __all__ = [
     "ClassificationTask",
@@ -21,4 +22,5 @@ __all__ = [
     "RetrievalTask",
     "SceneClassificationTask",
     "SemanticSegmentationTask",
+    "VehicleClassificationTask",
 ]

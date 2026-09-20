@@ -453,3 +453,25 @@ Ordered by `miou`, which **disagrees with `mean_acc`, `miou_per_image`, `pixel_a
 Ordered by `miou`, which **disagrees with `mean_acc`, `miou_per_image`, `pixel_acc`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
 
 <sub>semantic_segmentation on VOC2012/val, protocol=visbench_semantic_seg, frozen [e14b47db]</sub>
+
+### vehicle_classification
+
+| backbone | `top1` | `top5` |
+| --- | --- | --- |
+| `siglip_vitb16` | **0.8603** | **0.9687** |
+| `clip_vitb16` | 0.8074 | 0.9660 |
+| `dinov2_vitb14` | 0.7953 | 0.9509 |
+| `dinov2_vits14` | 0.7614 | 0.9370 |
+| `clip_vitb32` | 0.7327 | 0.9335 |
+| `sam_vitb16` | 0.6711 | 0.8831 |
+| `dino_vitb8` | 0.6480 | 0.8560 |
+| `resnet50` | 0.6221 | 0.8568 |
+| `dino_vitb16` | 0.6131 | 0.8501 |
+| `convnext_base` | 0.6005 | 0.8458 |
+| `resnet18` | 0.5199 | 0.7815 |
+| `supervised_vitb16` | 0.4578 | 0.7415 |
+| `mae_vitb16` | 0.4353 | 0.7134 |
+
+Ordered by `top1`, which **disagrees with `top5`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
+
+<sub>vehicle_classification on val/val, protocol=visbench_vehicle_linear_probe, frozen [47c01df8]</sub>
