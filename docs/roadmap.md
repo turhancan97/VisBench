@@ -225,6 +225,14 @@ This is a multi-month roadmap, built one reviewed step at a time.
       identical frames — the question dominating the data, which complements the
       split control
 
+- [x] **20d.** why one board would not reproduce — `scene_classification`'s
+      held-out sweep explained by **amplification** rather than by hardware:
+      across a thousand-fold perturbation range its most interpolating row moves
+      by the same ~0.005 at every size while its most stable row moves 150x
+      less, so a disturbance too small to identify suffices. The board gets a
+      verdict anyway (8 of 12 pairs ordered), and the two configurations differ
+      on only 2 of 78 pairs, both already tied
+
 - [x] **20c.** every trained board swept — twelve more at five seeds, which
       **corrects 20b's own conclusion**: `surface_normal`, a linear board,
       reverses a pair, so reversals are rare and marginal rather than a property

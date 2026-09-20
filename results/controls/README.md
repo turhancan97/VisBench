@@ -675,44 +675,87 @@ ill-conditioned, which `CORPUS_FINDINGS.md` already records from the run that
 added its ceilings. These are exactly the boards this project already says to
 quote to three decimals.
 
-## `scene_classification_seeds.jsonl` — a sweep that does not reproduce its board
+## `scene_classification_seeds.jsonl` and `scene_noise.json` — the board that amplifies
 
-**65 records, held out of `seeds/` deliberately.** `scene_classification` was
-swept with the other fourteen and **eleven of its thirteen seed-0 rows do not
-reproduce their published cells**, worst **−0.0102** on `resnet50`. Unlike every
-other board, those rows also carry a *different* `train_loss` — which is the
-signature that says a different configuration was fitted, not that a metric
-moved.
+**65 records and one study.** `scene_classification` was swept with the other
+fourteen boards (20c) and **eleven of its thirteen seed-0 rows do not reproduce
+their published cells**, worst **−0.0102** on `resnet50`, *and* carry a
+different `train_loss`. The sweep is kept here rather than under `seeds/`
+because a sweep that does not reproduce its board cannot be read as that board's
+noise — the same rule that held three cells out of the corpus in the v8 re-run.
 
-A sweep that does not reproduce its board describes some adjacent
-configuration, so its seed spread is not this board's noise and must not be read
-as such. It is kept because the disagreement is itself evidence, exactly as
-`hardware_a100.jsonl` is kept.
+20d asked why, and the answer is **amplification**: a disturbance far too small
+to identify is sufficient to produce the whole disagreement. So the question
+"what changed" is not worth answering, and the board gets a separability verdict
+anyway.
 
-**What has been ruled out, in this order:**
+### What was ruled out, in this order
 
-* **Different data.** The dataset fingerprints match the published cells, so the
-  image set is identical — asserted, not assumed.
+* **Different data.** The dataset fingerprints match the published cells — and
+  `scripts/measure_scene_noise.py` builds its splits by calling the CLI's own
+  `_folder_split`, so the val fingerprint it reads is the board's, checked.
 * **Nondeterministic training.** Two further repeats of `resnet50` and
-  `mae_vitb16` agree **bit for bit** with each other and with the sweep. This
-  200-epoch fit is deterministic given its inputs, which is also why
-  `mae_vitb16` and `dino_vitb8` reproduce their published cells exactly.
+  `mae_vitb16` agree **bit for bit** with each other and with the sweep.
 * **Changed features.** Every backbone's cache directory has exactly **8,217**
-  files written on 2026-09-17 — NAVI's frame count, i.e. the pose board's
-  extraction adding entries under different image hashes. No Places365 entry was
-  overwritten. (`dino_vitb8` is the one directory written wholesale, because it
-  is the newest backbone.)
+  files written since — NAVI's frame count, i.e. the pose board's extraction
+  under different image hashes. No Places365 entry was overwritten.
+* **The silicon**, which was the last standing hypothesis and is refuted by the
+  other boards: **five boards were published in the same 2026-09-10 batch**
+  (`depth`, `semantic_segmentation`, `surface_normal`, `generic_segmentation`,
+  `detection`) **and all five reproduce today on a V100.** A different machine
+  underneath would have moved them too.
 
-**What is left is the silicon**, and those published cells cannot say: they are
-pre-v9 records carrying `hardware: None`, which is the field added *because*
-this happened before. An A100 has TF32 where a V100 has none. The corroborating
-case is `fine_grained_classification`, whose cross-silicon disagreement is
-already recorded here — its three A100 cells were held out of the corpus, and
-its sweep reproduces exactly today on a V100.
+### The measurement: a trigger, not a dose — on a second board
 
-**No published number is in question.** The corpus records what those runs
-produced. What is open is which machine produced them, and a re-run on an A100
-is the check; until it lands this board has no separability verdict.
+`results/controls/scene_noise.json`, from `scripts/measure_scene_noise.py`.
+Noise of a known absolute size injected into the cached features, refitted,
+three draws per magnitude. **Both rows' unperturbed baselines reproduce the
+sweep's seed-0 value at delta 0.0**, which is the gate and is pinned by
+`tests/results/test_scene_noise_study.py`.
+
+| perturbation | `resnet50` mean abs move | `mae_vitb16` mean abs move |
+| --- | --- | --- |
+| ±1e-06 | **0.00437** | 0.00000 |
+| ±1e-05 | **0.00505** | 0.00003 |
+| ±1e-04 | **0.00690** | 0.00007 |
+| ±1e-03 | **0.00632** | 0.00016 |
+
+**`resnet50` moves by the same amount at every size across a thousand-fold
+range** — 19b's finding, reproduced on a board with a different head, a
+different metric and a different dataset, so it is a property of a
+near-interpolating fit rather than of `PoseHead`. **`mae_vitb16` responds
+proportionally and negligibly**, 150x smaller at ±1e-06, where it does not move
+at all.
+
+**That is the prediction the study was built to test.** If amplification is the
+mechanism, the rows that fail to reproduce should be the ones whose fit is
+closest to interpolating — and `mae_vitb16`, at `train_top1` **0.916** against
+`resnet50`'s **0.9998**, is one of the only two rows that *do* reproduce. It is.
+
+**The sizes line up too.** `resnet50`'s amplified movement (~0.005) is its own
+seed-to-seed sd (**0.00424**), and the published-versus-today gap (0.0102) is
+about one seed *spread* (0.00984). The published cell is one draw from the
+distribution today's runs draw from, not a different experiment.
+
+**Corroborating it by accident**: this script's first version built the backbone
+before seeding, where `run()` seeds first, and its baseline missed by **6e-3** on
+`resnet50` and 5e-5 on `mae_vitb16` — a hundredfold difference between the two
+rows from an RNG-ordering change alone, which is the same contrast the curves
+show deliberately.
+
+### So the board does get a verdict, and it is the same in both configurations
+
+Taking the held-out sweep at face value — it is five seeds of *today's*
+configuration, internally consistent — `scene_classification` orders **8 of its
+12 adjacent pairs**, ties 4, and reverses none. The verdict survives the
+unresolved disagreement, because the two configurations **differ on only 2 of
+78 pairs, and both are pairs the sweep calls tied**: `resnet50`/`dino_vitb8` and
+`sam_vitb16`/`dino_vitb16`. Every pair either configuration can order, both
+order the same way.
+
+**No published number moves**, and the file stays out of `seeds/`: it still
+does not reproduce its board, and the guard that says so is the reason this was
+investigated rather than averaged over.
 
 ## `pose_noise.json` — how much does a pose number move, and what moves it?
 
