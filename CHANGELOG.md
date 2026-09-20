@@ -11,6 +11,48 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Added
 
+- **The twentieth board is swept, and the separability totals now have a guard**
+  (21b). `vehicle_classification` re-fitted at five seeds across all thirteen
+  backbones: **7 of its 12 adjacent pairs are ordered, 5 tied, none reversed**.
+  Over sixteen swept boards the corpus totals **126 of 192 pairs ordered, 63
+  tied, 3 reversed**, and on **11 of 16** boards the largest unordered gap
+  exceeds the smallest ordered one. No published number moves.
+- **The board reproduces its published cells exactly** — all thirteen seed-0
+  rows at delta 0.0 with an identical `train_loss`, so it joins `relative_pose`
+  and the other two image-level classification boards in the exact group and
+  needs no tolerance entry. Nothing like `scene_classification`'s amplification
+  appears here, on a board that shares its head and its metric.
+- **A board's spread does not predict how many of its pairs are ordered.** The
+  three image-level classification boards each order **exactly 7 of 12** while
+  their spreads run from 0.0415 to 0.4250 — a ten-fold range and the same
+  verdict, because the per-row scatter grows with the spread rather than
+  staying put. Three boards agreeing at n=12 pairs is a coincidence rather than
+  a law, but it points where the rest of this control does: the quantity a gap
+  must beat is the board's own noise, which the spread does not report.
+
+### Fixed
+
+- **The separability totals were quoted in three files with nothing checking
+  them**, which is this project's most repeated failure — a guard on a total is
+  not a guard on the count beside it — arriving a third time.
+  `tests/results/test_sweep_totals.py` recomputes ordered/tied/reversed and the
+  thresholdless-board count from the committed sweeps and pins `CLAUDE.md`,
+  `CORPUS_FINDINGS.md` and `results/controls/README.md` against them. It
+  matches three idiom shapes, because one of those files writes the totals as
+  **table rows** and heads the section with the board count spelled as a
+  **word** — the same anchor that let three stale numbers reach PyPI in 0.23.0.
+  Calibrated by reproducing all fifteen previously published per-board rows.
+- **`scripts/merge_controls.sh` republished a deliberately held-out sweep.** It
+  derives the probe list from the parts present, and `scene_classification`'s
+  parts are still in the archive, so merging wrote
+  `results/controls/seeds/scene_classification.jsonl` — a sweep that does not
+  reproduce its own board, landing where every consumer reads it as that
+  board's measured noise. This is *`parts/` is an archive, not a queue* in a
+  second file: a merge dedups by exact line, which cannot see a record kept out
+  on purpose. Held-out sweeps are now refused by name. The gate in
+  `tests/results/test_seed_sweeps.py` did catch it, loudly, but only after the
+  file was written.
+
 - **`vehicle_classification` — the twentieth probe: which car model, not which
   car** (21a). The fourth question asked by one linear-probe implementation and
   the second at subordinate granularity, on a VisBench-pinned Stanford Cars

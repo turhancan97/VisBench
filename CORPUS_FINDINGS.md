@@ -276,10 +276,11 @@ Two standing cautions apply to everything below:
   stated as a number of digits rather than as a condition to check.
 
 - **A third of all adjacent rows are not separable, and a reversal is rare
-  rather than absent** (20b/20c, 2026-09-19; the tables are in
-  `results/controls/README.md`, reprinted by `scripts/analyse_seeds.py <probe>`).
+  rather than absent** (20b/20c, 2026-09-19; extended to the twentieth board by
+  21b, 2026-09-21; the tables are in `results/controls/README.md`, reprinted by
+  `scripts/analyse_seeds.py <probe>`).
   Every trained board has now been re-fitted at five seeds across all thirteen
-  backbones: **119 of 180 adjacent pairs ordered, 58 tied, 3 reversed.**
+  backbones: **126 of 192 adjacent pairs ordered, 63 tied, 3 reversed.**
 
   **This corrects what 20b published a day earlier.** That step swept three
   boards, found no reversal, and concluded the pose reversals "do not
@@ -287,7 +288,8 @@ Two standing cautions apply to everything below:
   reverses**, and it is a linear board fitted for ten epochs with nothing like
   `PoseHead` in it: the board shows `siglip_vitb16` ahead of `convnext_base` by
   0.0376 degrees, and across five seeds `convnext_base` is ahead by **0.157**
-  (t −2.90). Three boards in fifteen carry one. **The honest statement is rare
+  (t −2.90). Three boards in sixteen carry one, and the sixteenth added none.
+  **The honest statement is rare
   and marginal**, since all three sit at |t| 2.90-3.15 against a 2.776 critical
   value at n=5 — each a 95% call rather than an emphatic one.
 
@@ -296,9 +298,13 @@ Two standing cautions apply to everything below:
   five, against **11 of 12** for `generic_segmentation` and `scene_parsing`. So
   "a third" is a corpus average and not a per-board rate.
 
-  **On 10 of 15 boards the largest *unordered* gap exceeds the smallest
+  **On 11 of 16 boards the largest *unordered* gap exceeds the smallest
   *ordered* one**, so on two boards in three no threshold on the gap could sort
-  the pairs even in principle. Common-mode — the share of seed variance that
+  the pairs even in principle. **Nor does a board's spread predict how many
+  pairs it orders** — `classification`, `fine_grained_classification` and
+  `vehicle_classification` each order exactly 7 of 12 while their spreads run
+  0.0415 to 0.4250, because the per-row scatter grows with the spread rather
+  than staying put. Common-mode — the share of seed variance that
   moves every row together and so cancels in a difference — runs **2% to 17%**
   and is the majority on no board.
 

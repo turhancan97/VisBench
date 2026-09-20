@@ -67,6 +67,20 @@ merge_group cnn results/controls/dpt_head_cnn.jsonl
 # `comparability_key` keeps them out of the published board either way.
 merge_group detection_split results/controls/detection_split.jsonl
 
+# A sweep that does NOT reproduce its own board is held out by hand, and its
+# parts stay in the archive like everyone else's -- so deriving the probe list
+# from the parts present routes it straight back into seeds/ as though it were
+# publishable. That is `results/corpus/parts/ is an archive, not a queue` in a
+# second file: a merge dedups by exact line, which cannot see a record kept
+# *out* on purpose. `scene_classification` (20c/20d) lives at
+# results/controls/scene_classification_seeds.jsonl and must never appear under
+# seeds/, where every consumer reads it as a board's measured noise.
+#
+# Refused here rather than left to `tests/results/test_seed_sweeps.py`. That
+# test does catch it -- the gate fails on the first seed-0 row -- but only after
+# the file is written, and a merge should not depend on a later test to undo it.
+HELD_OUT_SWEEPS=" scene_classification "
+
 # The seed sweeps (20b): one file per swept probe, under results/controls/seeds/.
 # Derived from the parts present rather than listed, because this table would
 # otherwise have to be edited every time another board is swept -- and a probe
@@ -77,6 +91,10 @@ for part in "$PARTS"/seeds_*__*.jsonl; do
   probe=$(basename "$part"); probe=${probe#seeds_}; probe=${probe%%__*}
   [[ " ${swept_probes:-} " == *" $probe "* ]] && continue
   swept_probes="${swept_probes:-} $probe"
+  if [[ $HELD_OUT_SWEEPS == *" $probe "* ]]; then
+    echo "--- seeds_$probe: HELD OUT, not merged into seeds/ (see results/controls/README.md)"
+    continue
+  fi
   mkdir -p results/controls/seeds
   merge_group "seeds_$probe" "results/controls/seeds/$probe.jsonl"
 done
