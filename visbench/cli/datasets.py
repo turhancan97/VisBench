@@ -1280,6 +1280,16 @@ SPECS: dict[str, ProbeSpec] = {
             _classification_view_flags, defaults=CLASSIFICATION_SCHEDULE_DEFAULTS
         ),
     ),
+    "vehicle_classification": ProbeSpec(
+        summary="linear probe on pooled features, car-model labels, top-1/top-5",
+        layout=_FOLDER_LAYOUT,
+        add_arguments=_classification_flags,
+        build=_classification_splits,
+        probe_kwargs=_classification_kwargs,
+        show_arguments=_viewing(
+            _classification_view_flags, defaults=CLASSIFICATION_SCHEDULE_DEFAULTS
+        ),
+    ),
     "retrieval": ProbeSpec(
         summary="zero-shot leave-one-out ranking over pooled features",
         layout=_FOLDER_LAYOUT,

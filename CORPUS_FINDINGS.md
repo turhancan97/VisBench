@@ -36,6 +36,46 @@ Two standing cautions apply to everything below:
 ---
 
 
+- **`vehicle_classification` is the twentieth board, and it separates
+  *granularity* from what the classification family actually shares** (21a,
+  2026-09-20). Thirteen cells on a VisBench-pinned Stanford Cars split, spanning
+  **0.8603** (`siglip_vitb16`) to **0.4353** (`mae_vitb16`).
+
+  **It was measured before it was built, against the standard relative depth was
+  rejected on.** A candidate that merely reproduces an existing board's ordering
+  is a copy, so the pre-measurement asked exactly that: over thirteen backbones
+  the ordering correlates **+0.863** with `fine_grained_classification` — high,
+  but a dozen of this corpus's existing board pairs are *more* correlated
+  (`occlusion_edge`/`instance_segmentation` reads +0.967), and the leader
+  changes. Calibrating a new rejection criterion against something that already
+  passed is what made that judgement possible.
+
+  **Its closest partner is the *place* board, not the other subordinate one.**
+  `scene_classification` reads **+0.901** against CUB's +0.863. Both Cars and CUB
+  ask for subordinate categories inside one basic-level class, so granularity was
+  the property this probe was built to isolate — and it is not what organises
+  these boards. Mean rho is **+0.525** against high-level, +0.149 against
+  mid-level and **−0.190** against low-level, so it sits in the semantic cluster
+  the other image-level probes occupy.
+
+  **`siglip_vitb16` leads, where it is fifth on CUB**, ahead of both DINOv2 rows;
+  `supervised_vitb16` is twelfth of thirteen. Web image-text pretraining ahead of
+  everything else on manufactured categories is consistent with car model names
+  saturating web alt-text, and with ImageNet-1k holding car classes but none at
+  *model* granularity — though one board cannot separate that from the backbone
+  simply being weak here, and nothing claims it does.
+
+  **The split is VisBench's own and the board says so.** The Stanford Cars copy
+  on this machine is not the official 8,144/8,041 split: eleven train images are
+  the same photograph filed under two class directories, seven more pairs are in
+  test, and one image is blank. `scripts/stage_cars_split.py` pins a cleaned
+  **8,125/8,026** split under one rule — no image appears twice, under any label
+  — with every exclusion named in a committed manifest. **Numbers on this board
+  are not comparable with published Stanford Cars results.** Cleaning moved the
+  ordering barely at all (+0.984 against the raw copy), so the defects are not
+  what produced any of the readings above; they are what would have made the
+  board unciteable.
+
 - **`scene_parsing` ranks with the *semantic* boards, and it does so against
   the boards it shares images with** (19a, 2026-09-18). Thirteen cells on
   NYUv2-40, forty classes on the canonical 795/654 split, all on V100s. The

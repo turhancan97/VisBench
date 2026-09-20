@@ -74,6 +74,7 @@ PLACES365=/shared/sets/datasets/vision/places365_standard
 # The readable CUB copy. `cub_200_2011/CUB_200_2011` at the top level is
 # permission-denied, and this one already ships the official split as folders.
 CUB=/shared/sets/datasets/vision/CUB-200/images_train_test
+CARS="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/data/cars_split"
 NIGHTS=/shared/sets/datasets/vision/nights
 TASKONOMY=/shared/sets/datasets/taskonomy-dataset/taskonomy
 NYU=/shared/sets/datasets/vision/probing_3D/nyuv2_new
@@ -229,6 +230,25 @@ probe_fine_grained_classification() {
   # official test set -- do not "fix" it to --split test, which would index the
   # same files under a different path and so a different fingerprint.
   run fine_grained_classification --data "$CUB" --split val --train-split train
+}
+
+probe_vehicle_classification() {
+  # A VisBench-PINNED split, not Stanford Cars' official 8,144/8,041 one: the
+  # copy on this machine has eleven cross-class duplicate pairs in train, seven
+  # in test and one blank image, so scripts/stage_cars_split.py drops them and
+  # writes 8,125/8,026 as symlinks with a committed manifest. Numbers here are
+  # therefore NOT comparable with published Stanford Cars results, which the
+  # probe's docs page and docstring both state.
+  #
+  # Same constraint as probe_corner: two people's numbers are comparable only if
+  # they staged the same files, so the staging script is part of the protocol
+  # rather than a convenience.
+  if [[ ! -d "$CARS/val" ]]; then
+    echo "!!! SKIPPED vehicle_classification: no staged split at $CARS" >&2
+    echo "!!!   run scripts/stage_cars_split.py first" >&2
+    return
+  fi
+  run vehicle_classification --data "$CARS" --split val --train-split train
 }
 
 probe_retrieval() {
@@ -425,6 +445,7 @@ ALL_PROBES=(
   classification
   scene_classification
   fine_grained_classification
+  vehicle_classification
   retrieval
   correspondence
   similarity

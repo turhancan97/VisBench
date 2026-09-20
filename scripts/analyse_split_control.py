@@ -57,6 +57,7 @@ HEADLINE_METRICS: dict[str, str] = {
     "classification": "top1",
     "scene_classification": "top1",
     "fine_grained_classification": "top1",
+    "vehicle_classification": "top1",
     "retrieval": "mAP",
     "correspondence": "recall@5px",
     "similarity": "accuracy",

@@ -22,7 +22,7 @@ abstract: >-
   VisBench is a unified library for probing vision backbones — DINOv2, CLIP,
   timm CNNs and ViTs, or a custom nn.Module — across high-level, mid-level and
   low-level computer vision tasks through one get_backbone() / get_probe() API.
-  Nineteen probes span object, scene and fine-grained classification,
+  Twenty probes span object, scene, fine-grained and vehicle classification,
   retrieval, semantic, generic and instance segmentation, indoor scene parsing,
   detection, depth, surface normals, geometric correspondence, mid-level
   similarity, texture and occlusion edges, 2D keypoints, corners, gradient

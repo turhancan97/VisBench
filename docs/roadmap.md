@@ -225,6 +225,17 @@ This is a multi-month roadmap, built one reviewed step at a time.
       identical frames — the question dominating the data, which complements the
       split control
 
+- [x] **21a.** `vehicle_classification`, the **twentieth** probe — which car
+      model, not which car. The fourth question on one linear-probe
+      implementation, measured against the relative-depth standard before it was
+      built (+0.863 against CUB, where a dozen existing pairs are more
+      correlated) and **separating granularity from what this family actually
+      shares**: its closest partner is the *place* board at +0.901, not the other
+      subordinate one. `siglip_vitb16` leads where it is fifth on CUB. The
+      Stanford Cars copy here is not the official split — eleven train images are
+      the same photograph under two labels — so the board runs a pinned, cleaned
+      8,125/8,026 split and says it is not comparable with published Cars numbers
+
 - [x] **20d.** why one board would not reproduce — `scene_classification`'s
       held-out sweep explained by **amplification** rather than by hardware:
       across a thousand-fold perturbation range its most interpolating row moves
