@@ -76,6 +76,7 @@ step is next rather than attempting the whole roadmap in one session.
 | 20a | The pose seed sweep: which adjacent rows are actually ordered | done |
 | 20b | The seed sweep generalised: three more boards, and what a gap cannot say | done |
 | 20c | Every trained board swept: a reversal on a linear board, and one held out | done |
+| 20d | Why one board would not reproduce: amplification, not hardware | done |
 
 **A closed step's full write-up lives in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md), not here.** That file is the archive
@@ -1228,10 +1229,28 @@ designed up front; extend it the same way, from a case that already runs.
   separates a moved metric from a moved configuration — and it is what made
   **`scene_classification` legible**: eleven of its thirteen seed-0 rows miss
   their published cells by up to **−0.0102** *with a different fit*, so its
-  sweep is **held out** at `results/controls/scene_classification_seeds.jsonl`
-  and that board has no separability verdict. Data, nondeterminism and changed
-  features are each ruled out by measurement; what is left is the silicon, which
-  those pre-v9 records do not state. **No published number moves.**
+  sweep is **held out** at `results/controls/scene_classification_seeds.jsonl`.
+
+  **20d says why, and the answer is amplification rather than hardware.** The
+  silicon was the last hypothesis and the other boards refute it — five were
+  published in the same 2026-09-10 batch and all five reproduce today.
+  Perturbing this board's features across a **thousand-fold** range moves
+  `resnet50` by 0.0044-0.0069, the same at every size, while `mae_vitb16` moves
+  150x less and is one of the two rows that reproduce: **a trigger not a dose,
+  on a different head, metric and dataset from 19b's**. So **a disturbance too
+  small to identify is sufficient, and identifying it would change no number** —
+  which is why no A100 slot was spent on it. The board still gets a verdict (8
+  of 12 pairs ordered) and it **survives the disagreement**: the two
+  configurations differ on 2 of 78 pairs, both already tied. **No published
+  number moves.**
+
+  Two rules from building that study, both of which cost a run: **a
+  pre-measurement must call the CLI's dataset builder rather than copy it** —
+  the copy got `ImageFolderDataset`'s root/split shape wrong and found no images
+  — and **it must seed before constructing the backbone**, as `run()` does, or
+  the head initialises from a different RNG state and the baseline misses by
+  6e-3 with every recorded field identical. **Give such a script a `--gate-only`
+  mode**: the check is 30 seconds and the curve is 45 minutes.
 - **Constructing a backbone draws from the global RNG, and `run()` seeds
   *before* it constructs.** So `run("dinov2_vits14", ...)` and
   `run(get_backbone("dinov2_vits14"), ...)` fit the head from different RNG
@@ -1682,10 +1701,10 @@ designed up front; extend it the same way, from a case that already runs.
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite **collects 2359 tests**, green on 2026-09-19 along with all three
+fast suite **collects 2362 tests**, green on 2026-09-20 along with all three
 lint steps, mypy and the `-W` docs build. The slow suite is **116** since
 16a-1, whose own slow test was run then; the other 115 were last green on
-`main` on 2026-09-11. Earlier fast counts, for dating a claim: 2324 at 20b,
+`main` on 2026-09-11. Earlier fast counts, for dating a claim: 2359 at v0.24.0, 2324 at 20b,
 2304 at v0.23.0, 2301 at 20a, 2296 at 19b, 2281 at v0.21.0, 1824 at the oracle
 gate. **Keep that list to a handful** — it is one of the places this file
 accretes, and its only job is to date a claim.
@@ -2013,7 +2032,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 2359 fast tests
+pytest                                              # 2362 fast tests
 pytest -m slow                                      # 116, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/

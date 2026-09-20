@@ -9,6 +9,28 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+### Changed
+
+- **Why `scene_classification` alone failed to reproduce its board, measured**
+  (20d). 20c held that sweep out because eleven of its thirteen seed-0 rows miss
+  their published cells with a *different fit*, leaving the silicon as the last
+  hypothesis. It is refuted: **five boards published in the same 2026-09-10
+  batch all reproduce today**, so the machine underneath cannot be what moved.
+  What moved is **nothing identifiable** — perturbing that board's cached
+  features across a **thousand-fold** range moves `resnet50` by 0.0044 to 0.0069,
+  the same amount at every size, while `mae_vitb16` moves 0.00000 to 0.00016 and
+  is one of the two rows that *do* reproduce. A trigger rather than a dose,
+  which is 19b's result on a different head, metric and dataset.
+- **The board gets a separability verdict after all, and it survives the
+  disagreement**: 8 of 12 adjacent pairs ordered, 4 tied, none reversed, with
+  the two configurations differing on **2 of 78 pairs — both pairs the sweep
+  calls tied**. The sweep stays held out of `results/controls/seeds/`, because
+  it still does not reproduce its board.
+- `scripts/measure_scene_noise.py` and `results/controls/scene_noise.json` are
+  committed; `--gate-only` re-checks in 30 s that the script still measures the
+  published board, and `tests/results/test_scene_noise_study.py` pins that the
+  committed study passed that gate. **No published number moves.**
+
 ## [0.24.0] — 2026-09-19
 
 **The release that measured which rows of its own boards may be ordered — and

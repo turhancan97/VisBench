@@ -273,18 +273,30 @@ Two standing cautions apply to everything below:
   what separates "the metric moved" from "a different configuration was fitted".
 
   **`scene_classification` is the board where that distinction earned its
-  keep.** Eleven of its thirteen seed-0 rows do not reproduce their published
-  cells — worst **−0.0102** — *and* carry a different `train_loss`. Different
-  data is ruled out (fingerprints match), nondeterministic training is ruled out
-  (two further repeats agree bit for bit, and two backbones reproduce their
-  published cells exactly), and changed features are ruled out (the only cache
-  writes since are NAVI's 8,217 frames, a different dataset). What is left is
-  the silicon, which those pre-v9 records cannot state — the same shape as
-  `fine_grained_classification`'s cross-silicon disagreement, whose A100 cells
-  were held out of the corpus and whose sweep reproduces exactly today. **Its
-  sweep is held out of `results/controls/seeds/` until that is settled**, and it
-  has no separability verdict. **No published number is in question**, here or
-  anywhere else in this entry: every board reports what seed 0 produced.
+  keep, and 20d explains it.** Eleven of its thirteen seed-0 rows do not
+  reproduce their published cells — worst **−0.0102** — *and* carry a different
+  `train_loss`. Different data, nondeterministic training and changed features
+  are each ruled out by measurement, and so is the silicon: **five boards were
+  published in the same 2026-09-10 batch and all five reproduce today**, so the
+  machine underneath cannot be what moved.
+
+  **What moved is nothing identifiable, and that is the finding**
+  (`results/controls/scene_noise.json`). Perturbing this board's cached features
+  across a **thousand-fold** range moves `resnet50` by 0.0044 to 0.0069 — the
+  same amount at every size, a *trigger rather than a dose*, which is 19b's
+  result reproduced on a different head, metric and dataset. `mae_vitb16` moves
+  0.00000 to 0.00016, **150x less**, and it is one of the only two rows that
+  reproduce. The amplified movement is the size of that row's own seed sd
+  (0.0042) and the published gap is one seed spread (0.0098), so the published
+  cell is one draw from the distribution today's runs draw from.
+
+  **The board still gets a verdict, and it survives the disagreement**: 8 of 12
+  adjacent pairs ordered, 4 tied, none reversed — and the two configurations
+  differ on **2 of 78 pairs, both of them pairs the sweep calls tied**. Every
+  pair either configuration can order, both order the same way. The sweep stays
+  out of `results/controls/seeds/` because it still does not reproduce its
+  board. **No published number is in question**, here or anywhere else in this
+  entry: every board reports what seed 0 produced.
 
 - **The published boards reproduce — and the one node that disagreed was
   broken, which the fit diagnostics are what caught** (the schema-v8 re-run,
