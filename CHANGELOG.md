@@ -9,6 +9,54 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+### Added
+
+- **The rankings audited against the seed sweeps** (22a).
+  `scripts/analyse_placements.py` applies 20b/20c/21b's paired re-fits to the
+  two placements the prose actually quotes — first and last — across all twenty
+  boards. **17 of 20 first places and 13 of 20 last places survive.** Three
+  leads do not: `edge` at **t = +0.11**, as close to a coin flip as this corpus
+  gets, `fine_grained_classification` at +1.64 and `occlusion_edge` at +2.15,
+  against a critical value of 2.776. One published *last* place is outright
+  **reversed** (`relative_pose`, −3.06 — one of 20a's three known reversals,
+  which is a check on the script rather than a new result).
+- **Last place is the weaker half of a claim that reads as though both halves
+  were equal**, and the asymmetry is structural: scores compress at the bottom
+  of most of these boards, where a leader more often has room above the field.
+- **`mae_vitb16` is first on five boards and three of those survive.** The
+  *pattern* the corpus entry describes is untouched — the boards it leads
+  solidly (`orientation`, `relative_pose`, `surface_normal`) are exactly the
+  ones the pattern is about. **What weakens is the arithmetic, not the
+  reading**, which is the opposite of how these corrections have usually gone.
+
+**No published number moves and no board's rendered order changes.** What
+changes is which of those orders may be quoted as a result.
+
+### Fixed
+
+- **The leader claim was stale in both files this project calls authoritative
+  and current in all three that were guarded.** `CORPUS_FINDINGS.md` — which
+  `CLAUDE.md` names as the file to read before quoting any board — and
+  `CLAUDE.md` itself both said "first on five of the eighteen boards and last on
+  four"; it is twenty and five. `CORPUS_FINDINGS.md` additionally *claimed* the
+  count was already pinned by `tests/test_docs_counts.py`, and it was not. Both
+  files are now covered by that guard.
+- **The board-total idiom could not simply be extended to cover them**, and the
+  reason is worth keeping: `N of the M boards` is **structurally identical** for
+  a total and for a subset, and `CORPUS_FINDINGS.md` is full of the second kind
+  ("nine of the eleven boards whose head reads one vector per patch"). Adding
+  the file wholesale produced three false positives against correct prose. Only
+  the leader claim, anchored on a backbone name and both halves at once, is safe
+  there. **An idiom can only be applied to a file whose prose cannot spell a
+  subset the same way.**
+- **A "reaches something" assertion cannot tell you it missed most of them.**
+  `tests/results/test_placement_claims.py` first matched one of three claims and
+  passed, because the other two wrap onto an indented continuation line and
+  `" ".join` then puts three spaces where the pattern had one. It now asserts
+  every file that quotes the counts is reached *by name*.
+- `docs/guides/reading-a-board.md` said "the whole point of nineteen boards"
+  where there are twenty.
+
 ## [0.25.0] — 2026-09-21
 
 **The twentieth probe, on a split we had to pin ourselves — and the seed study

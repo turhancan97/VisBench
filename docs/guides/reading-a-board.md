@@ -15,7 +15,22 @@ corrected, is in
 
 `mae_vitb16` is first on **five** of the twenty boards and last on **five**. A
 summary that picks a winner is discarding the result — the whole point of
-nineteen boards is that a representation is good *at things*, not good.
+twenty boards is that a representation is good *at things*, not good.
+
+## A placement is not automatically a result
+
+Of the twenty boards, **17 first places and 13 last places survive a paired
+re-fit** at five seeds. Three leads do not: `edge` at **t = +0.11** — as close
+to a coin flip as this corpus gets — `fine_grained_classification` at +1.64 and
+`occlusion_edge` at +2.15, against a critical value of 2.776. One published
+*last* place is outright **reversed**.
+
+So a count of placements weighs a coin flip the same as a twenty-sigma lead,
+and **last place is the weaker half**: scores compress at the bottom of most of
+these boards, where a leader more often has room. Quote a lead with its
+verdict, which
+[`scripts/analyse_placements.py`](https://github.com/turhancan97/VisBench/blob/main/scripts/analyse_placements.py)
+prints for every board.
 
 ## A count is a fact about the corpus, not about a backbone
 

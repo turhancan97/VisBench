@@ -201,6 +201,14 @@ def test_board_cell_total_matches_the_leaderboard(path, line, word, cell_count):
 #: `correspondence` off `mae_vitb16`, leaving four, and `relative_pose` later
 #: gave one back. Nothing failed, because the guard above pins the number of
 #: *boards* and had no opinion about the number beside it.
+#:
+#: 22a added `CORPUS_FINDINGS.md` to the files this runs over, where the same
+#: claim had gone stale a second time. A *historical* count in that file is
+#: phrased deliberately out of this idiom -- "six firsts and four lasts over
+#: seventeen boards" -- for the reason `CHANGELOG.md` is excluded by name: a
+#: count stated as of a step is correct history, and rewriting it would falsify
+#: the record. Keep new history out of the idiom rather than widening the
+#: exclusions.
 LEADER_CLAIM = re.compile(
     r"`(?P<backbone>\w+)` is first on \*{0,2}(?P<first>[A-Za-z]+)\*{0,2} "
     r"of the (?P<boards>[A-Za-z]+) boards and last on \*{0,2}(?P<last>[A-Za-z]+)\*{0,2}"
@@ -248,9 +256,31 @@ def _leader_counts() -> dict[str, tuple[int, int]]:
     return {name: (first[name], last[name]) for name in set(first) | set(last)}
 
 
+#: The leader claim runs over one more file than the totals do.
+#:
+#: `CLAUDE.md` names `CORPUS_FINDINGS.md` the file to read before quoting any
+#: board, and it was the one file this claim went unchecked in -- it read
+#: "eighteen boards ... last on four" while all three guarded files were
+#: current, and its own prose claimed this test already pinned it (22a).
+#:
+#: It is NOT in `CURRENT_STATE`, and that is the interesting half. The board
+#: total's idiom is `N of the M boards`, which is **structurally identical** to
+#: a subset: "nine of the eleven boards whose head reads one vector per patch"
+#: and "five of the twenty boards" cannot be told apart by shape, and that file
+#: is full of the first kind. The leader claim is safe because it is anchored on
+#: a backbone name and both halves at once. **An idiom can only be applied to a
+#: file whose prose cannot spell a subset the same way.**
+#:
+#: `CLAUDE.md` is here for the same reason and was stale in the same way. The
+#: claim was correct in all three files this already checked and wrong in both
+#: files the project treats as authoritative -- which is what being unguarded
+#: buys you, and is worth more than the two edits it cost to fix.
+LEADER_CLAIM_FILES = (*CURRENT_STATE, "CORPUS_FINDINGS.md", "CLAUDE.md")
+
+
 def _leader_claims() -> list[tuple[str, int, str, str, str, str]]:
     found = []
-    for name in CURRENT_STATE:
+    for name in LEADER_CLAIM_FILES:
         text = (ROOT / name).read_text(encoding="utf-8")
         for number, line in enumerate(text.splitlines(), 1):
             # The claim spans two lines in two of the three files, so match on

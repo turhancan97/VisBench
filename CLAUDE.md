@@ -79,6 +79,7 @@ step is next rather than attempting the whole roadmap in one session.
 | 20d | Why one board would not reproduce: amplification, not hardware | done |
 | 21a | `vehicle_classification`: the twentieth probe, on a split we had to pin | done |
 | 21b | The twentieth board swept, and a guard for the totals three files quote | done |
+| 22a | The rankings audited: which placements a re-fit actually supports | done |
 
 **A closed step's full write-up lives in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md), not here.** That file is the archive
@@ -776,11 +777,20 @@ designed up front; extend it the same way, from a case that already runs.
   `scripts/merge_corpus.sh`.
 
   - **"Which backbone is best" is not well-formed against this corpus.**
-    `mae_vitb16` is first on **five** of the eighteen boards and last on four —
+    `mae_vitb16` is first on **five** of the twenty boards and last on five —
     a count that was six at twelve backbones and four at thirteen, which is the
     next rule rather than an aside.
   - **A count over a corpus is a fact about that corpus, not a backbone.**
     Re-read counts off `LEADERBOARD.md`.
+  - **A placement is not automatically a result** (22a;
+    `scripts/analyse_placements.py`). **17 of 20 first places and 13 of 20 last
+    places survive a paired re-fit.** Three leads do not — `edge` at **t =
+    +0.11**, a coin flip — and one published *last* place is reversed. So a
+    count of placements weighs a coin flip the same as a twenty-sigma lead, and
+    **last place is the weaker half**, because scores compress at the bottom of
+    most boards. Quote a lead with its verdict. Only three of `mae_vitb16`'s
+    five firsts survive; the *pattern* both entries describe is untouched, since
+    the boards it leads solidly are the ones the pattern is about.
   - **Quote an objective gap against the *recipe* gap on the same board, never
     against zero** — `sam_vitb16` against `supervised_vitb16`, and nothing in a
     record says which board you are on.
@@ -1744,10 +1754,10 @@ designed up front; extend it the same way, from a case that already runs.
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite **collects 2397 tests**, green on 2026-09-21 along with all three
+fast suite **collects 2406 tests**, green on 2026-09-21 along with all three
 lint steps, mypy and the `-W` docs build. The slow suite is **116** since
 16a-1, whose own slow test was run then; the other 115 were last green on
-`main` on 2026-09-11. Earlier fast counts, for dating a claim: 2381 at 21a, 2362 at 20d, 2324 at 20b,
+`main` on 2026-09-11. Earlier fast counts, for dating a claim: 2397 at 21b, 2381 at 21a, 2362 at 20d,
 2304 at v0.23.0, 2301 at 20a, 2296 at 19b, 2281 at v0.21.0, 1824 at the oracle
 gate. **Keep that list to a handful** — it is one of the places this file
 accretes, and its only job is to date a claim.
@@ -2075,7 +2085,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 2397 fast tests
+pytest                                              # 2406 fast tests
 pytest -m slow                                      # 116, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/
