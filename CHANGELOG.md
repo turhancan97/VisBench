@@ -9,6 +9,26 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+## [0.25.0] — 2026-09-21
+
+**The twentieth probe, on a split we had to pin ourselves — and the seed study
+finished.**
+
+`vehicle_classification` takes the corpus from 247 board cells to **260**:
+twenty boards, thirteen backbones each. The schema is unchanged at v9, and **no
+number on the nineteen existing boards moves.** Two things are worth reading
+before the detail. The Stanford Cars copy this was measured on is **not** the
+official 8,144/8,041 split — eleven train images are the same photograph filed
+under two class labels — so the board runs a cleaned, committed
+**8,125/8,026** split that VisBench defines and says it defines; numbers on it
+are **not comparable with published Stanford Cars results**. And the probe was
+built to isolate *granularity* and did not: its closest partner is the **place**
+board, not the other subordinate one.
+
+Alongside it, the seed study that began in v0.24.0 is complete — every trained
+board now carries a separability verdict — and the board that would not
+reproduce is explained.
+
 ### Added
 
 - **The twentieth board is swept, and the separability totals now have a guard**
@@ -5238,7 +5258,8 @@ API philosophy.
 [#2]: https://github.com/turhancan97/VisBench/issues/2
 [#4]: https://github.com/turhancan97/VisBench/issues/4
 [#3]: https://github.com/turhancan97/VisBench/issues/3
-[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.24.0...HEAD
+[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.25.0...HEAD
+[0.25.0]: https://github.com/turhancan97/VisBench/compare/v0.24.0...v0.25.0
 [0.24.0]: https://github.com/turhancan97/VisBench/compare/v0.23.0...v0.24.0
 [0.23.0]: https://github.com/turhancan97/VisBench/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/turhancan97/VisBench/compare/v0.21.0...v0.22.0
