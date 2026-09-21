@@ -4,11 +4,11 @@
 # backbone), SEEDS runs inside each (20b).
 #
 #   mkdir -p logs results/controls/parts results/controls/seeds
-#   sbatch --array=0-181%4 slurm/seed_sweep.sbatch
+#   sbatch --array=0-194%4 slurm/seed_sweep.sbatch
 #   scripts/merge_controls.sh
 #   python scripts/analyse_seeds.py corner
 #
-# 14 probes x 13 backbones = 182 tasks, five seeds each. The array range is NOT
+# 15 probes x 13 backbones = 195 tasks, five seeds each. The array range is NOT
 # derived from the lists below and cannot be: #SBATCH directives are read before
 # any of this runs, so --array must be passed to match, and the guard below is
 # what turns a mismatch into an error rather than a quietly short sweep.
@@ -19,8 +19,13 @@
 #
 #   VISBENCH_PARTIAL=1 sbatch --array=39-194%4 slurm/seed_sweep.sbatch
 #
-# against the fifteen-probe list that included `scene_classification`; the
-# indices above are the list as it stands.
+# against a fifteen-probe list that included `scene_classification`; the indices
+# above are the list as it stands. `vehicle_classification` was appended at the
+# END for the same reason -- 21b ran it as
+#
+#   VISBENCH_PARTIAL=1 sbatch --array=182-194%4 slurm/seed_sweep.sbatch
+#
+# and every earlier index still names the pair it named before.
 #
 # which is what VISBENCH_PARTIAL is for -- a deliberate gap, here "the boards
 # that were not already swept", rather than a short matrix nobody noticed.
@@ -50,7 +55,7 @@
 #SBATCH --ntasks=1
 #SBATCH --job-name=visbench-seed-sweep
 #SBATCH --time=06:00:00
-#SBATCH --array=0-181%4
+#SBATCH --array=0-194%4
 #SBATCH --exclude=dgx1
 #SBATCH --output=logs/seed_sweep_%A_%a.log
 
@@ -120,6 +125,7 @@ PROBES=(
   fine_grained_classification
   surface_normal
   instance_segmentation
+  vehicle_classification
 )
 BACKBONE_LIST=(
   dinov2_vits14 dinov2_vitb14 clip_vitb16 clip_vitb32

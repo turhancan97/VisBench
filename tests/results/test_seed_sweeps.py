@@ -48,8 +48,11 @@ CORPUS = ROOT / "results" / "corpus" / "visbench.jsonl"
 #: They fall into three groups, and the group is the reason rather than the
 #: size:
 #:
-#:   * **exact** -- `classification`, `fine_grained_classification` and
-#:     `relative_pose` reproduce bit for bit on all thirteen rows.
+#:   * **exact** -- `relative_pose` and all three image-level classification
+#:     boards (`classification`, `fine_grained_classification`,
+#:     `vehicle_classification`) reproduce bit for bit on all thirteen rows.
+#:     They are absent from the table below because an unlisted probe defaults
+#:     to 0.0, which is the measurement rather than an omission.
 #:   * **float32 reduction order**, 1e-7 to 3e-5: every dense board. The
 #:     ordering of a sum over patches or batches is not fixed, and
 #:     `CORPUS_FINDINGS.md` already puts these at ~1e-7 relative.

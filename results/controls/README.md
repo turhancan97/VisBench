@@ -568,9 +568,9 @@ remains a correct record of it. What changes is the reading rule: **do not order
 two adjacent rows of this board from the board alone — this file says which
 pairs are ordered.**
 
-## `seeds/*.jsonl` — which rows of which boards are actually ordered? (20b, 20c)
+## `seeds/*.jsonl` — which rows of which boards are actually ordered? (20b, 20c, 21b)
 
-**910 records across fourteen boards**: every trained board except
+**975 records across fifteen boards**: every trained board except
 `relative_pose` (whose sweep is `pose_seeds.jsonl`, below) and
 `scene_classification` (held out; its own section follows), each re-fitted at
 five seeds across all thirteen corpus backbones in the **published**
@@ -585,14 +585,14 @@ read, so merged they would be sixty-five rankable rows inside each published
 board's own group. `build_corpus.sh` refuses `SEEDS>1` against a corpus path,
 and `tests/results/test_seed_sweeps.py` checks the committed files.
 
-### The headline, over fifteen boards
+### The headline, over sixteen boards
 
 | | |
 | --- | --- |
-| adjacent pairs **ordered** | 119 |
-| **tied** — not separable at five seeds | 58 |
+| adjacent pairs **ordered** | 126 |
+| **tied** — not separable at five seeds | 63 |
 | **reversed** — the board's order is the minority outcome | **3** |
-| boards where the largest *unordered* gap exceeds the smallest *ordered* one | **10 of 15** |
+| boards where the largest *unordered* gap exceeds the smallest *ordered* one | **11 of 16** |
 
 **Roughly a third of all adjacent pairs cannot be ordered**, and the fraction is
 a property of the board rather than of the corpus: `occlusion_edge` orders only
@@ -639,10 +639,22 @@ first, no threshold on the gap can sort that board's pairs.
 | `corner` | 7 | 5 | 0 | 0.00380 | 0.00580 | 0.00417 | 0.1783 | 8% |
 | `fine_grained_classification` | 7 | 5 | 0 | 0.00880 | 0.03676 | 0.00141 | 0.3987 | 2% |
 | `keypoints2d` | 7 | 5 | 0 | 0.00702 | 0.01074 | 0.00629 | 0.1273 | 3% |
+| `vehicle_classification` | 7 | 5 | 0 | 0.02305 | 0.02866 | 0.00798 | 0.4250 | 15% |
 | `relative_pose` | 7 | 3 | **2** | 1.585 | 0.866 | 0.516 | 20.44 | 11% |
 | `detection` | 5 | 7 | 0 | 0.00730 | 0.01858 | 0.00789 | 0.1988 | 17% |
 | `edge` | 5 | 7 | 0 | 0.00072 | 0.01571 | 0.00618 | 0.1552 | 8% |
 | `occlusion_edge` | 4 | 8 | 0 | 0.01221 | 0.03039 | 0.00686 | 0.1532 | 6% |
+
+**A board's spread does not predict how many of its pairs are ordered**, which
+21b made hard to miss. The three image-level classification boards order
+**exactly 7 of 12 each** while their spreads run from `classification`'s 0.0415
+to `vehicle_classification`'s 0.4250 — a ten-fold range and the same verdict,
+because the per-row scatter grows with the spread rather than staying put.
+`orientation` spans 12.32 and orders 10; `relative_pose` spans 20.44 and orders
+7. Three boards agreeing at n=12 pairs is a coincidence worth noticing and not a
+law, but it points the same way as everything else here: **the quantity a gap
+has to beat is the board's own noise, and reading the spread tells you nothing
+about it.**
 
 Common-mode — the share of seed variance that moves every row together, and so
 cancels in a difference — runs **2% to 17%**. On no board is it the majority,
@@ -652,14 +664,15 @@ sweep happens to disagree with it.
 ### The gate, and what "reproduces" means per board
 
 Every corpus cell was run at the default seed 0, so every seed-0 row must
-reproduce its published value. All fourteen boards pass — but *exactly* only for
-`classification` and `fine_grained_classification` (and `relative_pose`). The
+reproduce its published value. All fifteen boards pass — but *exactly* only for
+the three image-level classification boards (`classification`,
+`fine_grained_classification`, `vehicle_classification`) and `relative_pose`. The
 tolerances live in `tests/results/test_seed_sweeps.py` as measured floors, in
 three groups:
 
 | group | boards | worst observed |
 | --- | --- | --- |
-| exact | `classification`, `fine_grained_classification`, `relative_pose` | 0 |
+| exact | `classification`, `fine_grained_classification`, `vehicle_classification`, `relative_pose` | 0 |
 | float32 reduction order | the nine dense boards | 1.7e-07 (`scene_parsing`) to 2.9e-05 (`depth`) |
 | metric not smooth in the prediction | `detection`, `instance_segmentation`, `orientation` | 9.2e-04 to **2.5e-02** |
 

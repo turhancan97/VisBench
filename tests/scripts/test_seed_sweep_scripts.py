@@ -93,3 +93,41 @@ def test_no_zero_shot_probe_is_swept(sweep_probes):
     assert not swept_zero_shot, (
         f"{swept_zero_shot} train no head, so every seed would return the same number"
     )
+
+
+class TestHeldOutSweepsAreRefusedByTheMerge:
+    """A sweep that does not reproduce its board must never land under `seeds/`.
+
+    `merge_controls.sh` derives its probe list from the parts present, which is
+    right in general -- a probe missing from a hand-written table would have its
+    parts silently skipped. But the parts directory is an *archive*, so a sweep
+    held out on purpose is still sitting in it, and 21b's merge duly wrote
+    `results/controls/seeds/scene_classification.jsonl`: a sweep whose seed-0
+    rows miss their published cells by up to 0.0102, published into the
+    directory every consumer reads as a board's measured noise.
+
+    The gate in `tests/results/test_seed_sweeps.py` catches it, but only once
+    the file exists. These pin the refusal at the merge.
+    """
+
+    def test_the_merge_script_names_the_held_out_sweep(self):
+        text = (ROOT / "scripts" / "merge_controls.sh").read_text()
+        assert "HELD_OUT_SWEEPS=" in text, "the held-out list is gone from merge_controls.sh"
+        listed = text.split("HELD_OUT_SWEEPS=")[1].split("\n")[0]
+        assert "scene_classification" in listed, (
+            "scene_classification is held out at results/controls/scene_classification_seeds"
+            ".jsonl and must not be merged into seeds/"
+        )
+
+    def test_the_held_out_sweep_is_not_committed_under_seeds(self):
+        """The file this guards against, checked where it would appear."""
+        stray = ROOT / "results" / "controls" / "seeds" / "scene_classification.jsonl"
+        assert not stray.exists(), (
+            f"{stray} exists -- a sweep that does not reproduce its board cannot be read "
+            "as that board's noise; it belongs at results/controls/scene_classification_seeds.jsonl"
+        )
+
+    def test_the_held_out_sweep_is_still_committed_where_it_belongs(self):
+        """Refusing the merge must not be confused with deleting the evidence."""
+        kept = ROOT / "results" / "controls" / "scene_classification_seeds.jsonl"
+        assert kept.is_file(), f"{kept} is missing; 20c/20d's held-out sweep is the evidence"

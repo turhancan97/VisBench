@@ -78,6 +78,7 @@ step is next rather than attempting the whole roadmap in one session.
 | 20c | Every trained board swept: a reversal on a linear board, and one held out | done |
 | 20d | Why one board would not reproduce: amplification, not hardware | done |
 | 21a | `vehicle_classification`: the twentieth probe, on a split we had to pin | done |
+| 21b | The twentieth board swept, and a guard for the totals three files quote | done |
 
 **A closed step's full write-up lives in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md), not here.** That file is the archive
@@ -808,6 +809,14 @@ designed up front; extend it the same way, from a case that already runs.
     **`results/corpus/parts/` is an archive, not a queue** — `merge_corpus.sh`
     dedups by exact JSON line, which cannot see a record deliberately kept
     *out*; merge from a staging directory holding only your step's parts.
+    **It bit a second file in 21b**: `merge_controls.sh` derives its probe list
+    from the parts present, so `scene_classification`'s still-archived parts
+    were merged into `results/controls/seeds/` — publishing a sweep that does
+    not reproduce its own board, into the directory every consumer reads as a
+    board's measured noise. Held-out sweeps are refused by name there now.
+    `tests/results/test_seed_sweeps.py` did catch it on the first seed-0 row,
+    but only after the file existed: **a merge must not rely on a later test to
+    undo it.**
   - **n=13.** Every correlation above has wide error bars.
 
 - **A trained probe records how its fit went** (schema v8, 2026-08-28; the
@@ -1224,18 +1233,24 @@ designed up front; extend it the same way, from a case that already runs.
   all thirteen did at delta 0.0.
 
   **Every trained board is now swept, a third of all adjacent pairs are
-  unordered, and a reversal is rare rather than absent** (20b/20c;
+  unordered, and a reversal is rare rather than absent** (20b/20c/21b;
   `results/controls/seeds/`, read with `scripts/analyse_seeds.py <probe>`).
-  **119 of 180 pairs ordered, 58 tied, 3 reversed.** 20b swept three boards,
+  **126 of 192 pairs ordered, 63 tied, 3 reversed.** 20b swept three boards,
   found no reversal and published "the reversals do not generalise"; **20c
   refuted it the next day** — `surface_normal`, a linear board, reverses
   `siglip_vitb16`/`convnext_base`. Say **rare and marginal** instead: all three
   reversals sit at |t| 2.90-3.15 against 2.776 at n=5. The unorderable fraction
   is a property of the *board* — `occlusion_edge` orders 4 of 12,
-  `generic_segmentation` 11 of 12 — and on **10 of 15** boards the largest
+  `generic_segmentation` 11 of 12 — and on **11 of 16** boards the largest
   unordered gap exceeds the smallest ordered one, so a threshold cannot exist
-  there. Sweep before ordering adjacent rows, and quote
-  `results/controls/README.md` for which pairs are ordered.
+  there. **A board's spread does not predict that count**: the three image-level
+  classification boards each order exactly 7 of 12 across a ten-fold range of
+  spread, because the per-row scatter grows with it. Sweep before ordering
+  adjacent rows, and quote `results/controls/README.md` for which pairs are
+  ordered. **Totals here are recomputed from the committed sweeps** by
+  `tests/results/test_sweep_totals.py`, which pins them in this file,
+  `CORPUS_FINDINGS.md` and `results/controls/README.md` — they had drifted
+  through three files with nothing checking them.
   **A sweep re-fits the published flags** — `SEEDS=5` on `build_corpus.sh`, not
   a second script — and **must never reach the corpus**, since `seed` is not in
   `comparability_key`; both are refused in code and pinned by tests.
@@ -1719,10 +1734,10 @@ designed up front; extend it the same way, from a case that already runs.
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite **collects 2381 tests**, green on 2026-09-20 along with all three
+fast suite **collects 2397 tests**, green on 2026-09-21 along with all three
 lint steps, mypy and the `-W` docs build. The slow suite is **116** since
 16a-1, whose own slow test was run then; the other 115 were last green on
-`main` on 2026-09-11. Earlier fast counts, for dating a claim: 2362 at 20d, 2359 at v0.24.0, 2324 at 20b,
+`main` on 2026-09-11. Earlier fast counts, for dating a claim: 2381 at 21a, 2362 at 20d, 2324 at 20b,
 2304 at v0.23.0, 2301 at 20a, 2296 at 19b, 2281 at v0.21.0, 1824 at the oracle
 gate. **Keep that list to a handful** — it is one of the places this file
 accretes, and its only job is to date a claim.
@@ -2050,7 +2065,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 2381 fast tests
+pytest                                              # 2397 fast tests
 pytest -m slow                                      # 116, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/

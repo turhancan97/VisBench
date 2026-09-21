@@ -236,6 +236,16 @@ This is a multi-month roadmap, built one reviewed step at a time.
       the same photograph under two labels — so the board runs a pinned, cleaned
       8,125/8,026 split and says it is not comparable with published Cars numbers
 
+- [x] **21b.** the twentieth board swept — `vehicle_classification` re-fitted
+      at five seeds on all thirteen backbones: **7 of 12 adjacent pairs
+      ordered, 5 tied, none reversed**, reproducing its published cells
+      *exactly*. Sixteen swept boards now total 126 of 192 pairs ordered, 63
+      tied, 3 reversed, and **a board's spread turns out not to predict how
+      many pairs it orders** — the three image-level classification boards
+      each order 7 of 12 across a ten-fold range of spread. The totals
+      themselves are now recomputed from the committed sweeps by a test,
+      having been quoted in three files with nothing checking them
+
 - [x] **20d.** why one board would not reproduce — `scene_classification`'s
       held-out sweep explained by **amplification** rather than by hardware:
       across a thousand-fold perturbation range its most interpolating row moves
