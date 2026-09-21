@@ -121,7 +121,7 @@ published reading.
 
 ## Current state
 
-**Everything through v0.24.0 is shipped**, and every numbered step in the build
+**Everything through v0.25.0 is shipped**, and every numbered step in the build
 table before 14a is done — every task, all three backbone families, the CLI,
 fine-tuning, detection, the low-level probes, the leaderboard and probe
 sharing. Each release's narrative is in `CHANGELOG.md`, its derivation in
@@ -339,12 +339,12 @@ it would be checked against — that diff is the only reason the seeding bug bel
 was ever found. And **do not pipe a long publishing run through `tail`**: it
 buffers, so a run killed part-way leaves no log.
 
-**Nineteen releases are archived, `0.24.0` the newest** (2026-09-19). Byte
+**Twenty releases are archived, `0.25.0` the newest** (2026-09-21). Byte
 counts, wheel digests, the commit each tag resolves to and what every
 `__version__`/`SCHEMA_VERSION` import read back are recorded release by release
 in [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md) under "Release history"; read them
-there. `0.24.0` is the **twelfth running with no gap** between tag, wheel, release
-and `main`; `0.18.0` is the only release to move the schema (v8 -> v9), so a
+there. `0.25.0` is the **thirteenth running with no gap** between tag, wheel,
+release and `main`; `0.18.0` is the only release to move the schema (v8 -> v9), so a
 v0.17.0 install cannot read a record written by it while older records read
 fine here. **`0.19.0` shipped without its wheel check and without its
 release-history entry** — both were done retrospectively on 2026-09-16 — and
@@ -353,12 +353,22 @@ release**, so Zenodo had archived nothing while `CITATION.cff` already named the
 new version. Twice running makes it structural rather than a slip: the upload is
 the step that feels like the finish line, CI went green long before, and
 **nothing anywhere turns red when the archive never happens**. It has held on
-`0.23.0` and `0.24.0`, both cut as a step of their own and confirmed with `gh
-release view`; so has the `date-released` rule, advanced in both release
-commits. **Date an upload from the artifact's `upload_time_iso_8601`**, not from
-when an index last answered: a poll minutes before `0.23.0`'s release reported
-the previous version and was nearly written up as the release preceding the
-upload.
+`0.23.0`, `0.24.0` and `0.25.0`, each cut as a step of their own and confirmed
+with `gh release view`; so has the `date-released` rule, advanced in all three
+release commits. **Date an upload from the artifact's `upload_time_iso_8601`**,
+not from when an index last answered: a poll minutes before `0.23.0`'s release
+reported the previous version and was nearly written up as the release preceding
+the upload.
+
+**And the aggregate JSON endpoint can lie in the other direction** (0.25.0).
+Minutes *after* a successful upload, `https://pypi.org/pypi/visbench/json`
+still reported `0.24.0` with no `0.25.0` key in `releases` — which reads exactly
+like a failed upload. The version-specific
+`https://pypi.org/pypi/visbench/0.25.0/json` returned HTTP 200 with both
+artifacts, and `/simple/visbench/` already listed them. **Ask the
+version-specific endpoint or the simple index before concluding an upload did
+not happen**, the same way `pip download`'s cached "No matching distribution
+found" is not evidence either.
 
 Four rules those releases left behind, beyond the standing list below; the
 release-by-release detail is in `ENGINEERING_LOG.md` under "Release history".
@@ -374,9 +384,9 @@ version bump is a symptom, not a pass** (0.18.0): the version lives in two
 literals and the lockfile pins only one, so a bump always moves the lockfile.
 
 **The concept DOI is `10.5281/zenodo.21822684`**, unchanged across all
-**nineteen** version DOIs and now resolving to v0.24.0 (confirmed against
-Zenodo's API on 2026-09-19 — record 21822684 redirects to `id` 22843727, which
-reports `metadata.version` `v0.24.0` — rather than assumed).
+**twenty** version DOIs and now resolving to v0.25.0 (confirmed against
+Zenodo's API on 2026-09-21 — record 21822684 redirects to `id` 22873859, which
+reports `metadata.version` `v0.25.0` — rather than assumed).
 
 **That API 302s, and without `-L` the check lies to you**: `curl` alone returns
 a 229-byte HTML redirect page and the JSON parse fails with a traceback that
