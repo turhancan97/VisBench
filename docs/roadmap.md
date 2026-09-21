@@ -246,6 +246,16 @@ This is a multi-month roadmap, built one reviewed step at a time.
       themselves are now recomputed from the committed sweeps by a test,
       having been quoted in three files with nothing checking them
 
+- [x] **22a.** the rankings audited — the sweeps applied to the placements
+      the prose actually quotes. **17 of 20 first places and 13 of 20 last
+      places survive a paired re-fit**; three leads do not, `edge` at
+      **t = +0.11**, and one published last place is reversed. **Last place
+      is the weaker half**, because scores compress at the bottom of most
+      boards. No published number moves — what changes is which orderings
+      may be quoted as a result. It also found the leader claim stale in
+      both files the project calls authoritative and current in all three
+      that were guarded
+
 - [x] **20d.** why one board would not reproduce — `scene_classification`'s
       held-out sweep explained by **amplification** rather than by hardware:
       across a thousand-fold perturbation range its most interpolating row moves

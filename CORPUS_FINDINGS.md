@@ -13,18 +13,30 @@ them rather than only the conclusions.
 
 **The single most important one, if you read nothing else:** "which backbone is
 best" is not a well-formed question against this corpus. `mae_vitb16` is first
-on five of the eighteen boards and last on four. A summary that picks a winner
-is discarding the result. (It was *six of seventeen* when that sentence was
-written, at twelve backbones, and stayed on the page through the release that
-made it four — which is what the first caution below is about, and why
-`tests/test_docs_counts.py` now pins this count too.)
+on five of the twenty boards and last on five — and **only three of those five
+firsts survive a re-fit**, one of them being a coin flip at t = +0.11. A summary
+that picks a winner is discarding the result. (It was *six of seventeen* when
+that sentence was written, at twelve backbones, and stayed on the page through
+two releases that moved it — which is what the first caution below is about.
+`tests/test_docs_counts.py` pins this count **in this file** only from 22a: it
+had been checked in three other files while the one that says to read it here
+went unguarded, and this paragraph claimed otherwise.)
 
-Two standing cautions apply to everything below:
+Three standing cautions apply to everything below:
 
 - **A count over a corpus is a fact about that corpus, not about a backbone.**
   Counts here moved twice without any backbone's features changing, purely
   because a column was added. Re-read them off `LEADERBOARD.md` rather than
   quoting these paragraphs.
+- **A placement is not automatically a result, and a count of placements
+  weighs a coin flip the same as a twenty-sigma lead** (22a;
+  `scripts/analyse_placements.py` reprints it). Of the twenty boards, **17
+  first places and 13 last places survive a paired re-fit**. Three leads do not
+  — `edge` at **t = +0.11**, `fine_grained_classification` at +1.64,
+  `occlusion_edge` at +2.15 — and one published *last* place is outright
+  **reversed** (`relative_pose`, t = −3.06, which is one of the three reversals
+  20a already documented). So quote a lead with its verdict, and treat "first on
+  N boards" as an upper bound on how much of it is real.
 - **n=13, so every correlation here has wide error bars**, and the backbone
   properties are correlated with each other. Coefficients quoted below as n=12
   were measured before `dino_vitb8`; where one has been re-measured the entry
@@ -307,6 +319,33 @@ Two standing cautions apply to everything below:
   than staying put. Common-mode — the share of seed variance that
   moves every row together and so cancels in a difference — runs **2% to 17%**
   and is the majority on no board.
+
+- **Last place is a much weaker claim than first place, and the prose treats
+  them as equals** (22a, 2026-09-21; `scripts/analyse_placements.py`). Applying
+  the sweeps to the two placements this file actually quotes: **17 of 20 first
+  places survive a paired re-fit, against 13 of 20 last places.** Three leads
+  are only tied — `edge` (**t = +0.11**, as close to a coin flip as this corpus
+  gets), `fine_grained_classification` (+1.64), `occlusion_edge` (+2.15) — and
+  at the bottom six are tied and one is **reversed** (`relative_pose`, −3.06,
+  one of 20a's three known reversals, which is a check on the script rather
+  than a new result).
+
+  **The asymmetry is structural rather than luck.** Scores compress at the
+  bottom of most of these boards — a weak backbone sits near the floor and so
+  do the next two — while a leader more often has room above the field. So the
+  two halves of "first on N, last on M" are not equally solid, and the second
+  half is the one to hedge.
+
+  **What it does to the headline.** `mae_vitb16` is first on five boards and
+  **three** of those survive; last on five and four survive. `resnet18` is last
+  on seven and **four** survive. The *pattern* both entries describe — MAE
+  strong low-level and weak semantic — is untouched, because the boards it
+  leads solidly (`orientation`, `relative_pose`, `surface_normal`) are exactly
+  the ones the pattern is about. **What weakens is the arithmetic, not the
+  reading**, which is the opposite of how these corrections have usually gone.
+
+  This changes **no published number** and no board's rendered order. It says
+  which of those orders you may quote as a result.
 
   **The gate says "reproduces", and what that means is per board.** All fourteen
   swept boards pass, but exactly only `classification`,
@@ -835,20 +874,32 @@ Two standing cautions apply to everything below:
   **n=3 CNNs**, so two of those rho values are one swap each, and the gains are
   the more solid half of this finding.
 
-- **`mae_vitb16` is first on six of the seventeen boards and last on four, and
+- **`mae_vitb16` is first on five of the twenty boards and last on five, and
   this is the corpus finally demonstrating what the taxonomy claims** (10b,
   2026-08-14; **counts re-read off the board at twelve backbones, 10e**; scene
   board added 2026-08-28, `orientation` and `fine_grained_classification`
-  boards 2026-08-28).
+  boards 2026-08-28; counts brought current and this file placed under the
+  guard, 22a).
 
-  **The counts in this entry are the twelve-backbone ones and are kept as
-  history. Current, at eighteen boards and thirteen backbones: first on five,
-  last on four** — `dino_vitb8` took `corner` and `correspondence` off it,
-  leaving four, and `relative_pose` gave one back. The pattern the entry is
+  **Only three of those five firsts survive a re-fit** (22a,
+  `scripts/analyse_placements.py`). `orientation`, `relative_pose` and
+  `surface_normal` are solidly led; **`edge` is a coin flip** — MAE is ahead of
+  `dino_vitb8` by **t = +0.11** over five shared seeds — and `occlusion_edge`
+  is tied at +2.15 against a 2.776 critical value. Four of the five lasts hold,
+  `vehicle_classification` being tied at +1.72. So the *shape* of this entry is
+  intact and its arithmetic is weaker than it reads: **a count of first places
+  weighs a coin flip the same as a twenty-sigma lead.** Quote the pattern, and
+  quote a specific lead only with its verdict.
+
+  **The counts in the sentences below are the twelve-backbone ones and are kept
+  as history**: six firsts and four lasts over seventeen boards, at twelve
+  backbones. `dino_vitb8` then took `corner` and `correspondence` off it,
+  leaving four, `relative_pose` gave one back, and `vehicle_classification`
+  (21a) added a fifth last. The pattern the entry is
   about survives every one of those moves, which is the point of it; the
   numbers are what `tests/test_docs_counts.py` now recomputes rather than
   trusts. Read
-  this before quoting any board. MAE leads edge (0.4982), corner (0.6669),
+  this before quoting any board. MAE led edge (0.4982), corner (0.6669),
   correspondence (0.3577), occlusion edges (0.3273), surface normals
   (27.52° mean) and **orientation** (18.82° error) — and comes **last** on
   classification (0.9582), retrieval
