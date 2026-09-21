@@ -1308,6 +1308,48 @@ The four most recent entries were lifted out of `CLAUDE.md` on 2026-09-03,
 when that file passed the 150k-character limit it is loaded under for the second
 time. Nothing was rewritten; each paragraph is as its release recorded it.
 
+**`0.25.0` is fully released** (2026-09-21). On PyPI — wheel and sdist both
+(448,221 and 1,637,401 bytes, wheel sha256 `00303cbe…`, sdist `a80e221f…`) —
+tagged `v0.25.0`, **annotated** (tag object `ea22117`), on merge commit
+`dfee59f`, which is `main`, with a GitHub release cut from that tag (published
+2026-09-21T11:26:11Z) and archived by Zenodo as version DOI
+**`10.5281/zenodo.22873859`**, the **twentieth**. The concept DOI
+`10.5281/zenodo.21822684` resolves to record 22873859 with `metadata.version`
+`v0.25.0`, read off Zenodo's API with `-L`. Both artifacts match the locally
+built ones byte for byte, checked against PyPI's own digests.
+
+**Verified out of the published wheel by import** — `__version__` 0.25.0,
+`SCHEMA_VERSION` **9**, **twenty** probes, **fourteen** registered backbones,
+five heads, `show_probes() == list_probes()` — with an assert on
+`visbench.__file__`.
+
+**The archive abstract reads "Twenty probes span"**, hand-checked on record
+22873859 and naming vehicle classification, and the deposit's publication date
+is **2026-09-21**, which is `date-released` advanced in the release commit
+rather than carried from v0.24.0's 19th. Both rules now hold on their third
+test, and both were checked rather than assumed.
+
+**The order was upload then release**, 43 seconds apart — 11:25:28Z against
+11:26:11Z, dated from each artifact's `upload_time_iso_8601`.
+
+**The aggregate JSON endpoint lied, and the version-specific one did not.**
+Minutes after a successful upload, `https://pypi.org/pypi/visbench/json`
+still reported `info.version` `0.24.0` with no `0.25.0` key in `releases`,
+which reads exactly like an upload that did not happen. The upload had
+completed: `https://pypi.org/pypi/visbench/0.25.0/json` returned HTTP 200 with
+both artifacts and their timestamps, and `/simple/visbench/` already listed
+them. This is the 0.23.0 lesson from the other side — that one polled the
+index *before* an upload and nearly recorded the release as preceding it.
+**Ask the version-specific endpoint, or the simple index, before concluding
+anything from the aggregate one**, and date from `upload_time_iso_8601`
+either way.
+
+**`dist/` held the previous release's artifacts** when the build started, and
+clearing it was not a formality: `twine upload dist/*` would have attempted
+0.24.0 alongside 0.25.0, been refused for a version that already exists, and
+aborted the batch — failing on the *old* version before reaching the new one,
+which reads as a problem with the new one.
+
 **`0.24.0` is fully released** (2026-09-19). On PyPI — wheel and sdist both
 (444,829 and 1,602,582 bytes, wheel sha256 `9318af39…`, sdist `bb3194f2…`) —
 tagged `v0.24.0`, **annotated** (tag object `6363f62`), on merge commit
