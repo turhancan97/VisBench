@@ -32,6 +32,39 @@ so it stands on its own rather than assuming you have read the ones above it.
 **No published number moves and no board's rendered order changes.** What
 changes is which of those orders may be quoted as a result.
 
+- **The correlations audited against the same sweeps** (22b).
+  `scripts/analyse_correlation_seeds.py` re-reads every correlational claim in
+  `CORPUS_FINDINGS.md` — each a single draw, since the corpus holds one seed per
+  cell — on each board's five committed seeds, at no GPU cost. A board-pair rho
+  moves by a median **0.110** under a re-fit and 23 of 187 pairs change sign,
+  but **none of the 84 published at |rho| ≥ 0.5** does, and the published draws
+  are not biased high (mean percentile 0.50 in their own ranges).
+- **15 of the 16 claims tested hold on every re-fit**: the two-cluster split of
+  `high_level`, `fine_grained_classification` and `scene_classification` ranking
+  with `detection`, `scene_parsing`'s question-over-data reading, the instance
+  board (both halves) ranking with mid-level geometry, `relative_pose`'s
+  near-orthogonality to the high-level tier, the shared-dataset rebuttal, and
+  every tier mean above the cross-tier mean.
+
+### Changed
+
+- **`vehicle_classification`'s "closest partner is the place board" is
+  withdrawn.** The published +0.901 against CUB's +0.863 is one draw; on the
+  seed-mean boards both read **+0.879**, and the place board leads in 84% of
+  re-fits. Rewritten as "the subordinate board is no closer than the place
+  board", which survives, in `CORPUS_FINDINGS.md`, the board's docs page and
+  `CLAUDE.md`. **A margin survives a re-fit; a superlative between two
+  near-equal numbers does not.**
+- **Two structural details moved.** "The worst fit sits on the coarsest grid on
+  11 of 12 boards" is seed 0, the top of an 8-11 range; the sign it summarises
+  holds on 60 of 60 board-seeds. And `scene_parsing` is a third grid-reading
+  board where pretraining scale beats the grid, on four seeds of five — the
+  statement predated that board.
+- `docs/probes/overview.md` still quoted the pre-tie-fix twelve-backbone grid
+  coefficients (+0.958/+0.867/+0.818); it now quotes the current ones.
+- `CLAUDE.md` said "405 only for the file" two lines after saying the file has
+  418 records.
+
 ### Fixed
 
 - **The leader claim was stale in both files this project calls authoritative

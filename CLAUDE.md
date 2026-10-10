@@ -80,6 +80,7 @@ step is next rather than attempting the whole roadmap in one session.
 | 21a | `vehicle_classification`: the twentieth probe, on a split we had to pin | done |
 | 21b | The twentieth board swept, and a guard for the totals three files quote | done |
 | 22a | The rankings audited: which placements a re-fit actually supports | done |
+| 22b | The correlations audited: which board-pair readings a re-fit supports | done |
 
 **A closed step's full write-up lives in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md), not here.** That file is the archive
@@ -141,7 +142,7 @@ schema-v8 `training` re-run (2026-09-10) re-ran the eight trained boards that
 predated that field, with three cells of it landing on 2026-09-11, and
 `dino_vitb8`'s two smoke-test cells were re-run inside its own array.
 `latest_per_backbone` picks the newest. Quote 260 for
-coverage and 405 only for the file, and re-read both off `LEADERBOARD.md` and
+coverage and 418 only for the file, and re-read both off `LEADERBOARD.md` and
 `wc -l` rather than from here.
 
 Two standing consequences of that history, both of which have already cost a
@@ -238,8 +239,9 @@ own `docs/probes/` pages**; three are worth knowing before you quote anything:
 the image-level classification probes rank with the *localised* cluster rather
 than with the object board they subclass; `orientation`'s board is **not**
 independent even though its target is; and **granularity is not what the
-classification family shares** — `vehicle_classification`'s closest partner is
-the *place* board (+0.901) rather than the other subordinate one (+0.863).
+classification family shares** — the other subordinate board is no closer to
+`vehicle_classification` than the *place* board is (both +0.879 on the
+seed-mean boards; the published +0.901/+0.863 split was one draw, 22b).
 
 **A probe whose data VisBench defines has no board until the data is pinned**
 (21a, the `corner` rule again). The Stanford Cars copy here is **not** the
@@ -791,11 +793,21 @@ designed up front; extend it the same way, from a case that already runs.
     most boards. Quote a lead with its verdict. Only three of `mae_vitb16`'s
     five firsts survive; the *pattern* both entries describe is untouched, since
     the boards it leads solidly are the ones the pattern is about.
+  - **A correlation is one draw too** (22b;
+    `scripts/analyse_correlation_seeds.py`, no GPU). On the seed sweeps a
+    board-pair rho moves by a median 0.110 and 23 of 187 pairs change sign,
+    none of them published at |rho| ≥ 0.5; the published draws are **not**
+    biased high. **15 of 16 correlational claims hold on every re-fit**; the
+    one that fails is a *superlative* ("closest partner", a 0.038 margin that
+    ties on the seed-mean). **Quote margins, not superlatives**, and a count
+    of one extreme row ("worst fit on the coarsest grid", 11 of 12 published,
+    8-9 on other seeds) as the sign it summarises.
   - **Quote an objective gap against the *recipe* gap on the same board, never
     against zero** — `sam_vitb16` against `supervised_vitb16`, and nothing in a
     record says which board you are on.
   - **`semantic_segmentation` and `detection` are the two boards that rank by
-    neither objective nor grid.** The test is whether another property *beats*
+    neither objective nor grid** on every seed; `scene_parsing` joins them on
+    four of five (22b), so call it marginal. The test is whether another property *beats*
     the grid, never whether the grid coefficient is small — and a coefficient's
     rank among boards is a fact about which boards are in the corpus.
   - **The high-level tier is two clusters, not one**, and two probes that are
@@ -1754,10 +1766,10 @@ designed up front; extend it the same way, from a case that already runs.
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite **collects 2406 tests**, green on 2026-09-21 along with all three
+fast suite **collects 2414 tests**, green on 2026-10-10 along with all three
 lint steps, mypy and the `-W` docs build. The slow suite is **116** since
 16a-1, whose own slow test was run then; the other 115 were last green on
-`main` on 2026-09-11. Earlier fast counts, for dating a claim: 2397 at 21b, 2381 at 21a, 2362 at 20d,
+`main` on 2026-09-11. Earlier fast counts, for dating a claim: 2406 at 22a, 2397 at 21b, 2381 at 21a, 2362 at 20d,
 2304 at v0.23.0, 2301 at 20a, 2296 at 19b, 2281 at v0.21.0, 1824 at the oracle
 gate. **Keep that list to a handful** — it is one of the places this file
 accretes, and its only job is to date a claim.
@@ -2085,7 +2097,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 2406 fast tests
+pytest                                              # 2414 fast tests
 pytest -m slow                                      # 116, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/

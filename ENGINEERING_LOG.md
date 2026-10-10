@@ -2787,6 +2787,83 @@ be separating thirteen rows by about three times the noise. That is the
 measurement the departure from `hidden_dim=0` rests on, and it is why the
 control ships as records rather than as a paragraph.
 
+## 22b — the correlations audited: which board-pair readings a re-fit supports
+
+**The question 22a left open.** 22a pointed the seed sweeps at *placements*.
+`scripts/analyse_board_correlates.py` was still reading the corpus alone, one
+seed per cell, so every correlational claim in `CORPUS_FINDINGS.md` — the
+two-cluster split, the grid correlate, every per-probe Spearman — was one draw
+of a statistic whose scatter nobody had measured. The handoff that proposed
+this step had checked two pairs (`fine_grained_classification` against
+`detection` and against `classification`), found each published coefficient at
+the top of its five seeds, and asked whether the published draws were biased
+high.
+
+**The instrument.** `scripts/analyse_correlation_seeds.py` loads the audited
+script by path and uses its `spearman`, `STRUCTURE` and tables, so there is one
+copy of the rank arithmetic. A *draw* assigns every board one of its five seeds
+independently — a different head was fitted on each board, so a seed number
+couples nothing across boards — with the three zero-shot boards exact in every
+draw, and the box half of `instance_segmentation` taking its mask half's seed,
+since they are the same runs. A pair of boards has exactly 25 values (5 with a
+zero-shot side) and is enumerated; a claim spanning many boards is sampled 2000
+times from a fixed RNG. Each claim is a **margin**, positive exactly when the
+published reading holds, reported on the corpus, on the **seed-mean** board, and
+as the share of draws in which it holds. `scene_classification` is read from
+its held-out sweep and flagged, as 22a reads it.
+
+**The matrix.** 190 pairs, 187 movable. Median range of rho across re-fits
+**0.110**, max 0.346 (`keypoints2d`/`occlusion_edge`, +0.418 to +0.764).
+**23 of 187 change sign, none of the 84 published at |rho| ≥ 0.5.** Published
+minus seed-mean: mean −0.006, median +0.000. Mean percentile of the published
+draw in its own range **0.50**, top fifth on 44 pairs and bottom fifth on 49 —
+**not biased high**. The handoff's two pairs both sat at the top by chance.
+
+**The claims.**
+
+| claim | published | seed-mean | holds |
+| --- | --- | --- | --- |
+| `fine_grained` with `detection` over `classification` | +0.496 | +0.574 | 100% |
+| `scene_classification` with `detection` over image-level | +0.524 | +0.618 | 100% |
+| two clusters: min within > max between | +0.211 | +0.332 | 100% |
+| `scene_parsing` with semseg over its own NYUv2 frames | +0.319 | +0.330 | 100% |
+| `scene_parsing` localised over image-level | +0.633 | +0.726 | 100% |
+| **`vehicle` closest to place, not CUB** | **+0.038** | **+0.000** | **84.4%** |
+| `vehicle` tier order high > mid > low | +0.339 | +0.331 | 100% |
+| `relative_pose` mid/low over high | +0.552 | +0.522 | 100% |
+| `instance` mid over high | +0.550 | +0.561 | 100% |
+| `instance` box half, mid over high | +0.547 | +0.548 | 100% |
+| weakest VOC pair is a same-image pair | +0.203 | +0.214 | 100% |
+| `generic` closer to a non-VOC board than to semseg | +0.352 | +0.346 | 100% |
+| Imagenette the lowest within-source mean | +0.456 | +0.439 | 100% |
+| within low / mid / high above cross-tier | +0.545 / +0.380 / +0.107 | +0.590 / +0.369 / +0.094 | 100% each |
+
+**The one failure is a superlative, and that is the transferable part.** The
+vehicle claim compared two coefficients 0.038 apart; on the seed-mean boards
+they are **+0.879 and +0.879**, the place board leading in 84% of draws and in
+22 of 25 even with the scene board held at its published cell, so the held-out
+sweep is not what produced the tie. Every claim stated as a *margin* between
+groups survived; the claim stated as a single extreme did not. `tier_high` is
+worth a line: `CORPUS_FINDINGS.md` calls its sign "within noise", and against
+*re-fit* noise it is not (100%, margin +0.085 at p5) — the sign moved earlier
+because the *corpus* changed, columns and boards, which is a different noise.
+
+**Structure and fit.** Tokens beats width and pretraining on nine of the twelve
+grid-reading boards on every seed. `semantic_segmentation` and `detection` lose
+to pretraining on every seed; **`scene_parsing` loses on four of five** (+0.682
+against +0.647; seed 3 crosses back) and was never mentioned because the
+sentence predates the board. The fit claim splits: rho(tokens, train_loss) is
+negative on **60 of 60** board-seeds, but "the worst fit is on the coarsest
+grid" is 11 of 12 on seed 0 and **8-9 of 12** on the others — the published
+count is the top of its range, because one row is one draw.
+
+**What did not change.** No record, no board, no rendered table. The step
+corrects one reading, two counts and one stale docs paragraph
+(`docs/probes/overview.md` still quoted the pre-tie-fix +0.958/+0.867/+0.818),
+and pins its own totals and verdicts in
+`tests/scripts/test_analyse_correlation_seeds.py`, against the three files that
+quote them.
+
 ## Steps 7a-14a — write-ups lifted from `CLAUDE.md`
 
 ### 10a — `TimmBackbone` learns to read a ViT

@@ -32,6 +32,19 @@ verdict, which
 [`scripts/analyse_placements.py`](https://github.com/turhancan97/VisBench/blob/main/scripts/analyse_placements.py)
 prints for every board.
 
+## A correlation between boards is one draw too
+
+Every coefficient on these pages compares two boards that were each fitted once.
+Re-fitted over the five committed seeds, a board-pair rho moves by a median of
+**0.11**, and 23 of 187 pairs change sign, though none of those published
+at |rho| ≥ 0.5 does. Of the sixteen correlational readings tested, fifteen hold
+on every re-fit. **The one that fails is a superlative**: a board's "closest
+partner" chosen between two coefficients 0.04 apart, which tie on the seed-mean
+boards. So quote "A agrees with B more than with C" when that margin survives,
+and never a single closest partner without checking the range.
+[`scripts/analyse_correlation_seeds.py`](https://github.com/turhancan97/VisBench/blob/main/scripts/analyse_correlation_seeds.py)
+prints every claim's verdict.
+
 ## A count is a fact about the corpus, not about a backbone
 
 Three of MAE's counts have moved without its features changing: twice because a

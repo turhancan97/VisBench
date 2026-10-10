@@ -37,6 +37,22 @@ Three standing cautions apply to everything below:
   **reversed** (`relative_pose`, t = −3.06, which is one of the three reversals
   20a already documented). So quote a lead with its verdict, and treat "first on
   N boards" as an upper bound on how much of it is real.
+- **A correlation is one draw too, and every correlational claim below has now
+  been re-read on the seed sweeps** (22b;
+  [`scripts/analyse_correlation_seeds.py`](scripts/analyse_correlation_seeds.py)
+  reprints it, no GPU). The corpus holds one seed per cell, so every coefficient
+  here was a single draw. Re-fitting each board at its five committed seeds, a
+  board-pair rho moves by a median **0.110** (at most 0.346), and **23 of 187**
+  movable pairs change sign — but **none of the 84 published at |rho| ≥ 0.5**.
+  The published draws are **not biased high**: they sit at a mean percentile of
+  **0.50** in their own ranges. **15 of the 16 claims tested hold on every
+  draw**, the two-cluster split, the instance and pose readings and the
+  shared-dataset rebuttal among them. **One fails**, and it is a superlative:
+  `vehicle_classification`'s closest partner (see its entry). Two structural
+  details moved, both noted where they are made. The general lesson matches
+  22a's: **a margin survives a re-fit, and a superlative between two near-equal
+  numbers does not** — so quote "A ranks with B more than with C", not "B is
+  A's closest partner", unless the gap is wider than the pair's range.
 - **n=13, so every correlation here has wide error bars**, and the backbone
   properties are correlated with each other. Coefficients quoted below as n=12
   were measured before `dino_vitb8`; where one has been re-measured the entry
@@ -66,7 +82,17 @@ Three standing cautions apply to everything below:
   `scene_classification` reads **+0.901** against CUB's +0.863. Both Cars and CUB
   ask for subordinate categories inside one basic-level class, so granularity was
   the property this probe was built to isolate — and it is not what organises
-  these boards. Mean rho is **+0.525** against high-level, +0.149 against
+  these boards.
+
+  > **Corrected by 22b: the two are tied, not ordered.** That +0.038 margin is
+  > one draw. On the seed-mean boards both partners read **+0.879** exactly; over
+  > re-fits the margin spans −0.022 to +0.104 and the place board comes out ahead
+  > in 84% of draws — still 22 of 25 when the scene board is held at its
+  > published cell rather than its held-out sweep. So **"closest partner" is not
+  > supported**. What survives is the weaker statement that the subordinate
+  > board is **no closer** than the place board: granularity does not make two
+  > boards agree more than a different question does. Both remain this board's
+  > two strongest partners, and the tier ordering below holds on every draw. Mean rho is **+0.525** against high-level, +0.149 against
   mid-level and **−0.190** against low-level, so it sits in the semantic cluster
   the other image-level probes occupy.
 
@@ -522,6 +548,13 @@ Three standing cautions apply to everything below:
   **This ranks nothing.** It is a statement about fits, and a head that fits
   its training data better has still said nothing about a representation.
 
+  **Re-read on the seed sweeps (22b), the two halves behave differently.** The
+  sign holds on **60 of 60** board-seeds over the twelve boards (rho −0.858 to
+  −0.314). The worst-fit count does not: it is **11 of 12** on the corpus (seed
+  0) and **8 to 9 of 12** on every other seed, so the published figure is the
+  top of its range. The worst single row is one row and moves with the seed; the
+  direction is a property of the board. Quote the sign.
+
 - **Quote `orientation` to two decimals, and treat its bottom two rows as
   tied** (2026-09-01). Re-running the five low-level boards to add their
   ceilings gave a reproducibility measurement for free: four came back at
@@ -571,7 +604,12 @@ Three standing cautions apply to everything below:
   the tie fix below corrected them. The claim survives the correction and two
   boards are exceptions to it: `semantic_segmentation` (already the documented
   exception — pretraining scale correlates +0.689 against tokens' +0.496) and
-  `detection`, which crosses over under midranks (+0.752 against +0.649). And **the only backbones
+  `detection`, which crosses over under midranks (+0.752 against +0.649).
+  **There are three now, and the third is marginal** (22b): `scene_parsing`,
+  shipped after this was written, reads pretraining **+0.682** against tokens
+  +0.647 on the corpus and on the seed-mean board, and on four of five seeds;
+  seed 3 crosses back. `semantic_segmentation` and `detection` stay exceptions on
+  every seed, and the other nine boards rank by tokens on every seed. And **the only backbones
   carrying 256 tokens are the two DINOv2s**, so grid size, the DINOv2 objective
   and LVD-142M pretraining were one variable. No dense board could say which of
   the three it had ranked.
