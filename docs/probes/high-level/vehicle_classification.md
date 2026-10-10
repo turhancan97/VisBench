@@ -100,11 +100,15 @@ existing board pairs in this corpus are *more* correlated than that. Had it
 merely reproduced CUB's ordering it should not have shipped, on the standard
 relative depth was rejected against.
 
-**Its closest neighbour is not the other subordinate board.** The strongest
-partner is `scene_classification` at **+0.901**, ahead of CUB's +0.863 — so what
-these boards share is not granularity, which is the property this probe was
-built to isolate. Mean rho is +0.525 against the high-level tier, +0.149 against
-mid-level and **−0.190** against low-level. See
+**The other subordinate board is no closer than the place board.** On the
+published corpus `scene_classification` reads +0.901 against CUB's +0.863, but
+that margin is one draw: re-fitted over the committed seed sweeps the two tie at
+**+0.879** each, and the place board comes out ahead in only 84% of re-fits. So
+neither is *the* closest partner — what the two share with this board is not
+granularity, which is the property this probe was built to isolate. Mean rho is
++0.525 against the high-level tier, +0.149 against mid-level and **−0.190**
+against low-level, an ordering that holds on every re-fit
+(`scripts/analyse_correlation_seeds.py`). See
 {doc}`reading a board </guides/reading-a-board>` before quoting any of it.
 
 **`train_top1` reaches 1.0000 on seven of thirteen rows and 0.985 or better on

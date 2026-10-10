@@ -76,11 +76,15 @@ down should be read.
 
 ## Feature resolution is the strongest correlate of every dense board
 
-Across the twelve backbones, the size of the feature grid correlates with every
-dense board — +0.958 with `generic_segmentation`, +0.867 with `surface_normal`,
-+0.818 with `depth` — while embedding width correlates with essentially nothing
-(-0.44 to +0.43, no consistent sign). Reproduce with
-`scripts/analyse_board_correlates.py --section structure`.
+Across the thirteen backbones, the size of the feature grid correlates with every
+dense board — +0.888 with `generic_segmentation`, +0.808 with `surface_normal`,
++0.708 with `depth` — while embedding width correlates with essentially nothing
+(-0.42 to +0.59 across all boards, no consistent sign). Reproduce with
+`scripts/analyse_board_correlates.py --section structure`. Grid size is the
+*strongest* structural correlate on nine of the dense heads that read one
+vector per patch (twelve such), on every one of five re-fits; on `semantic_segmentation`,
+`detection` and (on four re-fits of five) `scene_parsing`, pretraining scale
+beats it (`scripts/analyse_correlation_seeds.py --section structure`).
 
 That was confounded, because the only backbones carrying 256 tokens are the two
 DINOv2s: grid size, the DINOv2 training objective and LVD-142M pretraining were
