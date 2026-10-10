@@ -9,6 +9,22 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+## [0.26.0] — 2026-10-10
+
+**The published readings audited against the seed sweeps — which placements,
+and which correlations, a re-fit actually supports.**
+
+This release changes **no measurement**: no record, board or rendered table
+moves, and the schema is unchanged at v9. It is the third such release after
+v0.7.0 and v0.16.0. What it changes is which of the published *readings* may be
+quoted as results. Two audits point the committed five-seed sweeps at the prose.
+**17 of 20 first places and 13 of 20 last places survive a paired re-fit**
+(22a). **15 of 16 correlational claims hold on every re-fit** (22b). One
+published claim is withdrawn: `vehicle_classification`'s "closest partner is the
+place board" was a single draw and ties on the seed-mean boards. Neither audit
+needed a GPU, and each ships its script and a test pinning the counts the prose
+quotes.
+
 ### Added
 
 - **The rankings audited against the seed sweeps** (22a).
@@ -5339,7 +5355,8 @@ API philosophy.
 [#2]: https://github.com/turhancan97/VisBench/issues/2
 [#4]: https://github.com/turhancan97/VisBench/issues/4
 [#3]: https://github.com/turhancan97/VisBench/issues/3
-[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.25.0...HEAD
+[Unreleased]: https://github.com/turhancan97/VisBench/compare/v0.26.0...HEAD
+[0.26.0]: https://github.com/turhancan97/VisBench/compare/v0.25.0...v0.26.0
 [0.25.0]: https://github.com/turhancan97/VisBench/compare/v0.24.0...v0.25.0
 [0.24.0]: https://github.com/turhancan97/VisBench/compare/v0.23.0...v0.24.0
 [0.23.0]: https://github.com/turhancan97/VisBench/compare/v0.22.0...v0.23.0
