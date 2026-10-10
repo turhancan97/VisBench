@@ -1308,6 +1308,42 @@ The four most recent entries were lifted out of `CLAUDE.md` on 2026-09-03,
 when that file passed the 150k-character limit it is loaded under for the second
 time. Nothing was rewritten; each paragraph is as its release recorded it.
 
+**`0.26.0` is fully released** (2026-10-10). On PyPI — wheel and sdist both
+(448,221 and 1,660,198 bytes, wheel sha256 `c1cbc8d5…`, sdist `fd398120…`) —
+tagged `v0.26.0`, **annotated** (tag object `5fd2212`), on merge commit
+`4fcf312`, which is `main`, with a GitHub release cut from that tag (published
+2026-10-10T21:16:52Z) and archived by Zenodo as version DOI
+**`10.5281/zenodo.23288216`**, the **twenty-first**. The concept DOI
+`10.5281/zenodo.21822684` resolves to record 23288216 with `metadata.version`
+`v0.26.0`, read off Zenodo's API with `-L`. Both artifacts match the locally
+built ones byte for byte, checked against PyPI's own digests.
+
+**Verified out of the published wheel by import** — `__version__` 0.26.0,
+`SCHEMA_VERSION` **9**, **twenty** probes, **fourteen** registered backbones,
+five heads, `show_probes() == list_probes()` — with an assert on
+`visbench.__file__`. **The third release to move no measurement**, after v0.7.0
+and v0.16.0: it ships 22a and 22b, which change readings rather than records.
+
+**The archive abstract still reads "Twenty probes span"**, correct because no
+probe shipped, and the deposit's publication date is **2026-10-10**, the
+advanced `date-released`. Both rules held for the fourth time.
+
+**The order was upload then release**, 20 seconds apart — 21:16:32Z against
+21:16:52Z, dated from the wheel's `upload_time_iso_8601`.
+
+**The first attempt tagged the wrong commit, and only a bad token stopped it.**
+The release PR (#150) was still open when the sequence ran, so `main` read
+0.25.0: the `v0.26.0` tag went on the pre-bump merge commit `6e024e8`, and
+`pyproject-build` produced fresh **0.25.0** artifacts into a cleared `dist/`.
+`twine upload` then failed 403 on an invalid token before it sent anything. PyPI
+would have refused 0.25.0 anyway, but the wrong tag was the real hazard: it was
+local, so it was **deleted and re-made on `4fcf312`**, which is not "moving a
+tag" because nothing outside the machine had seen it. The fix is two checks
+before tagging: the release PR is **merged**, and `grep '^version'
+pyproject.toml` reads the new version. The instructions for that run had put
+the merge in prose and the tag in the command block, which is how it was
+skipped.
+
 **`0.25.0` is fully released** (2026-09-21). On PyPI — wheel and sdist both
 (448,221 and 1,637,401 bytes, wheel sha256 `00303cbe…`, sdist `a80e221f…`) —
 tagged `v0.25.0`, **annotated** (tag object `ea22117`), on merge commit
