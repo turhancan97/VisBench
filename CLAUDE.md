@@ -1997,13 +1997,15 @@ and **a nested path defeats the listing that produced that survey, so re-check
 before quoting it as a blocker** — NYUv2 and DAVIS were both recorded absent and
 are both present.
 
-**The cheapest items need no dataset at all, and that is the useful
-observation**: `edge_texture` is a target Taskonomy computed from the RGB frame,
-and so are these. `corner` and `orientation` are done, DoG blobs was rejected,
-and **photometric superpixels** is the one that remains derivable from any image
-folder already here. A magnitude target is a generator plus a
-`DenseMagnitudeTask` subclass; a vector one needs its own small task base, which
-`visbench/tasks/low_level/orientation.py` provides as the second worked example.
+**The no-dataset end of this list is used up.** Those candidates were targets
+computed from the RGB frame, as `edge_texture` is: `corner` and `orientation`
+shipped, while DoG blobs and **photometric superpixels** were rejected — the
+latter built first, which is what bought the oracle gate. Every remaining
+candidate needs a download first (`visbench/tasks/low_level/README.md` owns
+that list). If a new derived target does turn up, the machinery is ready: a
+magnitude target is a generator plus a `DenseMagnitudeTask` subclass, and a
+vector one needs its own small task base, which
+`visbench/tasks/low_level/orientation.py` provides as the worked example.
 
 **Relative camera pose shipped** (16a-1 to 16a-3), and its pre-measurement's
 derivation — every pair count, the floor, the curve and the traps — is in
