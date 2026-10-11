@@ -46,6 +46,9 @@
 # `--gpus=1` on both quick and normal with QOSMaxGRESPerJob, while the identical
 # `--gres=gpu:1` request queues (22c).
 #SBATCH --gres=gpu:1
+# dgx1 accepts work and starves it (~600x slow; CLAUDE.md's node map). This
+# array ran there for minutes in 23a before the exclusion was noticed missing.
+#SBATCH --exclude=dgx1
 #SBATCH --qos=normal
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
