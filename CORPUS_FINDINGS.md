@@ -53,6 +53,27 @@ Three standing cautions apply to everything below:
   22a's: **a margin survives a re-fit, and a superlative between two near-equal
   numbers does not** — so quote "A ranks with B more than with C", not "B is
   A's closest partner", unless the gap is wider than the pair's range.
+- **Every timm row on every board was measured on a second, unrecorded centre
+  crop** (22c; `results/controls/crop_control.jsonl`, reprinted by
+  `scripts/analyse_crop_control.py`). The datasets already resize and crop to
+  224; a timm backbone then applies its checkpoint's eval transform, which
+  resizes to `224 / crop_pct` and crops 224 *again*, so its features cover the
+  central **87.5-95%** of a frame whose target spans all of it. DINOv2 and
+  open_clip do not (their resize-and-crop to the same size is a no-op), so the
+  corpus compares nine columns on a misregistered frame against four on a
+  correct one. Re-running the nine without it, under the published flags and
+  with a gate that reproduces the published cells exactly, on four boards:
+  **the timm ViTs were understated by up to 32%** — +10-32% on `edge`, +10-20%
+  on `correspondence`, +4-8% on `generic_segmentation`, and within -0.2/+2.4%
+  on `depth`, which barely notices — **while the CNNs move by -3/+4%**; two of the
+  four boards **change leader** (`generic_segmentation`, `edge`, both to
+  `dino_vitb8`); and **the finest grid is penalised most**, because the crop's
+  ~11px shift exceeds an 8px patch. That last point **retracts most of the
+  `dino_vitb8` "a linear board cannot see resolution" finding** below. **No
+  published number has been changed yet**: the control measures the fault, and
+  fixing the corpus is a decision of its own. Until then, treat any comparison
+  between a timm row and a DINOv2/CLIP row — and any finding about grid
+  resolution on a dense board — as provisional.
 - **n=13, so every correlation here has wide error bars**, and the backbone
   properties are correlated with each other. Coefficients quoted below as n=12
   were measured before `dino_vitb8`; where one has been re-measured the entry
@@ -640,6 +661,16 @@ Three standing cautions apply to everything below:
   because `mae_vitb16` still leads the rivals there. Quote the *property* — a
   real but minority share — rather than either number.
 
+  > **22c: DINOv2-B does not lead `generic_segmentation` once its rivals are
+  > measured on the same frame.** Every ViT-B/16 rival and `dino_vitb8` are
+  > timm rows, double-cropped on the published board; without that crop
+  > `dino_vitb8` reads **0.7623** against DINOv2-B's unaffected 0.7556, and
+  > `dino_vitb16` 0.7081. So the "lead" this paragraph apportions is negative
+  > against one rival and about a third its published size against the other.
+  > The control at 196px is unaffected (DINOv2's own transform is a no-op), so
+  > "matching the grid costs under 3%" stands; the share-of-a-lead figures do
+  > not.
+
   **The confound was narrower than it first looked, and saying so is half the
   finding.** On `surface_normal`, `edge` and `corner` DINOv2-B never led at all
   — `mae_vitb16` is ahead on all three — so there was no lead for resolution to
@@ -688,6 +719,29 @@ Three standing cautions apply to everything below:
   `vit_base_patch8_224.dino`, the same objective, pretraining set, width and
   depth as `dino_vitb16` at a patch of 8, so **784 tokens against 196** — the
   finest grid in the corpus and the only fine one that is not a DINOv2.
+
+  > **Largely retracted by 22c: the boards measured here were double-cropped,
+  > and the finest grid paid most for it.** Both rows are timm ViTs, so both
+  > saw the central 90% of each frame; at a patch of 8 the ~11px
+  > misregistration spans more than a patch. Without the second crop, under the
+  > published flags (`results/controls/crop_control.jsonl`):
+  >
+  > | board | B/8 − B/16, published | without the second crop |
+  > | --- | --- | --- |
+  > | `correspondence` | +0.2861 | **+0.3787** |
+  > | `generic_segmentation` | +0.0227 | **+0.0541** |
+  > | `edge` | +0.0007 | **+0.0985** |
+  > | `depth` | +0.0002 | +0.0064 |
+  >
+  > So on `edge` the linear board **does** see the grid, by about 140x what was
+  > published, and `dino_vitb8` leads it. The "mechanism" below falls with it:
+  > the ceilings are untouched (computed from the target alone; 0.7409 and
+  > 0.6106 reproduce), but the share a linear head recovers on `edge` is
+  > **86.0% at B/8 and 88.2% at B/16**, not 65.1% against 78.9%. The DPT
+  > control's timm rows were double-cropped too, so its linear-versus-DPT
+  > contrast is not clean either. What survives: a finer grid raises the
+  > ceiling, and `depth` stays insensitive to it. The other boards in this
+  > table were not re-run and should not be quoted.
 
   **A 4x finer grid, with everything else held fixed, buys almost nothing on
   most dense boards, and costs on six.**

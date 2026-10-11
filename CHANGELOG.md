@@ -9,6 +9,55 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+**Nine of the thirteen corpus columns were measured on a frame cropped twice,
+and this release measures how much that matters before changing anything** (22c).
+
+### Found
+
+- **Every timm backbone re-crops the image a dataset has already cropped.**
+  VisBench datasets resize and centre-crop to 224; DINOv2 and open_clip then
+  resize and crop to the same size, which is a no-op. A timm backbone applies
+  its checkpoint's eval transform — resize to `224 / crop_pct`, crop 224 — so at
+  `crop_pct` 0.875-0.95 its features cover the central 87.5-95% of a frame
+  whose dense target and correspondence homography span all of it. That is
+  `convnext_base`, both ResNets and all six timm ViTs. Found while scoping a
+  fourteenth column, and confirmed by pushing a column-encoded image through
+  each backbone's real `preprocess`.
+
+### Added
+
+- **`TimmBackbone(crop_pct=..., name=...)`**, an opt-in that removes the second
+  crop. The default is untouched — every published timm cache key is
+  byte-identical, pinned by a test — and an override moves the key (`.../crop1`)
+  and requires a distinct name, so it can neither be served the published
+  features nor evict the published row.
+- **The control** (`results/controls/crop_control.jsonl`,
+  `scripts/run_crop_control.py`, `slurm/crop_control.sbatch`,
+  `scripts/analyse_crop_control.py`): the nine timm columns on four boards
+  without the second crop, under each cell's exact published command, behind a
+  gate that reproduces the published cells (deltas 0.0 to 1.9e-05).
+
+### What it measured
+
+- **The timm ViTs were understated by up to 32%**: +10-32% on `edge`, +10-20%
+  on `correspondence`, +4-8% on `generic_segmentation`, within ±2.4% on
+  `depth`. The CNNs move by −3/+4%.
+- **Two of the four boards change leader**, both to `dino_vitb8`:
+  `generic_segmentation` (from `dinov2_vitb14`) and `edge` (from `mae_vitb16`).
+- **The finest grid pays most**, which **retracts most of the 15a/15b reading
+  that a linear board cannot see feature resolution**: `dino_vitb8`'s gap over
+  `dino_vitb16` on `edge` is +0.0985 without the crop, against +0.0007
+  published.
+
+**No published number has changed.** The corpus and every generated table are
+as they were; `CORPUS_FINDINGS.md` flags the affected readings as provisional.
+Re-running the nine columns is the decision this release leaves open.
+
+### Fixed
+
+- `PairDataset`'s docstring said matching `image_size` made preprocessing a
+  geometric no-op. It is one for DINOv2 and open_clip only, and now says so.
+
 ## [0.26.0] — 2026-10-10
 
 **The published readings audited against the seed sweeps — which placements,
