@@ -81,6 +81,7 @@ step is next rather than attempting the whole roadmap in one session.
 | 21b | The twentieth board swept, and a guard for the totals three files quote | done |
 | 22a | The rankings audited: which placements a re-fit actually supports | done |
 | 22b | The correlations audited: which board-pair readings a re-fit supports | done |
+| 22c | The timm double crop, measured: nine columns read a misregistered frame | done |
 
 **A closed step's full write-up lives in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md), not here.** That file is the archive
@@ -825,9 +826,12 @@ designed up front; extend it the same way, from a case that already runs.
   - **`convnext_base` and `supervised_vitb16` high-level scores are close to
     in-distribution recall**, not transfer — ImageNet-1k supervised on
     Imagenette's ImageNet-1k wnids.
-  - **Feature resolution correlates with nearly every dense board, is causal
-    about what a representation carries, and the LINEAR board cannot see it**
-    (`dino_vitb8`, 2026-09-16). Quadrupling the grid at fixed objective, data,
+  - **Feature resolution correlates with nearly every dense board and is causal
+    about what a representation carries** (`dino_vitb8`, 2026-09-16). **Its
+    "the LINEAR board cannot see it" half is largely retracted by 22c**: that
+    board was double-cropped (next bullet), and without the crop `edge`'s B/8
+    gap is +0.0985 rather than +0.0007. The text below is the 15a/15b reading,
+    kept as history until the boards are re-run. Quadrupling the grid at fixed objective, data,
     width and depth moves the published linear boards by a rounding error and
     the same probes under a DPT head by one to two orders of magnitude more —
     over one sibling pair, and over all ten ViTs (stronger under DPT on 4 of 5,
@@ -837,6 +841,18 @@ designed up front; extend it the same way, from a case that already runs.
     contradicted its own body until 2026-09-16. `analyse_dpt_control.py --grid`
     reprints it. Separately: **check who leads a board before explaining their
     lead.**
+  - **Every timm row was measured on a second, unrecorded centre crop** (22c;
+    `results/controls/crop_control.jsonl`). Datasets crop to 224, then a timm
+    backbone's eval transform resizes to `224/crop_pct` and crops again, so 9
+    of 13 columns see the central 87.5-95% of a frame whose target spans all
+    of it; DINOv2/open_clip are a no-op. On four boards the timm ViTs were
+    understated by up to 32%, two boards change leader, and the finest grid
+    pays most. `TimmBackbone(crop_pct=1.0, name=...)` removes it; the default
+    is untouched, so **no published number has moved yet** — correcting the
+    corpus is its own decision. **Treat timm-vs-DINOv2/CLIP comparisons and
+    grid findings on dense boards as provisional**, and **check that a
+    "no-op" preprocess is one by pushing a coordinate-encoded image through
+    it** — a docstring asserted it was, and nothing checked.
   - **The `depth` board is not ranking by metric accuracy** — it ranks ordering
     plus feature resolution and reports it in metres. Not a defect; it
     reproduces probe3d's protocol.
@@ -1770,10 +1786,10 @@ designed up front; extend it the same way, from a case that already runs.
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite **collects 2414 tests**, green on 2026-10-10 along with all three
+fast suite **collects 2433 tests**, green on 2026-10-11 along with all three
 lint steps, mypy and the `-W` docs build. The slow suite is **116** since
 16a-1, whose own slow test was run then; the other 115 were last green on
-`main` on 2026-09-11. Earlier fast counts, for dating a claim: 2406 at 22a, 2397 at 21b, 2381 at 21a, 2362 at 20d,
+`main` on 2026-09-11. Earlier fast counts, for dating a claim: 2414 at 22b, 2406 at 22a, 2397 at 21b, 2381 at 21a, 2362 at 20d,
 2304 at v0.23.0, 2301 at 20a, 2296 at 19b, 2281 at v0.21.0, 1824 at the oracle
 gate. **Keep that list to a handful** — it is one of the places this file
 accretes, and its only job is to date a claim.
@@ -2103,7 +2119,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 2414 fast tests
+pytest                                              # 2433 fast tests
 pytest -m slow                                      # 116, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/

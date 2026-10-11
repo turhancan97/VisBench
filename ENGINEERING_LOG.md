@@ -2900,6 +2900,82 @@ and pins its own totals and verdicts in
 `tests/scripts/test_analyse_correlation_seeds.py`, against the three files that
 quote them.
 
+## 22c — the timm double crop: nine columns read a misregistered frame
+
+**How it was found.** Scoping a fourteenth column (CLIP ConvNeXt-B, chosen to
+break the corpus's "every CNN is ImageNet-supervised" confound), the candidate's
+native resolution turned out to be 256. `TimmBackbone` defaults `image_size` to
+the checkpoint's own, which led to reading how it preprocesses at all — and it
+applies timm's eval transform, `Resize(size / crop_pct)` then `CenterCrop(size)`,
+to an image the dataset has *already* resized and centre-cropped to `size`.
+`PairDataset`'s docstring said matching `image_size` made this a geometric
+no-op. For DINOv2 and open_clip it is (`Resize(224)` + `CenterCrop(224)` on a
+224px image); for timm at `crop_pct` < 1 it is not.
+
+**Measured, not inferred.** A 224px image whose red channel encodes its column
+index, pushed through each corpus backbone's real `preprocess`: `convnext_base`
+keeps columns 14-209, the six timm ViTs 11-212, the ResNets 6-218, DINOv2 and
+CLIP 0-223. The chain was then traced end to end: dense datasets return the
+cropped PIL image, `feature_cache` calls `backbone.preprocess` on it, and
+nothing in `run()` or the CLI passes a crop setting.
+
+**It changed the step.** CLIP ConvNeXt-B has `crop_pct` 1.0, so it would have
+been the one timm row *not* re-cropped, and its controlled comparison with
+`convnext_base` would have mixed objective with field of view. The user chose
+to measure the fault before adding anything; the column is parked.
+
+**The opt-in.** `TimmBackbone(crop_pct=, name=)`. `eval_config` is a pure
+function over timm's data config so the decision is fast-testable without timm
+(CI's `dev` extra has none). Three properties, each pinned: the default key is
+byte-identical (`timm/convnext_base/fb_in1k/224`, as a literal); an override
+appends `/crop1`, so the published cropped features cannot be served in its
+place; and an override **without** a `name` raises before anything is
+imported, because `latest_per_backbone` keys on the name.
+
+**The control's design.** Full-frame rows are registered **in-process only**
+(`<variant>_fullframe`), so nothing listed can pick them up. Each cell runs the
+argv `DRY_RUN=1 build_corpus.sh` prints for its published cell — not a copy of
+the flags — through `visbench.cli.main`, so `run()` constructs the backbone
+inside its seeded window, as for the published cell. `--check` constructs all
+nine on CPU and asserts a pixel-exact no-op, a moved key and an unchanged
+default; it passed on all nine.
+
+**Two scheduling traps, both new.** `--qos=quick` refused a one-GPU job with
+`QOSMaxGRESPerJob`, and so did `normal` while the job asked for `--gpus=1`; the
+identical request as `--gres=gpu:1` queued normally (`Resources`). The September
+arrays had run with `--gpus=1`, so the cluster's policy changed underneath them.
+And the session moved to a node (`trzmiel`) without Python 3.10, where `.venv`
+is a dead symlink — the analysis scripts import no visbench and ran on the
+system Python.
+
+**The gate**, the published name through the same path: 0.0 (`correspondence`),
+1.92e-05 (`depth`), 5.92e-09 (`generic_segmentation`), 2.72e-07 (`edge`), keys
+identical. All 40 records ran on V100s.
+
+**The result**, as relative change in each headline metric:
+
+| board | timm ViTs | timm CNNs | leader | rho |
+| --- | --- | --- | --- | --- |
+| `correspondence` | +9.6 to +19.8% | −3.3 to −0.4% | `dino_vitb8` (unchanged) | +0.995 |
+| `depth` | −0.2 to +2.4% | −0.7 to +0.3% | `dinov2_vitb14` (unchanged) | +0.978 |
+| `generic_segmentation` | +3.6 to +7.9% | −1.0 to +1.7% | `dinov2_vitb14` → `dino_vitb8` | +0.973 |
+| `edge` | +9.6 to +32.1% | −1.8 to +4.4% | `mae_vitb16` → `dino_vitb8` | +0.951 |
+
+**The grid pair is the finding.** `dino_vitb8` minus `dino_vitb16`, published
+against full-frame: `correspondence` +0.2861 → +0.3787, `generic_segmentation`
++0.0227 → +0.0541, `edge` +0.0007 → **+0.0985**, `depth` +0.0002 → +0.0064.
+The ~11px shift is more than one 8px patch, so the finest grid lost most of the
+advantage it was added to measure. The 15a mechanism falls with it: ceilings are
+unaffected (0.7409 and 0.6106 reproduce exactly), but the share of its ceiling
+a linear head recovers on `edge` is 86.0% at B/8 and 88.2% at B/16, not 65.1%
+against 78.9%. The DPT control's timm rows were double-cropped too, so its
+linear-versus-DPT contrast is not clean either.
+
+**What it does not say.** Four boards. The image-level probes lose only a
+border, which is close to standard ImageNet evaluation, and were not measured.
+No published number moved; re-running nine columns across twenty boards (and
+their seed sweeps) is a separate decision.
+
 ## Steps 7a-14a — write-ups lifted from `CLAUDE.md`
 
 ### 10a — `TimmBackbone` learns to read a ViT

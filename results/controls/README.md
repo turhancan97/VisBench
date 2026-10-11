@@ -35,6 +35,83 @@ state.
 Nothing here feeds a generated table. `scripts/render_tables.py` and
 `LEADERBOARD.md` read the corpus only.
 
+## `crop_control.jsonl` — what the timm rows score without a second crop (22c)
+
+**40 records, all on V100s**: 4 *gate* records (`convnext_base` under its
+published name) and 36 *full-frame* records (`<variant>_fullframe`, the nine
+timm corpus columns on four boards). Run by `scripts/run_crop_control.py`
+through `slurm/crop_control.sbatch`; read with `scripts/analyse_crop_control.py`.
+
+### The fault
+
+Every VisBench dataset resizes and centre-crops to the working size (224)
+before a backbone sees an image. DINOv2 and open_clip then resize and crop to
+that same size — a no-op. A **timm** backbone applies its checkpoint's eval
+transform instead: resize to `224 / crop_pct`, crop 224. At the corpus's
+`crop_pct` values that is a **second crop**, and the features describe only the
+centre of a frame whose dense target, and whose correspondence homography, span
+all of it. Measured by pushing a column-encoded 224px image through each
+backbone's real `preprocess`:
+
+| rows | `crop_pct` | source columns the features cover |
+| --- | --- | --- |
+| `convnext_base` | 0.875 | 14-209 of 0-223 |
+| six timm ViTs | 0.9 | 11-212 |
+| `resnet18`, `resnet50` | 0.95 | 6-218 |
+| DINOv2 x2, CLIP x2 | — | 0-223 |
+
+`pair_dataset.py` said matching `image_size` made preprocessing "a geometric
+no-op". For these nine it was not, and no record says so: every published timm
+record carries the default key `timm/<model>/<tag>/224`.
+
+### The control, and its gate
+
+`TimmBackbone(crop_pct=1.0, name=...)` makes the transform a pixel-exact no-op
+on a 224px image (`run_crop_control.py --check`, all nine), appends `/crop1` to
+the cache key so published features can never be served in its place, and
+**requires** a distinct name. Each full-frame cell runs the exact command
+`DRY_RUN=1 build_corpus.sh` prints for its published cell, through the CLI, so
+the backbone is constructed inside `run()`'s seeded window.
+
+**The gate passed on all four boards**: the published name through the same
+path reproduces its corpus cell at 0.0 (`correspondence`), 1.9e-05 (`depth`),
+5.9e-09 (`generic_segmentation`) and 2.7e-07 (`edge`), with an identical key.
+
+### The answer
+
+Relative change in the headline metric without the second crop:
+
+| board | timm ViTs (6) | timm CNNs (3) | leader | rho vs published |
+| --- | --- | --- | --- | --- |
+| `correspondence` | +10 to +20% | −3 to 0% | unchanged | +0.995 |
+| `depth` | −0.2 to +2.4% | −0.7 to +0.3% | unchanged | +0.978 |
+| `generic_segmentation` | +4 to +8% | −1 to +2% | **`dinov2_vitb14` → `dino_vitb8`** | +0.973 |
+| `edge` | +10 to +32% | −2 to +4% | **`mae_vitb16` → `dino_vitb8`** | +0.951 |
+
+Three readings, in order of how much they change:
+
+1. **The finest grid pays most.** `dino_vitb8`'s gap over its patch-16
+   sibling goes from +0.0007 to **+0.0985** on `edge` and from +0.0227 to
+   +0.0541 on `generic_segmentation`. A ~11px shift is more than one 8px patch.
+   This retracts most of the 15a/15b reading that a linear board "cannot see"
+   resolution — see `CORPUS_FINDINGS.md`.
+2. **The CNNs are nearly unaffected**, although `convnext_base` loses the most
+   frame. The likely reason, not separately measured: a 7x7 grid at a 32px
+   stride is coarser than the misregistration, so there is little alignment
+   left to lose.
+3. **A trained head partly absorbs it and a zero-shot metric cannot.** `depth`
+   barely moves; `correspondence`, scored in pixels with no head, moves for
+   every ViT.
+
+### What this does not license
+
+**Four boards, not twenty.** The other dense boards have not been re-run, and
+the image-level ones (classification and its siblings, retrieval, similarity,
+pose) lose only a border, which is close to standard ImageNet evaluation; nothing
+here says how much they move. **No published number changes**: these records
+are a control, kept out of the corpus, and a corrected board is a decision about
+re-running nine columns, not a merge of these files.
+
 ## `dpt_head.jsonl` and `dpt_head_cnn.jsonl` — is the oracle gate a bound on a DPT head?
 
 **Two files, because they are two comparability groups and two questions.**

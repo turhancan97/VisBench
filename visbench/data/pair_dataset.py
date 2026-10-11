@@ -152,7 +152,11 @@ class HomographyPairDataset(PairDataset):
             different plane from the one the patches sit on, and every reported
             pixel error would be wrong while still looking plausible. Emitting
             the frame the features will actually occupy makes preprocessing a
-            geometric no-op. Match this to the backbone's ``image_size``.
+            geometric no-op -- **for DINOv2 and open_clip**. A timm backbone at
+            its checkpoint's ``crop_pct`` crops a second time (0.875-0.95 for
+            the corpus's rows), so this frame is not the one its features cover;
+            ``TimmBackbone(crop_pct=1.0, name=...)`` removes that crop (22c).
+            Match this to the backbone's ``image_size``.
         """
         if not 0 < max_warp < 0.5:
             raise ValueError(f"max_warp must be in (0, 0.5), got {max_warp}")
