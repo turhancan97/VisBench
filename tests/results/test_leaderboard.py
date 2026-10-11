@@ -12,6 +12,7 @@ import pytest
 
 from visbench.results import ResultRecord
 from visbench.results.leaderboard import (
+    SUPERSEDED_KEYS,
     IncomparableRecords,
     UnknownMetric,
     comparability_key,
@@ -522,17 +523,74 @@ def test_the_corpus_has_one_key_per_backbone_name():
     Also the check that catches the mistake at its source: a control run whose
     backbone forgot its own name lands in `visbench.jsonl` looking exactly like
     a re-run of the model it was built to be compared against.
+
+    A second key is allowed under one name **only** when it is the listed
+    replacement of a key :data:`SUPERSEDED_KEYS` retired (23a). Anything else
+    is still the mistake above.
     """
     corpus = Path(__file__).resolve().parents[2] / "results" / "corpus" / "visbench.jsonl"
-    keys: dict[str, str] = {}
+    keys: dict[str, set[str]] = {}
     for line in corpus.read_text(encoding="utf-8").splitlines():
-        if not line.strip():
+        if line.strip():
+            row = json.loads(line)
+            keys.setdefault(row["backbone"], set()).add(row["backbone_key"])
+    for backbone, found in keys.items():
+        if len(found) == 1:
             continue
-        row = json.loads(line)
-        seen = keys.setdefault(row["backbone"], row["backbone_key"])
-        assert seen == row["backbone_key"], (
-            f"{row['backbone']} appears under {seen} and {row['backbone_key']}"
+        legal = {(old, new) for old, new in SUPERSEDED_KEYS.items()}
+        assert len(found) == 2 and tuple(sorted(found, key=len)) in legal, (
+            f"{backbone} appears under {sorted(found)}, which no listed correction explains"
         )
+
+
+def test_a_listed_correction_supersedes_the_retired_key():
+    """The corrected record wins regardless of which is newer."""
+    old_key = "timm/convnext_base/fb_in1k/224"
+    old = make_record(
+        backbone="convnext_base", backbone_key=old_key, timestamp="2026-10-20T00:00:00+00:00"
+    )
+    new = make_record(
+        backbone="convnext_base",
+        backbone_key=SUPERSEDED_KEYS[old_key],
+        timestamp="2026-10-12T00:00:00+00:00",
+        metrics={"miou": 0.5, "miou_per_image": 0.4, "pixel_acc": 0.9},
+    )
+    (kept,) = latest_per_backbone([old, new])
+    assert kept.backbone_key == SUPERSEDED_KEYS[old_key]
+
+
+def test_a_retired_key_with_no_replacement_is_kept():
+    """Until a column is re-run, its old row is the only one there is."""
+    old = make_record(backbone="resnet18", backbone_key="timm/resnet18/a1_in1k/224")
+    assert latest_per_backbone([old]) == [old]
+
+
+def test_an_unlisted_key_change_still_raises():
+    """The table is not a general escape hatch."""
+    first = make_record(backbone="resnet18", backbone_key="timm/resnet18/a1_in1k/224")
+    other = make_record(backbone="resnet18", backbone_key="timm/resnet18/a1_in1k/224/crop0.5")
+    with pytest.raises(ValueError, match="two backbone_keys"):
+        latest_per_backbone([first, other])
+
+
+def test_a_retired_key_under_another_name_is_not_superseded():
+    """Supersession is per name: a replacement elsewhere does not remove a row."""
+    old_key = "timm/resnet18/a1_in1k/224"
+    old = make_record(backbone="resnet18", backbone_key=old_key)
+    elsewhere = make_record(backbone="resnet18_control", backbone_key=SUPERSEDED_KEYS[old_key])
+    assert {r.backbone for r in latest_per_backbone([old, elsewhere])} == {
+        "resnet18",
+        "resnet18_control",
+    }
+
+
+def test_every_retired_key_is_the_legacy_key_of_a_registered_timm_variant():
+    """So the table cannot drift from what TimmBackbone actually produces."""
+    from visbench.backbones.timm_backbone import _VARIANTS
+
+    legacy = {f"timm/{model}/{tag}/224" for model, tag in _VARIANTS.values()}
+    assert set(SUPERSEDED_KEYS) == legacy
+    assert all(new == f"{old}/crop1" for old, new in SUPERSEDED_KEYS.items())
 
 
 def test_describe_distinguishes_groups_that_read_alike():

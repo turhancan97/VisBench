@@ -199,6 +199,16 @@ def describe_transformer(model: object, model_name: str) -> tuple[bool, int, str
     return prefix_tokens > 0, size, pool_type
 
 
+#: The crop ratio a timm backbone preprocesses with unless told otherwise.
+#:
+#: **1.0, so preprocessing is a no-op** on an image a VisBench dataset has
+#: already cropped, as it is for DINOv2 and open_clip. It was the checkpoint's
+#: own ratio until 23a, which put nine corpus columns on a misregistered frame
+#: (22c); ``SUPERSEDED_KEYS`` in ``visbench.results.leaderboard`` retires those
+#: records' keys by name.
+DEFAULT_CROP_PCT = 1.0
+
+
 def eval_config(config: dict, image_size: int | None, crop_pct: float | None) -> dict:
     """The timm data config a backbone preprocesses with, after any overrides.
 
@@ -213,8 +223,9 @@ def eval_config(config: dict, image_size: int | None, crop_pct: float | None) ->
     the backbone crops a second time, and its features cover only the central
     87.5-95% of a frame whose dense target spans all of it. DINOv2 and open_clip
     resize and crop to the same size, which is a no-op. ``crop_pct=1.0`` makes
-    a timm backbone do the same. Left at ``None``, nothing changes: the
-    published corpus was produced that way, and its cache keys with it (22c).
+    a timm backbone do the same, and is the default since 23a. ``None`` keeps
+    the checkpoint's own ratio -- how every corpus record before 23a was
+    produced, under the legacy cache key -- so those records stay reproducible.
     """
     resolved = dict(config)
     if image_size is not None:
@@ -275,7 +286,7 @@ class TimmBackbone(BaseBackbone):
         pretrained_tag: str | None = None,
         device: str | None = None,
         image_size: int | None = None,
-        crop_pct: float | None = None,
+        crop_pct: float | None = DEFAULT_CROP_PCT,
         name: str | None = None,
     ) -> None:
         """Load a pretrained timm model, freeze it, set eval mode.
@@ -294,20 +305,24 @@ class TimmBackbone(BaseBackbone):
             sizes — there is no patch-multiple constraint — but the dense grid
             scales with it, so correspondence needs it fixed across a run.
         crop_pct:
-            Overrides the checkpoint's eval crop ratio; ``1.0`` makes
-            preprocessing a geometric no-op on an image a dataset has already
-            cropped to ``image_size``. See :func:`eval_config`. Changes the
-            features, so it changes :meth:`cache_key` and requires ``name``.
+            The eval crop ratio. The default, ``1.0``, makes preprocessing a
+            geometric no-op on an image a dataset has already cropped to
+            ``image_size`` (see :func:`eval_config`). ``None`` uses the
+            checkpoint's own ratio and reproduces records made before 23a.
+            Any value but the default changes the features and the key, and
+            requires ``name``.
         name:
             What a record calls this configuration. **Required whenever
-            ``crop_pct`` is set**: ``latest_per_backbone`` keys on the name, so
-            a reconfigured backbone reporting its variant's name would evict
-            that variant's published row -- the resolution control's rule.
+            ``crop_pct`` is not the default**: ``latest_per_backbone`` keys on
+            the name, so a reconfigured backbone reporting its variant's name
+            would collide with that variant's rows -- the resolution control's
+            rule.
         """
-        if crop_pct is not None and name is None:
+        if crop_pct != DEFAULT_CROP_PCT and name is None:
             raise ValueError(
-                "crop_pct changes the features, so pass a distinct name= as well; "
-                "reusing the variant's name would evict its published rows."
+                f"crop_pct={crop_pct!r} is not the default ({DEFAULT_CROP_PCT}) and "
+                "changes the features, so pass a distinct name= as well; reusing the "
+                "variant's name would collide with its corpus rows."
             )
         super().__init__(device)
 
@@ -546,9 +561,10 @@ class TimmBackbone(BaseBackbone):
         The tag is included because ``resnet50.a1_in1k`` and ``resnet50.a3_in1k``
         are different weights behind one architecture name.
 
-        A ``crop_pct`` override is appended, and **only** an override: the
-        default key must stay byte-identical, because every published timm
-        record and every cached feature on every machine is keyed on it.
+        The crop ratio is appended (``/crop1`` at the default). ``None`` -- the
+        checkpoint's own ratio -- produces the **legacy** key with no suffix,
+        byte-identical to the one every record before 23a carries, so those
+        records and their cached features stay addressable.
         """
         key = f"timm/{self.model_name}/{self.pretrained_tag}/{self.image_size}"
         return key if self.crop_pct is None else f"{key}/crop{self.crop_pct:g}"
