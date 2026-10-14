@@ -28,7 +28,12 @@ from pathlib import Path
 
 import pytest
 
-from visbench.results.leaderboard import group_comparable, latest_per_backbone, metric_direction
+from visbench.results.leaderboard import (
+    group_comparable,
+    latest_per_backbone,
+    metric_direction,
+    pinned_to_keys,
+)
 from visbench.results.render import HEADLINE_METRICS
 from visbench.results.writer import iter_records
 
@@ -100,10 +105,13 @@ def _verdicts() -> dict[str, dict]:
     for task, path in _sweeps().items():
         metric = HEADLINE_METRICS[task]
         higher = metric_direction(metric) == "higher"
-        (group,) = group_comparable([r for r in corpus if r.task == task]).values()
+        sweep = list(iter_records(path))
+        # The board this sweep was fitted against (23a): pre-correction keys.
+        board = pinned_to_keys([r for r in corpus if r.task == task], sweep)
+        (group,) = group_comparable(board).values()
         cells = {c.backbone: c.metrics[metric] for c in latest_per_backbone(group)}
         scores: dict[str, dict[int, float]] = {}
-        for record in iter_records(path):
+        for record in sweep:
             if record.task == task:
                 scores.setdefault(record.backbone, {})[record.seed] = record.metrics[metric]
 

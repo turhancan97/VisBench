@@ -38,6 +38,7 @@ __all__ = [
     "is_context_metric",
     "latest_per_backbone",
     "metric_direction",
+    "pinned_to_keys",
     "rank",
     "ranking_disagreements",
     "shared_metrics",
@@ -617,6 +618,36 @@ def drop_superseded(records: Iterable[ResultRecord]) -> list[ResultRecord]:
             record.backbone_key in SUPERSEDED_KEYS
             and (record.backbone, SUPERSEDED_KEYS[record.backbone_key]) in present
         )
+    ]
+
+
+def pinned_to_keys(
+    records: Iterable[ResultRecord], reference: Iterable[ResultRecord]
+) -> list[ResultRecord]:
+    """The records as a control fitted against them saw them.
+
+    For every ``(task, backbone)`` the ``reference`` records carry -- a seed
+    sweep, say -- keep only the records under the reference's own
+    ``backbone_key``; every other record passes through. A sweep fitted before a
+    listed correction (:data:`SUPERSEDED_KEYS`) is then compared with the cells
+    it re-fitted rather than with their replacements, and a sweep re-run under
+    the corrected key follows the board forward without an edit.
+
+    Raises if the reference carries two keys for one ``(task, backbone)``,
+    since there would be no single board it was fitted against.
+    """
+    keys: dict[tuple[str, str], str] = {}
+    for record in reference:
+        cell = (record.task, record.backbone)
+        if keys.setdefault(cell, record.backbone_key) != record.backbone_key:
+            raise ValueError(
+                f"{cell} carries two backbone keys in the reference: "
+                f"{keys[cell]} and {record.backbone_key}"
+            )
+    return [
+        record
+        for record in records
+        if keys.get((record.task, record.backbone), record.backbone_key) == record.backbone_key
     ]
 
 

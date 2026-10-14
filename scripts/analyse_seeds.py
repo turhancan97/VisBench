@@ -64,6 +64,7 @@ from visbench.results.leaderboard import (
     group_comparable,
     latest_per_backbone,
     metric_direction,
+    pinned_to_keys,
 )
 from visbench.results.render import HEADLINE_METRICS
 from visbench.results.schema import ResultRecord
@@ -330,7 +331,10 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     higher_is_better = metric_direction(metric) == "higher"
 
-    cell_records = board_cells(load(args.corpus, task))
+    # The board as this sweep was fitted against it: a sweep from before a
+    # listed correction (23a) is compared with the cells it re-fitted, not
+    # with their replacements.
+    cell_records = board_cells(pinned_to_keys(load(args.corpus, task), records))
     cells = {name: cell.metrics[metric] for name, cell in cell_records.items()}
     if not cells:
         print(f"!!! no published {task} board in {args.corpus}", file=sys.stderr)

@@ -47,6 +47,7 @@ import json
 import random
 import statistics
 import sys
+import tempfile
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -121,19 +122,58 @@ class Data:
         }
 
 
+def _fitted_keys(paths: dict[str, Path]) -> dict[tuple[str, str], str]:
+    """``{(task, backbone): backbone_key}`` the committed sweeps were fitted on."""
+    keys: dict[tuple[str, str], str] = {}
+    for path in paths.values():
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                record = json.loads(line)
+                keys[(record["task"], record["backbone"])] = record["backbone_key"]
+    # A zero-shot board has no sweep -- its re-fit is exact -- so it is pinned to
+    # the key the swept boards carry for the same backbone, and every board the
+    # audit reads describes one corpus.
+    by_backbone = {backbone: key for (_, backbone), key in keys.items()}
+    for task in ZERO_SHOT:
+        for backbone, key in by_backbone.items():
+            keys[(task, backbone)] = key
+    return keys
+
+
+def _pinned_corpus(corpus: Path, keys: dict[tuple[str, str], str], into: Path) -> Path:
+    """The corpus as the sweeps saw it (`pinned_to_keys`, 23a), as a file.
+
+    A sweep fitted before a listed correction must be read beside the cells it
+    re-fitted, not their replacements. Written out because the board loaders
+    borrowed from `analyse_board_correlates.py` read a path.
+    """
+    kept = []
+    for line in corpus.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            record = json.loads(line)
+            cell = (record["task"], record["backbone"])
+            if keys.get(cell, record["backbone_key"]) == record["backbone_key"]:
+                kept.append(line)
+    into.write_text("\n".join(kept) + "\n", encoding="utf-8")
+    return into
+
+
 def load(corpus: Path = CORPUS) -> Data:
-    published = correlates.load_boards(corpus)
-    levels = correlates.load_levels(corpus)
+    paths = sweep_paths()
+    with tempfile.TemporaryDirectory() as tmp:
+        pinned = _pinned_corpus(corpus, _fitted_keys(paths), Path(tmp) / "pinned.jsonl")
+        published = correlates.load_boards(pinned)
+        levels = correlates.load_levels(pinned)
+        lines = pinned.read_text(encoding="utf-8").splitlines()
     # The box half of the instance board, published.
     box: Board = {}
-    for line in corpus.read_text(encoding="utf-8").splitlines():
+    for line in lines:
         if line.strip():
             record = json.loads(line)
             if record["task"] == "instance_segmentation":
                 box[record["backbone"]] = float(record["metrics"]["box_map_50"])
     published[BOX] = box
 
-    paths = sweep_paths()
     seeded: dict[str, dict[int, Board]] = {}
     fits: dict[str, dict[int, Board]] = defaultdict(lambda: defaultdict(dict))
     for task in published:

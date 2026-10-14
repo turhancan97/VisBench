@@ -20,6 +20,7 @@ from visbench.results.leaderboard import (
     is_context_metric,
     latest_per_backbone,
     metric_direction,
+    pinned_to_keys,
     rank,
     ranking_disagreements,
     shared_metrics,
@@ -582,6 +583,38 @@ def test_a_retired_key_under_another_name_is_not_superseded():
         "resnet18",
         "resnet18_control",
     }
+
+
+def test_pinning_to_a_sweep_reads_the_cells_it_refitted():
+    """A sweep fitted before a correction is read against the cell it re-fitted
+    (the gate would otherwise compare it with its replacement), and a cell the
+    sweep never touched passes through unchanged."""
+    old_key = "timm/resnet18/a1_in1k/224"
+    old = make_record(backbone="resnet18", backbone_key=old_key)
+    new = make_record(backbone="resnet18", backbone_key=SUPERSEDED_KEYS[old_key])
+    other = make_record()
+    sweep = [make_record(backbone="resnet18", backbone_key=old_key, seed=s) for s in range(3)]
+    assert pinned_to_keys([old, new, other], sweep) == [old, other]
+    (kept,) = latest_per_backbone(pinned_to_keys([old, new], sweep))
+    assert kept is old
+
+
+def test_a_sweep_under_the_corrected_key_follows_the_board_forward():
+    old_key = "timm/resnet18/a1_in1k/224"
+    old = make_record(backbone="resnet18", backbone_key=old_key)
+    new = make_record(backbone="resnet18", backbone_key=SUPERSEDED_KEYS[old_key])
+    sweep = [make_record(backbone="resnet18", backbone_key=SUPERSEDED_KEYS[old_key])]
+    assert pinned_to_keys([old, new], sweep) == [new]
+
+
+def test_a_reference_with_two_keys_for_one_cell_is_refused():
+    old_key = "timm/resnet18/a1_in1k/224"
+    mixed = [
+        make_record(backbone="resnet18", backbone_key=old_key),
+        make_record(backbone="resnet18", backbone_key=SUPERSEDED_KEYS[old_key]),
+    ]
+    with pytest.raises(ValueError, match="two backbone keys"):
+        pinned_to_keys([], mixed)
 
 
 def test_every_retired_key_is_the_legacy_key_of_a_registered_timm_variant():
