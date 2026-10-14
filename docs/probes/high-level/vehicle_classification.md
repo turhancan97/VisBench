@@ -103,7 +103,7 @@ relative depth was rejected against.
 **The other subordinate board is no closer than the place board.** On the
 published corpus `scene_classification` reads +0.901 against CUB's +0.863, but
 that margin is one draw: re-fitted over the committed seed sweeps the two tie at
-**+0.879** each, and the place board comes out ahead in only 84% of re-fits. So
+**+0.874** each, and the place board comes out ahead in only 62% of re-fits. So
 neither is *the* closest partner — what the two share with this board is not
 granularity, which is the property this probe was built to isolate. Mean rho is
 +0.525 against the high-level tier, +0.149 against mid-level and **−0.190**

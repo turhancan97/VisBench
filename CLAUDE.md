@@ -83,6 +83,7 @@ step is next rather than attempting the whole roadmap in one session.
 | 22b | The correlations audited: which board-pair readings a re-fit supports | done |
 | 22c | The timm double crop, measured: nine columns read a misregistered frame | done |
 | 23a | The crop fixed: timm defaults to the full frame, and nine columns re-run | done |
+| 23b | The sweeps re-fitted on the corrected boards: no pair reverses any more | done |
 
 **A closed step's full write-up lives in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md), not here.** That file is the archive
@@ -95,27 +96,15 @@ several of those decisions look wrong until you read the numbers.
 to `ENGINEERING_LOG.md`, and anything about *what a board means* to
 [`CORPUS_FINDINGS.md`](CORPUS_FINDINGS.md); add at most a few lines here.**
 This file is loaded into every session's context whole, so it has a budget, and
-it has now been over that budget **five times** — 203k, 151k, 158k, 150k, and
-**148k on 2026-09-19**, trimmed to **135.8k**.
-
-**Every time, the growth has been retrospective narrative rather than rules**,
-and every time the fix has been the same: keep the *rule* here and send the
-*derivation* to the file that already owns it, which then says so. Nothing is
-deleted. The 2026-09-17 pass compressed eleven blocks (the corpus-claim list,
-the pose write-up, 9a, 9d, 10a, the DPT control, the optional-extra trap, the
-split control, the second-dataset edit list, the library-surface backlog, the
-derived-target gauntlet and schema v8); the 2026-09-19 pass compressed the
-gauntlet again, the pose pre-measurement, the relative-pose paragraph, the
-post-v0.11 probe summary, the per-release rules, the closed-issue list, the Hub
-paragraphs and the node map, and **moved the dataset survey wholesale** to
-`ENGINEERING_LOG.md`. **10a and the dataset survey are the only two whose
-derivation was not already filed elsewhere**, so their full text moved rather
-than being cut.
-
-**So when it next crosses, look first for a closed step's write-up, a
-per-release paragraph, or a claim restated here in the same detail as the file
-that owns it** — before touching "decisions already paid for", which is the bulk
-of this file and is what it is for.
+it has gone over it **five times** (203k, 151k, 158k, 150k, 148k), and was
+trimmed again pre-emptively at 145k on 2026-10-14. **Every time, the growth was
+retrospective narrative rather than rules**, and the fix is the same: keep the
+*rule* here and send the *derivation* to the file that already owns it. Nothing
+is deleted — text that had no other home moves to `ENGINEERING_LOG.md` (the
+dataset survey, 10a, and the "Lifted from CLAUDE.md" sections). **When it next
+crosses, look first for a closed step's write-up, a per-release paragraph, or a
+claim restated here in the same detail as the file that owns it** — before
+touching "decisions already paid for", which is what this file is for.
 
 **Read `CORPUS_FINDINGS.md` before quoting any board** —
 this file keeps only the claims, and several of them corrected an earlier
@@ -149,7 +138,7 @@ predated that field, with three cells of it landing on 2026-09-11, and
 coverage and 598 only for the file, and re-read both off `LEADERBOARD.md` and
 `wc -l` rather than from here.
 
-Two standing consequences of that history, both of which have already cost a
+Standing consequences of that history, each of which has already cost a
 published claim:
 
 - **Read a count off `LEADERBOARD.md`, never out of prose.** Every count that
@@ -244,8 +233,8 @@ the image-level classification probes rank with the *localised* cluster rather
 than with the object board they subclass; `orientation`'s board is **not**
 independent even though its target is; and **granularity is not what the
 classification family shares** — the other subordinate board is no closer to
-`vehicle_classification` than the *place* board is (both +0.879 on the
-seed-mean boards; the published +0.901/+0.863 split was one draw, 22b).
+`vehicle_classification` than the *place* board is (both +0.874 on the
+seed-mean boards since 23b; the published split was one draw, 22b).
 
 **A probe whose data VisBench defines has no board until the data is pinned**
 (21a, the `corner` rule again). The Stanford Cars copy here is **not** the
@@ -346,65 +335,24 @@ it would be checked against — that diff is the only reason the seeding bug bel
 was ever found. And **do not pipe a long publishing run through `tail`**: it
 buffers, so a run killed part-way leaves no log.
 
-**Twenty-one releases are archived, `0.26.0` the newest** (2026-10-10). Byte
-counts, wheel digests, the commit each tag resolves to and what every
-`__version__`/`SCHEMA_VERSION` import read back are recorded release by release
-in [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md) under "Release history"; read them
-there. `0.26.0` is the **fourteenth running with no gap** between tag, wheel,
-release and `main`; `0.18.0` is the only release to move the schema (v8 -> v9), so a
-v0.17.0 install cannot read a record written by it while older records read
-fine here. **`0.19.0` shipped without its wheel check and without its
-release-history entry** — both were done retrospectively on 2026-09-16 — and
-**`0.21.0` and `0.22.0` both stopped with PyPI complete and no GitHub
-release**, so Zenodo had archived nothing while `CITATION.cff` already named the
-new version. Twice running makes it structural rather than a slip: the upload is
-the step that feels like the finish line, CI went green long before, and
-**nothing anywhere turns red when the archive never happens**. It has held on
-`0.23.0` through `0.26.0`, each cut as a step of their own and confirmed
-with `gh release view`; so has the `date-released` rule, advanced in all four
-release commits. **Tag only after the release PR is merged and
-`pyproject.toml` reads the new version** (0.26.0): a first attempt tagged and
-built the pre-bump `main`, so `dist/` held fresh *0.25.0* artifacts under a
-`v0.26.0` tag; only an expired token stopped the upload, and the unpushed tag
-was deleted rather than moved. **Date an upload from the artifact's `upload_time_iso_8601`**,
-not from when an index last answered: a poll minutes before `0.23.0`'s release
-reported the previous version and was nearly written up as the release preceding
-the upload.
+**Twenty-one releases are archived, `0.26.0` the newest** (2026-10-10); every
+byte count, digest, tag commit and import read-back is in `ENGINEERING_LOG.md`
+under "Release history", and the narrative this paragraph used to carry is under
+"Lifted from CLAUDE.md, 2026-10-14". The rules it left:
 
-**And the aggregate JSON endpoint can lie in the other direction** (0.25.0).
-Minutes *after* a successful upload, `https://pypi.org/pypi/visbench/json`
-still reported `0.24.0` with no `0.25.0` key in `releases` — which reads exactly
-like a failed upload. The version-specific
-`https://pypi.org/pypi/visbench/0.25.0/json` returned HTTP 200 with both
-artifacts, and `/simple/visbench/` already listed them. **Ask the
-version-specific endpoint or the simple index before concluding an upload did
-not happen**, the same way `pip download`'s cached "No matching distribution
-found" is not evidence either.
-
-Four rules those releases left behind, beyond the standing list below; the
-release-by-release detail is in `ENGINEERING_LOG.md` under "Release history".
-**A PyPI version can never be re-uploaded, so a dead link or a stale line on the
-front page is only fixed by the *next* release** (0.16.0). **Read Zenodo's API
-before claiming an archive is wrong** (0.16.1) — it prefers `.zenodo.json` where
-GitHub's cite button prefers `CITATION.cff`, so a divergence is half wrong and
-half fine. **Both archive abstracts are hand-checked whenever a probe ships**
-(0.17.0), since each states the probe count in prose and
-`tests/test_citation.py` compares only the two files' *titles*; three older
-archives say "Fifteen" and always will. **An empty `uv lock` diff after a
-version bump is a symptom, not a pass** (0.18.0): the version lives in two
-literals and the lockfile pins only one, so a bump always moves the lockfile.
-
-**The concept DOI is `10.5281/zenodo.21822684`**, unchanged across all
-**twenty-one** version DOIs and now resolving to v0.26.0 (confirmed against
-Zenodo's API on 2026-10-10 — record 21822684 redirects to `id` 23288216, which
-reports `metadata.version` `v0.26.0` — rather than assumed).
-
-**That API 302s, and without `-L` the check lies to you**: `curl` alone returns
-a 229-byte HTML redirect page and the JSON parse fails with a traceback that
-reads as Zenodo serving garbage. Use `curl -sL`. That is the point of quoting it
-rather than a version DOI; `tests/test_citation.py` rejects any other Zenodo
-DOI in `README.md`, `docs/index.md` and `CITATION.cff`, because pasting one
-over it is the realistic mistake and it freezes every citation at one release.
+- **A release is not done until `gh release view vX.Y.Z` shows it** — `0.21.0`
+  and `0.22.0` stopped at PyPI and Zenodo archived nothing; it has held since.
+- **Tag only after the release PR is merged and `pyproject.toml` reads the new
+  version** (0.26.0's first attempt built pre-bump artifacts under the new tag).
+- **Date an upload from `upload_time_iso_8601`, and ask
+  `/pypi/visbench/<version>/json` or `/simple/` before concluding it failed** —
+  the aggregate JSON endpoint has lagged in both directions.
+- **A PyPI version can never be re-uploaded**, so a stale front page waits for
+  the next release; **hand-check both archive abstracts when a probe ships**;
+  **an empty `uv lock` diff after a bump is a symptom** (two version literals).
+- **The concept DOI is `10.5281/zenodo.21822684`**, resolving to the newest
+  version; check it with `curl -sL` (the API 302s, and without `-L` the parse
+  fails as though Zenodo served garbage).
 
 **Releasing — the standing rules, learned across v0.6.0 through v0.16.0.** The
 release-by-release detail is in [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md),
@@ -792,30 +740,32 @@ designed up front; extend it the same way, from a case that already runs.
     23a's crop fix, which is the next rule rather than an aside.
   - **A count over a corpus is a fact about that corpus, not a backbone.**
     Re-read counts off `LEADERBOARD.md`.
-  - **A placement is not automatically a result** (22a;
-    `scripts/analyse_placements.py`; **on the pre-23a boards**, until 23b). **17 of 20 first places and 13 of 20 last
-    places survive a paired re-fit.** Three leads do not — `edge` at **t =
-    +0.11**, a coin flip — and one published *last* place is reversed. So a
-    count of placements weighs a coin flip the same as a twenty-sigma lead, and
-    **last place is the weaker half**, because scores compress at the bottom of
-    most boards. Quote a lead with its verdict. Only three of `mae_vitb16`'s
-    five firsts survive; the *pattern* both entries describe is untouched, since
-    the boards it leads solidly are the ones the pattern is about.
-  - **A correlation is one draw too** (22b, **pre-23a boards**;
+  - **A placement is not automatically a result** (22a, re-fitted on the
+    corrected boards by 23b; `scripts/analyse_placements.py`). **18 of 20 first
+    places and 15 of 20 last places survive a paired re-fit.** Two leads do
+    not — `generic_segmentation`'s 23a leader change is a tie (**t = +0.66**)
+    — and none is reversed. So a count of placements weighs a coin flip the
+    same as a twenty-sigma lead, and **last place is the weaker half**, because
+    scores compress at the bottom of most boards. Quote a lead with its
+    verdict.
+  - **A correlation is one draw too** (22b, re-fitted by 23b;
     `scripts/analyse_correlation_seeds.py`, no GPU). On the seed sweeps a
-    board-pair rho moves by a median 0.110 and 23 of 187 pairs change sign,
+    board-pair rho moves by a median 0.099 and 17 of 187 pairs change sign,
     none of them published at |rho| ≥ 0.5; the published draws are **not**
-    biased high. **15 of 16 correlational claims hold on every re-fit**; the
-    one that fails is a *superlative* ("closest partner", a 0.038 margin that
-    ties on the seed-mean). **Quote margins, not superlatives**, and a count
-    of one extreme row ("worst fit on the coarsest grid", 11 of 12 published,
-    8-9 on other seeds) as the sign it summarises.
+    biased high — judged against the statistic's own null (any seed read as
+    the published draw), never a guessed band. **15 of 16 correlational claims
+    hold on every re-fit**; the one that fails is a *superlative* ("closest
+    partner", tied on the seed-mean). **Quote margins, not superlatives**, and
+    a count of one extreme row ("worst fit on the coarsest grid", 11 of 12
+    published, 9-12 on other seeds) as the sign it summarises. **The
+    coefficients quoted in `CORPUS_FINDINGS.md` prose are still cropped-board
+    draws**; 23b re-checked every verdict, not every number.
   - **Quote an objective gap against the *recipe* gap on the same board, never
     against zero** — `sam_vitb16` against `supervised_vitb16`, and nothing in a
     record says which board you are on.
   - **`semantic_segmentation` and `detection` are the two boards that rank by
-    neither objective nor grid** on every seed; `scene_parsing` joins them on
-    four of five (22b), so call it marginal. The test is whether another property *beats*
+    neither objective nor grid** on every seed, and since 23b `scene_parsing`
+    does too (four of five on the cropped sweeps). The test is whether another property *beats*
     the grid, never whether the grid coefficient is small — and a coefficient's
     rank among boards is a fact about which boards are in the corpus.
   - **The high-level tier is two clusters, not one**, and two probes that are
@@ -830,49 +780,37 @@ designed up front; extend it the same way, from a case that already runs.
     in-distribution recall**, not transfer — ImageNet-1k supervised on
     Imagenette's ImageNet-1k wnids.
   - **Feature resolution correlates with nearly every dense board and is causal
-    about what a representation carries** (`dino_vitb8`, 2026-09-16). **Its
-    "the LINEAR board cannot see it" half is largely retracted by 22c**: that
-    board was double-cropped (next bullet), and without the crop `edge`'s B/8
-    gap is +0.0985 rather than +0.0007, and 23a's corrected boards show the
-    same on `corner` (+0.0864), `generic_segmentation` (+0.0541) and
-    `orientation` (3.86°). The text below is the 15a/15b reading, kept as
-    history. Quadrupling the grid at fixed objective, data,
-    width and depth moves the published linear boards by a rounding error and
-    the same probes under a DPT head by one to two orders of magnitude more —
-    over one sibling pair, and over all ten ViTs (stronger under DPT on 4 of 5,
-    largest where the linear head recovers least of its oracle).
-    **Never quote a linear board as evidence that resolution does not help**;
-    the first draft of this finding did exactly that, and its headline here
-    contradicted its own body until 2026-09-16. `analyse_dpt_control.py --grid`
-    reprints it. Separately: **check who leads a board before explaining their
-    lead.**
-  - **Every timm row was measured on a second, unrecorded centre crop** (22c;
-    `results/controls/crop_control.jsonl`). Datasets crop to 224, then a timm
-    backbone's eval transform resizes to `224/crop_pct` and crops again, so 9
-    of 13 columns see the central 87.5-95% of a frame whose target spans all
-    of it; DINOv2/open_clip are a no-op. On four boards the timm ViTs were
-    understated by up to 32%, and the finest grid pays most. **Check that a
-    "no-op" preprocess is one by pushing a coordinate-encoded image through
-    it** — a docstring asserted it was, and nothing checked.
-  - **23a corrected the corpus**: `TimmBackbone` defaults to `crop_pct=1.0`
-    (key `timm/<model>/<tag>/224/crop1`), all 180 timm cells were re-run on a
-    V100 and gated against 22c's control, and `SUPERSEDED_KEYS` lets the new
-    key replace the old under the same name — **only for the nine listed
-    pairs**; any other key change still raises. `crop_pct=None` reproduces a
-    pre-23a cell and requires a distinct `name`. **Four boards change leader,
-    all to `dino_vitb8`** (`edge`, `generic_segmentation`, `keypoints2d`,
-    `orientation`), five change last place, and **`detection` gets *worse*
-    full-frame** (timm ViTs −6%, CNNs −12.5%, same config, slightly worse fit)
-    — measured, not explained. Numbers in `CORPUS_FINDINGS.md`.
+    about what a representation carries** (`dino_vitb8`, 15a/15b). **Never
+    quote a linear board as evidence that resolution does not help**: 15a's
+    "the linear board cannot see it" was an artefact of the double crop below,
+    and on the corrected boards the B/8 − B/16 gap is +0.0985 on `edge`,
+    +0.0864 on `corner`. The 15a/15b DPT-versus-linear reading is history in
+    `CORPUS_FINDINGS.md`; `analyse_dpt_control.py --grid` reprints it, and its
+    timm rows were cropped too. **Check who leads a board before explaining
+    their lead.**
+  - **Every timm row was measured on a second, unrecorded centre crop until
+    23a** (22c; `results/controls/crop_control.jsonl`). Datasets crop to 224 and
+    a timm eval transform cropped again to 87.5-95%; DINOv2/open_clip are a
+    no-op. **Check that a "no-op" preprocess is one by pushing a
+    coordinate-encoded image through it** — a docstring asserted it was.
+    **23a fixed it**: `TimmBackbone` defaults to `crop_pct=1.0` (key
+    `.../224/crop1`), all 180 timm cells were re-run and gated, and
+    `SUPERSEDED_KEYS` lets the new key replace the old under the same name —
+    **only for the nine listed pairs**; any other key change still raises.
+    `crop_pct=None` reproduces a pre-23a cell and needs a distinct `name`.
+    Four boards changed leader (all to `dino_vitb8`), and **`detection` got
+    *worse* full-frame** — measured, not explained (`CORPUS_FINDINGS.md`).
   - **A seed sweep is read against the board it was fitted on, not the
-    newest** (23a). Every sweep under `results/controls/` predates the fix, so
-    `pinned_to_keys(corpus, sweep)` gives each consumer — the seed-0 gate, the
-    totals, 22a's placements, 22b's correlations — the cells under the sweep's
-    own keys. **Those audits therefore describe the *cropped* boards until 23b
-    re-fits the sweeps**; a sweep re-run under `/crop1` follows the board
-    forward with no edit. **And a re-fit measures noise, never a bias every
-    seed shares**: 22a called MAE's `orientation` lead solid, and the crop fix
-    took it.
+    newest** (23a). `pinned_to_keys(corpus, sweep)` gives each consumer — the
+    seed-0 gate, the totals, 22a's placements, 22b's correlations — the cells
+    under the sweep's own keys. **23b re-fitted the nine timm columns of every
+    sweep under `/crop1`** and spliced them in with
+    `scripts/merge_sweep_refit.py`, which *replaces* rather than appends and
+    archives the cropped sweeps to `results/controls/pre23a/`; the consumers
+    followed with no edit. A sweep set spanning two keys for one backbone is
+    refused (`analyse_correlation_seeds`). **And a re-fit measures noise, never
+    a bias every seed shares**: 22a called MAE's `orientation` lead solid, and
+    the crop fix took it.
   - **The `depth` board is not ranking by metric accuracy** — it ranks ordering
     plus feature resolution and reports it in metres. Not a defect; it
     reproduces probe3d's protocol.
@@ -1292,70 +1230,43 @@ designed up front; extend it the same way, from a case that already runs.
   a dose**, and is cheap, since it needs no new data and no new backbone.
 
 - **A threshold on a gap cannot say whether two rows are ordered; a paired
-  re-fit can** (20a; the table is in `results/controls/README.md`). When runs
-  are repeatable, **re-run both rows under the same seeds and test the paired
-  difference** rather than comparing their gap to a noise figure — the gap is
-  one draw, and on the pose board pairs 1.58 apart are solidly ordered while a
-  pair 0.12 apart is **reversed by 2.08**. Widening the threshold to the
-  measured noise would have called two ordered pairs tied and still missed the
-  reversal. Only 11% of that board's seed variance is common-mode, so the two
-  rows move independently and no function of the gap can carry the answer.
-  **The gate that makes such a sweep mean anything is free**: the corpus cells
-  were run at seed 0, so the sweep's own seed-0 rows must reproduce them, and
-  all thirteen did at delta 0.0.
+  re-fit can** (20a-21b; every table is in `results/controls/README.md`, the
+  derivation in `ENGINEERING_LOG.md`). **Re-run both rows under the same seeds
+  and test the paired difference**: on the pose board a pair 1.58 apart is
+  solidly ordered while one 0.12 apart was **reversed** (on the cropped board), and only 11% of the seed
+  variance is common-mode, so no function of the gap can carry the answer.
+  **The gate is free**: the corpus cells are seed 0, so a sweep's seed-0 rows
+  must reproduce them, or the sweep describes some adjacent configuration.
 
-  **Every trained board is now swept, a third of all adjacent pairs are
-  unordered, and a reversal is rare rather than absent** (20b/20c/21b;
-  `results/controls/seeds/`, read with `scripts/analyse_seeds.py <probe>`).
-  **126 of 192 pairs ordered, 63 tied, 3 reversed.** 20b swept three boards,
-  found no reversal and published "the reversals do not generalise"; **20c
-  refuted it the next day** — `surface_normal`, a linear board, reverses
-  `siglip_vitb16`/`convnext_base`. Say **rare and marginal** instead: all three
-  reversals sit at |t| 2.90-3.15 against 2.776 at n=5. The unorderable fraction
-  is a property of the *board* — `occlusion_edge` orders 4 of 12,
-  `generic_segmentation` 11 of 12 — and on **11 of 16** boards the largest
+  **Every trained board is swept** (`results/controls/seeds/`, read with
+  `scripts/analyse_seeds.py <probe>`): **143 of 192 pairs ordered, 49 tied, 0
+  reversed** on the corrected boards (23b). The cropped boards had three
+  reversals, all marginal, and the crop fix ordered or tied every one — so
+  "no reversal" is a fact about these boards, not a law (20b claimed it, 20c
+  refuted it, 23b restored it for a different reason). The unorderable
+  fraction is a property of the *board*, and on **12 of 16** boards the largest
   unordered gap exceeds the smallest ordered one, so a threshold cannot exist
-  there. **A board's spread does not predict that count**: the three image-level
-  classification boards each order exactly 7 of 12 across a ten-fold range of
-  spread, because the per-row scatter grows with it. Sweep before ordering
-  adjacent rows, and quote `results/controls/README.md` for which pairs are
-  ordered. **Totals here are recomputed from the committed sweeps** by
-  `tests/results/test_sweep_totals.py`, which pins them in this file,
-  `CORPUS_FINDINGS.md` and `results/controls/README.md` — they had drifted
-  through three files with nothing checking them.
-  **A sweep re-fits the published flags** — `SEEDS=5` on `build_corpus.sh`, not
-  a second script — and **must never reach the corpus**, since `seed` is not in
-  `comparability_key`; both are refused in code and pinned by tests.
-  **And "reproduces the board" is per board**: exact for three boards, 1.7e-07
-  to 2.9e-05 for the nine dense ones (float32 reduction order), and 9.2e-04 to
-  **2.5e-02** for `detection`, `instance_segmentation` and `orientation`, whose
-  metrics are not smooth in the prediction. Every one of those runs reported a
-  `train_loss` identical to its published cell's, which is the only thing that
-  separates a moved metric from a moved configuration — and it is what made
-  **`scene_classification` legible**: eleven of its thirteen seed-0 rows miss
-  their published cells by up to **−0.0102** *with a different fit*, so its
-  sweep is **held out** at `results/controls/scene_classification_seeds.jsonl`.
+  there; a board's spread does not predict the count. **Totals here are
+  recomputed from the committed sweeps** by `tests/results/test_sweep_totals.py`.
+  **A sweep re-fits the published flags** (`SEEDS=5` on `build_corpus.sh`) and
+  **must never reach the corpus** — `seed` is not in `comparability_key`.
+  **"Reproduces the board" is per board** (exact for three, ~1e-7 to 3e-5 for
+  the dense ones, up to 2.2e-02 for `detection`, `instance_segmentation` and
+  `orientation`), and **`train_loss` is what separates a moved metric from a
+  moved configuration** — to three figures, never bit-identical, and only to
+  ~1.6e-3 on `orientation`, whose fit is ill-conditioned like its metric. That is what held **`scene_classification`'s sweep
+  out** (`results/controls/scene_classification_seeds.jsonl`): eleven seed-0
+  rows missed *with a different fit*. **23b's nine re-swept columns reproduce
+  it exactly, same fit**, and the four original columns still miss — so the
+  disagreement lives in the original sweep run, and re-sweeping those four is
+  the open lead. **20d: amplification, not hardware** — a
+  trigger rather than a dose, so a disturbance too small to identify is
+  sufficient and identifying it would change no number.
 
-  **20d says why, and the answer is amplification rather than hardware.** The
-  silicon was the last hypothesis and the other boards refute it — five were
-  published in the same 2026-09-10 batch and all five reproduce today.
-  Perturbing this board's features across a **thousand-fold** range moves
-  `resnet50` by 0.0044-0.0069, the same at every size, while `mae_vitb16` moves
-  150x less and is one of the two rows that reproduce: **a trigger not a dose,
-  on a different head, metric and dataset from 19b's**. So **a disturbance too
-  small to identify is sufficient, and identifying it would change no number** —
-  which is why no A100 slot was spent on it. The board still gets a verdict (8
-  of 12 pairs ordered) and it **survives the disagreement**: the two
-  configurations differ on 2 of 78 pairs, both already tied. **No published
-  number moves.**
+  Two rules from building that study: **a pre-measurement must call the CLI's
+  dataset builder rather than copy it, and must seed before constructing the
+  backbone**, as `run()` does. **Give such a script a `--gate-only` mode.**
 
-  Two rules from building that study, both of which cost a run: **a
-  pre-measurement must call the CLI's dataset builder rather than copy it** —
-  the copy got `ImageFolderDataset`'s root/split shape wrong and found no images
-  — and **it must seed before constructing the backbone**, as `run()` does, or
-  the head initialises from a different RNG state and the baseline misses by
-  6e-3 with every recorded field identical. **Give such a script a `--gate-only`
-  mode**: the check is 30 seconds and the curve is 45 minutes.
 - **Constructing a backbone draws from the global RNG, and `run()` seeds
   *before* it constructs.** So `run("dinov2_vits14", ...)` and
   `run(get_backbone("dinov2_vits14"), ...)` fit the head from different RNG
@@ -1806,41 +1717,21 @@ designed up front; extend it the same way, from a case that already runs.
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite **collects 2445 tests**, green on 2026-10-14 along with all three
-lint steps, mypy and the `-W` docs build. The slow suite is **116** since
-16a-1, whose own slow test was run then; the other 115 were last green on
-`main` on 2026-09-11. Earlier fast counts, for dating a claim: 2433 at 22c, 2414 at 22b, 2406 at 22a, 2397 at 21b, 2381 at 21a, 2362 at 20d,
-2304 at v0.23.0, 2301 at 20a, 2296 at 19b, 2281 at v0.21.0, 1824 at the oracle
-gate. **Keep that list to a handful** — it is one of the places this file
-accretes, and its only job is to date a claim.
+fast suite **collects 2486 tests**, green on 2026-10-14 along with all three
+lint steps, mypy and the `-W` docs build; the slow suite is **116**, last fully
+green on `main` on 2026-09-11. Earlier fast counts, for dating a claim: 2445 at 23a, 2433 at
+22c, 2414 at 22b, 2397 at 21b, 2304 at v0.23.0, 1824 at the oracle gate — keep
+that list to a handful. **Quote the collected count, not "N passed"**: the skip
+count depends on which extras are installed (3 on CI, 8 on `.venv`, 0 with
+everything), so `pytest --collect-only` is the number that means something.
 
-**Quote the collected count, not "N passed", because the skip count is a fact
-about the environment rather than the suite.** Measured on one commit (1930
-collected): 1927 passed + 3 skipped on CI, 1922 + 8 on `.venv`, 1930 + 0 with
-every extra installed — so a remembered "(8 skipped)" is wrong two ways out of
-three. `pytest --collect-only` is the number that means something.
-
-Run the checks via `sbatch` (`.venv/bin/python` does not resolve on a `dgxh100`
-login shell) and **`--exclude=dgx1`**, per the cluster's node map above; the
-usable node is `dgx2`. `uv lock --check` is green as of 2026-09-05 — 13a moved
-it twice, adding `sphinx-design` to `docs` and `sphinx` to `dev`, which is the
-first dependency change since 2026-08-06. If anything is red for you, that is
-new — do not go looking for a known cause here.
-
-The entries are kept because each one records a *class* of failure this
-codebase has actually shipped, and the next one will rhyme with them.
-
-The four closed entries are kept as *classes* of failure, since the next one
-will rhyme with them. **[#2] CI never ran `-m slow`** — fixed by
-`.github/workflows/slow.yml` (pushes to `main`, nightly, on demand, weights
-cached against `HUB_REF`); it does not gate pull requests, so **a check that
-guards a silently wrong number still belongs in the fast suite**. **[#4]
-`zip(strict=)`** — `B905` is enforced; the one real hole it found was
-`CorrespondenceTask.evaluate_ceiling` scoring nine geometries against ten pairs
-and reporting it as covering the split, so **`strict=True` is the default when
-you pair two things by index**. **[#1] DINOv2 on 3.9** and **[#3] the CLIP
-QuickGELU guard** are both above, under the Python floor and the dead-guard
-rules respectively.
+Run the checks via `sbatch` with **`--exclude=dgx1`** (the node map above); if
+anything is red for you, that is new. The four closed issues are kept as
+*classes* of failure: **[#2] CI never ran `-m slow`** (`slow.yml` now does, but
+does not gate PRs, so **a check that guards a silently wrong number belongs in
+the fast suite**); **[#4] `zip(strict=)`** (`B905` enforced — **`strict=True` is
+the default when you pair two things by index**); **[#1] DINOv2 on 3.9** and
+**[#3] the CLIP QuickGELU guard**, both above.
 
 `CHANGELOG.md` is the full record of what each step added and why. Since 7b the user-facing view is **split three ways**:
 `README.md` is the arrival path (demo, install, what it is, the CLI), while the
@@ -2139,7 +2030,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 2445 fast tests
+pytest                                              # 2486 fast tests
 pytest -m slow                                      # 116, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/

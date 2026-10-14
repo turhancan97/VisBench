@@ -56,6 +56,7 @@ def placements():
         "first": sum(1 for r in rows if r["first_verdict"] in solid),
         "last": sum(1 for r in rows if r["last_verdict"] in solid),
         "rows": rows,
+        "module": module,
     }
 
 
@@ -118,12 +119,20 @@ def test_last_places_are_the_weaker_half(placements):
 def test_a_reversed_placement_is_reported_as_such(placements):
     """A reversal must never be summarised as merely 'not separable'.
 
-    `relative_pose`'s last place leans the other way (t = -3.06). A verdict that
-    collapsed REVERSED into tied would lose the one distinction 20a exists to
-    make, while every count in this file stayed correct.
+    Until 23b this pinned `relative_pose`'s last place, which leaned the other
+    way at t = -3.06 on the cropped board. Re-fitted on the corrected one it is
+    **ordered** (t = +3.26), and no placement in the corpus is reversed any
+    more -- so the distinction is pinned on the verdict itself, with a pair the
+    board ranks one way and every seed ranks the other. A verdict that collapsed
+    REVERSED into tied would lose the one thing 20a exists to say while every
+    count in this file stayed correct.
     """
-    verdicts = {r["task"]: r["last_verdict"] for r in placements["rows"]}
-    assert verdicts["relative_pose"] == "REVERSED", (
-        "relative_pose's last place is one of 20a's three documented reversals; "
-        f"this run reports {verdicts['relative_pose']}"
+    module = placements["module"]
+    scores = {"a": {s: 0.40 + 0.001 * s for s in range(5)}, "b": {s: 0.50 for s in range(5)}}
+    t = module.paired_t(scores, "a", "b", higher_is_better=True)
+    assert module.verdict(t) == "REVERSED"
+    assert module.verdict(-t) == "ordered"
+    assert module.verdict(0.0) == "tied"
+    assert "REVERSED" not in {r["last_verdict"] for r in placements["rows"]}, (
+        "a placement reverses again; CORPUS_FINDINGS.md says none does since 23b"
     )

@@ -46,7 +46,11 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 CORPUS = ROOT / "results" / "corpus" / "visbench.jsonl"
-CONTROLS = sorted((ROOT / "results" / "controls").glob("*.jsonl"))
+# `pre23a/` holds the sweeps as they stood before 23b replaced their timm
+# columns: history, never corpus, so it is held to the same rule.
+CONTROLS = sorted((ROOT / "results" / "controls").glob("*.jsonl")) + sorted(
+    (ROOT / "results" / "controls" / "pre23a").rglob("*.jsonl")
+)
 
 
 def _records(path: Path) -> list[dict]:

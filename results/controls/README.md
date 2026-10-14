@@ -574,6 +574,19 @@ values. **All thirteen do, at delta 0.0 exactly.** Without that the other seeds
 would be measuring some adjacent configuration, and nothing below would mean
 anything.
 
+> **23b re-fitted this sweep on the corrected board** (the nine timm columns,
+> full-frame; the cropped sweep is in `pre23a/pose_seeds.jsonl`). All thirteen
+> seed-0 rows still reproduce at delta 0.0 exactly. **Both reversals below were
+> the crop**: `dinov2_vitb14`/`dino_vitb16` is now tied (t = +2.71) and
+> `resnet18` drops below `clip_vitb32`, a pair that is ordered (+3.26). The
+> corrected board orders **7, ties 5 and reverses none** of its twelve pairs;
+> its ties are `dino_vitb8`/`dinov2_vitb14`, `dinov2_vitb14`/`dino_vitb16`,
+> `resnet50`/`siglip_vitb16`, `siglip_vitb16`/`convnext_base` and
+> `supervised_vitb16`/`clip_vitb32`. Median sd over five seeds is 0.586 (0.389
+> to 1.074). `scripts/analyse_pose_seeds.py` reprints all of it; the tables
+> below are 20a's, on the cropped board, kept because the method argument does
+> not depend on which pairs it was made with.
+
 ### The noise, over every row rather than two
 
 | | sd over 5 seeds | range |
@@ -662,21 +675,38 @@ read, so merged they would be sixty-five rankable rows inside each published
 board's own group. `build_corpus.sh` refuses `SEEDS>1` against a corpus path,
 and `tests/results/test_seed_sweeps.py` checks the committed files.
 
+**Re-fitted on the corrected boards by 23b.** 23a moved the nine timm columns
+to full-frame `.../crop1` keys, so their rows here re-fitted a board that no
+longer exists. 23b re-swept those nine columns at five seeds on every board
+(`scripts/merge_sweep_refit.py` spliced them in, replacing rather than
+appending), and kept the four unchanged columns' rows. The cropped sweeps are in
+`pre23a/`, unchanged, because 20a-22b were computed from them.
+
 ### The headline, over sixteen boards
 
 | | |
 | --- | --- |
-| adjacent pairs **ordered** | 126 |
-| **tied** — not separable at five seeds | 63 |
-| **reversed** — the board's order is the minority outcome | **3** |
-| boards where the largest *unordered* gap exceeds the smallest *ordered* one | **11 of 16** |
+| adjacent pairs **ordered** | 143 |
+| **tied** — not separable at five seeds | 49 |
+| **reversed** — the board's order is the minority outcome | **0** |
+| boards where the largest *unordered* gap exceeds the smallest *ordered* one | **12 of 16** |
 
-**Roughly a third of all adjacent pairs cannot be ordered**, and the fraction is
-a property of the board rather than of the corpus: `occlusion_edge` orders only
-**4** of its twelve pairs and `edge` and `detection` five, against **11 of 12**
-for `generic_segmentation` and `scene_parsing`.
+On the cropped boards it was 126, 63 and 3, and 11 of 16. **The corrected
+boards are more orderable and none reverses** — the double crop was adding
+noise between columns as well as moving them. **About a quarter of all adjacent
+pairs still cannot be ordered**, and the fraction is a property of the board
+rather than of the corpus: `occlusion_edge` and `keypoints2d` order only **5** of
+their twelve pairs, against **12 of 12** for `scene_parsing` and
+`semantic_segmentation`.
 
-### 20b's own conclusion, corrected
+### 20b's own conclusion, corrected (on the cropped boards)
+
+> All three reversals in this section were on the cropped boards, and 23b's
+> re-fit orders or ties every one: `siglip_vitb16`/`convnext_base` on
+> `surface_normal` is now ordered (siglip ahead by 0.36, t = +3.64), and the
+> two pose pairs are above. The corrected statement is therefore that **no pair
+> in the corpus reverses** — which is still not what 20b said, since 20b's
+> claim was about the head and this is about the crop.
 
 20b swept three boards, found no reversal on any of them, and published this:
 *"the reversals do not generalise — they were a property of the pose head."*
@@ -705,36 +735,34 @@ first, no threshold on the gap can sort that board's pairs.
 
 | board | ord | tie | rev | min ordered | max unordered | median sd | board spread | common-mode |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `generic_segmentation` | 11 | 1 | 0 | 0.00508 | 0.00049 | 0.00205 | 0.2199 | 7% |
-| `scene_parsing` | 11 | 1 | 0 | 0.00232 | 0.00350 | 0.00149 | 0.3540 | 14% |
-| `depth` | 10 | 2 | 0 | 0.00025 | 0.00350 | 0.00086 | 0.2536 | 9% |
-| `orientation` | 10 | 2 | 0 | 0.2851 | 0.0705 | 0.1050 | 12.32 | 5% |
-| `semantic_segmentation` | 10 | 2 | 0 | 0.00884 | 0.00224 | 0.00160 | 0.4195 | 8% |
-| `instance_segmentation` | 9 | 3 | 0 | 0.00291 | 0.00307 | 0.00247 | 0.2148 | 4% |
-| `surface_normal` | 9 | 2 | **1** | 0.2571 | 0.0719 | 0.0816 | 10.96 | 12% |
-| `classification` | 7 | 5 | 0 | 0.00051 | 0.00102 | 0.00046 | 0.0415 | 8% |
-| `corner` | 7 | 5 | 0 | 0.00380 | 0.00580 | 0.00417 | 0.1783 | 8% |
-| `fine_grained_classification` | 7 | 5 | 0 | 0.00880 | 0.03676 | 0.00141 | 0.3987 | 2% |
-| `keypoints2d` | 7 | 5 | 0 | 0.00702 | 0.01074 | 0.00629 | 0.1273 | 3% |
-| `vehicle_classification` | 7 | 5 | 0 | 0.02305 | 0.02866 | 0.00798 | 0.4250 | 15% |
-| `relative_pose` | 7 | 3 | **2** | 1.585 | 0.866 | 0.516 | 20.44 | 11% |
-| `detection` | 5 | 7 | 0 | 0.00730 | 0.01858 | 0.00789 | 0.1988 | 17% |
-| `edge` | 5 | 7 | 0 | 0.00072 | 0.01571 | 0.00618 | 0.1552 | 8% |
-| `occlusion_edge` | 4 | 8 | 0 | 0.01221 | 0.03039 | 0.00686 | 0.1532 | 6% |
+| `scene_parsing` | 12 | 0 | 0 | 0.00114 | -- | 0.00151 | 0.3579 | 12% |
+| `semantic_segmentation` | 12 | 0 | 0 | 0.00724 | -- | 0.00161 | 0.414 | 12% |
+| `orientation` | 11 | 1 | 0 | 0.09814 | 0.2787 | 0.1013 | 15.43 | 7% |
+| `surface_normal` | 11 | 1 | 0 | 0.09080 | 0.02477 | 0.08159 | 11.82 | 9% |
+| `corner` | 10 | 2 | 0 | 0.00377 | 0.00482 | 0.00408 | 0.3417 | 7% |
+| `depth` | 10 | 2 | 0 | 0.00263 | 0.00229 | 0.00071 | 0.2575 | 14% |
+| `generic_segmentation` | 10 | 2 | 0 | 0.00623 | 0.00662 | 0.00231 | 0.2288 | 6% |
+| `instance_segmentation` | 10 | 2 | 0 | 0.00212 | 0.00926 | 0.00249 | 0.2093 | 3% |
+| `classification` | 9 | 3 | 0 | 0.00025 | 0.00127 | 0.00046 | 0.03975 | 16% |
+| `edge` | 8 | 4 | 0 | 0.01379 | 0.01534 | 0.00574 | 0.2977 | 8% |
+| `fine_grained_classification` | 8 | 4 | 0 | 0.00293 | 0.01899 | 0.00174 | 0.4298 | 14% |
+| `vehicle_classification` | 8 | 4 | 0 | 0.02268 | 0.05370 | 0.00759 | 0.4437 | 13% |
+| `detection` | 7 | 5 | 0 | 0.00380 | 0.01377 | 0.00823 | 0.2168 | 6% |
+| `relative_pose` | 7 | 5 | 0 | 0.4246 | 2.303 | 0.5863 | 23.3 | 11% |
+| `keypoints2d` | 5 | 7 | 0 | 0.00288 | 0.01689 | 0.00588 | 0.1589 | 3% |
+| `occlusion_edge` | 5 | 7 | 0 | 0.00658 | 0.02894 | 0.00749 | 0.1734 | 7% |
 
 **A board's spread does not predict how many of its pairs are ordered**, which
-21b made hard to miss. The three image-level classification boards order
-**exactly 7 of 12 each** while their spreads run from `classification`'s 0.0415
-to `vehicle_classification`'s 0.4250 — a ten-fold range and the same verdict,
-because the per-row scatter grows with the spread rather than staying put.
-`orientation` spans 12.32 and orders 10; `relative_pose` spans 20.44 and orders
-7. Three boards agreeing at n=12 pairs is a coincidence worth noticing and not a
-law, but it points the same way as everything else here: **the quantity a gap
+21b made hard to miss. On the cropped boards the three image-level
+classification boards ordered **exactly 7 of 12 each** across a ten-fold range
+of spreads; on the corrected ones `classification` orders 9 on a spread of
+0.0398 and the other two 8 on spreads ten times wider. `orientation` spans 15.43
+and orders 11; `relative_pose` spans 23.3 and orders 7. **The quantity a gap
 has to beat is the board's own noise, and reading the spread tells you nothing
 about it.**
 
 Common-mode — the share of seed variance that moves every row together, and so
-cancels in a difference — runs **2% to 17%**. On no board is it the majority,
+cancels in a difference — runs **3% to 16%** (2% to 17% on the cropped boards). On no board is it the majority,
 which is why a gap is a poor instrument everywhere rather than only where the
 sweep happens to disagree with it.
 
@@ -750,12 +778,23 @@ three groups:
 | group | boards | worst observed |
 | --- | --- | --- |
 | exact | `classification`, `fine_grained_classification`, `vehicle_classification`, `relative_pose` | 0 |
-| float32 reduction order | the nine dense boards | 1.7e-07 (`scene_parsing`) to 2.9e-05 (`depth`) |
-| metric not smooth in the prediction | `detection`, `instance_segmentation`, `orientation` | 9.2e-04 to **2.5e-02** |
+| float32 reduction order | the nine dense boards | 1.1e-07 (`scene_parsing`) to 2.9e-05 (`depth`) |
+| metric not smooth in the prediction | `detection`, `instance_segmentation`, `orientation` | 9.2e-04 to **2.2e-02** |
 
-**Every one of those runs reported a `train_loss` identical to its published
-cell's**, which is what says the sweep re-fitted the same head on the same
-features and the *metric* is what moved. That distinction is only available
+(Over the merged sweeps, 23b; on the cropped ones the ranges were 1.7e-07 to
+2.9e-05 and up to 2.5e-02.)
+
+**Every one of those runs reported the same fit as its published cell** — a
+`train_loss` within three significant figures, `scripts/analyse_seeds.py`'s
+`FIT_REL_TOL`, since a loss is a mean over batches and is never bit-identical
+— which is what says the sweep re-fitted the same head on the same features
+and the *metric* is what moved. **`orientation` is the exception, and earlier
+text here called it identical too, which it never was**: its seed-0 fits differ
+by up to 7.7e-04 relative on the cropped sweep and **1.6e-03** on the corrected
+one, where two rows (`convnext_base`, `sam_vitb16`) cross the three-figure line.
+That is the same ill-conditioning its score shows, an order of magnitude above
+every other board and two below the percent-level change a moved configuration
+produces. That distinction is only available
 because schema v8 records the fit, and it is the whole reason the
 `scene_classification` result below could be recognised for what it is.
 

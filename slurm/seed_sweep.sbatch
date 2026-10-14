@@ -48,7 +48,7 @@
 # dgx, NOT dgxh100 -- the venv interpreter does not exist on the H100 image; see
 # slurm/corpus.sbatch for the full note.
 #SBATCH -p dgx
-#SBATCH --gpus=1
+#SBATCH --gres=gpu:1
 #SBATCH --qos=normal
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
@@ -134,6 +134,17 @@ BACKBONE_LIST=(
   dino_vitb8
 )
 
+# A re-sweep of part of the matrix (23b re-fitted only the nine timm columns,
+# whose keys the crop fix moved) names its subset here rather than editing the
+# lists above, which the tests pin to the published boards. The index then runs
+# over the subset, and the count guard below checks the subset's own size.
+if [[ -n ${VISBENCH_PROBES:-} ]]; then
+  PROBES=($VISBENCH_PROBES)
+fi
+if [[ -n ${VISBENCH_BACKBONES:-} ]]; then
+  BACKBONE_LIST=($VISBENCH_BACKBONES)
+fi
+
 expected=$(( ${#PROBES[@]} * ${#BACKBONE_LIST[@]} ))
 index=${SLURM_ARRAY_TASK_ID:?this script must be submitted as an array job}
 
@@ -166,7 +177,10 @@ backbone=${BACKBONE_LIST[$(( index % ${#BACKBONE_LIST[@]} ))]}
 # One file per task, merged afterwards: NFS has no atomic O_APPEND, so two tasks
 # finishing together can interleave lines, and iter_records raises on the first
 # bad line -- a corrupted sweep is worse than none.
-RESULTS="results/controls/parts/seeds_${probe}__${backbone}.jsonl"
+# A staging directory, never the archive, when a step must merge only its own
+# parts (`results/corpus/parts/ is an archive, not a queue`).
+PARTS_DIR=${VISBENCH_PARTS_DIR:-results/controls/parts}
+RESULTS="${PARTS_DIR}/seeds_${probe}__${backbone}.jsonl"
 mkdir -p "$(dirname "$RESULTS")"
 
 source .venv/bin/activate

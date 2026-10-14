@@ -32,22 +32,29 @@ Three standing cautions apply to everything below:
   quoting these paragraphs.
 - **A placement is not automatically a result, and a count of placements
   weighs a coin flip the same as a twenty-sigma lead** (22a;
-  `scripts/analyse_placements.py` reprints it). Of the twenty boards, **17
-  first places and 13 last places survive a paired re-fit**. Three leads do not
-  — `edge` at **t = +0.11**, `fine_grained_classification` at +1.64,
-  `occlusion_edge` at +2.15 — and one published *last* place is outright
-  **reversed** (`relative_pose`, t = −3.06, which is one of the three reversals
-  20a already documented). So quote a lead with its verdict, and treat "first on
+  `scripts/analyse_placements.py` reprints it; re-fitted on the corrected
+  boards by 23b). Of the twenty boards, **18 first places and 15 last places
+  survive a paired re-fit**. Two leads do not — `generic_segmentation`'s new
+  `dino_vitb8` lead over `dinov2_vitb14` at **t = +0.66**, and
+  `fine_grained_classification` at +1.64 — and no placement is reversed. On the
+  cropped boards it was 17 and 13, with `edge` a coin flip at t = +0.11 and
+  `relative_pose`'s last place reversed; both were the crop. So quote a lead
+  with its verdict, and treat "first on
   N boards" as an upper bound on how much of it is real.
 - **A correlation is one draw too, and every correlational claim below has now
   been re-read on the seed sweeps** (22b;
   [`scripts/analyse_correlation_seeds.py`](scripts/analyse_correlation_seeds.py)
-  reprints it, no GPU). The corpus holds one seed per cell, so every coefficient
-  here was a single draw. Re-fitting each board at its five committed seeds, a
-  board-pair rho moves by a median **0.110** (at most 0.346), and **23 of 187**
-  movable pairs change sign — but **none of the 84 published at |rho| ≥ 0.5**.
-  The published draws are **not biased high**: they sit at a mean percentile of
-  **0.50** in their own ranges. **15 of the 16 claims tested hold on every
+  reprints it, no GPU; re-run on the corrected boards by 23b). The corpus holds
+  one seed per cell, so every coefficient here was a single draw. Re-fitting
+  each board at its five committed seeds, a board-pair rho moves by a median
+  **0.099** (at most 0.368), and **17 of 187** movable pairs change sign — but
+  **none of the 82 published at |rho| ≥ 0.5**. The published draws are **not
+  biased high**: they sit at a mean percentile of **0.57** in their own ranges,
+  where any one seed read as the published draw gives 0.44-0.56 — the published
+  cells *are* seed 0, the highest of the five, and one seed in five has to be.
+  (22b read 0.50 against a band of 0.45-0.55 that nobody had measured the
+  statistic's scatter against; the null is the comparison.) **15 of the 16
+  claims tested hold on every
   draw**, the two-cluster split, the instance and pose readings and the
   shared-dataset rebuttal among them. **One fails**, and it is a superlative:
   `vehicle_classification`'s closest partner (see its entry). Two structural
@@ -114,14 +121,20 @@ Three standing cautions apply to everything below:
   which a single-scale head with no pyramid may prefer. It is untested;
   **quote the drop, not the reason.**
 
-  **What has not been redone**: every seed sweep under `results/controls/`
-  was fitted on the cropped boards, so 22a's placement verdicts, 22b's
-  correlation audit and the ordered/tied/reversed totals describe **those**
-  boards, read through `pinned_to_keys` so they stay self-consistent. 23b
-  re-fits them. Until then quote a corrected board's *values*, not a verdict
-  on its adjacent pairs. **And note what a re-fit cannot do**: 22a called
-  MAE's `orientation` lead solid, and the crop fix took it — a seed sweep
-  measures noise, never a bias every seed shares.
+  **23b re-fitted every seed sweep on the corrected boards** — the nine timm
+  columns at five seeds on all seventeen swept boards, every seed-0 row
+  reproducing its 23a cell within the board's tolerance — so 22a's placement
+  verdicts, 22b's correlation audit and the ordered/tied/reversed totals now
+  describe the boards the corpus shows. The cropped sweeps are archived
+  unchanged under `results/controls/pre23a/`. **The corrected boards are more
+  orderable, and every reversal is gone**: 143 of 192 adjacent pairs ordered
+  against 126, and none reversed against three. Of 23a's four new leaders,
+  `edge` (t = +24.9) and `orientation` (+10.3) are solid, `keypoints2d` only
+  just (+2.85 against 2.776), and **`generic_segmentation` is a tie** (+0.66) —
+  that leader change is within re-fit noise and must be quoted that way. **And
+  note what a re-fit cannot do**: 22a called MAE's `orientation` lead solid,
+  and the crop fix took it — a seed sweep measures noise, never a bias every
+  seed shares.
 - **n=13, so every correlation here has wide error bars**, and the backbone
   properties are correlated with each other. Coefficients quoted below as n=12
   were measured before `dino_vitb8`; where one has been re-measured the entry
@@ -154,10 +167,10 @@ Three standing cautions apply to everything below:
   these boards.
 
   > **Corrected by 22b: the two are tied, not ordered.** That +0.038 margin is
-  > one draw. On the seed-mean boards both partners read **+0.879** exactly; over
-  > re-fits the margin spans −0.022 to +0.104 and the place board comes out ahead
-  > in 84% of draws — still 22 of 25 when the scene board is held at its
-  > published cell rather than its held-out sweep. So **"closest partner" is not
+  > one draw. On the seed-mean boards both partners read **+0.874** apiece (23b;
+  > +0.879 on the cropped boards); over re-fits the margin spans −0.038 to
+  > +0.082 and the place board comes out ahead in only **62%** of draws (84%
+  > before 23b). So **"closest partner" is not
   > supported**. What survives is the weaker statement that the subordinate
   > board is **no closer** than the place board: granularity does not make two
   > boards agree more than a different question does. Both remain this board's
@@ -363,7 +376,10 @@ Three standing cautions apply to everything below:
   outcome**: across five seeds `dinov2_vitb14` beats `dino_vitb16` by **0.80**
   (t −3.15) where the board shows it losing by 0.04, and `clip_vitb32` beats
   `resnet18` by **2.083** (t −3.06) where the board shows it losing by 0.12 —
-  seventeen times the published gap, in the other direction.
+  seventeen times the published gap, in the other direction. **Both were the
+  crop** (23b): on the corrected board `dinov2_vitb14` and `dino_vitb16` are
+  tied (t = +2.71), and `resnet18` falls below `clip_vitb32` and that pair is
+  ordered (+3.26).
 
   **A gap threshold cannot express that, which is the part worth carrying.**
   Widening the one-degree rule to the measured median range of 1.33 — the
@@ -382,12 +398,19 @@ Three standing cautions apply to everything below:
   That is the limit of what a record can carry, and the reason the rule is
   stated as a number of digits rather than as a condition to check.
 
-- **A third of all adjacent rows are not separable, and a reversal is rare
-  rather than absent** (20b/20c, 2026-09-19; extended to the twentieth board by
-  21b, 2026-09-21; the tables are in `results/controls/README.md`, reprinted by
+- **A quarter of all adjacent rows are not separable, and on the corrected
+  boards none reverses** (20b/20c, 2026-09-19; extended to the twentieth board
+  by 21b, 2026-09-21; re-fitted on the corrected boards by 23b; the tables are in `results/controls/README.md`, reprinted by
   `scripts/analyse_seeds.py <probe>`).
   Every trained board has now been re-fitted at five seeds across all thirteen
-  backbones: **126 of 192 adjacent pairs ordered, 63 tied, 3 reversed.**
+  backbones: **143 of 192 adjacent pairs ordered, 49 tied, 0 reversed** (23b,
+  on the corrected boards; 126, 63 and 3 on the cropped ones).
+
+  **The three reversals below were all on the cropped boards, and 23b's
+  re-fit orders or ties every one** — so the honest statement is now that no
+  pair in the corpus reverses, not that reversals are rare. The history is kept
+  because the *method* point survives it: a gap threshold could not have said
+  which way any of them went.
 
   **This corrects what 20b published a day earlier.** That step swept three
   boards, found no reversal, and concluded the pose reversals "do not
@@ -395,35 +418,37 @@ Three standing cautions apply to everything below:
   reverses**, and it is a linear board fitted for ten epochs with nothing like
   `PoseHead` in it: the board shows `siglip_vitb16` ahead of `convnext_base` by
   0.0376 degrees, and across five seeds `convnext_base` is ahead by **0.157**
-  (t −2.90). Three boards in sixteen carry one, and the sixteenth added none.
+  (t −2.90) — on the cropped board; on the corrected one `siglip_vitb16` leads
+  by 0.36 and the pair is ordered (t = +3.64). Three boards in sixteen carried one, and the sixteenth added none.
   **The honest statement is rare
   and marginal**, since all three sit at |t| 2.90-3.15 against a 2.776 critical
   value at n=5 — each a 95% call rather than an emphatic one.
 
   **How much of a board is unorderable is a property of that board.**
-  `occlusion_edge` orders **4** of its twelve pairs, `edge` and `detection`
-  five, against **11 of 12** for `generic_segmentation` and `scene_parsing`. So
-  "a third" is a corpus average and not a per-board rate.
+  `occlusion_edge` and `keypoints2d` order **5** of their twelve pairs, against
+  **12 of 12** for `scene_parsing` and `semantic_segmentation`. So "a quarter"
+  is a corpus average and not a per-board rate.
 
-  **On 11 of 16 boards the largest *unordered* gap exceeds the smallest
-  *ordered* one**, so on two boards in three no threshold on the gap could sort
+  **On 12 of 16 boards the largest *unordered* gap exceeds the smallest
+  *ordered* one**, so on three boards in four no threshold on the gap could sort
   the pairs even in principle. **Nor does a board's spread predict how many
-  pairs it orders** — `classification`, `fine_grained_classification` and
-  `vehicle_classification` each order exactly 7 of 12 while their spreads run
-  0.0415 to 0.4250, because the per-row scatter grows with the spread rather
-  than staying put. Common-mode — the share of seed variance that
-  moves every row together and so cancels in a difference — runs **2% to 17%**
-  and is the majority on no board.
+  pairs it orders** — `classification` orders 9 of 12 on a spread of 0.0398,
+  `fine_grained_classification` and `vehicle_classification` 8 on spreads ten
+  times wider, because the per-row scatter grows with the spread rather than
+  staying put. Common-mode — the share of seed variance that moves every row
+  together and so cancels in a difference — runs **3% to 16%** and is the
+  majority on no board.
 
 - **Last place is a much weaker claim than first place, and the prose treats
   them as equals** (22a, 2026-09-21; `scripts/analyse_placements.py`). Applying
-  the sweeps to the two placements this file actually quotes: **17 of 20 first
-  places survive a paired re-fit, against 13 of 20 last places.** Three leads
-  are only tied — `edge` (**t = +0.11**, as close to a coin flip as this corpus
-  gets), `fine_grained_classification` (+1.64), `occlusion_edge` (+2.15) — and
-  at the bottom six are tied and one is **reversed** (`relative_pose`, −3.06,
-  one of 20a's three known reversals, which is a check on the script rather
-  than a new result).
+  the sweeps to the two placements this file actually quotes, on the corrected
+  boards (23b): **18 of 20 first places survive a paired re-fit, against 15 of
+  20 last places.** Two leads are only tied — `generic_segmentation`'s
+  `dino_vitb8` over `dinov2_vitb14` (**t = +0.66**) and
+  `fine_grained_classification` (+1.64) — and at the bottom five are tied, four
+  of them `resnet18` or `resnet50` against the row above. 22a, on the cropped
+  boards, read 17 and 13 with `edge` a coin flip (t = +0.11) and
+  `relative_pose`'s last place reversed (−3.06); the crop fix ordered both.
 
   **The asymmetry is structural rather than luck.** Scores compress at the
   bottom of most of these boards — a weak backbone sits near the floor and so
@@ -431,12 +456,14 @@ Three standing cautions apply to everything below:
   two halves of "first on N, last on M" are not equally solid, and the second
   half is the one to hedge.
 
-  **What it does to the headline.** `mae_vitb16` is first on five boards and
-  **three** of those survive; last on five and four survive. `resnet18` is last
-  on seven and **four** survive. The *pattern* both entries describe — MAE
-  strong low-level and weak semantic — is untouched, because the boards it
-  leads solidly (`orientation`, `relative_pose`, `surface_normal`) are exactly
-  the ones the pattern is about. **What weakens is the arithmetic, not the
+  **What it does to the headline.** On the corrected boards `mae_vitb16` is
+  first on three boards and **all three** survive; last on five and four
+  survive. `resnet18` is last on nine and **six** survive. `dino_vitb8` and
+  `dinov2_vitb14` are first on six each, and five of each survive. The
+  *pattern* both MAE entries describe — strong low-level and weak semantic — is
+  untouched, because the boards it leads solidly (`occlusion_edge`,
+  `relative_pose`, `surface_normal`) are exactly the ones the pattern is
+  about. **What weakens is the arithmetic, not the
   reading**, which is the opposite of how these corrections have usually gone.
 
   This changes **no published number** and no board's rendered order. It says
@@ -618,11 +645,12 @@ Three standing cautions apply to everything below:
   its training data better has still said nothing about a representation.
 
   **Re-read on the seed sweeps (22b), the two halves behave differently.** The
-  sign holds on **60 of 60** board-seeds over the twelve boards (rho −0.858 to
-  −0.314). The worst-fit count does not: it is **11 of 12** on the corpus (seed
-  0) and **8 to 9 of 12** on every other seed, so the published figure is the
-  top of its range. The worst single row is one row and moves with the seed; the
-  direction is a property of the board. Quote the sign.
+  sign holds on **60 of 60** board-seeds over the twelve boards (rho −0.917 to
+  −0.373 on the corrected boards, 23b). The worst-fit count does not: it is
+  **11 of 12** on the corpus (seed 0) and **9 to 12 of 12** on the other seeds
+  (8 to 9 on the cropped ones, where 11 was the top of its range). The worst
+  single row is one row and moves with the seed; the direction is a property
+  of the board. Quote the sign.
 
 - **Quote `orientation` to two decimals, and treat its bottom two rows as
   tied** (2026-09-01). Re-running the five low-level boards to add their
@@ -676,9 +704,11 @@ Three standing cautions apply to everything below:
   `detection`, which crosses over under midranks (+0.752 against +0.649).
   **There are three now, and the third is marginal** (22b): `scene_parsing`,
   shipped after this was written, reads pretraining **+0.682** against tokens
-  +0.647 on the corpus and on the seed-mean board, and on four of five seeds;
-  seed 3 crosses back. `semantic_segmentation` and `detection` stay exceptions on
-  every seed, and the other nine boards rank by tokens on every seed. And **the only backbones
+  +0.647 on the corpus and on the seed-mean board, and on four of five seeds
+  of the cropped sweeps — and on **five of five** since 23b re-fitted them, so
+  it is no longer marginal. `semantic_segmentation` and `detection` stay
+  exceptions on every seed, and the other nine boards rank by tokens on every
+  seed. And **the only backbones
   carrying 256 tokens are the two DINOv2s**, so grid size, the DINOv2 objective
   and LVD-142M pretraining were one variable. No dense board could say which of
   the three it had ranked.
@@ -1026,9 +1056,11 @@ Three standing cautions apply to everything below:
   **23a took two of its firsts, and one of them was solid.** Without the
   double crop `dino_vitb8` leads `edge` (0.6373 against MAE's 0.5631) and
   `orientation` (14.80° against 15.42°). MAE keeps `occlusion_edge`,
-  `relative_pose` and `surface_normal`, and its five lasts are unchanged. The
-  paragraph that follows is 22a's audit of the *cropped* board, kept as history
-  until 23b re-fits the sweeps on the corrected one.
+  `relative_pose` and `surface_normal`, and its five lasts are unchanged.
+  **Re-fitted by 23b, all three remaining firsts are solid** (`occlusion_edge`
+  t = +4.07, `relative_pose` +27.7, `surface_normal` +153) and four of the five
+  lasts hold (`vehicle_classification` tied at +2.76). The paragraph that
+  follows is 22a's audit of the *cropped* board, kept as history.
 
   **Only three of those five firsts survive a re-fit** (22a,
   `scripts/analyse_placements.py`). `orientation`, `relative_pose` and
