@@ -13,7 +13,8 @@ so it stands on its own rather than assuming you have read the ones above it.
 This release measures how much that matters (22c), corrects the corpus (23a):
 published numbers move on nine columns, and four boards change leader — and
 re-fits every seed sweep on the corrected boards (23b), where no adjacent pair
-reverses any more.**
+reverses any more — and re-reads every number the documentation quotes against
+the corrected corpus (23c).**
 
 ### Found
 
@@ -36,6 +37,10 @@ reverses any more.**
   `scripts/analyse_crop_control.py`): the nine timm columns on four boards
   without the second crop, under each cell's exact published command, behind a
   gate that reproduces the published cells (deltas 0.0 to 1.9e-05).
+- `tests/scripts/test_board_coefficients_quoted.py` recomputes the coefficients
+  the shipped pages and the vehicle docstring quote, through
+  `analyse_board_correlates.py`, and fails when a page drifts from the corpus.
+  Checked against the cropped corpus: it fails on 20 of its 22 cases.
 
 ### What it measured
 
@@ -102,6 +107,36 @@ reverses any more.**
   the published draw gives 0.44-0.56. 22b's 0.45-0.55 band had never been
   measured against that scatter.
 
+### Changed — the prose re-read on the corrected corpus (23c)
+
+- **Every number the documentation quotes about the nine corrected columns is
+  re-read**: board-pair coefficients, tier means, structural correlations,
+  scores, ranks and tables, on the probe pages, the overview, the reading guide,
+  the vehicle docstring and example, and `CORPUS_FINDINGS.md`. 23a had moved all
+  of them and the generated tables were the only part updated. Findings entries
+  that are dated narratives keep the values their step measured and gain a
+  "re-read on the corrected corpus" block.
+- **Readings that changed, not just numbers**:
+  - `relative_pose` agrees with its own mid-level tier slightly more than with
+    low-level (+0.678 against +0.630); it was the other way round, so it ranks
+    with *geometry* rather than with low-level geometry. Its near-orthogonality
+    to the image-level boards stands.
+  - The reading guide said a finer grid is "close to invisible" on the linear
+    boards. On the corrected boards `dino_vitb8` beats `dino_vitb16` on all five
+    low-level boards (`edge` +0.0985, `corner` +0.0864), and the page says so.
+  - On `semantic_segmentation`, holding the pretraining data fixed no longer
+    leaves the grid correlation at exactly 0.000 (+0.300 over the eight
+    ImageNet-1k backbones), and dropping DINOv2 leaves +0.240, not +0.071.
+    Pretraining still beats the grid on that board.
+  - `instance_segmentation`'s box and mask halves agree at +0.912, not +0.986;
+    the box half still ranks with geometry.
+  - Three superlatives went to boards added since they were written: CUB's
+    strongest partner, the highest high-level pair, and semantic
+    segmentation's nearest neighbour.
+- Some numbers were wrong before 23a as well: the detection page had the CLIP
+  pair the wrong way round, and the vehicle example misquoted its own
+  coefficient.
+
 ### Fixed
 
 - `analyse_correlation_seeds.py` refuses a sweep set that holds one backbone
@@ -111,9 +146,6 @@ reverses any more.**
   published cell's. It agrees to three significant figures on every board but
   `orientation`, where it differs by up to 1.6e-3 relative (7.7e-4 on the
   cropped sweep) — the board's known ill-conditioning, now stated.
-
-### Fixed
-
 - `PairDataset`'s docstring said matching `image_size` made preprocessing a
   geometric no-op. It is one for DINOv2 and open_clip only, and now says so.
 

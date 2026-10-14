@@ -3126,7 +3126,53 @@ the four columns (20 fits) would say whether the sweep can come back in.
 +0.923/+0.835 on the corrected corpus), the tier means, the cluster tables — is
 still a cropped-board draw: 23a pinned the audits, it did not re-read the prose.
 23b re-checked every *verdict* on the corrected boards; re-reading every
-*number* is `scripts/analyse_board_correlates.py` and a pass of its own.
+*number* is `scripts/analyse_board_correlates.py` and a pass of its own (23c,
+next).
+
+## 23c — the prose re-read on the corrected corpus
+
+**The scope grew once, and the user chose the wider pass.** Planned as a
+coefficient re-read; the first entry opened (pose) carried a whole table of
+cropped scores, so board values, ranks and tables were brought in too. Dated
+history stays as written. A findings entry that narrates a step keeps that
+step's numbers and gains a "re-read on the corrected corpus (23c)" block; a
+probe page, which describes the board as it stands, is rewritten.
+
+**Method, because value-matching alone misleads.** The cropped corpus is
+recoverable exactly — drop every `/crop1` record and `latest_per_backbone`
+falls back to the legacy cells. Every coefficient the analyses can produce (190
+board pairs, three properties per board, tier means, the instance box half) and
+every timm cell was computed on both corpora, and each quoted number was
+matched against the cropped values. That flags candidates, not answers: a value
+often matches several quantities, and many quoted numbers predate even the
+cropped corpus (twelve-backbone history). Each passage was read in context.
+
+**What changed in the reading, not just the digits.**
+- `relative_pose`: mid-level now leads low-level (+0.678 against +0.630).
+  Still near-orthogonal to the image-level boards.
+- The guide's "resolution is close to invisible on a linear board" is retracted
+  on the corrected boards. `dino_vitb8` beats `dino_vitb16` on 16 of 20 boards
+  and on every low-level one. The DPT control was not re-run full-frame, so how
+  much more a decoder sees is open.
+- `semantic_segmentation`'s "held fixed → exactly 0.000" has been stale since
+  15a: `dino_vitb8` made the IN1k group eight backbones, and it now reads
+  +0.300.
+- The instance halves now agree at +0.912 rather than +0.986.
+- The superlatives went to newer boards.
+- The objective-family split (supervised against MAE by tier), the recipe
+  control's semseg finding, the two-cluster structure and both shared-dataset
+  negatives all survive.
+
+**Already wrong before 23a**: the detection page's CLIP pair (B/32 leads by
+0.0001, not B/16 by 0.0008); the vehicle example's "+0.879" (it was +0.863)
+and "falls to last" (twelfth); and "a dozen pairs more correlated" (17 then,
+23 now). **A count in prose was the only instrument and it was never re-read.**
+
+**The guard.** `tests/scripts/test_board_coefficients_quoted.py` pins only what
+the shipped pages quote, through the script, and was checked the useful way:
+pointed at the cropped corpus it fails 20 of 22, and the two that pass quote
+values the fix did not move. `CORPUS_FINDINGS.md` is deliberately not pinned —
+its dated entries keep old values on purpose.
 
 ## Lifted from CLAUDE.md, 2026-10-14
 

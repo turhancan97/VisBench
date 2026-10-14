@@ -114,23 +114,23 @@ Ordered by `miou`, which **disagrees with `mean_acc`, `miou_per_image`, `pixel_a
 <!-- /visbench:board -->
 
 **It ranks with the semantic boards, not with the ones it shares images with.**
-Mean Spearman over the same thirteen backbones is **+0.553** against the seven
-high-level boards, +0.414 against mid-level and **+0.136** against the four
-low-level ones. Its strongest partners are `fine_grained_classification`
-(**+0.868**), `semantic_segmentation` (**+0.852**) and `detection` (+0.791);
-its weakest are `orientation` (−0.022), `keypoints2d` (−0.027) and `retrieval`
-(−0.038).
+Mean Spearman over the same thirteen backbones is **+0.572** against the other
+eight high-level boards, +0.418 against mid-level and **+0.129** against the four
+low-level ones. Its strongest partners are `semantic_segmentation`
+(**+0.852**), `fine_grained_classification` (**+0.835**) and `detection`
+(+0.824); its weakest are `classification` (+0.082), `orientation` (+0.022) and
+`retrieval` (−0.060).
 
 That is worth sitting with, because this probe reads the **identical frames**
-`depth` and `surface_normal` read — and correlates with those two at +0.533 and
-+0.423, against +0.852 with a VOC board that shares no image with it. On this
+`depth` and `surface_normal` read — and correlates with those two at +0.571 and
++0.407, against +0.852 with a VOC board that shares no image with it. On this
 pair of boards the *question* dominates the *data*. It is the complement of
 {doc}`the split control </guides/reading-a-board>` rather than a contradiction:
 that control showed a board's cluster can move when its split moves; this shows
 the split alone does not decide it.
 
-**`mae_vitb16` is twelfth of thirteen here** and first on five other boards —
-and its `train_loss` is 1.6169 against `dinov2_vitb14`'s 0.7238, so that is the
+**`mae_vitb16` is twelfth of thirteen here** and first on three other boards —
+and its `train_loss` is 1.5951 against `dinov2_vitb14`'s 0.7238, so that is the
 representation rather than an unconverged fit. Checking the fit before reading a
 low score is the rule the `training` field exists for.
 

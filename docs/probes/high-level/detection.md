@@ -97,10 +97,13 @@ Two things that are protocol rather than detail:
   Whether it shows up depends on the backbone, so three decimals is a floor
   rather than a description of every row. The two DINOv2 rows drift; both CLIP
   rows are *bit*-identical across three independent runs, matching the recorded
-  value to every digit. That matters for one pair in particular — CLIP-B/16
-  leads CLIP-B/32 by 0.0008, less than the DINOv2 spread, and it is precisely
-  those two rows that reproduce exactly, so the ordering is measured rather than
-  assumed. Every other adjacent gap on the board is 0.04–0.06.
+  value to every digit. That matters for one pair in particular — CLIP-B/32
+  leads CLIP-B/16 by 0.0001, far inside the DINOv2 spread, and it is precisely
+  those two rows that reproduce exactly, so that is the measured value of one
+  fit. Under a re-fit at five seeds the pair is not separable, so treat the two
+  CLIPs as tied. Several other adjacent gaps are as small (`mae_vitb16` against
+  `resnet50` is 0.0004), so check the seed sweep before ordering any two
+  neighbouring rows here.
 
 ## Run it
 

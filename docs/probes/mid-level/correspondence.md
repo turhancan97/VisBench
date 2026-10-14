@@ -50,8 +50,8 @@ wnids, and `resnet50.a1_in1k`, `convnext_base.fb_in1k` and
 ImageNet-1k with labels — they have seen these exact categories, while DINOv2
 and MAE are self-supervised and CLIP and SigLIP are image-text. Their semantic
 scores are close to in-distribution recall, not a transfer result: ConvNeXt tops
-both the classification board (0.9997) and the retrieval board (0.9890) and then
-places seventh or lower on every dense geometric one. This says more about the
+the classification board (0.9997), is third on retrieval (0.9899) and then
+places eighth or lower on every dense geometric one. This says more about the
 dataset than the backbone; a benchmark comparing supervised against
 self-supervised features needs data the supervised model has not been trained
 on.
@@ -61,13 +61,17 @@ on.
 ImageNet-1k, differing only in whether the objective was labels or masked pixel
 reconstruction — every other pair of backbones in this corpus varies at least
 two things at once, so this is the only place a gap can be attributed. Over the
-thirteen boards the winner tracks the tier, with exactly one crossing:
+twenty boards the winner tracks the tier, with three crossings:
 
 | tier | boards | split |
 | --- | --- | --- |
-| high-level (4) | classification 0.9972 v 0.9582, retrieval 0.9947 v 0.1883, semantic seg 0.5791 v 0.3350, detection 0.1669 v 0.1296 | **supervised wins all four** |
-| mid-level (6) | depth, surface normals (27.52° v 36.72° mean), correspondence, occlusion edges, generic seg — and similarity 0.8202 v 0.6897 | **MAE wins five, supervised wins similarity** |
-| low-level (3) | edge, keypoints2d, corner | **MAE wins all three** |
+| high-level (9) | classification 0.9980 v 0.9600, retrieval 0.9948 v 0.1869, semantic seg 0.6184 v 0.3546, detection 0.1638 v 0.1187, fine-grained, vehicle, scene parsing — and instance seg, scene classification | **supervised wins seven, MAE wins two** |
+| mid-level (7) | depth, surface normals (26.69° v 36.85° mean), correspondence, occlusion edges, generic seg, relative pose — and similarity 0.8257 v 0.6787 | **MAE wins six, supervised wins similarity** |
+| low-level (4) | edge, keypoints2d, corner, orientation | **MAE wins all four** |
+
+The two high-level crossings are the localised boards that rank with geometry
+(`instance_segmentation`) or with the localised cluster
+(`scene_classification`, where the margin is 0.003).
 
 Two things not to round off. **The retrieval gap is the largest on the board and
 is not a clean transfer result**: it is the in-distribution caveat above at its
@@ -86,33 +90,32 @@ The low-level tier and the geometric half of the mid-level one carry no such
 caveat, and are the boards worth quoting.
 
 **MAE is the sharpest tier separation this corpus has produced, and it is worth
-reading before trusting any single board.** `mae_vitb16` is **first on five of
-the thirteen** — edge, corner, correspondence, occlusion edges and surface
-normals — and **last or next-to-last on the four semantic ones**: twelfth on
-classification (0.9582), twelfth on retrieval (0.1883), twelfth on mid-level
-similarity (0.6897) and eleventh on semantic segmentation (0.3350). No other
+reading before trusting any single board.** `mae_vitb16` is **first on three of
+the twenty** — occlusion edges, relative pose and surface normals — and **last
+on five semantic ones**: classification (0.9600), retrieval (0.1869), mid-level
+similarity (0.6787), fine-grained (0.4386) and vehicle (0.4358). No other
 backbone here is simultaneously best and worst.
 
-Two of those figures moved when the corpus widened from nine backbones to
-twelve, and how they moved is itself the lesson. MAE led **2D keypoints** and
-is third now, behind `dino_vitb16` (0.2850) and `sam_vitb16` (0.2696), so its
-count of firsts is five rather than six. And it is no longer last on semantic
-segmentation, because `sam_vitb16` lands beneath it at 0.3339. **A count over a
-corpus is a fact about that corpus, not about the backbone** — both numbers
-moved without MAE's features changing at all.
+Its count of firsts has moved five times without its features changing: six at
+nine backbones, five once `dino_vitb16` and `sam_vitb16` passed it on 2D
+keypoints, four when `dino_vitb8` took corner and correspondence, five again
+when the relative-pose board arrived, and three since the crop fix (23a) let
+`dino_vitb8` take edge and orientation too. **A
+count over a corpus is a fact about that corpus, not about the backbone.**
 
-Its correspondence win is not the grid. `mae_vitb16` scores 0.3577 against a
-`ceiling_recall@5px` of 0.3932, where `dinov2_vits14` scores 0.3049 against a
-*higher* ceiling of 0.4123 — so MAE reaches 91% of what its own quantisation
-allows and DINOv2-S reaches 74%. This is the case the `ceiling_` prefix was
-added for: read that way the gap is larger than the raw scores show, not
-smaller.
+Its correspondence score is not the grid. `mae_vitb16` scores 0.3998 against a
+`ceiling_recall@5px` of 0.4287, where `dinov2_vits14` scores 0.3049 against a
+ceiling of 0.4123 — so MAE reaches 93% of what its own quantisation allows and
+DINOv2-S reaches 74%. This is the case the `ceiling_` prefix was added for:
+read that way the gap is larger than the raw scores show, not smaller. It is
+second on this board now, to `dino_vitb8`, whose 784-token grid *is* the
+mechanism here.
 
 That is what the taxonomy predicts of a pixel-reconstruction objective, and the
-two numbers that look wrong are the ones that confirm it. **Retrieval's 0.1883
+two numbers that look wrong are the ones that confirm it. **Retrieval's 0.1869
 is barely above the 0.1 chance floor** for ten balanced classes — read alone it
 looks like a broken run. It is not, and the check is internal to the corpus:
-the *same* features score 0.9582 top-1 under a trained linear probe. A learned
+the *same* features score 0.9600 top-1 under a trained linear probe. A learned
 projection recovers category structure that cosine similarity on the raw CLS
 token cannot, which is precisely the documented behaviour of MAE without
 fine-tuning. A genuine extraction bug would have taken the linear probe down

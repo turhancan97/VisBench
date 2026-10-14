@@ -67,11 +67,10 @@ Ordered by `orientation_error`, which **disagrees with `d1`, `median`, `rmse`** 
 <!-- /visbench:board -->
 
 `orientation_error` is degrees, lower is better; chance is 45. The board spans
-18.8° to 31.2° — every backbone is well clear of chance, and the ordering is
-unlike any other low-level board: `mae_vitb16` leads (as it does across the
-low-level tier), but the image-text ViTs `siglip_vitb16` and `clip_vitb32` are
-*last*, where a semantic board puts them near the top, and DINOv2-S beats
-DINOv2-B. See `CORPUS_FINDINGS.md` for what that does to the low-level tier.
+14.8° to 30.2° — every backbone is well clear of chance. `dino_vitb8` leads, its
+784-token grid ahead of `mae_vitb16`; the bottom three are `siglip_vitb16`,
+`clip_vitb32` and `resnet50`, where a semantic board puts the image-text ViTs
+near the top; and DINOv2-S beats DINOv2-B. See `CORPUS_FINDINGS.md` for what that does to the low-level tier.
 
 ## Run it
 

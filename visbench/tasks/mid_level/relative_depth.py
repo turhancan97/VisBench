@@ -20,6 +20,10 @@ backbone             ordinal    `depth` d1
 ``resnet50``           0.7523      0.5395
 ===================  =========  ==========
 
+(Measured before 23a, so the ``mae_vitb16`` and ``resnet50`` rows of both
+columns saw a frame cropped twice; the corrected `depth` cells, 0.6930 and
+0.5380, keep the same order.)
+
 **Spearman between the two readouts is +1.000.** Identical ordering, half the
 spread (0.0884 against 0.2257), and a smallest adjacent gap of **0.0007** --
 ``dinov2_vits14`` against ``mae_vitb16``, which `depth` separates by 0.0624.

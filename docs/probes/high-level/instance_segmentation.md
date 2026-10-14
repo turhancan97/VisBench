@@ -100,14 +100,15 @@ inherited from {doc}`detection </probes/high-level/detection>` unchanged, so a
 gap between the two boards is about the split and the schedule, not about two
 implementations of one idea.
 
-**`mae_vitb16` is the row where that pays off.** It has the second-best
-`box_map_50` on the board (0.2974, behind only `dinov2_vitb14`) and the third
-`mask_map_50` (0.2186, well behind both DINOv2 rows). Its boxes land and its
-outlines do not, which is a statement about what its features carry — and it is
-invisible in mask AP alone, where it simply looks like third place.
+**`mae_vitb16` is the row where that once paid off.** On the board as first
+published it had the second-best `box_map_50` (0.2974, behind only
+`dinov2_vitb14`) against the third `mask_map_50`. On the corrected board it is
+third on both (`box_map_50` 0.2749, `mask_map_50` 0.2307, behind the two DINOv2
+rows each time), so the boxes-land-outlines-do-not reading no longer separates
+it — read the two halves together.
 
 **Do not read the two halves as two rankings, though.** Across all twelve
-backbones the box and mask orderings agree at Spearman **+0.986**: the
+backbones the box and mask orderings agree at Spearman **+0.912**: the
 disagreement is local to a few rows rather than a different view of the corpus.
 Both halves rank with the *mid-level* geometry boards rather than with
 high-level ones — which means the mask branch is not what puts this board

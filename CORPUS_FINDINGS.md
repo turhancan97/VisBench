@@ -149,36 +149,39 @@ Three standing cautions apply to everything below:
 - **`vehicle_classification` is the twentieth board, and it separates
   *granularity* from what the classification family actually shares** (21a,
   2026-09-20). Thirteen cells on a VisBench-pinned Stanford Cars split, spanning
-  **0.8603** (`siglip_vitb16`) to **0.4353** (`mae_vitb16`).
+  **0.8795** (`siglip_vitb16`) to **0.4358** (`mae_vitb16`). Coefficients in
+  this entry are re-read on the corrected corpus (23c); the cropped ones it was
+  written with are in `ENGINEERING_LOG.md` under 21a.
 
   **It was measured before it was built, against the standard relative depth was
   rejected on.** A candidate that merely reproduces an existing board's ordering
   is a copy, so the pre-measurement asked exactly that: over thirteen backbones
-  the ordering correlates **+0.863** with `fine_grained_classification` — high,
-  but a dozen of this corpus's existing board pairs are *more* correlated
-  (`occlusion_edge`/`instance_segmentation` reads +0.967), and the leader
-  changes. Calibrating a new rejection criterion against something that already
+  the ordering correlates **+0.835** with `fine_grained_classification` — high,
+  but 23 of the corpus's 190 board pairs are *more* correlated (`corner`/`edge`
+  reads +0.967), and the leader changes. Calibrating a new rejection criterion against something that already
   passed is what made that judgement possible.
 
   **Its closest partner is the *place* board, not the other subordinate one.**
-  `scene_classification` reads **+0.901** against CUB's +0.863. Both Cars and CUB
+  `scene_classification` reads **+0.923** against CUB's +0.835. Both Cars and CUB
   ask for subordinate categories inside one basic-level class, so granularity was
   the property this probe was built to isolate — and it is not what organises
   these boards.
 
-  > **Corrected by 22b: the two are tied, not ordered.** That +0.038 margin is
-  > one draw. On the seed-mean boards both partners read **+0.874** apiece (23b;
+  > **Corrected by 22b: the two are tied, not ordered.** That margin (+0.038
+  > when 22b read it, +0.088 on the corrected corpus) is one draw. On the seed-mean boards both partners read **+0.874** apiece (23b;
   > +0.879 on the cropped boards); over re-fits the margin spans −0.038 to
   > +0.082 and the place board comes out ahead in only **62%** of draws (84%
   > before 23b). So **"closest partner" is not
   > supported**. What survives is the weaker statement that the subordinate
   > board is **no closer** than the place board: granularity does not make two
   > boards agree more than a different question does. Both remain this board's
-  > two strongest partners, and the tier ordering below holds on every draw. Mean rho is **+0.525** against high-level, +0.149 against
-  mid-level and **−0.190** against low-level, so it sits in the semantic cluster
-  the other image-level probes occupy.
+  > two strongest partners, and the tier ordering below holds on every draw.
 
-  **`siglip_vitb16` leads, where it is fifth on CUB**, ahead of both DINOv2 rows;
+  Mean rho is **+0.503** against high-level, +0.205 against mid-level and
+  **−0.147** against low-level, so it sits in the semantic cluster the other
+  image-level probes occupy.
+
+  **`siglip_vitb16` leads, where it is sixth on CUB**, ahead of both DINOv2 rows;
   `supervised_vitb16` is twelfth of thirteen. Web image-text pretraining ahead of
   everything else on manufactured categories is consistent with car model names
   saturating web alt-text, and with ImageNet-1k holding car classes but none at
@@ -199,20 +202,20 @@ Three standing cautions apply to everything below:
 - **`scene_parsing` ranks with the *semantic* boards, and it does so against
   the boards it shares images with** (19a, 2026-09-18). Thirteen cells on
   NYUv2-40, forty classes on the canonical 795/654 split, all on V100s. The
-  board spans **0.4959** (`dinov2_vitb14`) to **0.1419** (`resnet18`) on
-  dataset-level mIoU.
+  board spans **0.4959** (`dinov2_vitb14`) to **0.1381** (`resnet18`) on
+  dataset-level mIoU. (Coefficients re-read on the corrected corpus, 23c.)
 
-  **Its four strongest partners are semantic and its four weakest are
-  geometric**: `fine_grained_classification` **+0.868**,
-  `semantic_segmentation` **+0.852**, `detection` +0.791 and
-  `generic_segmentation` +0.714, against `correspondence` +0.093, `orientation`
-  **−0.022**, `keypoints2d` −0.027 and `retrieval` −0.038. Mean rho is **+0.553**
-  against the seven high-level boards, +0.414 against mid-level and **+0.136**
-  against the four low-level ones.
+  **Its four strongest partners are semantic and its weakest are geometric or
+  image-level**: `semantic_segmentation` **+0.852**,
+  `fine_grained_classification` **+0.835**, `detection` +0.824 and
+  `vehicle_classification` +0.819, against `correspondence` +0.093,
+  `classification` +0.082, `orientation` **+0.022** and `retrieval` −0.060.
+  Mean rho is **+0.572** against the other eight high-level boards, +0.418
+  against mid-level and **+0.129** against the four low-level ones.
 
   **The interesting part is which images those are.** This probe reads the
   *same 795/654 frames* as `depth` and `surface_normal` — identical pixels,
-  three probes — and correlates with them at **+0.533** and **+0.423**, while
+  three probes — and correlates with them at **+0.571** and **+0.407**, while
   correlating **+0.852** with a VOC board that shares no image with it at all.
   So on this pair of boards the *question* dominates the *data*, which is the
   complement of the split control rather than a contradiction of it: that
@@ -221,12 +224,12 @@ Three standing cautions apply to everything below:
 
   **It also replicates the two-cluster split of `high_level`** on a new board.
   `scene_parsing` sits with the *localised* cluster — semantic segmentation,
-  detection, fine-grained — at +0.79 to +0.87, and near zero with the
-  image-level one: `classification` +0.204 and `retrieval` −0.038. That is the
+  detection, fine-grained — at +0.82 to +0.85, and near zero with the
+  image-level one: `classification` +0.082 and `retrieval` −0.060. That is the
   third probe to land that way and the first one that is dense.
 
-  **`mae_vitb16` is twelfth of thirteen here** (0.1484) and first on five other
-  boards. Its `train_loss` is 1.6169 against `dinov2_vitb14`'s 0.7238, so this
+  **`mae_vitb16` is twelfth of thirteen here** (0.1518) and first on three other
+  boards. Its `train_loss` is 1.5951 against `dinov2_vitb14`'s 0.7238, so this
   is the representation rather than an unconverged fit — the check that
   separates the two readings, and the reason the fit diagnostic is in the
   record.
@@ -242,59 +245,66 @@ Three standing cautions apply to everything below:
   a property of the draw, so its being identical across thirteen backbones is
   what says they were scored on the same pairs.
 
-  **Nothing on this board is at chance.** The rows span 22.70 degrees
-  (`mae_vitb16`) to 43.14 (`clip_vitb32`), and every one of them clears the
-  no-feature floor by between 23.7 and 44.2 degrees. That is the first thing to
+  **Nothing on this board is at chance.** The rows span 20.27 degrees
+  (`mae_vitb16`) to 43.56 (`resnet18`), and every one of them clears the
+  no-feature floor by between 23.3 and 46.6 degrees. (Values and coefficients
+  in this entry are the corrected corpus's, re-read in 23c.) That is the first thing to
   check on a pose board and the reason the floor travels with the score: a
   20-degree spread would mean nothing if the weakest rows sat at 66.
 
   | rank | backbone | rotation error | vs floor |
   | --- | --- | --- | --- |
-  | 1 | `mae_vitb16` | 22.70 | +44.15 |
+  | 1 | `mae_vitb16` | 20.27 | +46.58 |
   | 2 | `dinov2_vits14` | 25.37 | +41.48 |
-  | 3 | `dino_vitb8` | 27.10 | +39.75 |
-  | 4 | `dino_vitb16` | 29.04 | +37.81 |
-  | 5 | `dinov2_vitb14` | 29.08 | +37.77 |
-  | 6 | `sam_vitb16` | 35.02 | +31.83 |
-  | 7 | `resnet50` | 37.01 | +29.83 |
-  | 8 | `convnext_base` | 37.60 | +29.24 |
-  | 9 | `siglip_vitb16` | 38.29 | +28.56 |
-  | 10 | `clip_vitb16` | 40.56 | +26.28 |
-  | 11 | `supervised_vitb16` | 41.43 | +25.42 |
-  | 12 | `resnet18` | 43.01 | +23.83 |
-  | 13 | `clip_vitb32` | 43.14 | +23.71 |
+  | 3 | `dino_vitb8` | 26.78 | +40.07 |
+  | 4 | `dinov2_vitb14` | 29.08 | +37.77 |
+  | 5 | `dino_vitb16` | 29.33 | +37.52 |
+  | 6 | `sam_vitb16` | 34.74 | +32.10 |
+  | 7 | `resnet50` | 37.01 | +29.84 |
+  | 8 | `siglip_vitb16` | 38.53 | +28.32 |
+  | 9 | `convnext_base` | 38.56 | +28.29 |
+  | 10 | `clip_vitb16` | 40.56 | +26.29 |
+  | 11 | `supervised_vitb16` | 41.08 | +25.77 |
+  | 12 | `clip_vitb32` | 43.14 | +23.71 |
+  | 13 | `resnet18` | 43.56 | +23.29 |
 
   **Where it sits among the other boards** (Spearman over the same thirteen
-  backbones): mean **+0.701** against the four low-level boards, **+0.642**
-  against its own mid-level tier, and **+0.099** against the seven high-level
-  ones. Its strongest partners are `surface_normal` (+0.791), `occlusion_edge`
-  (+0.764), `corner` (+0.758) and `orientation` (+0.742); its weakest are
-  `semantic_segmentation` (**−0.115**), `scene_classification` (−0.104),
-  `classification` (−0.028), `retrieval` (−0.016) and `detection` (+0.005) —
-  **five of the seven high-level boards within ±0.12 of zero.**
+  backbones): mean **+0.678** against its own mid-level tier, **+0.630**
+  against the four low-level boards, and **+0.165** against the nine
+  high-level ones. Its strongest partners are `occlusion_edge` (+0.841),
+  `surface_normal` (+0.830), `instance_segmentation` (+0.780) and `depth`
+  (+0.764); its weakest are `classification` (**−0.126**), `retrieval`
+  (−0.066), `semantic_segmentation` (+0.011), `vehicle_classification`
+  (+0.049) and `scene_classification` (+0.060) — **six of the nine high-level
+  boards within ±0.18 of zero**, and the three that are not are the localised
+  ones (`instance_segmentation`, `fine_grained_classification` +0.308,
+  `scene_parsing` +0.291).
 
-  That is a different shape from `instance_segmentation`, which is a
-  *high-level* board ranking with mid-level geometry. This one is a mid-level
-  board ranking with **low-level** geometry while carrying almost no
-  information about the semantic boards, which makes a pose number close to
-  independent evidence about a backbone — the property `orientation` was valued
-  for at the level of targets, arriving here at the level of boards.
+  **What 23c changed in this reading.** On the cropped boards low-level led
+  (+0.701 against mid-level's +0.642), and this entry called pose "a mid-level
+  board ranking with low-level geometry". On the corrected corpus its own tier
+  leads by a small margin, so say **geometry**, not low-level geometry. What
+  survives — and what 22b tested, holding on every re-fit — is the margin over
+  the semantic boards: a pose number carries almost no information about the
+  image-level ones, which makes it close to independent evidence about a
+  backbone, the property `orientation` was valued for at the level of targets
+  arriving here at the level of boards.
 
   **Quote the objective gap against the recipe gap, as always.**
-  `mae_vitb16` (22.70) and `supervised_vitb16` (41.43) share an architecture, a
+  `mae_vitb16` (20.27) and `supervised_vitb16` (41.08) share an architecture, a
   width and a pretraining set and differ in what they were trained to do:
-  **18.73 degrees**. The recipe control on the same board — `sam_vitb16`
-  (35.02) against `supervised_vitb16` — is **6.41**. So the objective gap here
+  **20.81 degrees**. The recipe control on the same board — `sam_vitb16`
+  (34.74) against `supervised_vitb16` — is **6.34**. So the objective gap here
   is about three times the recipe gap rather than "large".
 
   **Two rows that are worth naming.** `dinov2_vits14` beats `dinov2_vitb14`
   (25.37 against 29.08), another case of the smaller sibling winning. And the
   grid pair speaks even though this probe reads **pooled** features:
-  `dino_vitb8` (27.10) against `dino_vitb16` (29.04), same objective, data,
-  width and depth at four times the tokens, is **1.94 degrees** — smaller than
+  `dino_vitb8` (26.78) against `dino_vitb16` (29.33), same objective, data,
+  width and depth at four times the tokens, is **2.55 degrees** — smaller than
   the objective gap and only about twice this board's own reproducibility noise,
   which the next entry measures, so it is suggestive rather than load-bearing.
-  The board-wide token correlation is +0.647, and on a pooled probe that is a
+  The board-wide token correlation is +0.700, and on a pooled probe that is a
   statement about which backbones happen to have fine grids rather than about a
   head reading one.
 
@@ -303,7 +313,8 @@ Three standing cautions apply to everything below:
   the same pairs and the same features with one affine map instead of probe3d's
   MLP: **62.94 to 65.99 degrees**, clearing the floor by **0.85 to 3.91** where
   the MLP clears it by 23.7 to 44.2, with a whole spread of **3.06 against
-  20.44**. `train_loss` is flat at 0.0680-0.0729, twenty-five times the MLP's on
+  20.44** (both heads on the 16a-3 features, nine columns still cropped; the
+  corrected MLP board clears the floor by 23.3 to 46.6). `train_loss` is flat at 0.0680-0.0729, twenty-five times the MLP's on
   identical features, which is the function class rather than the sample size.
 
   Spearman between the two orderings is **+0.681**, which reads as agreement
@@ -607,11 +618,15 @@ Three standing cautions apply to everything below:
   form because the `1 - 6d²/n(n²-1)` shortcut is only Spearman when nothing is
   tied:
 
-  | quoted | was | now |
+  | quoted | was | midranked, 2026-09-13 |
   | --- | --- | --- |
   | tokens / `generic_segmentation` | +0.958 | **+0.878** |
   | tokens / `surface_normal` | +0.867 | **+0.817** |
   | tokens / `depth` | +0.818 | **+0.687** |
+
+  (Those are the twelve-backbone, cropped-board values the fix corrected; the
+  current ones — +0.935, +0.808 and +0.767 — are in the resolution entry
+  below, and `analyse_board_correlates.py` prints them.)
 
   **What did not move: every published board-*pair* number**, all seventeen
   re-checked, maximum change 0.004 and that is rounding. So the two-cluster
@@ -630,7 +645,9 @@ Three standing cautions apply to everything below:
   reading a flagged `train_loss` as underfitting. That was asserted from one
   example. Measured over the eleven boards whose head reads one vector per
   patch: **rho(tokens, train_loss) is negative on 11 of 11**, mean **−0.681**,
-  and the worst-fitting backbone holds the coarsest grid on **10 of 11**.
+  and the worst-fitting backbone holds the coarsest grid on **10 of 11**. On
+  the corrected twelve-board corpus (23c) it is negative on **12 of 12**, mean
+  **−0.717**, worst fit on the coarsest grid on **11 of 12**.
 
   A coarser grid leaves less to fit with, so it fits worse — which is why a
   high `train_loss` on a 7x7 backbone is the expected reading rather than
@@ -672,6 +689,14 @@ Three standing cautions apply to everything below:
   adjacent gap is at least 0.0676, more than three times the worst drift, so the
   rest of the board is solid and the published ordering did not change.
 
+  **On the corrected board (23a) the headline holds on different evidence.**
+  The bottom two rows are now `resnet50` (30.22) and `clip_vitb32` (29.94), and
+  no adjacent gap is below the drift — the smallest is 0.098 degrees,
+  `clip_vitb32` against `siglip_vitb16`, nearly five times the worst drift. But
+  the seed sweep calls that bottom pair **tied** (t = +1.69 at five seeds; 11
+  of the board's 12 pairs are ordered), so treat the bottom two rows as tied
+  because a re-fit cannot order them, not because a re-run moves them.
+
   **The cause is the metric, not the probe.** Features come from cache and are
   byte-identical and the head is seeded; what differs is float-level
   non-determinism in training, which the other four probes also show — at 1e-7.
@@ -692,23 +717,20 @@ Three standing cautions apply to everything below:
   the measurement; that directory's README is the write-up.
 
   The confound was real and this file was built without noticing it. Tokens
-  correlate **+0.878** with `generic_segmentation`, **+0.817** with
-  `surface_normal`, **+0.687** with `depth` — the strongest structural
-  correlate on nine of the eleven boards whose head reads one vector per patch,
-  where width reaches only −0.08 to −0.40 and in the *opposite* direction.
+  correlate **+0.935** with `generic_segmentation`, **+0.808** with
+  `surface_normal`, **+0.767** with `depth` — the strongest structural
+  correlate on nine of the twelve boards whose head reads one vector per patch,
+  where width reaches only −0.07 to −0.40 and in the *opposite* direction.
+  (Corrected corpus, 23c. At twelve backbones and before 2026-09-13's tie fix
+  they read +0.958, +0.867 and +0.818; after it, +0.878, +0.817 and +0.687.)
 
-  **Those three numbers were +0.958, +0.867 and +0.818 until 2026-09-13**, when
-  the tie fix below corrected them. The claim survives the correction and two
-  boards are exceptions to it: `semantic_segmentation` (already the documented
-  exception — pretraining scale correlates +0.689 against tokens' +0.496) and
-  `detection`, which crosses over under midranks (+0.752 against +0.649).
-  **There are three now, and the third is marginal** (22b): `scene_parsing`,
-  shipped after this was written, reads pretraining **+0.682** against tokens
-  +0.647 on the corpus and on the seed-mean board, and on four of five seeds
-  of the cropped sweeps — and on **five of five** since 23b re-fitted them, so
-  it is no longer marginal. `semantic_segmentation` and `detection` stay
-  exceptions on every seed, and the other nine boards rank by tokens on every
-  seed. And **the only backbones
+  **Three boards are exceptions**, each ranking by pretraining scale instead:
+  `semantic_segmentation` (pretraining +0.673 against tokens' +0.494),
+  `detection` (+0.761 against +0.550) and `scene_parsing` (+0.692 against
+  +0.647). The first two were exceptions from the start; `scene_parsing`
+  shipped later and 22b called it marginal at four of five seeds, but on the
+  re-fitted sweeps (23b) all three are exceptions on every seed and the other
+  nine boards rank by tokens on every seed. And **the only backbones
   carrying 256 tokens are the two DINOv2s**, so grid size, the DINOv2 objective
   and LVD-142M pretraining were one variable. No dense board could say which of
   the three it had ranked.
@@ -822,6 +844,21 @@ Three standing cautions apply to everything below:
   > contrast is not clean either. What survives: a finer grid raises the
   > ceiling, and `depth` stays insensitive to it. The other boards in this
   > table were not re-run and should not be quoted.
+  >
+  > **23a re-ran every board, and 23c re-read this entry against it.** On the
+  > corrected corpus `dino_vitb8` is above `dino_vitb16` on **16 of 20 boards**
+  > (below only on `instance_segmentation`, `similarity`, `detection` and
+  > `fine_grained_classification`), and on every low-level board: `edge`
+  > +0.0985, `corner` +0.0864, `orientation` 3.86 degrees, and marginally
+  > `occlusion_edge` +0.0066 and `keypoints2d` +0.0029. Over the ten ViTs the
+  > linear token correlation on the five low-level boards averages **+0.440**,
+  > not +0.388. Tokens are the strongest structural correlate on **9 of the 12**
+  > grid-reading boards, the exceptions being the three pretraining boards
+  > named in the entry above — `keypoints2d` is no longer one (tokens +0.658,
+  > pretraining −0.402). **Everything below this note is the cropped-board
+  > reading, kept as history**: its tables, its "8 of the 11", and its
+  > conclusion that the linear board is blind to the grid. The DPT control has
+  > not been re-run full-frame, so how much more a decoder sees is open.
 
   **A 4x finer grid, with everything else held fixed, buys almost nothing on
   most dense boards, and costs on six.**
@@ -987,6 +1024,10 @@ Three standing cautions apply to everything below:
   | `clip_vitb16` | 0.7757 | 0.6321 |
   | `resnet50` | 0.7523 | 0.5395 |
 
+  (`mae_vitb16` and `resnet50` are timm columns, so both readouts saw the
+  cropped frame for those two rows; the corrected `depth` cells, 0.6930 and
+  0.5380, keep the same order.)
+
   **Spearman between the two readouts is +1.000.** So whatever separates these
   five on the depth board survives the removal of every metric quantity: the
   board is ranking them by **ordering plus feature resolution**, and its delta
@@ -1029,7 +1070,9 @@ Three standing cautions apply to everything below:
   | nine ViTs, `2 5 8 11` | 1.08x - 1.31x |
   | three CNNs, own last four stages | **1.17x - 2.80x** |
 
-  `keypoints2d` on `resnet18` goes 0.1659 to 0.4648. That is not a claim that
+  `keypoints2d` on `resnet18` goes 0.1659 to 0.4648. (All three CNNs are timm
+  columns, so both halves of this control saw the cropped frame; it compares
+  heads on identical inputs and has not been re-run full-frame.) That is not a claim that
   CNN features are better than the board says in some absolute sense — the
   board's protocol is the published one and every backbone is read the same way.
   It is a claim about **what a cross-architecture dense comparison is
@@ -1106,9 +1149,9 @@ Three standing cautions apply to everything below:
   question against this corpus**, and a summary that picks a winner is
   discarding the result.
 
-  **MAE's retrieval 0.1883 is barely above the 0.1 chance floor and is not a
+  **MAE's retrieval 0.1869 is barely above the 0.1 chance floor and is not a
   broken run** — the obvious reading, and wrong. The check is internal to the
-  corpus: the *same* features score 0.9582 top-1 under a **trained** linear
+  corpus: the *same* features score 0.9600 top-1 under a **trained** linear
   probe. A learned projection recovers category structure that cosine
   similarity on the raw CLS token cannot, which is MAE's documented behaviour
   without fine-tuning, and a genuine extraction bug would have taken the linear
@@ -1116,14 +1159,18 @@ Three standing cautions apply to everything below:
   available test of whether a shocking number is a bug**, and it needed no new
   run — both records were already in the corpus.
 
-  **Its correspondence win is not the grid**, which is the first objection that
-  board invites: 0.3577 against a `ceiling_recall@5px` of 0.3932, where
-  `dinov2_vits14` scores 0.3049 against a *higher* 0.4123. Read against the
-  ceiling the gap widens. This is what `context_metrics` was for.
+  **Its correspondence score is not the grid**, which is the first objection
+  that board invites: 0.3998 against a `ceiling_recall@5px` of 0.4287, where
+  `dinov2_vits14` scores 0.3049 against a *lower* 0.4123 (corrected corpus,
+  23c; 0.3577 against 0.3932 when MAE led that board). It is second now, to
+  `dino_vitb8` at 0.7697, and there the 784-token grid *is* the mechanism —
+  that board's floor is the patch spacing. This is what `context_metrics` was
+  for.
 
   **`convnext_base` is the mirror image and carries `resnet50`'s caveat.** It
-  tops classification (0.9997) and retrieval (0.9890) and places seventh or
-  lower on every dense geometric board. It is ImageNet-1k *supervised* and
+  tops classification (0.9997), is third on retrieval (0.9899, behind
+  `supervised_vitb16` and `sam_vitb16`) and places eighth or lower on every
+  dense geometric board. It is ImageNet-1k *supervised* and
   Imagenette's classes are ImageNet-1k wnids, so those two scores are close to
   in-distribution recall rather than transfer. The probe pages name both
   backbones now, not just the ResNet.
@@ -1143,6 +1190,15 @@ Three standing cautions apply to everything below:
   six mid-level** ones — depth, normals (27.52° v 36.72° mean), correspondence,
   occlusion edges, generic segmentation, plus edge, keypoints2d and corner.
   Thirteen boards, one variable, five against eight.
+
+  > **Re-read on the corrected twenty-board corpus (23c)**: all three rows of
+  > this family are timm columns, so every number in this entry and the next
+  > two moved at 23a, and the narrative is kept as each step measured it. The
+  > split survives exactly by tier: supervised wins **7 of 9** high-level
+  > boards (MAE takes `instance_segmentation` and `scene_classification`),
+  > MAE wins **6 of 7** mid-level ones (supervised takes `similarity`, 0.8257
+  > against 0.6787) and **all 4** low-level ones. Retrieval is still the widest
+  > gap, 0.9948 against 0.1869.
 
   **The single crossing is mid-level similarity** (supervised 0.8202 v 0.6897),
   and it must not be rounded away — this bullet said "the winner changes exactly
@@ -1205,6 +1261,12 @@ Three standing cautions apply to everything below:
   spread measured on that probe, so at the three decimals detection is quoted
   to those rows are equal. Classification separates nothing either — eleven of
   twelve backbones are above 0.98. Do not report "supervised wins all four".
+
+  > **On the corrected corpus (23c)** DINO's worst placing is eleventh of
+  > thirteen (`orientation`), and of the two firsts below it keeps
+  > `similarity`; `keypoints2d` went to `dino_vitb8`, its own sibling at
+  > patch 8. The argument stands — one objective strong at both ends — on
+  > fewer firsts.
 
   **DINO does not pay MAE's price at the other end, which is the second
   finding.** MAE leads five boards and is last on three; DINO's worst placing
@@ -1307,6 +1369,18 @@ Three standing cautions apply to everything below:
   which is a saturated board rather than a duplicated checkpoint: the weights,
   cache keys and features are all distinct and a slow test pins that.
 
+  > **Re-read on the corrected twenty-board corpus (23c).** The finding holds:
+  > on `semantic_segmentation` the recipe gap is **0.2791** (0.6184 against
+  > 0.3393) against an objective spread of **0.2638**, still 0.9x, and
+  > `sam_vitb16` is still last of thirteen there. Retrieval is still the
+  > widest ratio (208x), and the objective spread is under 3x the recipe gap
+  > on **12 of the 20 boards** — the rule above is unchanged and the count is
+  > the current one. `sam_vitb16` beats `supervised_vitb16` on **14 of 20**
+  > (it loses on retrieval, classification, correspondence, detection,
+  > `scene_parsing` and `semantic_segmentation`), so the "AugReg recipe, not
+  > supervision" softening stands. The classification rows are no longer
+  > identical (0.9980 against 0.9977) and the board is still saturated.
+
 
 - **The semantic segmentation board is the one dense board that does not rank
   by feature resolution, and what it rewards instead is not any single
@@ -1373,14 +1447,14 @@ Three standing cautions apply to everything below:
   | grid / `generic_segmentation` | +0.958 | **+0.878** |
   | grid, dropping both DINOv2 | +0.212 | **+0.071** |
   | grid, pretraining held fixed | 0.000 | **0.000** |
-
-  The last row is the one number above that never moved. Its *group* is
-  misdescribed, though: the IN1k backbones number **seven**, not eight, and
-  did when the entry was written — a miscount in the prose, not in the
-  measurement.
   | pretraining / `semantic_segmentation` | +0.615 | **+0.689** |
   | pretraining / `generic_segmentation` | +0.238 | **+0.247** |
   | pretraining, within the six ViT-B/16 | +0.314 | **+0.541** |
+
+  The "held fixed" row is the one number above that never moved then. Its
+  *group* is misdescribed, though: the IN1k backbones numbered **seven**, not
+  eight, when the entry was written — a miscount in the prose, not in the
+  measurement.
 
   **The finding survives; two of the sentences carrying it do not.** The claim
   is and was that this board does not rank by feature resolution, and the
@@ -1407,6 +1481,21 @@ Three standing cautions apply to everything below:
   nothing else comes close. The discriminating question is whether some other
   property *beats* the grid, not whether the grid coefficient is small.
 
+  > **Re-read on the corrected thirteen-backbone corpus (23c), and the
+  > strongest piece of evidence is weaker than the paragraphs above say.** The
+  > headline holds — pretraining scale **+0.673** beats grid **+0.494** on this
+  > board, while `generic_segmentation` on the same images reads grid
+  > **+0.935** against pretraining +0.088. But the two subset checks moved:
+  > dropping both DINOv2 rows leaves grid at **+0.240** (not +0.071), and
+  > holding the pretraining data fixed is **no longer 0.000** — `dino_vitb8`
+  > (15a) made the IN1k group eight backbones, and among them grid reads
+  > **+0.300**, so within one pretraining set the finer grids do score a
+  > little higher. Pretraining within the six ViT-B/16s is unchanged at +0.541
+  > and their spread is **0.3153** mIoU (`clip_vitb16` down to `sam_vitb16`).
+  > The superlative moved again too — +0.673 is now fifth of twenty — which is
+  > the rule above restated by the data. `keypoints2d` and `orientation` now
+  > read grid +0.658 each.
+
 
 - **The high-level tier is two clusters, not one — and the tier-mean test flips
   sign with the corpus, so read the clusters, not the mean** (2026-08-20,
@@ -1425,12 +1514,16 @@ Three standing cautions apply to everything below:
   The taxonomy's claim, tested as "probes within a tier agree with each other
   more than probes across tiers":
 
-  | | n=9, 13 boards | n=12, 13 boards | n=12, 14 boards | n=12, 15 boards | n=12, 16 boards |
-  | --- | --- | --- | --- | --- | --- |
-  | within low_level | +0.761 | +0.825 | +0.825 | +0.839 | **+0.839** |
-  | within mid_level | +0.666 | +0.666 | +0.666 | +0.666 | **+0.666** |
-  | within high_level | +0.497 | +0.296 | +0.297 | +0.297 | **+0.373** |
-  | across tiers | +0.340 | +0.304 | +0.265 | +0.266 | **+0.276** |
+  | | n=9, 13 boards | n=12, 13 boards | n=12, 14 boards | n=12, 15 boards | n=12, 16 boards | n=13, 20 boards, corrected (23c) |
+  | --- | --- | --- | --- | --- | --- | --- |
+  | within low_level | +0.761 | +0.825 | +0.825 | +0.839 | +0.839 | **+0.933** |
+  | within mid_level | +0.666 | +0.666 | +0.666 | +0.666 | +0.666 | **+0.695** |
+  | within high_level | +0.497 | +0.296 | +0.297 | +0.297 | +0.373 | **+0.380** |
+  | across tiers | +0.340 | +0.304 | +0.265 | +0.266 | +0.276 | **+0.310** |
+
+  On the corrected corpus every within-tier mean clears the cross-tier one,
+  and the low-level tier is tighter than it has ever read (+0.933): the double
+  crop was blurring the boards that need registration most.
 
   At nine backbones every within-tier mean cleared the cross-tier mean. At
   twelve it did not — high-level landed below. Adding `scene_classification` as
@@ -1501,8 +1594,27 @@ Three standing cautions apply to everything below:
   cross-source check two bullets down covers this generally.
 
   It also explains the semseg result in the bullet below — that board's nearest
-  neighbour anywhere in the corpus is `detection`, not the two semantic boards
-  it shares a tier with.
+  neighbours are localised boards (`scene_parsing` +0.852, `detection` +0.830
+  on the corrected corpus), not the image-level ones it shares a tier with.
+
+  > **The 15-pair table re-read on the corrected corpus (23c)** — it was
+  > computed at twelve backbones, and the *structure* is what survives: the
+  > weakest pair inside a cluster is **+0.582** (`scene_classification` /
+  > `semantic_segmentation`) and the strongest pair between them **+0.165**
+  > (`classification` / `fine_grained_classification`), the margin 22b found
+  > robust on every re-fit. The localised pairs now read `detection` /
+  > `semantic_segmentation` +0.830, `detection` / `fine_grained_classification`
+  > +0.736, `detection` / `scene_classification` +0.676; the image-level pair
+  > `classification` / `retrieval` +0.802; and every cross pair lies between
+  > −0.253 and +0.165. Two superlatives above do not survive, both because
+  > later boards joined the localised cluster: CUB's strongest partner is now
+  > `vehicle_classification` and `scene_parsing` (+0.835 each) rather than
+  > `detection`, and the highest high-level pair is `scene_classification` /
+  > `vehicle_classification` (+0.923). The four ImageNet-1k-supervised
+  > backbones take places 9-12 of thirteen on CUB, above only `mae_vitb16`.
+  > `orientation` ranks like `keypoints2d` (+0.945), `corner` (+0.929) and
+  > `edge` (+0.896), and the most negative pair in the corpus is still
+  > `orientation` / `scene_classification`, at −0.390.
 
   **What first pulled high-level below the line was a controlled axis, not
   rows.** The three backbones between n=9 and n=12 are `supervised_vitb16`,
@@ -1593,6 +1705,20 @@ Three standing cautions apply to everything below:
   `generic_segmentation` sits with the resolution-driven dense boards and
   `semantic_segmentation` does not.
 
+  > **Re-read on the corrected corpus (23c); both negative claims hold.** The
+  > six VOC pairs now read `generic_segmentation` / `instance_segmentation`
+  > +0.863, `detection` / `semantic_segmentation` +0.830, `detection` /
+  > `instance_segmentation` +0.593, `detection` / `generic_segmentation`
+  > +0.571, `generic_segmentation` / `semantic_segmentation` +0.418 and
+  > `instance_segmentation` / `semantic_segmentation` **+0.330** — the weakest
+  > is still a same-image pair (not sufficient), and `generic_segmentation`
+  > reaches `surface_normal` +0.857, `occlusion_edge` +0.852 and `depth` +0.846
+  > with no shared pixels (not necessary). Against the grid the three
+  > same-image boards read +0.935, +0.820 and +0.494. Imagenette is still the
+  > lowest within-source mean at **+0.201**; within-source agreement overall
+  > is +0.668 against +0.349 across, carried by Taskonomy (+0.858) and NYUv2
+  > (now three pairs, +0.637).
+
   `SOURCE_IMAGES` is hand-written because the records cannot supply it —
   Imagenette, NYUv2 and the staged corner frames are **all called `val`** in
   the `dataset` field, so grouping on it would merge boards sharing nothing.
@@ -1642,6 +1768,23 @@ Three standing cautions apply to everything below:
   losses, same metric family, same dataset family — different split list and 2.4x
   the training images, and the two orderings agree at only +0.587 (box half
   against `detection`).
+
+  > **Re-read on the corrected corpus (23c).** The board spans **0.2861**
+  > (`dinov2_vitb14`) to **0.0768** (`convnext_base`) and still reproduces no
+  > other board's ordering. Its strongest partners are all mid-level —
+  > `surface_normal` +0.940, `occlusion_edge` +0.912, `depth` +0.901,
+  > `generic_segmentation` +0.863 — and its weakest are high-level
+  > (`classification` −0.253, `retrieval` −0.093); mean **+0.797** against
+  > mid-level and **+0.251** against its own tier. The box and mask halves now
+  > agree at **+0.912**, not +0.986, but the box half still ranks with the
+  > geometry cluster (mean +0.723 against mid-level, +0.215 against
+  > high-level) and agrees with `detection` at only +0.676 — so the argument
+  > holds, with the halves less tightly coupled than first measured. The
+  > smallest adjacent gaps are now `sam_vitb16` / `dino_vitb8` (0.0010) and
+  > `resnet18` / `convnext_base` (0.0021), inside or near the ~1e-3 drift;
+  > the three-decimal rule stands. The split control below ran on cropped timm
+  > features and is kept as measured: it compares configurations on identical
+  > inputs, which the fix does not touch.
 
   **The control ran on 2026-09-09 and the answer is the split** —
   `results/controls/detection_split.jsonl`, 24 records, full write-up in
@@ -1720,6 +1863,15 @@ Three standing cautions apply to everything below:
   anything about scene understanding — for the supervised CNNs it says close to
   the opposite. **n=12, one seed.**
 
+  > **Re-read on the corrected thirteen-backbone corpus (23c); the finding is
+  > sharper.** The two orderings correlate **+0.071**. `siglip_vitb16` leads
+  > the scene board (0.4082) ahead of both CLIPs, spread **0.131**; the object
+  > board spreads 0.040 with twelve of thirteen above 0.988. `convnext_base`
+  > is first on objects and ninth on scenes, `supervised_vitb16` third and
+  > twelfth, `mae_vitb16` last and eleventh. The scene board correlates +0.676
+  > with `detection` and +0.582 with `semantic_segmentation`, against +0.071
+  > with `classification` and −0.253 with `retrieval`.
+
 - **`orientation` — a target that is independent per pixel and a board that is
   not** (2026-08-28, 12 backbones, the same pinned Taskonomy `tiny` frames as
   `corner` and `edge`). The orientation probe measures local gradient *phase*,
@@ -1749,6 +1901,17 @@ Three standing cautions apply to everything below:
   the geometry cluster, which is itself the finding: a backbone good at
   localised structure is good at all of it, magnitude and phase alike. **n=12,
   one seed.**
+
+  > **Re-read on the corrected corpus (23c); the finding is stronger and two
+  > rows moved.** The board ranks like `keypoints2d` (**+0.945**), `corner`
+  > (+0.929), `correspondence` (+0.907) and `edge` (+0.896), and still
+  > anti-correlates with the image-level boards (`scene_classification`
+  > **−0.390**, still the corpus's most negative pair; `classification`
+  > −0.143). The spread is **14.8°–30.2°**. `mae_vitb16` no longer leads —
+  > `dino_vitb8` does, at 14.80° against 15.42° — and the bottom is now
+  > `resnet50` with `clip_vitb32` and `siglip_vitb16` just above it.
+  > DINOv2-S still beats DINOv2-B (22.1° against 24.6°; neither is a timm
+  > column).
 
 
 - **`detection` does not reproduce to four decimals *on DINOv2*, it never did,
@@ -1802,6 +1965,11 @@ Three standing cautions apply to everything below:
   | `clip_vitb32` | 768 | 7x7 | yes, 0.188608609616858 twice + the corpus |
   | `resnet18` | 512 | 7x7 | yes, 0.091190732340 **three times** + the corpus |
   | `resnet50` | 2048 | 7x7 | yes, 0.137981235614 **three times** + the corpus |
+
+  (The ResNet rows were measured before 23a, on the cropped frames, and the
+  corrected corpus cells for both now differ; the reproducibility they show is
+  a property of the configuration run, and the grid argument does not depend
+  on which frame it was.)
 
   **The correlate is the grid, and all six rows now agree** (the ResNets
   measured 2026-08-14, three repeats each, bit-identical on `map_50`,

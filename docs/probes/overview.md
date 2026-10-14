@@ -30,8 +30,9 @@ Four of those eight share one implementation and ask four different questions:
 distinct probe *name* rather than a dataset flag, because a board is keyed on
 the task name — a second dataset under one name does not merge into that board,
 it makes it unrenderable. And the four do not form a granularity ladder in the
-corpus: `vehicle_classification` correlates **+0.901** with the *place* board
-against +0.863 with the other subordinate one.
+corpus: `vehicle_classification` correlates **+0.923** with the *place* board
+against +0.835 with the other subordinate one — a margin that ties under a
+re-fit, so the claim is that the subordinate board is no closer.
 
 ## Mid level — geometry and structure, before naming anything
 
@@ -77,14 +78,14 @@ down should be read.
 ## Feature resolution is the strongest correlate of every dense board
 
 Across the thirteen backbones, the size of the feature grid correlates with every
-dense board — +0.888 with `generic_segmentation`, +0.808 with `surface_normal`,
-+0.708 with `depth` — while embedding width correlates with essentially nothing
-(-0.42 to +0.59 across all boards, no consistent sign). Reproduce with
+dense board — +0.935 with `generic_segmentation`, +0.808 with `surface_normal`,
++0.767 with `depth` — while embedding width correlates with essentially nothing
+(-0.40 to +0.65 across all boards, no consistent sign). Reproduce with
 `scripts/analyse_board_correlates.py --section structure`. Grid size is the
 *strongest* structural correlate on nine of the dense heads that read one
-vector per patch (twelve such), on every one of five re-fits; on `semantic_segmentation`,
-`detection` and (on four re-fits of five) `scene_parsing`, pretraining scale
-beats it (`scripts/analyse_correlation_seeds.py --section structure`).
+vector per patch (twelve such), on every one of five re-fits; on
+`semantic_segmentation`, `detection` and `scene_parsing`, pretraining scale
+beats it, also on every re-fit (`scripts/analyse_correlation_seeds.py`).
 
 That was confounded, because the only backbones carrying 256 tokens are the two
 DINOv2s: grid size, the DINOv2 training objective and LVD-142M pretraining were
@@ -99,11 +100,14 @@ same weights at 196px, giving DINOv2-B the same 14x14 grid as every ViT-B/16.
 | `edge` | 0.4481 | 0.4363 | -2.6% |
 | `corner` | 0.6526 | 0.6349 | -2.7% |
 
-**Matching the grid costs under 3% everywhere**, and DINOv2-B keeps its lead
-over the whole ViT-B/16 pack on both boards it led. Resolution accounts for 21%
-of its `generic_segmentation` lead and 7% of its `depth` lead — most of the gap
-is not the grid. On the other three boards DINOv2-B never led (`mae_vitb16` is
-ahead), so there was no lead for resolution to explain.
+**Matching the grid costs under 3% everywhere.** Of the five boards, DINOv2-B
+now leads only `depth`, where the grid accounts for 6.5% of its lead over
+`mae_vitb16` — most of the gap is not the grid. It does not lead the other four
+(`dino_vitb8` leads `generic_segmentation`, `edge` and `corner`, `mae_vitb16`
+leads `surface_normal`), so there is no lead there for resolution to explain.
+An earlier version of this page apportioned a `generic_segmentation` lead too;
+that lead existed only while nine columns were fed a twice-cropped frame,
+which 23a fixed.
 
 The control spans 256 to 196 tokens where the corpus correlation spans 49 to
 256, so it bounds the comparison that was confounded and says nothing about the
@@ -155,39 +159,39 @@ against every other and averaging within and across tiers:
 
 | | mean rho |
 | --- | --- |
-| within low-level | **+0.839** |
-| within mid-level | **+0.666** |
-| within high-level | **+0.297** |
-| across tiers | +0.266 |
+| within low-level | **+0.933** |
+| within mid-level | **+0.695** |
+| within high-level | **+0.380** |
+| across tiers | +0.310 |
 
-Every within-tier mean now exceeds the cross-tier mean, but do not read that as
+Every within-tier mean exceeds the cross-tier mean, but do not read that as
 the high-level tier cohering. It sat *below* the cross-tier line at thirteen
 boards and crossed it only when `scene_classification` (the fourteenth) was
 added — and it crossed by pulling the *cross-tier* number down, because the
 image-level high-level boards disagree sharply with the low-level tier (the most
 negative pair in the corpus is `orientation` / `scene_classification` at
-−0.51). The within-high-level mean barely moved.
+−0.390). The within-high-level mean is a set that is still bimodal.
 
 What is stable across six, nine and twelve backbones is that high-level is
 **two tight clusters that ignore each other**:
 
 | pair | rho |
 | --- | --- |
-| detection / semantic_segmentation | **+0.804** |
-| classification / retrieval | **+0.769** |
-| detection / scene_classification | **+0.720** |
-| scene_classification / semantic_segmentation | +0.524 |
-| classification / scene_classification | +0.161 |
-| classification / detection | +0.140 |
-| classification / semantic_segmentation | +0.140 |
-| detection / retrieval | −0.035 |
-| retrieval / semantic_segmentation | −0.042 |
-| retrieval / scene_classification | −0.217 |
+| detection / semantic_segmentation | **+0.830** |
+| classification / retrieval | **+0.802** |
+| detection / scene_classification | **+0.676** |
+| scene_classification / semantic_segmentation | +0.582 |
+| classification / semantic_segmentation | +0.110 |
+| classification / scene_classification | +0.071 |
+| retrieval / semantic_segmentation | −0.044 |
+| classification / detection | −0.192 |
+| detection / retrieval | −0.225 |
+| retrieval / scene_classification | −0.253 |
 
 Image-level categorisation on one side, localised prediction on VOC on the
 other, and nothing linking them. **`scene_classification` is image-level
-classification and still lands with the localised cluster** (+0.72 with
-detection, −0.22 with retrieval) — a place category is recovered from layout
+classification and still lands with the localised cluster** (+0.68 with
+detection, −0.25 with retrieval) — a place category is recovered from layout
 and context, which is what the VOC-dense probes reward and single-object
 Imagenette does not. So **do not average a backbone's high-level results into
 one figure of merit** — the five boards are not measuring one capability, and a
@@ -196,28 +200,31 @@ mean over them describes nothing. Read them individually.
 This clustering is **not** an artefact of which images each probe reads, which
 is the first thing to suspect since `detection` and `semantic_segmentation`
 both run on VOC. `semantic_segmentation` and `generic_segmentation` read the
-*same 1449 images* through the same head, and they agree **least** of the three
-VOC pairs (+0.538, against +0.804 and +0.720 for pairs that read different
-frames). `generic_segmentation`'s nearest neighbours are `surface_normal`,
-`depth` and `corner` — NYUv2 and Taskonomy. And the three probes that share
-Imagenette average +0.128, the lowest figure of any shared corpus here.
+*same 1449 images* through the same head, and they agree less than either
+pair that reads different frames (+0.418, against +0.830 and +0.571), while
+`instance_segmentation` on those same images agrees with semantic segmentation
+least of all (+0.330). Off VOC, `generic_segmentation` reaches
+`surface_normal` (+0.857), `occlusion_edge` (+0.852) and `depth` (+0.846) on
+NYUv2 and Taskonomy. And the three probes that share Imagenette average
++0.201, the lowest figure of any shared corpus here.
 
-The low-level tier, by contrast, is *one* cluster and `orientation` (the
-fifteenth board) tightened it, from +0.825 to +0.839. That is worth a note: the
+The low-level tier, by contrast, is *one* cluster, and `orientation` (the
+fifteenth board) tightened it. That is worth a note: the
 orientation *target* is near-independent of every other probe's per pixel — it
 is a phase, and `|r|` with the `edge` and `corner` targets is under 0.09 — yet
-its *board* ranks backbones almost exactly like `keypoints2d` (rho **+0.95**),
-`corner` (+0.82) and `edge` (+0.79). Target independence and board independence
+its *board* ranks backbones almost exactly like `keypoints2d` (rho **+0.945**),
+`corner` (+0.929) and `edge` (+0.896). Target independence and board independence
 are different things: a backbone that is good at localised geometric structure
 is good at all of it, magnitude and phase alike, even though those are different
 quantities.
 
-Two caveats. This is n=12, so the coefficients are wide. And the tier means are
+Two caveats. This is n=13, so the coefficients are wide. And the tier means are
 a statement about *this corpus*: at nine backbones the high-level tier mean was
 above the cross-tier line (+0.497 against +0.340), at thirteen boards it was
-below, and at fourteen and fifteen it is marginally above again — moved each
-time by which backbones and which boards are in the set, not by any board's
-features changing. The two-cluster structure is what survives all three.
+below, and since fourteen it has been above again — moved each time by which
+backbones and which boards are in the set, and once (23a) by a preprocessing
+fix, not by any board's features changing. The two-cluster structure is what
+survives all of it, and a re-fit at five seeds does not move it either.
 Reproduce or re-test with
 [`scripts/analyse_board_correlates.py`](https://github.com/turhancan97/VisBench/blob/main/scripts/analyse_board_correlates.py)
 `--section agreement`.

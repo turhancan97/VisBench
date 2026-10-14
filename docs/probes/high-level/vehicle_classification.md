@@ -89,24 +89,24 @@ Ordered by `top1`.
 <sub>vehicle_classification on val/val, protocol=visbench_vehicle_linear_probe, frozen [47c01df8]</sub>
 <!-- /visbench:board -->
 
-**`siglip_vitb16` leads at 0.8603**, where it is fifth on CUB. Web image-text
+**`siglip_vitb16` leads at 0.8795**, where it is sixth on CUB. Web image-text
 pretraining is ahead of everything else here, including both DINOv2 rows —
 plausible for categories whose names saturate web alt-text, and the sharpest
 single statement this board makes.
 
 **It ranks differently from the bird board**, which is what earns it a place at
-all: Spearman **+0.863** against `fine_grained_classification`, where a dozen
-existing board pairs in this corpus are *more* correlated than that. Had it
+all: Spearman **+0.835** against `fine_grained_classification`, where 23 of the
+corpus's 190 board pairs are *more* correlated than that. Had it
 merely reproduced CUB's ordering it should not have shipped, on the standard
 relative depth was rejected against.
 
 **The other subordinate board is no closer than the place board.** On the
-published corpus `scene_classification` reads +0.901 against CUB's +0.863, but
+published corpus `scene_classification` reads +0.923 against CUB's +0.835, but
 that margin is one draw: re-fitted over the committed seed sweeps the two tie at
 **+0.874** each, and the place board comes out ahead in only 62% of re-fits. So
 neither is *the* closest partner — what the two share with this board is not
 granularity, which is the property this probe was built to isolate. Mean rho is
-+0.525 against the high-level tier, +0.149 against mid-level and **−0.190**
++0.503 against the high-level tier, +0.205 against mid-level and **−0.147**
 against low-level, an ordering that holds on every re-fit
 (`scripts/analyse_correlation_seeds.py`). See
 {doc}`reading a board </guides/reading-a-board>` before quoting any of it.

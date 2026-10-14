@@ -84,6 +84,7 @@ step is next rather than attempting the whole roadmap in one session.
 | 22c | The timm double crop, measured: nine columns read a misregistered frame | done |
 | 23a | The crop fixed: timm defaults to the full frame, and nine columns re-run | done |
 | 23b | The sweeps re-fitted on the corrected boards: no pair reverses any more | done |
+| 23c | The prose re-read on the corrected corpus, and a guard on what the pages quote | done |
 
 **A closed step's full write-up lives in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md), not here.** That file is the archive
@@ -757,9 +758,13 @@ designed up front; extend it the same way, from a case that already runs.
     hold on every re-fit**; the one that fails is a *superlative* ("closest
     partner", tied on the seed-mean). **Quote margins, not superlatives**, and
     a count of one extreme row ("worst fit on the coarsest grid", 11 of 12
-    published, 9-12 on other seeds) as the sign it summarises. **The
-    coefficients quoted in `CORPUS_FINDINGS.md` prose are still cropped-board
-    draws**; 23b re-checked every verdict, not every number.
+    published, 9-12 on other seeds) as the sign it summarises. **23c re-read
+    every quoted number on the corrected corpus**: the shipped pages carry
+    current values, pinned by `tests/scripts/test_board_coefficients_quoted.py`,
+    and `CORPUS_FINDINGS.md`'s dated entries keep their own and say so in a
+    "re-read (23c)" block. **A preprocessing fix re-measures prose as well as
+    records** — 23a moved every coefficient its nine columns touch, and no test
+    noticed for a step.
   - **Quote an objective gap against the *recipe* gap on the same board, never
     against zero** — `sam_vitb16` against `supervised_vitb16`, and nothing in a
     record says which board you are on.
@@ -1017,12 +1022,13 @@ designed up front; extend it the same way, from a case that already runs.
 
 - **`instance_segmentation` is a high-level board whose four strongest
   partners are all mid-level — and the mask branch is not why** (14a-4). Mean
-  rho **+0.821** against mid-level against **+0.238** against its own tier: the
-  sharpest case yet of `high_level` being a folder rather than a quantity. The
-  obvious explanation — "mask AP measures outlines, so it ranks with geometry" —
-  was checked and is wrong, because the record carries `box_map_50` from the
-  same runs and the two halves agree at **+0.986**, so the box half alone ranks
-  with the geometry cluster while inheriting every line from `detection`. **The
+  rho **+0.797** against mid-level against **+0.251** against its own tier
+  (corrected corpus, 23c): the sharpest case yet of `high_level` being a folder
+  rather than a quantity. The obvious explanation — "mask AP measures outlines,
+  so it ranks with geometry" — was checked and is wrong, because the record
+  carries `box_map_50` from the same runs and the box half alone ranks with the
+  geometry cluster (+0.723 against mid-level, +0.215 against high) while
+  inheriting every line from `detection`; the halves agree at +0.912. **The
   split control settled the rest** (2026-09-09) — see the next bullet.
 
 - **A board's cluster membership is partly a property of its *split*, and
@@ -1717,9 +1723,9 @@ designed up front; extend it the same way, from a case that already runs.
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite **collects 2486 tests**, green on 2026-10-14 along with all three
+fast suite **collects 2508 tests**, green on 2026-10-14 along with all three
 lint steps, mypy and the `-W` docs build; the slow suite is **116**, last fully
-green on `main` on 2026-09-11. Earlier fast counts, for dating a claim: 2445 at 23a, 2433 at
+green on `main` on 2026-09-11. Earlier fast counts, for dating a claim: 2486 at 23b, 2445 at 23a, 2433 at
 22c, 2414 at 22b, 2397 at 21b, 2304 at v0.23.0, 1824 at the oracle gate — keep
 that list to a handful. **Quote the collected count, not "N passed"**: the skip
 count depends on which extras are installed (3 on CI, 8 on `.venv`, 0 with
@@ -2030,7 +2036,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 2486 fast tests
+pytest                                              # 2508 fast tests
 pytest -m slow                                      # 116, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/
