@@ -531,12 +531,7 @@ def matrix(data: Data) -> list[dict]:
                     "min": min(values),
                     "max": max(values),
                     "width": max(values) - min(values),
-                    # Where the published draw sits in its own distribution,
-                    # midranked: 0.5 is the middle, 1.0 the top.
-                    "percentile": (
-                        sum(1 for x in values if x < pub) + 0.5 * sum(1 for x in values if x == pub)
-                    )
-                    / len(values),
+                    "percentile": _percentile(values, pub),
                     "n": len(values),
                     "sign_flips": min(values) < 0 < max(values),
                 }
@@ -544,7 +539,37 @@ def matrix(data: Data) -> list[dict]:
     return rows
 
 
-def report_matrix(rows: list[dict], *, verbose: bool) -> None:
+def _percentile(values: list[float], value: float) -> float:
+    """Where `value` sits among `values`, midranked: 0.5 is the middle, 1.0 the top."""
+    below = sum(1 for x in values if x < value)
+    return (below + 0.5 * sum(1 for x in values if x == value)) / len(values)
+
+
+def null_percentiles(data: Data) -> dict[int, float]:
+    """The mean percentile each seed would score if *it* were the published draw.
+
+    The bias check's null. A mean percentile of 0.50 is what an unbiased draw
+    averages to, but the 187 pairs share boards -- one board's draw moves all of
+    its pairs together -- so the statistic scatters far more than 187
+    independent pairs would. 22b read a band of 0.45-0.55 as "unbiased" without
+    measuring that scatter; on the 23b sweeps the five seeds alone span
+    0.44-0.56, which is the band a published draw has to be compared with.
+    """
+    tasks = data.tasks
+    out = {}
+    for seed in SEEDS:
+        board = {t: data.published[t] if t in ZERO_SHOT else data.seeded[t][seed] for t in tasks}
+        pct = []
+        for i, a in enumerate(tasks):
+            for b in tasks[i + 1 :]:
+                values = pair_values(data, a, b)
+                if len(values) > 1:
+                    pct.append(_percentile(values, spearman(board[a], board[b])))
+        out[seed] = statistics.fmean(pct)
+    return out
+
+
+def report_matrix(rows: list[dict], *, verbose: bool, null: dict[int, float] | None = None) -> None:
     varying = [r for r in rows if r["n"] > 1]
     widths = [r["width"] for r in varying]
     print("\n=== every board pair under a re-fit ===")
@@ -565,6 +590,12 @@ def report_matrix(rows: list[dict], *, verbose: bool) -> None:
         f"top fifth on {sum(1 for p in pct if p >= 0.8)}, "
         f"bottom fifth on {sum(1 for p in pct if p <= 0.2)} of {len(pct)}"
     )
+    if null:
+        print(
+            "  ... against any one seed read as the published draw: "
+            f"{min(null.values()):.2f} .. {max(null.values()):.2f} "
+            f"({', '.join(f'seed {s} {v:.2f}' for s, v in null.items())})"
+        )
     flips = [r for r in varying if r["sign_flips"]]
     print(f"  pairs whose SIGN changes with the seed: {len(flips)} of {len(varying)}")
     strong = [r for r in varying if abs(r["published"]) >= 0.5]
@@ -713,7 +744,7 @@ def main(argv: list[str] | None = None) -> int:
         report_claims(evaluate_claims(data, views), args.draws)
         report_partners(data, views, "vehicle_classification")
     if args.section in ("pairs", "all"):
-        report_matrix(matrix(data), verbose=args.pairs)
+        report_matrix(matrix(data), verbose=args.pairs, null=null_percentiles(data))
     if args.section in ("structure", "all"):
         report_structure(data)
     if args.section in ("fit", "all"):

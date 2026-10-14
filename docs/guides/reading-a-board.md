@@ -19,11 +19,12 @@ twenty boards is that a representation is good *at things*, not good.
 
 ## A placement is not automatically a result
 
-Of the twenty boards, **17 first places and 13 last places survive a paired
-re-fit** at five seeds. Three leads do not: `edge` at **t = +0.11** — as close
-to a coin flip as this corpus gets — `fine_grained_classification` at +1.64 and
-`occlusion_edge` at +2.15, against a critical value of 2.776. One published
-*last* place is outright **reversed**.
+Of the twenty boards, **18 first places and 15 last places survive a paired
+re-fit** at five seeds. Two leads do not: `generic_segmentation`, where
+`dino_vitb8` leads `dinov2_vitb14` at **t = +0.66** — as close to a coin flip as
+this corpus gets — and `fine_grained_classification` at +1.64, against a
+critical value of 2.776. Five last places are tied, four of them a ResNet
+against the row above.
 
 So a count of placements weighs a coin flip the same as a twenty-sigma lead,
 and **last place is the weaker half**: scores compress at the bottom of most of
@@ -36,12 +37,12 @@ prints for every board.
 
 Every coefficient on these pages compares two boards that were each fitted once.
 Re-fitted over the five committed seeds, a board-pair rho moves by a median of
-**0.11**, and 23 of 187 pairs change sign, though none of those published
+**0.10**, and 17 of 187 pairs change sign, though none of those published
 at |rho| ≥ 0.5 does. Of the sixteen correlational readings tested, fifteen hold
 on every re-fit. **The one that fails is a superlative**: a board's "closest
-partner" chosen between two coefficients 0.04 apart, which tie on the seed-mean
-boards. So quote "A agrees with B more than with C" when that margin survives,
-and never a single closest partner without checking the range.
+partner" chosen between two coefficients that tie on the seed-mean boards. So
+quote "A agrees with B more than with C" when that margin survives, and never a
+single closest partner without checking the range.
 [`scripts/analyse_correlation_seeds.py`](https://github.com/turhancan97/VisBench/blob/main/scripts/analyse_correlation_seeds.py)
 prints every claim's verdict.
 

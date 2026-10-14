@@ -10,8 +10,10 @@ so it stands on its own rather than assuming you have read the ones above it.
 ## [Unreleased]
 
 **Nine of the thirteen corpus columns were measured on a frame cropped twice.
-This release measures how much that matters (22c) and then corrects the corpus
-(23a): published numbers move on nine columns, and four boards change leader.**
+This release measures how much that matters (22c), corrects the corpus (23a):
+published numbers move on nine columns, and four boards change leader — and
+re-fits every seed sweep on the corrected boards (23b), where no adjacent pair
+reverses any more.**
 
 ### Found
 
@@ -69,12 +71,46 @@ This release measures how much that matters (22c) and then corrects the corpus
 - **`detection` scores lower without the crop** (timm ViTs −6%, CNNs −12.5%),
   under an identical configuration — the one board that moves the other way.
   Measured, not explained.
-- **The seed sweeps have not been re-fitted.** The 20a-22b audits are read
-  against the boards they were fitted on, through the new
-  `leaderboard.pinned_to_keys`, so they still describe the cropped boards; 23b
-  re-fits them. `test_resolution_control.py` now reads the board as rendered
-  rather than every record, and `generic_segmentation` is no longer a DINOv2-B
-  lead.
+- **The seed sweeps are read against the boards they were fitted on**, through
+  the new `leaderboard.pinned_to_keys`. `test_resolution_control.py` now reads
+  the board as rendered rather than every record, and `generic_segmentation`
+  is no longer a DINOv2-B lead.
+
+### Changed — the seed sweeps re-fitted on the corrected boards (23b)
+
+- **The nine timm columns of all seventeen sweeps were re-fitted under
+  `/crop1`** — 765 runs, five seeds each, every seed-0 row reproducing its 23a
+  cell within the board's tolerance (`relative_pose` and the four
+  classification boards exactly). The new `scripts/merge_sweep_refit.py`
+  splices them in, replacing a column's rows rather than appending beside them,
+  and archives the cropped sweeps unchanged under `results/controls/pre23a/`.
+- **The corrected boards are more orderable, and none reverses**: 143 of 192
+  adjacent pairs ordered, 49 tied, 0 reversed, against 126, 63 and 3. All three
+  reversals were on the cropped boards. A threshold on the gap could not sort
+  12 of 16 boards (11 before).
+- **Placements**: 18 of 20 first places and 15 of 20 last places survive a
+  re-fit (17 and 13). `edge`'s lead is now solid (t = +24.9, a coin flip at
+  +0.11 before), and **`generic_segmentation`'s new `dino_vitb8` lead is a tie**
+  with `dinov2_vitb14` (t = +0.66), so that leader change is within re-fit
+  noise.
+- **Correlations**: 15 of 16 claims still hold on every re-fit, and the
+  vehicle "closest partner" superlative still fails (its two partners read
+  +0.874 apiece on the seed-mean boards). `scene_parsing` now ranks by neither
+  objective nor grid on every seed rather than four of five.
+- **The "not biased high" check is calibrated against a measured null**: the
+  published draws sit at a mean percentile of 0.57, and any one seed read as
+  the published draw gives 0.44-0.56. 22b's 0.45-0.55 band had never been
+  measured against that scatter.
+
+### Fixed
+
+- `analyse_correlation_seeds.py` refuses a sweep set that holds one backbone
+  under two keys, instead of pinning a zero-shot board to whichever it read
+  last.
+- Earlier text said every sweep's seed-0 `train_loss` was identical to its
+  published cell's. It agrees to three significant figures on every board but
+  `orientation`, where it differs by up to 1.6e-3 relative (7.7e-4 on the
+  cropped sweep) — the board's known ill-conditioning, now stated.
 
 ### Fixed
 

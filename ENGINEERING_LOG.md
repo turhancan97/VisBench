@@ -3050,6 +3050,84 @@ around a configuration; it cannot see an error every seed shares. So a
 "survives a re-fit" verdict is conditional on the configuration being right,
 and 23b is needed to re-establish any such verdict on the corrected boards.
 
+## 23b — the seed sweeps re-fitted on the corrected boards
+
+**What was run.** The nine timm columns of every sweep, at five seeds, under
+`/crop1`: fifteen `seeds/` boards and `scene_classification` through
+`slurm/seed_sweep.sbatch` (now taking `VISBENCH_PROBES`, `VISBENCH_BACKBONES`
+and `VISBENCH_PARTS_DIR`), and pose through `scripts/build_pose_seed_sweep.sh`
+— 765 runs into `results/controls/parts/23b/`. The four non-timm columns kept
+their keys, so their rows still describe the published board and were kept. A
+per-user memory QoS capped throughput at about five tasks, so the arrays took
+most of a day. **The pose job died in one second the first time**: `sbatch
+--wrap` runs `/bin/sh`, which has no `source`; `.` is the portable spelling.
+
+**The gate, before anything merged.** Every staged row carries a `/crop1` key
+and a V100; every column has seeds 0-4 exactly once; every seed-0 row
+reproduces its 23a cell within `SEED_ZERO_TOLERANCE` — 0 on the four
+classification boards and `relative_pose`, 1e-7 to 1e-5 on the dense ones,
+1.7e-4 on `detection`, 2.2e-2 on `orientation`.
+`scripts/merge_sweep_refit.py` (dry run by default) refuses a part off a V100,
+an uncorrected key, a missing or duplicated seed, a change in a sweep's shape,
+or a merged file still carrying a superseded key. It *replaces*: a file holding
+both keys for one backbone has no single board it was fitted against, which
+`pinned_to_keys` refuses. The cropped files are archived unchanged in
+`results/controls/pre23a/`, because 20a-22b were computed from them.
+
+**The `orientation` fit, and a sentence that was never true.**
+`results/controls/README.md` said every sweep run reported a `train_loss`
+"identical" to its published cell's. No board is bit-identical — a loss is a
+mean over batches — and `analyse_seeds.py` compares fits at three significant
+figures for that reason. Fourteen boards pass that; `orientation` does not
+quite: its seed-0 fits differ by up to 7.7e-4 relative on the cropped sweep and
+**1.6e-3** on the corrected one, where `convnext_base` and `sam_vitb16` cross
+the line. Its score reproduces within its 5e-2 tolerance either way. Same
+ill-conditioning, an order of magnitude above every other board, two below a
+moved configuration; the README now says so.
+
+**What it found.**
+
+| | cropped (20a-22b) | corrected (23b) |
+| --- | --- | --- |
+| adjacent pairs ordered / tied / reversed | 126 / 63 / 3 | **143 / 49 / 0** |
+| boards no gap threshold can sort | 11 of 16 | 12 of 16 |
+| first places surviving a re-fit | 17 of 20 | 18 of 20 |
+| last places surviving a re-fit | 13 of 20 | 15 of 20 |
+| board-pair rho, median range / sign changes | 0.110 / 23 of 187 | 0.099 / 17 of 187 |
+| correlational claims holding on every draw | 15 of 16 | 15 of 16 |
+
+**The double crop was adding noise between columns, not only moving them.**
+All three reversals were cropped-board pairs and each is now ordered or tied:
+`surface_normal`'s `siglip_vitb16`/`convnext_base` is ordered the board's way
+(t = +3.64), pose's `dinov2_vitb14`/`dino_vitb16` is tied (+2.71), and
+`resnet18` falls below `clip_vitb32` in an ordered pair (+3.26). Of 23a's four
+new leaders, `edge` (+24.9) and `orientation` (+10.3) are solid, `keypoints2d`
+marginal (+2.85 against 2.776), and **`generic_segmentation` a tie** (+0.66).
+`scene_parsing` now loses to pretraining scale on 5 of 5 seeds (4 of 5).
+
+**The bias check had no null.** 22b called the published draws unbiased at a
+mean percentile of 0.50 and a test pinned 0.45-0.55. On the corrected sweeps it
+reads 0.57 — outside the band. Reading each seed in turn as "the published
+draw" gives 0.44-0.56, with seed 0 the highest; the published cells are seed 0
+to each board's tolerance, and one seed in five has to be highest. The band was
+narrower than the statistic's own scatter, because 187 pairs over twenty boards
+are nothing like 187 independent draws. `null_percentiles` now prints the null
+and the test is calibrated against it.
+
+**A lead, not a result: the held-out sweep.** All nine re-swept
+`scene_classification` columns reproduce the board **exactly, with the same
+fit**, while the four original columns still miss with a different one. 20d
+found amplification of a disturbance too small to identify; this says that
+disturbance belonged to the original sweep *run*, not to the board. Re-sweeping
+the four columns (20 fits) would say whether the sweep can come back in.
+
+**Not done, and named.** Every board-pair coefficient quoted in
+`CORPUS_FINDINGS.md` prose — the vehicle partners (+0.901/+0.863, now
++0.923/+0.835 on the corrected corpus), the tier means, the cluster tables — is
+still a cropped-board draw: 23a pinned the audits, it did not re-read the prose.
+23b re-checked every *verdict* on the corrected boards; re-reading every
+*number* is `scripts/analyse_board_correlates.py` and a pass of its own.
+
 ## Lifted from CLAUDE.md, 2026-10-14
 
 `CLAUDE.md` reached 145.2k, within a few thousand of the size at which it had

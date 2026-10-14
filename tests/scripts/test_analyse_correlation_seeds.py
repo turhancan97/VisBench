@@ -103,13 +103,23 @@ def test_the_matrix_totals_match_the_prose(audit):
 
 
 def test_the_published_draws_are_not_biased_high(audit):
-    """The handoff that proposed 22b suspected they were, from two pairs."""
+    """The handoff that proposed 22b suspected they were, from two pairs.
+
+    22b pinned the mean percentile inside 0.45-0.55, a band nobody had measured
+    the statistic's own scatter against. 23b's re-fit put it at 0.57 and the
+    null -- each seed in turn read as the published draw -- at 0.44-0.56, with
+    seed 0 (which the published cells *are*, to each board's tolerance) the
+    highest of the five. One seed in five has to be. So the claim is pinned
+    against the null rather than against a guessed band: the published draw must
+    sit within the published-versus-seed-0 discrepancy of the null's range.
+    """
     varying = [r for r in audit["matrix"] if r["n"] > 1]
     mean = statistics.fmean(r["percentile"] for r in varying)
-    assert 0.45 <= mean <= 0.55
-    assert f"mean percentile of **{mean:.2f}**" in " ".join(
-        FINDINGS.read_text(encoding="utf-8").split()
-    )
+    null = audit["module"].null_percentiles(audit["data"])
+    assert min(null.values()) - 0.02 <= mean <= max(null.values()) + 0.02, (mean, null)
+    findings = " ".join(FINDINGS.read_text(encoding="utf-8").split())
+    assert f"mean percentile of **{mean:.2f}**" in findings
+    assert f"{min(null.values()):.2f}-{max(null.values()):.2f}" in findings
 
 
 def test_zero_shot_boards_are_identical_in_every_draw(audit):

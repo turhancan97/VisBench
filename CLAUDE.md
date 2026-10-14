@@ -83,6 +83,7 @@ step is next rather than attempting the whole roadmap in one session.
 | 22b | The correlations audited: which board-pair readings a re-fit supports | done |
 | 22c | The timm double crop, measured: nine columns read a misregistered frame | done |
 | 23a | The crop fixed: timm defaults to the full frame, and nine columns re-run | done |
+| 23b | The sweeps re-fitted on the corrected boards: no pair reverses any more | done |
 
 **A closed step's full write-up lives in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md), not here.** That file is the archive
@@ -232,8 +233,8 @@ the image-level classification probes rank with the *localised* cluster rather
 than with the object board they subclass; `orientation`'s board is **not**
 independent even though its target is; and **granularity is not what the
 classification family shares** — the other subordinate board is no closer to
-`vehicle_classification` than the *place* board is (both +0.879 on the
-seed-mean boards; the published +0.901/+0.863 split was one draw, 22b).
+`vehicle_classification` than the *place* board is (both +0.874 on the
+seed-mean boards since 23b; the published split was one draw, 22b).
 
 **A probe whose data VisBench defines has no board until the data is pinned**
 (21a, the `corner` rule again). The Stanford Cars copy here is **not** the
@@ -739,30 +740,32 @@ designed up front; extend it the same way, from a case that already runs.
     23a's crop fix, which is the next rule rather than an aside.
   - **A count over a corpus is a fact about that corpus, not a backbone.**
     Re-read counts off `LEADERBOARD.md`.
-  - **A placement is not automatically a result** (22a;
-    `scripts/analyse_placements.py`; **on the pre-23a boards**, until 23b). **17 of 20 first places and 13 of 20 last
-    places survive a paired re-fit.** Three leads do not — `edge` at **t =
-    +0.11**, a coin flip — and one published *last* place is reversed. So a
-    count of placements weighs a coin flip the same as a twenty-sigma lead, and
-    **last place is the weaker half**, because scores compress at the bottom of
-    most boards. Quote a lead with its verdict. Only three of `mae_vitb16`'s
-    five firsts survive; the *pattern* both entries describe is untouched, since
-    the boards it leads solidly are the ones the pattern is about.
-  - **A correlation is one draw too** (22b, **pre-23a boards**;
+  - **A placement is not automatically a result** (22a, re-fitted on the
+    corrected boards by 23b; `scripts/analyse_placements.py`). **18 of 20 first
+    places and 15 of 20 last places survive a paired re-fit.** Two leads do
+    not — `generic_segmentation`'s 23a leader change is a tie (**t = +0.66**)
+    — and none is reversed. So a count of placements weighs a coin flip the
+    same as a twenty-sigma lead, and **last place is the weaker half**, because
+    scores compress at the bottom of most boards. Quote a lead with its
+    verdict.
+  - **A correlation is one draw too** (22b, re-fitted by 23b;
     `scripts/analyse_correlation_seeds.py`, no GPU). On the seed sweeps a
-    board-pair rho moves by a median 0.110 and 23 of 187 pairs change sign,
+    board-pair rho moves by a median 0.099 and 17 of 187 pairs change sign,
     none of them published at |rho| ≥ 0.5; the published draws are **not**
-    biased high. **15 of 16 correlational claims hold on every re-fit**; the
-    one that fails is a *superlative* ("closest partner", a 0.038 margin that
-    ties on the seed-mean). **Quote margins, not superlatives**, and a count
-    of one extreme row ("worst fit on the coarsest grid", 11 of 12 published,
-    8-9 on other seeds) as the sign it summarises.
+    biased high — judged against the statistic's own null (any seed read as
+    the published draw), never a guessed band. **15 of 16 correlational claims
+    hold on every re-fit**; the one that fails is a *superlative* ("closest
+    partner", tied on the seed-mean). **Quote margins, not superlatives**, and
+    a count of one extreme row ("worst fit on the coarsest grid", 11 of 12
+    published, 9-12 on other seeds) as the sign it summarises. **The
+    coefficients quoted in `CORPUS_FINDINGS.md` prose are still cropped-board
+    draws**; 23b re-checked every verdict, not every number.
   - **Quote an objective gap against the *recipe* gap on the same board, never
     against zero** — `sam_vitb16` against `supervised_vitb16`, and nothing in a
     record says which board you are on.
   - **`semantic_segmentation` and `detection` are the two boards that rank by
-    neither objective nor grid** on every seed; `scene_parsing` joins them on
-    four of five (22b), so call it marginal. The test is whether another property *beats*
+    neither objective nor grid** on every seed, and since 23b `scene_parsing`
+    does too (four of five on the cropped sweeps). The test is whether another property *beats*
     the grid, never whether the grid coefficient is small — and a coefficient's
     rank among boards is a fact about which boards are in the corpus.
   - **The high-level tier is two clusters, not one**, and two probes that are
@@ -798,14 +801,16 @@ designed up front; extend it the same way, from a case that already runs.
     Four boards changed leader (all to `dino_vitb8`), and **`detection` got
     *worse* full-frame** — measured, not explained (`CORPUS_FINDINGS.md`).
   - **A seed sweep is read against the board it was fitted on, not the
-    newest** (23a). Every sweep under `results/controls/` predates the fix, so
-    `pinned_to_keys(corpus, sweep)` gives each consumer — the seed-0 gate, the
-    totals, 22a's placements, 22b's correlations — the cells under the sweep's
-    own keys. **Those audits therefore describe the *cropped* boards until 23b
-    re-fits the sweeps**; a sweep re-run under `/crop1` follows the board
-    forward with no edit. **And a re-fit measures noise, never a bias every
-    seed shares**: 22a called MAE's `orientation` lead solid, and the crop fix
-    took it.
+    newest** (23a). `pinned_to_keys(corpus, sweep)` gives each consumer — the
+    seed-0 gate, the totals, 22a's placements, 22b's correlations — the cells
+    under the sweep's own keys. **23b re-fitted the nine timm columns of every
+    sweep under `/crop1`** and spliced them in with
+    `scripts/merge_sweep_refit.py`, which *replaces* rather than appends and
+    archives the cropped sweeps to `results/controls/pre23a/`; the consumers
+    followed with no edit. A sweep set spanning two keys for one backbone is
+    refused (`analyse_correlation_seeds`). **And a re-fit measures noise, never
+    a bias every seed shares**: 22a called MAE's `orientation` lead solid, and
+    the crop fix took it.
   - **The `depth` board is not ranking by metric accuracy** — it ranks ordering
     plus feature resolution and reports it in metres. Not a defect; it
     reproduces probe3d's protocol.
@@ -1228,27 +1233,33 @@ designed up front; extend it the same way, from a case that already runs.
   re-fit can** (20a-21b; every table is in `results/controls/README.md`, the
   derivation in `ENGINEERING_LOG.md`). **Re-run both rows under the same seeds
   and test the paired difference**: on the pose board a pair 1.58 apart is
-  solidly ordered while one 0.12 apart is **reversed**, and only 11% of the seed
+  solidly ordered while one 0.12 apart was **reversed** (on the cropped board), and only 11% of the seed
   variance is common-mode, so no function of the gap can carry the answer.
   **The gate is free**: the corpus cells are seed 0, so a sweep's seed-0 rows
   must reproduce them, or the sweep describes some adjacent configuration.
 
   **Every trained board is swept** (`results/controls/seeds/`, read with
-  `scripts/analyse_seeds.py <probe>`): **126 of 192 pairs ordered, 63 tied, 3
-  reversed** — reversals rare and marginal (|t| 2.90-3.15 against 2.776), not
-  absent, which 20b claimed and 20c refuted the next day. The unorderable
-  fraction is a property of the *board*, and on **11 of 16** boards the largest
+  `scripts/analyse_seeds.py <probe>`): **143 of 192 pairs ordered, 49 tied, 0
+  reversed** on the corrected boards (23b). The cropped boards had three
+  reversals, all marginal, and the crop fix ordered or tied every one — so
+  "no reversal" is a fact about these boards, not a law (20b claimed it, 20c
+  refuted it, 23b restored it for a different reason). The unorderable
+  fraction is a property of the *board*, and on **12 of 16** boards the largest
   unordered gap exceeds the smallest ordered one, so a threshold cannot exist
   there; a board's spread does not predict the count. **Totals here are
   recomputed from the committed sweeps** by `tests/results/test_sweep_totals.py`.
   **A sweep re-fits the published flags** (`SEEDS=5` on `build_corpus.sh`) and
   **must never reach the corpus** — `seed` is not in `comparability_key`.
   **"Reproduces the board" is per board** (exact for three, ~1e-7 to 3e-5 for
-  the dense ones, up to 2.5e-02 for `detection`, `instance_segmentation` and
+  the dense ones, up to 2.2e-02 for `detection`, `instance_segmentation` and
   `orientation`), and **`train_loss` is what separates a moved metric from a
-  moved configuration**. That is what held **`scene_classification`'s sweep
+  moved configuration** — to three figures, never bit-identical, and only to
+  ~1.6e-3 on `orientation`, whose fit is ill-conditioned like its metric. That is what held **`scene_classification`'s sweep
   out** (`results/controls/scene_classification_seeds.jsonl`): eleven seed-0
-  rows miss *with a different fit*. **20d: amplification, not hardware** — a
+  rows missed *with a different fit*. **23b's nine re-swept columns reproduce
+  it exactly, same fit**, and the four original columns still miss — so the
+  disagreement lives in the original sweep run, and re-sweeping those four is
+  the open lead. **20d: amplification, not hardware** — a
   trigger rather than a dose, so a disturbance too small to identify is
   sufficient and identifying it would change no number.
 
@@ -1706,9 +1717,9 @@ designed up front; extend it the same way, from a case that already runs.
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite **collects 2445 tests**, green on 2026-10-14 along with all three
+fast suite **collects 2486 tests**, green on 2026-10-14 along with all three
 lint steps, mypy and the `-W` docs build; the slow suite is **116**, last fully
-green on `main` on 2026-09-11. Earlier fast counts, for dating a claim: 2433 at
+green on `main` on 2026-09-11. Earlier fast counts, for dating a claim: 2445 at 23a, 2433 at
 22c, 2414 at 22b, 2397 at 21b, 2304 at v0.23.0, 1824 at the oracle gate — keep
 that list to a handful. **Quote the collected count, not "N passed"**: the skip
 count depends on which extras are installed (3 on CI, 8 on `.venv`, 0 with
@@ -2019,7 +2030,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 2445 fast tests
+pytest                                              # 2486 fast tests
 pytest -m slow                                      # 116, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/
