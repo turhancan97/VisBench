@@ -1119,6 +1119,12 @@ Resolution accounts for **21%** of DINOv2-B's lead on `generic_segmentation`
 and **7%** on `depth`. On the other three DINOv2-B never led — `mae_vitb16` is
 ahead on all of them — so there was no lead to explain.
 
+> **Since 23a the corpus is full-frame, and `generic_segmentation` is no longer
+> a DINOv2-B lead**: `dino_vitb8` reads 0.7623 against its 0.7556, so the 21%
+> has no lead to be a share of. `depth` is the one board the confound is still
+> about, at **6.5%** against `mae_vitb16`'s corrected 0.6930.
+> `tests/results/test_resolution_control.py` pins both.
+
 **Two limits to carry with the number.** The control spans 256 to 196 tokens,
 about 1.3x, while the corpus correlation spans 49 to 256, about 5x: it bounds
 the slope where the DINOv2-versus-ViT-B/16 comparison actually lives, and says

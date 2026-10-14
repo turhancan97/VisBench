@@ -27,6 +27,11 @@ exactly as for the published cell. Constructing it here instead would put the
 random init outside the seeded window and every trained number would move for
 a reason no record carries.
 
+**Since 23a the default is full-frame**, so this script now exists to
+reproduce 22c rather than to change anything: ``--gate`` asks for the legacy
+crop explicitly (``crop_pct=None`` under the variant's own name) and still
+reproduces a pre-23a cell; the full-frame rows match the new default's key.
+
 **The gate is free and the rest is void without it.** ``--gate`` runs the
 published name through the same path; it must reproduce the corpus cell to
 that board's reproducibility floor, or this script is not re-running what the
@@ -61,6 +66,20 @@ SUFFIX = "_fullframe"
 #: covered without an edit; `dinov2_vitb14_196` and the open_clip rows are
 #: not timm and already preprocess with a no-op.
 TIMM_COLUMNS = tuple(sorted(_VARIANTS))
+
+
+def register_legacy(variant: str) -> str:
+    """Register the pre-23a crop under the variant's own name, in-process only.
+
+    Since 23a the published name preprocesses full-frame, so a gate that must
+    reproduce a pre-23a cell has to ask for the checkpoint's crop explicitly.
+    The record it writes carries the variant's name and the legacy key, exactly
+    as the published cell does.
+    """
+    alias = f"{variant}_legacycrop"
+    if alias not in visbench.list_backbones():
+        register_backbone(alias, variant=variant, crop_pct=None, name=variant)(TimmBackbone)
+    return alias
 
 
 def register_fullframe(variant: str) -> str:
@@ -101,16 +120,16 @@ def check(variants: tuple[str, ...]) -> int:
 
     Three things, each of which would make the control measure something else:
     preprocessing must be an exact no-op on an image already at the working
-    size; the cache key must differ from the published one, or the published
-    (cropped) features would be served from cache; and the default must still
-    crop, or the change has leaked into the published configuration.
+    size; the cache key must differ from the legacy one, or the pre-23a
+    (cropped) features would be served from cache; and the legacy crop must
+    still crop, or the gate could no longer reproduce a pre-23a cell.
     """
     cols = np.tile(np.arange(224, dtype=np.uint8)[None, :, None], (224, 1, 3))
     image = Image.fromarray(cols)
     failed = 0
     for variant in variants:
         full = visbench.get_backbone(register_fullframe(variant), device="cpu")
-        default = visbench.get_backbone(variant, device="cpu")
+        default = visbench.get_backbone(register_legacy(variant), device="cpu")
         assert full.image_size == default.image_size == 224, (variant, full.image_size)
         same = full.preprocess(image)
         reference = default.preprocess(image)
@@ -124,7 +143,7 @@ def check(variants: tuple[str, ...]) -> int:
         failed += not ok
         print(
             f"{variant:20s} no-op={no_op} keys_differ={keys_differ} "
-            f"default_still_crops={still_crops}  {full.cache_key()}"
+            f"legacy_still_crops={still_crops}  {full.cache_key()}"
         )
     print("check passed" if not failed else f"check FAILED on {failed}")
     return 1 if failed else 0
@@ -135,7 +154,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("probes", nargs="*")
     parser.add_argument("--backbones", nargs="+", default=list(TIMM_COLUMNS))
     parser.add_argument("--results", type=Path)
-    parser.add_argument("--gate", action="store_true", help="run the published name instead")
+    parser.add_argument(
+        "--gate", action="store_true", help="run the pre-23a crop under the published name"
+    )
     parser.add_argument("--check", action="store_true", help="verify the mechanism; run nothing")
     args = parser.parse_args(argv)
 
@@ -154,8 +175,8 @@ def main(argv: list[str] | None = None) -> int:
     for probe in args.probes:
         for variant in args.backbones:
             cli_argv = corpus_command(probe, variant, args.results)
-            if not args.gate:
-                cli_argv[cli_argv.index("--backbone") + 1] = register_fullframe(variant)
+            alias = register_legacy(variant) if args.gate else register_fullframe(variant)
+            cli_argv[cli_argv.index("--backbone") + 1] = alias
             print("=== " + " ".join(cli_argv), flush=True)
             code = cli_main(cli_argv)
             failed += code != 0

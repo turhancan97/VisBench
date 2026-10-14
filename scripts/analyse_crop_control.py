@@ -84,8 +84,79 @@ def _records(paths: list[Path]) -> list[dict]:
 
 
 def published() -> dict[tuple[str, str], dict]:
-    """The corpus cell per (task, backbone); file order, so the newest wins."""
-    return {(r["task"], r["backbone"]): r for r in _records([CORPUS])}
+    """The pre-23a cell per (task, backbone); file order, so the newest wins.
+
+    Records under a corrected key (``.../crop1``, 23a) are skipped, so this
+    keeps meaning "what was published before the fix" after the corrected
+    records are merged beside the old ones.
+    """
+    return {
+        (r["task"], r["backbone"]): r
+        for r in _records([CORPUS])
+        if not r["backbone_key"].endswith("/crop1")
+    }
+
+
+def rerun_report(paths: list[Path], control: list[dict], cells: dict) -> bool:
+    """Gate and summarise a staged 23a re-run before it is merged.
+
+    Every record must carry a corrected key, a V100 and a fit. On the four
+    boards 22c measured, each must reproduce the control's full-frame value --
+    the same code path, so a miss means something else moved. Then, per board,
+    what the correction changes: the old and new headline, and the leader.
+    """
+    rerun = _records(paths)
+    full = {
+        (r["task"], r["backbone"].removesuffix(SUFFIX)): r
+        for r in control
+        if r["backbone"].endswith(SUFFIX)
+    }
+    print(f"=== 23a re-run: {len(rerun)} staged records ===")
+    ok = True
+    for record in rerun:
+        problems = []
+        if not record["backbone_key"].endswith("/crop1"):
+            problems.append(f"key {record['backbone_key']}")
+        if "V100" not in ((record.get("hardware") or {}).get("gpu") or ""):
+            problems.append(f"gpu {(record.get('hardware') or {}).get('gpu')}")
+        if record["task"] not in ("retrieval", "correspondence", "similarity") and not record.get(
+            "training"
+        ):
+            problems.append("no training block")
+        if problems:
+            ok = False
+            print(f"  BAD {record['task']}/{record['backbone']}: {', '.join(problems)}")
+
+    print("\n  the gate: re-run vs 22c's full-frame control, same code path")
+    for record in sorted(rerun, key=lambda r: (r["task"], r["backbone"])):
+        twin = full.get((record["task"], record["backbone"]))
+        if twin is None:
+            continue
+        delta = headline(record) - headline(twin)
+        passed = abs(delta) <= GATE_TOLERANCE
+        ok &= passed
+        if not passed:
+            print(f"    MISS {record['task']:22s} {record['backbone']:18s} {delta:+.2e}")
+    gated = sum(1 for r in rerun if (r["task"], r["backbone"]) in full)
+    print(f"    {gated} records gated, {'all within' if ok else 'NOT all within'} {GATE_TOLERANCE}")
+
+    print("\n  per board: what the correction changes")
+    by_task: dict[str, dict[str, dict]] = defaultdict(dict)
+    for record in rerun:
+        by_task[record["task"]][record["backbone"]] = record
+    for task in sorted(by_task):
+        board = {b: oriented(task, headline(r)) for (t, b), r in cells.items() if t == task}
+        new = dict(board)
+        for backbone, record in by_task[task].items():
+            new[backbone] = oriented(task, headline(record))
+        rho = correlates.spearman(board, new)
+        lead_old, lead_new = max(board, key=board.get), max(new, key=new.get)
+        moved = sum(1 for b in board if correlates.ranks(board)[b] != correlates.ranks(new)[b])
+        change = "" if lead_old == lead_new else f"  leader {lead_old} -> {lead_new}"
+        print(
+            f"    {task:28s} rows {len(by_task[task])}/9  rho {rho:+.3f}  moved {moved:2d}{change}"
+        )
+    return ok
 
 
 def headline(record: dict) -> float:
@@ -170,7 +241,19 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="control JSONL files; default: the committed crop_control.jsonl, else the parts",
     )
+    parser.add_argument(
+        "--rerun",
+        type=Path,
+        default=None,
+        help="a staged 23a parts directory to gate and summarise before merging",
+    )
     args = parser.parse_args(argv)
+    if args.rerun is not None:
+        staged = sorted(args.rerun.glob("*.jsonl"))
+        if not staged:
+            print(f"no staged records under {args.rerun}", file=sys.stderr)
+            return 1
+        return 0 if rerun_report(staged, _records([CONTROL]), published()) else 1
     if args.control:
         paths = args.control
     elif CONTROL.is_file():

@@ -17,12 +17,13 @@ The full rules are in {doc}`how to read a board </guides/reading-a-board>`.
 The three that most often go wrong:
 
 **"Which backbone is best" is not a well-formed question against this corpus.**
-`mae_vitb16` is first on five of the twenty boards and last on five. A summary
+`mae_vitb16` is first on three of the twenty boards and last on five. A summary
 that picks a winner is discarding the result.
 
 **A count over a corpus is a fact about that corpus, not about a backbone.**
-Three of MAE's counts have moved without its features changing — twice because
-a column was added, once because a *board* was. Re-read a count off
+MAE's counts have moved three times without its features changing — twice because
+a column was added, once because a *board* was — and once more when the corpus
+removed a preprocessing error from nine of its columns (23a). Re-read a count off
 `LEADERBOARD.md` rather than out of prose, including the prose above.
 
 **A ceiling travels beside a score and must never be ranked on.** `ceiling_*`

@@ -42,13 +42,21 @@
 # different torch build -- and "half the corpus ran somewhere else" is not a
 # variable worth introducing into the first set of records anyone will rank.
 #SBATCH -p dgx
-#SBATCH --gpus=1
-#SBATCH --qos=quick
+# --gres, not --gpus, and qos=normal: since 2026-10 the scheduler refuses
+# `--gpus=1` on both quick and normal with QOSMaxGRESPerJob, while the identical
+# `--gres=gpu:1` request queues (22c).
+#SBATCH --gres=gpu:1
+# dgx1 accepts work and starves it (~600x slow; CLAUDE.md's node map). This
+# array ran there for minutes in 23a before the exclusion was noticed missing.
+#SBATCH --exclude=dgx1
+#SBATCH --qos=normal
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
 #SBATCH --ntasks=1
 #SBATCH --job-name=visbench-corpus
-#SBATCH --time=00:45:00
+# 90 minutes: the longest published cell (relative_pose) took 44.7, which a
+# 45-minute limit would kill on any slower node.
+#SBATCH --time=01:30:00
 #SBATCH --array=0-23%4
 #SBATCH --output=logs/corpus_%A_%a.log
 
@@ -227,8 +235,13 @@ backbone=${BACKBONE_LIST[$(( index % ${#BACKBONE_LIST[@]} ))]}
 # together can interleave or overwrite each other's lines. A corrupted corpus is
 # worse than no corpus: iter_records raises on the first bad line, and which
 # runs were lost is not recoverable from what remains.
-# mkdir -p results/corpus/parts
-RESULTS="results/corpus/parts/${probe}__${backbone}.jsonl"
+#
+# VISBENCH_PARTS_DIR stages a re-run apart from results/corpus/parts/, which is
+# an archive rather than a queue: merge_corpus.sh dedups by exact line and
+# cannot see a record held out on purpose, so a step merges only its own parts.
+PARTS_DIR=${VISBENCH_PARTS_DIR:-results/corpus/parts}
+mkdir -p "$PARTS_DIR"
+RESULTS="${PARTS_DIR}/${probe}__${backbone}.jsonl"
 
 source .venv/bin/activate
 

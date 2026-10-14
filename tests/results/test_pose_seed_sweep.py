@@ -28,7 +28,7 @@ from pathlib import Path
 
 import pytest
 
-from visbench.results.leaderboard import comparability_key
+from visbench.results.leaderboard import comparability_key, pinned_to_keys
 from visbench.results.schema import ResultRecord
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -58,10 +58,11 @@ def sweep() -> list[ResultRecord]:
 
 
 @pytest.fixture(scope="module")
-def board() -> dict[str, ResultRecord]:
-    """The published cell per backbone, newest wins, as `latest_per_backbone`."""
+def board(sweep) -> dict[str, ResultRecord]:
+    """The published cell per backbone, newest wins, as `latest_per_backbone`,
+    under the keys the sweep was fitted on (`pinned_to_keys`, 23a)."""
     cells: dict[str, ResultRecord] = {}
-    for record in _records(CORPUS):
+    for record in pinned_to_keys(_records(CORPUS), sweep):
         cells[record.backbone] = record
     return cells
 

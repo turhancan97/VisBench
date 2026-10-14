@@ -38,6 +38,7 @@ __all__ = [
     "is_context_metric",
     "latest_per_backbone",
     "metric_direction",
+    "pinned_to_keys",
     "rank",
     "ranking_disagreements",
     "shared_metrics",
@@ -572,6 +573,84 @@ def ranking_disagreements(
     return disagreements
 
 
+#: Backbone keys retired by a **correction**, mapped to the key that replaces
+#: them. The only way one backbone name may legitimately carry two keys.
+#:
+#: Every timm row before 23a was preprocessed with its checkpoint's eval crop on
+#: top of the dataset's own, so its features covered the central 87.5-95% of a
+#: frame whose target spanned all of it (22c). 23a made ``crop_pct=1.0`` the
+#: default, which moves the key, and re-ran those columns. The corpus is
+#: append-only, so the old records stay in the file; this table is what lets a
+#: board read the new one without the two-keys guard firing -- and **only** for
+#: these pairs. An unlisted key change still raises, so this is not a general
+#: escape hatch: a new entry is a claim that the old measurement was *wrong*,
+#: not merely different, and must say which step showed it.
+SUPERSEDED_KEYS: dict[str, str] = {
+    f"timm/{model}/224": f"timm/{model}/224/crop1"
+    for model in (
+        "convnext_base/fb_in1k",
+        "resnet18/a1_in1k",
+        "resnet50/a1_in1k",
+        "vit_base_patch16_224/mae",
+        "vit_base_patch16_224/dino",
+        "vit_base_patch8_224/dino",
+        "vit_base_patch16_224/sam_in1k",
+        "vit_base_patch16_224/augreg_in1k",
+        "vit_base_patch16_siglip_gap_224/webli",
+    )
+}
+
+
+def drop_superseded(records: Iterable[ResultRecord]) -> list[ResultRecord]:
+    """Remove records whose key a listed correction replaced, **if** the
+    replacement is present under the same backbone name.
+
+    A superseded record with no replacement beside it is kept: until a column
+    has been re-run, its old measurement is the only one there is, and dropping
+    it would delete the row rather than correct it.
+    """
+    records = list(records)
+    present = {(record.backbone, record.backbone_key) for record in records}
+    return [
+        record
+        for record in records
+        if not (
+            record.backbone_key in SUPERSEDED_KEYS
+            and (record.backbone, SUPERSEDED_KEYS[record.backbone_key]) in present
+        )
+    ]
+
+
+def pinned_to_keys(
+    records: Iterable[ResultRecord], reference: Iterable[ResultRecord]
+) -> list[ResultRecord]:
+    """The records as a control fitted against them saw them.
+
+    For every ``(task, backbone)`` the ``reference`` records carry -- a seed
+    sweep, say -- keep only the records under the reference's own
+    ``backbone_key``; every other record passes through. A sweep fitted before a
+    listed correction (:data:`SUPERSEDED_KEYS`) is then compared with the cells
+    it re-fitted rather than with their replacements, and a sweep re-run under
+    the corrected key follows the board forward without an edit.
+
+    Raises if the reference carries two keys for one ``(task, backbone)``,
+    since there would be no single board it was fitted against.
+    """
+    keys: dict[tuple[str, str], str] = {}
+    for record in reference:
+        cell = (record.task, record.backbone)
+        if keys.setdefault(cell, record.backbone_key) != record.backbone_key:
+            raise ValueError(
+                f"{cell} carries two backbone keys in the reference: "
+                f"{keys[cell]} and {record.backbone_key}"
+            )
+    return [
+        record
+        for record in records
+        if keys.get((record.task, record.backbone), record.backbone_key) == record.backbone_key
+    ]
+
+
 def latest_per_backbone(records: Iterable[ResultRecord]) -> list[ResultRecord]:
     """One record per backbone, keeping the newest by ``timestamp``.
 
@@ -597,10 +676,14 @@ def latest_per_backbone(records: Iterable[ResultRecord]) -> list[ResultRecord]:
         replaced by a different measurement wearing its name, which is the one
         failure a leaderboard cannot be allowed to have. Give the second
         configuration its own name -- every backbone constructor takes one.
+
+        The one exception is a key retired by a listed correction
+        (:data:`SUPERSEDED_KEYS`): its records are dropped first, when the
+        replacement is present, so the board shows the corrected measurement.
     """
     newest: dict[str, ResultRecord] = {}
     keys: dict[str, str] = {}
-    for record in records:
+    for record in drop_superseded(records):
         seen = keys.setdefault(record.backbone, record.backbone_key)
         if seen != record.backbone_key:
             raise ValueError(

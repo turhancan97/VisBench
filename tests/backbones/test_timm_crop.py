@@ -2,18 +2,18 @@
 
 Every VisBench dataset resizes and centre-crops to the working size before a
 backbone sees an image. A timm backbone then applies its checkpoint's eval
-transform -- resize to ``size / crop_pct``, crop ``size`` -- so at the default
-``crop_pct`` it crops a **second** time. The control re-runs the timm rows with
-``crop_pct=1.0``.
+transform -- resize to ``size / crop_pct``, crop ``size`` -- so at the
+checkpoint's ``crop_pct`` it crops a **second** time (22c). Since 23a the
+default is ``crop_pct=1.0``, a no-op on a dataset-cropped image.
 
 Three things must stay true, and each fails silently rather than loudly:
 
-- **the default key must not move**, or every published timm record stops
-  matching its cache on every machine and every timm cell re-extracts;
-- **an override must move the key**, or the full-frame run is served the
-  published (cropped) features from cache and measures nothing;
-- **an override must carry its own name**, or ``latest_per_backbone`` evicts
-  the published row it was built to be compared against.
+- **the legacy key must not move**, or ``crop_pct=None`` stops reproducing the
+  pre-23a records that still sit in the append-only corpus;
+- **the full-frame key must differ from it**, or the corrected run is served the
+  cropped features from cache and measures nothing;
+- **a non-default crop must carry its own name**, or ``latest_per_backbone``
+  sees one name under two keys that no listed correction explains.
 
 The fast suite has no timm (CI installs ``.[dev]``), so these exercise the pure
 helper and a key computed on an instance built without ``__init__``. The
@@ -21,9 +21,11 @@ pixel-level claim -- that ``crop_pct=1.0`` is an exact no-op on a 224px image --
 needs real timm transforms and is made by ``run_crop_control.py --check``.
 """
 
+import inspect
+
 import pytest
 
-from visbench.backbones.timm_backbone import TimmBackbone, eval_config
+from visbench.backbones.timm_backbone import DEFAULT_CROP_PCT, TimmBackbone, eval_config
 
 _CONVNEXT = {
     "input_size": (3, 224, 224),
@@ -72,11 +74,17 @@ class TestEvalConfig:
 
 
 class TestTheKey:
-    def test_the_default_key_is_byte_identical_to_the_published_one(self):
-        """Pinned as a literal: this is the key every timm record carries."""
+    def test_the_legacy_crop_keeps_the_pre_23a_key_byte_for_byte(self):
+        """Pinned as a literal: every timm record before 23a carries it, and
+        ``crop_pct=None`` is how those records stay reproducible."""
         assert _keyed(None).cache_key() == "timm/convnext_base/fb_in1k/224"
 
-    def test_an_override_moves_the_key(self):
+    def test_the_default_key_is_the_one_supersession_names(self):
+        from visbench.results.leaderboard import SUPERSEDED_KEYS
+
+        assert _keyed(DEFAULT_CROP_PCT).cache_key() == SUPERSEDED_KEYS[_keyed(None).cache_key()]
+
+    def test_the_full_frame_key_differs_from_the_legacy_one(self):
         assert _keyed(1.0).cache_key() == "timm/convnext_base/fb_in1k/224/crop1"
         assert _keyed(1.0).cache_key() != _keyed(None).cache_key()
 
@@ -84,7 +92,20 @@ class TestTheKey:
         assert _keyed(1.0).cache_key() != _keyed(0.95).cache_key()
 
 
-def test_an_override_without_a_name_is_refused_before_any_download():
-    """The guard fires before timm is imported, so it is fast and offline."""
+def test_the_default_is_the_full_frame():
+    """23a: preprocessing is a no-op on a dataset-cropped image unless asked."""
+    assert DEFAULT_CROP_PCT == 1.0
+    default = inspect.signature(TimmBackbone.__init__).parameters["crop_pct"].default
+    assert default == DEFAULT_CROP_PCT
+
+
+@pytest.mark.parametrize("crop_pct", [None, 0.875])
+def test_a_non_default_crop_without_a_name_is_refused_before_any_download(crop_pct):
+    """The guard fires before timm is imported, so it is fast and offline.
+
+    ``None`` is included deliberately: the legacy crop reproduces published
+    records, and under the variant's own name it would collide with the
+    corrected row that now carries that name.
+    """
     with pytest.raises(ValueError, match="distinct name"):
-        TimmBackbone(variant="convnext_base", crop_pct=1.0)
+        TimmBackbone(variant="convnext_base", crop_pct=crop_pct)

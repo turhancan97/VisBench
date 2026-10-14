@@ -27,7 +27,12 @@ from pathlib import Path
 
 import pytest
 
-from visbench.results.leaderboard import comparability_key, group_comparable, latest_per_backbone
+from visbench.results.leaderboard import (
+    comparability_key,
+    group_comparable,
+    latest_per_backbone,
+    pinned_to_keys,
+)
 from visbench.results.render import HEADLINE_METRICS
 from visbench.results.schema import ResultRecord
 from visbench.results.writer import iter_records
@@ -86,9 +91,11 @@ def _records(path: Path) -> list[ResultRecord]:
     return list(iter_records(path))
 
 
-def _board(task: str) -> dict[str, ResultRecord]:
-    """The published cell per backbone, grouped as `LEADERBOARD.md` groups them."""
-    groups = group_comparable([r for r in iter_records(CORPUS) if r.task == task])
+def _board(task: str, sweep: list[ResultRecord]) -> dict[str, ResultRecord]:
+    """The published cell per backbone, grouped as `LEADERBOARD.md` groups them,
+    under the keys the sweep was fitted on (`pinned_to_keys`, 23a)."""
+    corpus = [r for r in iter_records(CORPUS) if r.task == task]
+    groups = group_comparable(pinned_to_keys(corpus, sweep))
     assert len(groups) == 1, f"{task} has {len(groups)} comparability groups in the corpus"
     (group,) = groups.values()
     return {cell.backbone: cell for cell in latest_per_backbone(group)}
@@ -114,12 +121,13 @@ def test_a_sweep_holds_one_probe():
 def test_every_seed_zero_row_reproduces_its_published_cell(path):
     """The gate. A disagreement here voids every other seed in the file."""
     task = path.stem
-    board = _board(task)
+    sweep = _records(path)
+    board = _board(task, sweep)
     metric = HEADLINE_METRICS[task]
     tolerance = SEED_ZERO_TOLERANCE.get(task, 0.0)
 
     checked = 0
-    for record in _records(path):
+    for record in sweep:
         if record.seed != 0:
             continue
         published = board.get(record.backbone)
@@ -147,8 +155,9 @@ def test_a_sweep_shares_its_boards_comparability_group(path):
     has stopped re-fitting the published configuration. Either way this file and
     `results/controls/README.md` need rewriting, so fail loudly.
     """
-    board = _board(path.stem)
-    for record in _records(path):
+    sweep = _records(path)
+    board = _board(path.stem, sweep)
+    for record in sweep:
         published = board.get(record.backbone)
         assert published is not None
         assert comparability_key(record) == comparability_key(published), (

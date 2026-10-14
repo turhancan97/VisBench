@@ -46,18 +46,18 @@ separate those classes.
 | backbone | `top1` | `top5` |
 | --- | --- | --- |
 | `convnext_base` | **0.9997** | **1.0000** |
-| `resnet50` | 0.9980 | 0.9997 |
+| `resnet50` | 0.9982 | **1.0000** |
+| `supervised_vitb16` | 0.9980 | 0.9995 |
+| `sam_vitb16` | 0.9977 | **1.0000** |
 | `dinov2_vitb14` | 0.9975 | **1.0000** |
-| `sam_vitb16` | 0.9972 | **1.0000** |
-| `supervised_vitb16` | 0.9972 | 0.9997 |
 | `clip_vitb16` | 0.9954 | 0.9997 |
+| `dino_vitb8` | 0.9949 | **1.0000** |
+| `siglip_vitb16` | 0.9946 | **1.0000** |
 | `dinov2_vits14` | 0.9939 | 0.9997 |
-| `dino_vitb8` | 0.9939 | 0.9995 |
-| `siglip_vitb16` | 0.9936 | 0.9995 |
-| `dino_vitb16` | 0.9931 | 0.9997 |
+| `dino_vitb16` | 0.9934 | 0.9997 |
 | `clip_vitb32` | 0.9921 | 0.9992 |
-| `resnet18` | 0.9888 | 0.9995 |
-| `mae_vitb16` | 0.9582 | 0.9985 |
+| `resnet18` | 0.9888 | 0.9992 |
+| `mae_vitb16` | 0.9600 | 0.9982 |
 
 Ordered by `top1`, which **disagrees with `top5`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
 

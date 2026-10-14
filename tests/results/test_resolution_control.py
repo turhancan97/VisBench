@@ -118,47 +118,49 @@ def test_matching_the_grid_costs_dinov2_under_three_percent():
         assert relative < 0.03, f"{task} moved {relative:.1%}, which the write-up denies"
 
 
-def test_dinov2_keeps_its_lead_on_the_boards_it_led(corpus):
-    """A minority of the lead on both boards -- not all of it, and not none.
+def _board(corpus, task: str, metric: str) -> dict[str, float]:
+    """The published cells, as the board reads them (newest, superseded dropped)."""
+    return {
+        r.backbone: r.metrics[metric]
+        for r in latest_per_backbone(r for r in corpus if r.task == task)
+    }
 
-    These are the only two boards where DINOv2-B led, and therefore the only
-    two where the confound was ever real. `mae_vitb16` is ahead on the other
-    three, so there was no lead for resolution to explain.
 
-    **The fraction is a fact about the corpus, not about DINOv2, and it moved
-    when the corpus gained a column** (2026-09-16). It was 21% on
-    `generic_segmentation` and 7% on `depth`; adding `dino_vitb8` made a
-    *fine-grid non-DINOv2* available as a rival, and on
-    `generic_segmentation` it is the best one (0.7064 against
-    `dino_vitb16`'s 0.6838). A nearer rival is a smaller denominator, so the
-    same numerator explains **30%**. `depth` is unchanged at 7% because
-    `mae_vitb16` (0.6945) still leads the rivals there.
+def test_dinov2_keeps_its_lead_on_the_board_it_still_leads(corpus):
+    """A minority of the lead -- not all of it, and not none.
 
-    So the band asserts the *property* rather than the value: resolution
-    explains a real but minority share. Widening it to fit one number would
-    make it stop guarding; the upper bound is 0.5 because "most of the lead"
-    is the claim that would actually overturn the finding.
+    **The fraction is a fact about the corpus, not about DINOv2, and it has
+    moved twice.** It was 21% on `generic_segmentation` and 7% on `depth`;
+    adding `dino_vitb8` (2026-09-16) made a fine-grid non-DINOv2 the nearest
+    rival on `generic_segmentation` and the same numerator explained 30%. Then
+    23a removed the timm double crop, and that rival (0.7623) now sits *above*
+    DINOv2-B's 0.7556 -- so there is no lead left there for resolution to
+    explain, and `depth` (now 6.5%, against `mae_vitb16`) is the one board the
+    confound is still about.
+
+    The band asserts the *property*: resolution explains a real but minority
+    share. The upper bound is 0.5 because "most of the lead" is the claim that
+    would actually overturn the finding.
     """
-    for task, metric, rival in (
-        # The rival is pinned by NAME as well as value, so the fraction cannot
-        # quietly change what it is a fraction OF. It changed on 2026-09-16:
-        # `dino_vitb8` (0.7064) overtook `dino_vitb16` (0.6838) here, which is
-        # itself part of the grid finding -- a finer grid helped on this board.
-        ("generic_segmentation", "iou", "dino_vitb8"),
-        ("depth", "d1", "mae_vitb16"),
-    ):
-        _, at224, at196 = MEASURED[task]
-        best_rival = max(
-            r.metrics[metric]
-            for r in corpus
-            if r.task == task and not r.backbone.startswith("dinov2")
-        )
-        assert at196 > best_rival, f"{task}: the control fell into the pack"
-        explained = (at224 - at196) / (at224 - best_rival)
-        assert 0.05 < explained < 0.5, f"{task}: grid explains {explained:.0%}"
-        assert best_rival == max(
-            r.metrics[metric] for r in corpus if r.task == task and r.backbone == rival
-        )
+    task, metric, rival = "depth", "d1", "mae_vitb16"
+    _, at224, at196 = MEASURED[task]
+    board = _board(corpus, task, metric)
+    best_rival = max(v for b, v in board.items() if not b.startswith("dinov2"))
+    assert at196 > best_rival, f"{task}: the control fell into the pack"
+    explained = (at224 - at196) / (at224 - best_rival)
+    assert 0.05 < explained < 0.5, f"{task}: grid explains {explained:.0%}"
+    # The rival is pinned by NAME as well as value, so the fraction cannot
+    # quietly change what it is a fraction OF.
+    assert best_rival == board[rival]
+
+
+def test_generic_segmentation_is_no_longer_a_dinov2_lead(corpus):
+    """23a: the full-frame `dino_vitb8` overtakes DINOv2-B, so the resolution
+    control has no lead to explain on this board. If this fails, the corpus has
+    moved again and `CORPUS_FINDINGS.md`'s resolution entry needs rereading."""
+    board = _board(corpus, "generic_segmentation", "iou")
+    assert max(board, key=board.get) == "dino_vitb8"
+    assert board["dino_vitb8"] > MEASURED["generic_segmentation"][1]
 
 
 def test_every_control_record_names_a_distinct_backbone():

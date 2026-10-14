@@ -9,8 +9,9 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
-**Nine of the thirteen corpus columns were measured on a frame cropped twice,
-and this release measures how much that matters before changing anything** (22c).
+**Nine of the thirteen corpus columns were measured on a frame cropped twice.
+This release measures how much that matters (22c) and then corrects the corpus
+(23a): published numbers move on nine columns, and four boards change leader.**
 
 ### Found
 
@@ -26,11 +27,8 @@ and this release measures how much that matters before changing anything** (22c)
 
 ### Added
 
-- **`TimmBackbone(crop_pct=..., name=...)`**, an opt-in that removes the second
-  crop. The default is untouched — every published timm cache key is
-  byte-identical, pinned by a test — and an override moves the key (`.../crop1`)
-  and requires a distinct name, so it can neither be served the published
-  features nor evict the published row.
+- **`TimmBackbone(crop_pct=..., name=...)`**. Added by 22c as an opt-in that
+  removes the second crop; **23a made the full frame the default** (below).
 - **The control** (`results/controls/crop_control.jsonl`,
   `scripts/run_crop_control.py`, `slurm/crop_control.sbatch`,
   `scripts/analyse_crop_control.py`): the nine timm columns on four boards
@@ -49,9 +47,34 @@ and this release measures how much that matters before changing anything** (22c)
   `dino_vitb16` on `edge` is +0.0985 without the crop, against +0.0007
   published.
 
-**No published number has changed.** The corpus and every generated table are
-as they were; `CORPUS_FINDINGS.md` flags the affected readings as provisional.
-Re-running the nine columns is the decision this release leaves open.
+### Changed — the corpus is corrected (23a)
+
+- **`TimmBackbone` defaults to `crop_pct=1.0`**: preprocessing is now a no-op on
+  a dataset-cropped image, as it already was for DINOv2 and open_clip. The
+  cache key gains `/crop1` (`timm/convnext_base/fb_in1k/224/crop1`), so no
+  cropped feature can be served in its place. `crop_pct=None` restores the
+  checkpoint's crop and reproduces a pre-23a cell; it, and any other
+  non-default value, requires a distinct `name`.
+- **All 180 timm cells re-run and appended** (598 records, still 260 board
+  cells). `SUPERSEDED_KEYS` in `visbench.results.leaderboard` lets each
+  `.../crop1` record replace its old key under the same name — only for the
+  nine listed pairs; any other key change still raises. Every cell was gated
+  before the merge (`scripts/analyse_crop_control.py --rerun`): corrected key,
+  V100, a training block, and the 36 cells overlapping 22c's control within
+  1e-4.
+- **Four boards change leader, all to `dino_vitb8`**: `edge`,
+  `generic_segmentation`, `keypoints2d`, `orientation`. `mae_vitb16` is now
+  first on three boards, not five; `resnet18` is last on nine. Board orderings
+  otherwise mostly hold (Spearman +0.93 to +1.00 before against after).
+- **`detection` scores lower without the crop** (timm ViTs −6%, CNNs −12.5%),
+  under an identical configuration — the one board that moves the other way.
+  Measured, not explained.
+- **The seed sweeps have not been re-fitted.** The 20a-22b audits are read
+  against the boards they were fitted on, through the new
+  `leaderboard.pinned_to_keys`, so they still describe the cropped boards; 23b
+  re-fits them. `test_resolution_control.py` now reads the board as rendered
+  rather than every record, and `generic_segmentation` is no longer a DINOv2-B
+  lead.
 
 ### Fixed
 

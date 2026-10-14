@@ -82,6 +82,7 @@ step is next rather than attempting the whole roadmap in one session.
 | 22a | The rankings audited: which placements a re-fit actually supports | done |
 | 22b | The correlations audited: which board-pair readings a re-fit supports | done |
 | 22c | The timm double crop, measured: nine columns read a misregistered frame | done |
+| 23a | The crop fixed: timm defaults to the full frame, and nine columns re-run | done |
 
 **A closed step's full write-up lives in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md), not here.** That file is the archive
@@ -135,15 +136,17 @@ precedent for shipping one: **v0.7.0** (contributor-facing) and **v0.16.0**
 (documentation). **v0.6.1** is the other one to know — it corrects a
 correspondence board that shipped ranked upside down; see step 6f.
 
-**The corpus file is 418 records resolving to 260 board cells** — twenty
+**The corpus file is 598 records resolving to 260 board cells** — twenty
 boards, thirteen backbones a board. The two numbers differ because the corpus
 is **append-only** and re-runs have appended beside records they supersede:
 0.15.0 re-ran the five low-level boards for their `ceiling_*`, the
 schema-v8 `training` re-run (2026-09-10) re-ran the eight trained boards that
 predated that field, with three cells of it landing on 2026-09-11, and
-`dino_vitb8`'s two smoke-test cells were re-run inside its own array.
+`dino_vitb8`'s two smoke-test cells were re-run inside its own array;
+**23a appended 180** — the nine timm columns re-run full-frame under
+`.../crop1` keys, which `SUPERSEDED_KEYS` lets replace the old ones.
 `latest_per_backbone` picks the newest. Quote 260 for
-coverage and 418 only for the file, and re-read both off `LEADERBOARD.md` and
+coverage and 598 only for the file, and re-read both off `LEADERBOARD.md` and
 `wc -l` rather than from here.
 
 Two standing consequences of that history, both of which have already cost a
@@ -784,13 +787,13 @@ designed up front; extend it the same way, from a case that already runs.
   `scripts/merge_corpus.sh`.
 
   - **"Which backbone is best" is not well-formed against this corpus.**
-    `mae_vitb16` is first on **five** of the twenty boards and last on five —
-    a count that was six at twelve backbones and four at thirteen, which is the
-    next rule rather than an aside.
+    `mae_vitb16` is first on **three** of the twenty boards and last on five —
+    a count that was six at twelve backbones, four at thirteen, five before
+    23a's crop fix, which is the next rule rather than an aside.
   - **A count over a corpus is a fact about that corpus, not a backbone.**
     Re-read counts off `LEADERBOARD.md`.
   - **A placement is not automatically a result** (22a;
-    `scripts/analyse_placements.py`). **17 of 20 first places and 13 of 20 last
+    `scripts/analyse_placements.py`; **on the pre-23a boards**, until 23b). **17 of 20 first places and 13 of 20 last
     places survive a paired re-fit.** Three leads do not — `edge` at **t =
     +0.11**, a coin flip — and one published *last* place is reversed. So a
     count of placements weighs a coin flip the same as a twenty-sigma lead, and
@@ -798,7 +801,7 @@ designed up front; extend it the same way, from a case that already runs.
     most boards. Quote a lead with its verdict. Only three of `mae_vitb16`'s
     five firsts survive; the *pattern* both entries describe is untouched, since
     the boards it leads solidly are the ones the pattern is about.
-  - **A correlation is one draw too** (22b;
+  - **A correlation is one draw too** (22b, **pre-23a boards**;
     `scripts/analyse_correlation_seeds.py`, no GPU). On the seed sweeps a
     board-pair rho moves by a median 0.110 and 23 of 187 pairs change sign,
     none of them published at |rho| ≥ 0.5; the published draws are **not**
@@ -830,8 +833,10 @@ designed up front; extend it the same way, from a case that already runs.
     about what a representation carries** (`dino_vitb8`, 2026-09-16). **Its
     "the LINEAR board cannot see it" half is largely retracted by 22c**: that
     board was double-cropped (next bullet), and without the crop `edge`'s B/8
-    gap is +0.0985 rather than +0.0007. The text below is the 15a/15b reading,
-    kept as history until the boards are re-run. Quadrupling the grid at fixed objective, data,
+    gap is +0.0985 rather than +0.0007, and 23a's corrected boards show the
+    same on `corner` (+0.0864), `generic_segmentation` (+0.0541) and
+    `orientation` (3.86°). The text below is the 15a/15b reading, kept as
+    history. Quadrupling the grid at fixed objective, data,
     width and depth moves the published linear boards by a rounding error and
     the same probes under a DPT head by one to two orders of magnitude more —
     over one sibling pair, and over all ten ViTs (stronger under DPT on 4 of 5,
@@ -846,13 +851,28 @@ designed up front; extend it the same way, from a case that already runs.
     backbone's eval transform resizes to `224/crop_pct` and crops again, so 9
     of 13 columns see the central 87.5-95% of a frame whose target spans all
     of it; DINOv2/open_clip are a no-op. On four boards the timm ViTs were
-    understated by up to 32%, two boards change leader, and the finest grid
-    pays most. `TimmBackbone(crop_pct=1.0, name=...)` removes it; the default
-    is untouched, so **no published number has moved yet** — correcting the
-    corpus is its own decision. **Treat timm-vs-DINOv2/CLIP comparisons and
-    grid findings on dense boards as provisional**, and **check that a
+    understated by up to 32%, and the finest grid pays most. **Check that a
     "no-op" preprocess is one by pushing a coordinate-encoded image through
     it** — a docstring asserted it was, and nothing checked.
+  - **23a corrected the corpus**: `TimmBackbone` defaults to `crop_pct=1.0`
+    (key `timm/<model>/<tag>/224/crop1`), all 180 timm cells were re-run on a
+    V100 and gated against 22c's control, and `SUPERSEDED_KEYS` lets the new
+    key replace the old under the same name — **only for the nine listed
+    pairs**; any other key change still raises. `crop_pct=None` reproduces a
+    pre-23a cell and requires a distinct `name`. **Four boards change leader,
+    all to `dino_vitb8`** (`edge`, `generic_segmentation`, `keypoints2d`,
+    `orientation`), five change last place, and **`detection` gets *worse*
+    full-frame** (timm ViTs −6%, CNNs −12.5%, same config, slightly worse fit)
+    — measured, not explained. Numbers in `CORPUS_FINDINGS.md`.
+  - **A seed sweep is read against the board it was fitted on, not the
+    newest** (23a). Every sweep under `results/controls/` predates the fix, so
+    `pinned_to_keys(corpus, sweep)` gives each consumer — the seed-0 gate, the
+    totals, 22a's placements, 22b's correlations — the cells under the sweep's
+    own keys. **Those audits therefore describe the *cropped* boards until 23b
+    re-fits the sweeps**; a sweep re-run under `/crop1` follows the board
+    forward with no edit. **And a re-fit measures noise, never a bias every
+    seed shares**: 22a called MAE's `orientation` lead solid, and the crop fix
+    took it.
   - **The `depth` board is not ranking by metric accuracy** — it ranks ordering
     plus feature resolution and reports it in metres. Not a defect; it
     reproduces probe3d's protocol.
@@ -1786,10 +1806,10 @@ designed up front; extend it the same way, from a case that already runs.
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite **collects 2433 tests**, green on 2026-10-11 along with all three
+fast suite **collects 2445 tests**, green on 2026-10-14 along with all three
 lint steps, mypy and the `-W` docs build. The slow suite is **116** since
 16a-1, whose own slow test was run then; the other 115 were last green on
-`main` on 2026-09-11. Earlier fast counts, for dating a claim: 2414 at 22b, 2406 at 22a, 2397 at 21b, 2381 at 21a, 2362 at 20d,
+`main` on 2026-09-11. Earlier fast counts, for dating a claim: 2433 at 22c, 2414 at 22b, 2406 at 22a, 2397 at 21b, 2381 at 21a, 2362 at 20d,
 2304 at v0.23.0, 2301 at 20a, 2296 at 19b, 2281 at v0.21.0, 1824 at the oracle
 gate. **Keep that list to a handful** — it is one of the places this file
 accretes, and its only job is to date a claim.
@@ -2119,7 +2139,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 2433 fast tests
+pytest                                              # 2445 fast tests
 pytest -m slow                                      # 116, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/

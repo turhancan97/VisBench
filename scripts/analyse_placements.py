@@ -63,6 +63,7 @@ from visbench.results.leaderboard import (
     group_comparable,
     latest_per_backbone,
     metric_direction,
+    pinned_to_keys,
 )
 from visbench.results.render import HEADLINE_METRICS
 from visbench.results.schema import ResultRecord
@@ -147,8 +148,12 @@ def board_cells(corpus: list[ResultRecord], task: str, metric: str) -> dict[str,
 
 def audit() -> list[dict]:
     """One row per board: who is first and last, and whether either is repeatable."""
-    corpus = list(iter_records(CORPUS))
     available = sweeps()
+    # The boards as the sweeps were fitted against them: a sweep from before a
+    # listed correction (23a) is read beside the cells it re-fitted, not their
+    # replacements, or a placement would be tested against another board's noise.
+    fitted = [record for path in available.values() for record in iter_records(path)]
+    corpus = pinned_to_keys(iter_records(CORPUS), fitted)
     rows = []
     for task in sorted({record.task for record in corpus}):
         metric = HEADLINE_METRICS[task]

@@ -70,21 +70,21 @@ defines has no board until the data is pinned.
 
 | backbone | `top1` | `top5` |
 | --- | --- | --- |
-| `siglip_vitb16` | **0.8603** | **0.9687** |
+| `siglip_vitb16` | **0.8795** | **0.9776** |
 | `clip_vitb16` | 0.8074 | 0.9660 |
 | `dinov2_vitb14` | 0.7953 | 0.9509 |
 | `dinov2_vits14` | 0.7614 | 0.9370 |
 | `clip_vitb32` | 0.7327 | 0.9335 |
-| `sam_vitb16` | 0.6711 | 0.8831 |
-| `dino_vitb8` | 0.6480 | 0.8560 |
-| `resnet50` | 0.6221 | 0.8568 |
-| `dino_vitb16` | 0.6131 | 0.8501 |
-| `convnext_base` | 0.6005 | 0.8458 |
-| `resnet18` | 0.5199 | 0.7815 |
-| `supervised_vitb16` | 0.4578 | 0.7415 |
-| `mae_vitb16` | 0.4353 | 0.7134 |
+| `sam_vitb16` | 0.6871 | 0.8937 |
+| `dino_vitb8` | 0.6645 | 0.8762 |
+| `dino_vitb16` | 0.6557 | 0.8678 |
+| `resnet50` | 0.6302 | 0.8658 |
+| `convnext_base` | 0.6062 | 0.8606 |
+| `resnet18` | 0.5280 | 0.7922 |
+| `supervised_vitb16` | 0.4895 | 0.7707 |
+| `mae_vitb16` | 0.4358 | 0.7212 |
 
-Ordered by `top1`, which **disagrees with `top5`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
+Ordered by `top1`.
 
 <sub>vehicle_classification on val/val, protocol=visbench_vehicle_linear_probe, frozen [47c01df8]</sub>
 <!-- /visbench:board -->

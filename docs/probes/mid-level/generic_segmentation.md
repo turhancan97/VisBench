@@ -31,21 +31,21 @@ What `visbench show generic_segmentation` draws. {doc}`How to read it </guides/v
 
 | backbone | `iou` | `f1` | `pixel_acc` |
 | --- | --- | --- | --- |
-| `dinov2_vitb14` | **0.7556** | **0.8408** | **0.9360** |
+| `dino_vitb8` | **0.7623** | 0.8396 | 0.9237 |
+| `dinov2_vitb14` | 0.7556 | **0.8408** | **0.9360** |
 | `dinov2_vits14` | 0.7494 | 0.8338 | 0.9324 |
-| `dino_vitb8` | 0.7064 | 0.8015 | 0.9060 |
-| `dino_vitb16` | 0.6838 | 0.7835 | 0.8999 |
+| `dino_vitb16` | 0.7081 | 0.8020 | 0.9082 |
+| `sam_vitb16` | 0.6959 | 0.7907 | 0.9004 |
 | `clip_vitb16` | 0.6787 | 0.7818 | 0.9027 |
-| `sam_vitb16` | 0.6667 | 0.7687 | 0.8913 |
-| `mae_vitb16` | 0.6374 | 0.7384 | 0.8891 |
-| `supervised_vitb16` | 0.6195 | 0.7267 | 0.8839 |
+| `mae_vitb16` | 0.6773 | 0.7717 | 0.9001 |
+| `supervised_vitb16` | 0.6542 | 0.7534 | 0.8971 |
+| `siglip_vitb16` | 0.6345 | 0.7530 | 0.8854 |
 | `clip_vitb32` | 0.6019 | 0.7178 | 0.8793 |
-| `siglip_vitb16` | 0.5912 | 0.7172 | 0.8682 |
-| `convnext_base` | 0.5480 | 0.6732 | 0.8530 |
-| `resnet50` | 0.5475 | 0.6676 | 0.8646 |
-| `resnet18` | 0.5357 | 0.6597 | 0.8517 |
+| `convnext_base` | 0.5575 | 0.6811 | 0.8572 |
+| `resnet50` | 0.5422 | 0.6630 | 0.8628 |
+| `resnet18` | 0.5335 | 0.6581 | 0.8510 |
 
-Ordered by `iou`, which **disagrees with `pixel_acc`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
+Ordered by `iou`, which **disagrees with `f1`, `pixel_acc`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
 
 <sub>generic_segmentation on voc_binary/val, protocol=visbench_binary_seg, frozen [5c4cf9a6]</sub>
 <!-- /visbench:board -->
