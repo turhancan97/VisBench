@@ -133,7 +133,14 @@ def _fitted_keys(paths: dict[str, Path]) -> dict[tuple[str, str], str]:
     # A zero-shot board has no sweep -- its re-fit is exact -- so it is pinned to
     # the key the swept boards carry for the same backbone, and every board the
     # audit reads describes one corpus.
-    by_backbone = {backbone: key for (_, backbone), key in keys.items()}
+    by_backbone: dict[str, str] = {}
+    for (task, backbone), key in keys.items():
+        if by_backbone.setdefault(backbone, key) != key:
+            raise SystemExit(
+                f"error: {backbone} is swept under two keys ({by_backbone[backbone]} and "
+                f"{key}, the latter on {task}); a zero-shot board has no single corpus "
+                "to be pinned to. Re-fit every sweep before auditing (23b)."
+            )
     for task in ZERO_SHOT:
         for backbone, key in by_backbone.items():
             keys[(task, backbone)] = key
