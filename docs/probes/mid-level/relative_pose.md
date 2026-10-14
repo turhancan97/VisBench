@@ -123,21 +123,21 @@ backbone is about an hour and later ones are minutes.
 
 | backbone | `rotation_error_deg` | `rotation_median_deg` | `rotation_acc@30deg` | `floor_rotation_acc@30deg` | `floor_rotation_error_deg` | `floor_rotation_median_deg` |
 | --- | --- | --- | --- | --- | --- | --- |
-| `mae_vitb16` | **22.6984** | **14.9383** | **0.8046** | 0.1563 | 66.8464 | 65.6347 |
+| `mae_vitb16` | **20.2666** | **13.3514** | **0.8500** | 0.1563 | 66.8464 | 65.6347 |
 | `dinov2_vits14` | 25.3698 | 16.5657 | 0.7690 | 0.1563 | 66.8464 | 65.6347 |
-| `dino_vitb8` | 27.0987 | 16.5571 | 0.7437 | 0.1563 | 66.8464 | 65.6347 |
-| `dino_vitb16` | 29.0404 | 18.7155 | 0.7023 | 0.1563 | 66.8464 | 65.6347 |
+| `dino_vitb8` | 26.7781 | 16.4391 | 0.7379 | 0.1563 | 66.8464 | 65.6347 |
 | `dinov2_vitb14` | 29.0808 | 18.0390 | 0.7115 | 0.1563 | 66.8464 | 65.6347 |
-| `sam_vitb16` | 35.0188 | 22.6655 | 0.6138 | 0.1563 | 66.8464 | 65.6347 |
-| `resnet50` | 37.0125 | 24.6576 | 0.5845 | 0.1563 | 66.8464 | 65.6347 |
-| `convnext_base` | 37.6031 | 25.0400 | 0.5770 | 0.1563 | 66.8464 | 65.6347 |
-| `siglip_vitb16` | 38.2885 | 24.6272 | 0.5776 | 0.1563 | 66.8464 | 65.6347 |
+| `dino_vitb16` | 29.3293 | 18.8479 | 0.7034 | 0.1563 | 66.8464 | 65.6347 |
+| `sam_vitb16` | 34.7421 | 21.7504 | 0.6184 | 0.1563 | 66.8464 | 65.6347 |
+| `resnet50` | 37.0055 | 23.5906 | 0.5897 | 0.1563 | 66.8464 | 65.6347 |
+| `siglip_vitb16` | 38.5268 | 26.0050 | 0.5678 | 0.1563 | 66.8464 | 65.6347 |
+| `convnext_base` | 38.5551 | 25.4773 | 0.5759 | 0.1563 | 66.8464 | 65.6347 |
 | `clip_vitb16` | 40.5643 | 26.0582 | 0.5621 | 0.1563 | 66.8464 | 65.6347 |
-| `supervised_vitb16` | 41.4298 | 29.3044 | 0.5098 | 0.1563 | 66.8464 | 65.6347 |
-| `resnet18` | 43.0147 | 28.5317 | 0.5149 | 0.1563 | 66.8464 | 65.6347 |
+| `supervised_vitb16` | 41.0828 | 28.1832 | 0.5368 | 0.1563 | 66.8464 | 65.6347 |
 | `clip_vitb32` | 43.1388 | 29.3872 | 0.5115 | 0.1563 | 66.8464 | 65.6347 |
+| `resnet18` | 43.5634 | 29.7581 | 0.5057 | 0.1563 | 66.8464 | 65.6347 |
 
-Ordered by `rotation_error_deg`, which **disagrees with `rotation_acc@15deg`, `rotation_acc@30deg`, `rotation_median_deg`, `translation_error`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
+Ordered by `rotation_error_deg`, which **disagrees with `rotation_acc@15deg`, `rotation_acc@30deg`, `rotation_median_deg`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
 
 > **Read this first.** **Read every row against `floor_rotation_error_deg`, never against zero.** Pairs are drawn within 120 degrees of rotation, so predicting the training set's mean pose — no features at all — already scores about 67 degrees, and a backbone landing there is *at chance* rather than weak. This is also the one board here whose head is **not a linear map**: probe3d's MLP, because a single affine layer underfits the task badly enough to nearly invert the ordering, so a gap between two rows is less purely a gap between two representations than elsewhere in this corpus. The **training pair count is part of the protocol** and is in `task_params`: error keeps falling as pairs are added, so two pose numbers are comparable only if they drew the same pairs. **Read it to whole degrees**: this fit's run-to-run scatter is about a degree of rotation error, reached by a second extraction of the same frames or simply by a different seed. **Do not order two adjacent rows from the gap alone** — all thirteen were re-fitted at five seeds in `results/controls/pose_seeds.jsonl`, and two pairs the gap calls close come out the other way round.
 

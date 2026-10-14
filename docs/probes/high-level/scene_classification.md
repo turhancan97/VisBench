@@ -46,19 +46,19 @@ the same path and schedule as object `classification`.
 
 | backbone | `top1` | `top5` |
 | --- | --- | --- |
-| `siglip_vitb16` | **0.4035** | **0.6930** |
+| `siglip_vitb16` | **0.4082** | **0.6997** |
 | `clip_vitb16` | 0.3934 | 0.6760 |
 | `clip_vitb32` | 0.3890 | 0.6769 |
 | `dinov2_vitb14` | 0.3865 | 0.6562 |
-| `resnet50` | 0.3575 | 0.6525 |
-| `dino_vitb8` | 0.3530 | 0.6418 |
 | `dinov2_vits14` | 0.3529 | 0.6430 |
-| `sam_vitb16` | 0.3430 | 0.6318 |
-| `dino_vitb16` | 0.3410 | 0.6320 |
-| `convnext_base` | 0.3356 | 0.6176 |
-| `mae_vitb16` | 0.3111 | 0.6046 |
-| `supervised_vitb16` | 0.3068 | 0.5855 |
-| `resnet18` | 0.2712 | 0.5535 |
+| `dino_vitb8` | 0.3522 | 0.6425 |
+| `resnet50` | 0.3513 | 0.6463 |
+| `sam_vitb16` | 0.3445 | 0.6274 |
+| `convnext_base` | 0.3424 | 0.6256 |
+| `dino_vitb16` | 0.3390 | 0.6290 |
+| `mae_vitb16` | 0.3108 | 0.6045 |
+| `supervised_vitb16` | 0.3077 | 0.5800 |
+| `resnet18` | 0.2768 | 0.5550 |
 
 Ordered by `top1`, which **disagrees with `top5`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
 

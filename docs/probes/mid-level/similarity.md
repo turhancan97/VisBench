@@ -38,21 +38,21 @@ features at 224px. Humans chose "right" 49.1% of the time, so chance is ~51%:
 
 | backbone | `accuracy` | `f1` | `tie_rate` |
 | --- | --- | --- | --- |
-| `dino_vitb16` | **0.9019** | **0.9004** | 0.0000 |
-| `dino_vitb8` | 0.8887 | 0.8867 | 0.0000 |
+| `dino_vitb16` | **0.9013** | **0.9009** | 0.0000 |
+| `dino_vitb8` | 0.8871 | 0.8847 | 0.0000 |
+| `sam_vitb16` | 0.8723 | 0.8698 | 0.0000 |
 | `dinov2_vits14` | 0.8701 | 0.8687 | 0.0000 |
-| `sam_vitb16` | 0.8695 | 0.8675 | 0.0000 |
 | `dinov2_vitb14` | 0.8580 | 0.8575 | 0.0000 |
-| `siglip_vitb16` | 0.8575 | 0.8552 | 0.0000 |
+| `siglip_vitb16` | 0.8564 | 0.8533 | 0.0000 |
 | `clip_vitb32` | 0.8465 | 0.8443 | 0.0000 |
-| `resnet18` | 0.8317 | 0.8307 | 0.0000 |
+| `resnet18` | 0.8295 | 0.8294 | 0.0000 |
 | `clip_vitb16` | 0.8284 | 0.8266 | 0.0000 |
-| `resnet50` | 0.8273 | 0.8282 | 0.0000 |
-| `supervised_vitb16` | 0.8202 | 0.8188 | 0.0000 |
-| `convnext_base` | 0.7725 | 0.7711 | 0.0000 |
-| `mae_vitb16` | 0.6897 | 0.6827 | 0.0000 |
+| `resnet50` | 0.8257 | 0.8260 | 0.0000 |
+| `supervised_vitb16` | 0.8257 | 0.8237 | 0.0000 |
+| `convnext_base` | 0.7802 | 0.7783 | 0.0000 |
+| `mae_vitb16` | 0.6787 | 0.6719 | 0.0000 |
 
-Ordered by `accuracy`, which **disagrees with `f1`, `precision`, `recall`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
+Ordered by `accuracy`, which **disagrees with `precision`, `recall`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
 
 <sub>similarity on nights/test, protocol=midvision_2afc, frozen [0cc388a0]</sub>
 <!-- /visbench:board -->

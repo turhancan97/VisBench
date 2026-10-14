@@ -21,18 +21,18 @@ What `visbench show semantic_segmentation` draws. {doc}`How to read it </guides/
 | `dinov2_vitb14` | **0.7533** | **0.7161** | **0.9316** | **0.8403** |
 | `dinov2_vits14` | 0.7328 | 0.6841 | 0.9267 | 0.8270 |
 | `clip_vitb16` | 0.6546 | 0.6683 | 0.9019 | 0.7312 |
+| `supervised_vitb16` | 0.6184 | 0.6103 | 0.8853 | 0.7068 |
+| `siglip_vitb16` | 0.5885 | 0.3386 | 0.8744 | 0.6940 |
 | `clip_vitb32` | 0.5813 | 0.6067 | 0.8731 | 0.6634 |
-| `supervised_vitb16` | 0.5791 | 0.5877 | 0.8681 | 0.6761 |
-| `siglip_vitb16` | 0.5405 | 0.3210 | 0.8539 | 0.6511 |
-| `dino_vitb16` | 0.5063 | 0.3221 | 0.8632 | 0.5964 |
-| `dino_vitb8` | 0.4975 | 0.2150 | 0.8613 | 0.5923 |
-| `convnext_base` | 0.4880 | 0.4596 | 0.8310 | 0.5902 |
-| `resnet50` | 0.4574 | 0.5163 | 0.8322 | 0.5248 |
-| `resnet18` | 0.4212 | 0.4497 | 0.8205 | 0.4915 |
-| `mae_vitb16` | 0.3350 | 0.4555 | 0.8269 | 0.3757 |
-| `sam_vitb16` | 0.3339 | 0.3906 | 0.8146 | 0.3825 |
+| `dino_vitb8` | 0.5304 | 0.2054 | 0.8776 | 0.6263 |
+| `dino_vitb16` | 0.5199 | 0.3099 | 0.8704 | 0.6097 |
+| `convnext_base` | 0.4967 | 0.4656 | 0.8335 | 0.5951 |
+| `resnet50` | 0.4513 | 0.5146 | 0.8296 | 0.5164 |
+| `resnet18` | 0.4234 | 0.4516 | 0.8213 | 0.4925 |
+| `mae_vitb16` | 0.3546 | 0.4596 | 0.8362 | 0.3960 |
+| `sam_vitb16` | 0.3393 | 0.3787 | 0.8202 | 0.3896 |
 
-Ordered by `miou`, which **disagrees with `mean_acc`, `miou_per_image`, `pixel_acc`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
+Ordered by `miou`, which **disagrees with `miou_per_image`, `pixel_acc`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
 
 <sub>semantic_segmentation on VOC2012/val, protocol=visbench_semantic_seg, frozen [e14b47db]</sub>
 <!-- /visbench:board -->

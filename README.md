@@ -211,7 +211,7 @@ in [`uv.lock`](https://github.com/turhancan97/VisBench/blob/main/uv.lock), and C
 **Before quoting any board**, read
 [how to read one](https://turhancan97.github.io/VisBench/guides/reading-a-board.html). The short version: "which
 backbone is best" is not a well-formed question against this corpus —
-`mae_vitb16` is first on five of the twenty boards and last on five.
+`mae_vitb16` is first on three of the twenty boards and last on five.
 
 ## Prior art
 

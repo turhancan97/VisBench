@@ -13,8 +13,10 @@ them rather than only the conclusions.
 
 **The single most important one, if you read nothing else:** "which backbone is
 best" is not a well-formed question against this corpus. `mae_vitb16` is first
-on five of the twenty boards and last on five — and **only three of those five
-firsts survive a re-fit**, one of them being a coin flip at t = +0.11. A summary
+on three of the twenty boards and last on five. It was first on five until 23a
+removed the timm double crop, which handed `edge` and `orientation` to
+`dino_vitb8` — and `orientation` was a lead 22a had called *solid*, which is what
+a re-fit cannot see: it measures noise, not a bias every seed shares. A summary
 that picks a winner is discarding the result. (It was *six of seventeen* when
 that sentence was written, at twelve backbones, and stayed on the page through
 two releases that moved it — which is what the first caution below is about.
@@ -69,11 +71,57 @@ Three standing cautions apply to everything below:
   four boards **change leader** (`generic_segmentation`, `edge`, both to
   `dino_vitb8`); and **the finest grid is penalised most**, because the crop's
   ~11px shift exceeds an 8px patch. That last point **retracts most of the
-  `dino_vitb8` "a linear board cannot see resolution" finding** below. **No
-  published number has been changed yet**: the control measures the fault, and
-  fixing the corpus is a decision of its own. Until then, treat any comparison
-  between a timm row and a DINOv2/CLIP row — and any finding about grid
-  resolution on a dense board — as provisional.
+  `dino_vitb8` "a linear board cannot see resolution" finding** below. The
+  corpus was corrected by 23a (next entry).
+- **23a corrected the corpus, and the boards are now the full-frame ones**
+  (`TimmBackbone` defaults to `crop_pct=1.0`; all 180 timm cells re-run on a
+  V100 and appended under `.../crop1` keys, which `SUPERSEDED_KEYS` lets
+  replace the old ones; every cell gated, the 36 that overlap 22c's control
+  reproducing it within 1e-4; `scripts/analyse_crop_control.py --rerun`).
+  What moved, read off `LEADERBOARD.md`:
+
+  | | before 23a | after |
+  | --- | --- | --- |
+  | `dino_vitb8` first places | 2 | **6** — gains `edge`, `generic_segmentation`, `keypoints2d`, `orientation` |
+  | `mae_vitb16` first places | 5 | **3** — loses `edge`, `orientation` |
+  | `dinov2_vitb14` first places | 7 | 6 — loses `generic_segmentation` |
+  | `dino_vitb16` first places | 2 | 1 — loses `keypoints2d` |
+  | last places changed | | `detection` (→ `convnext_base`), `keypoints2d`, `occlusion_edge`, `relative_pose` (→ `resnet18`), `orientation` (→ `resnet50`) |
+  | `resnet18` last places | 7 | **9** |
+
+  Ordering otherwise mostly survives: Spearman between each board before and
+  after is +0.93 to +1.00, `retrieval` and `surface_normal` do not move at
+  all, and the largest shuffles are `edge` (10 rows), `keypoints2d` (8),
+  `corner`, `detection` and `orientation` (7 each). On average the timm ViTs
+  gain **+13 to +15%** on `corner`, `correspondence`, `edge`, `keypoints2d`
+  and `orientation`, +4 to +7% on the segmentation and occlusion boards, and
+  nothing on the image-level classification boards; the CNNs move by a few
+  percent either way.
+
+  Three readings change. **The grid finding gets stronger**: the B/8 − B/16
+  gap on the linear boards is now +0.0864 on `corner`, +0.0985 on `edge`,
+  +0.0541 on `generic_segmentation` and 3.86° on `orientation`, and
+  `rho(tokens, train_loss)` is negative on 12 of 12 boards at a mean of
+  **−0.717** (−0.662 before). **The low-level tier coheres more**: within-tier
+  agreement +0.933 against +0.840, and the strongest board pairs are now
+  `corner`/`edge` (+0.967), `corner`/`correspondence` and
+  `corner`/`keypoints2d` rather than the instance/occlusion pair. And
+  **`detection` gets *worse* without the crop** — timm ViTs −6%, CNNs −12.5%,
+  under identical `task_params` and dataset fingerprint, each with a slightly
+  *worse* `train_loss` — the opposite of every dense board. The instance
+  board's `box_map_50` falls too while its `mask_map_50` rises. One
+  hypothesis fits both: the crop magnified every object by 1/`crop_pct`,
+  which a single-scale head with no pyramid may prefer. It is untested;
+  **quote the drop, not the reason.**
+
+  **What has not been redone**: every seed sweep under `results/controls/`
+  was fitted on the cropped boards, so 22a's placement verdicts, 22b's
+  correlation audit and the ordered/tied/reversed totals describe **those**
+  boards, read through `pinned_to_keys` so they stay self-consistent. 23b
+  re-fits them. Until then quote a corrected board's *values*, not a verdict
+  on its adjacent pairs. **And note what a re-fit cannot do**: 22a called
+  MAE's `orientation` lead solid, and the crop fix took it — a seed sweep
+  measures noise, never a bias every seed shares.
 - **n=13, so every correlation here has wide error bars**, and the backbone
   properties are correlated with each other. Coefficients quoted below as n=12
   were measured before `dino_vitb8`; where one has been re-measured the entry
@@ -669,7 +717,9 @@ Three standing cautions apply to everything below:
   > against one rival and about a third its published size against the other.
   > The control at 196px is unaffected (DINOv2's own transform is a no-op), so
   > "matching the grid costs under 3%" stands; the share-of-a-lead figures do
-  > not.
+  > not. **23a made that the published board**: `dino_vitb8` leads
+  > `generic_segmentation`, and `depth` is the one remaining DINOv2-B lead,
+  > 6.5% of it explained by the grid against `mae_vitb16`'s corrected 0.6930.
 
   **The confound was narrower than it first looked, and saying so is half the
   finding.** On `surface_normal`, `edge` and `corner` DINOv2-B never led at all
@@ -966,12 +1016,19 @@ Three standing cautions apply to everything below:
   **n=3 CNNs**, so two of those rho values are one swap each, and the gains are
   the more solid half of this finding.
 
-- **`mae_vitb16` is first on five of the twenty boards and last on five, and
+- **`mae_vitb16` is first on three of the twenty boards and last on five, and
   this is the corpus finally demonstrating what the taxonomy claims** (10b,
   2026-08-14; **counts re-read off the board at twelve backbones, 10e**; scene
   board added 2026-08-28, `orientation` and `fine_grained_classification`
   boards 2026-08-28; counts brought current and this file placed under the
-  guard, 22a).
+  guard, 22a; **five firsts became three at 23a**, see below).
+
+  **23a took two of its firsts, and one of them was solid.** Without the
+  double crop `dino_vitb8` leads `edge` (0.6373 against MAE's 0.5631) and
+  `orientation` (14.80° against 15.42°). MAE keeps `occlusion_edge`,
+  `relative_pose` and `surface_normal`, and its five lasts are unchanged. The
+  paragraph that follows is 22a's audit of the *cropped* board, kept as history
+  until 23b re-fits the sweeps on the corrected one.
 
   **Only three of those five firsts survive a re-fit** (22a,
   `scripts/analyse_placements.py`). `orientation`, `relative_pose` and

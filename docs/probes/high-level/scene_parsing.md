@@ -94,17 +94,17 @@ board is ordered by the first.
 | --- | --- | --- | --- |
 | `dinov2_vitb14` | **0.4959** | **0.3362** | **0.7344** |
 | `dinov2_vits14` | 0.4519 | 0.3014 | 0.7070 |
+| `siglip_vitb16` | 0.3534 | 0.1936 | 0.6242 |
 | `clip_vitb16` | 0.3490 | 0.2547 | 0.6458 |
-| `siglip_vitb16` | 0.3241 | 0.1757 | 0.5971 |
-| `dino_vitb8` | 0.3206 | 0.1542 | 0.6235 |
-| `dino_vitb16` | 0.3105 | 0.1717 | 0.6118 |
+| `dino_vitb8` | 0.3451 | 0.1690 | 0.6497 |
+| `dino_vitb16` | 0.3087 | 0.1731 | 0.6152 |
 | `clip_vitb32` | 0.2918 | 0.2278 | 0.5969 |
-| `convnext_base` | 0.2894 | 0.1962 | 0.5781 |
-| `supervised_vitb16` | 0.2817 | 0.2075 | 0.5810 |
-| `sam_vitb16` | 0.1968 | 0.1790 | 0.5590 |
-| `resnet50` | 0.1812 | 0.1728 | 0.5274 |
-| `mae_vitb16` | 0.1484 | 0.1790 | 0.5457 |
-| `resnet18` | 0.1419 | 0.1464 | 0.4924 |
+| `convnext_base` | 0.2906 | 0.1980 | 0.5787 |
+| `supervised_vitb16` | 0.2868 | 0.2122 | 0.5869 |
+| `sam_vitb16` | 0.1888 | 0.1775 | 0.5551 |
+| `resnet50` | 0.1753 | 0.1676 | 0.5177 |
+| `mae_vitb16` | 0.1518 | 0.1857 | 0.5519 |
+| `resnet18` | 0.1381 | 0.1420 | 0.4865 |
 
 Ordered by `miou`, which **disagrees with `mean_acc`, `miou_per_image`, `pixel_acc`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
 

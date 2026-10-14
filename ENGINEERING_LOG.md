@@ -2976,6 +2976,80 @@ border, which is close to standard ImageNet evaluation, and were not measured.
 No published number moved; re-running nine columns across twenty boards (and
 their seed sweeps) is a separate decision.
 
+## 23a — the crop fixed: timm defaults to the full frame, and nine columns re-run
+
+**The decision.** 22c measured the fault on four boards; the user chose to fix
+the default and re-run every timm cell rather than keep the corpus as history
+with a caveat. `DEFAULT_CROP_PCT = 1.0`, key `timm/<model>/<tag>/224/crop1`.
+`crop_pct=None` is the legacy crop and requires a `name`: under the variant's
+own name it would collide with the corrected row that now carries that name.
+`run_crop_control.py --gate` registers it in-process for exactly that reason.
+
+**Why a table and not a looser guard.** `latest_per_backbone` raises when one
+name carries two keys — the guard the 196px resolution control paid for. The
+corrected cells *are* one name under two keys. `SUPERSEDED_KEYS` lists the nine
+legacy keys and their replacements, `drop_superseded` removes an old record only
+when its replacement is present under the same name, and every other key change
+still raises. A test pins the table to `_VARIANTS`, so it cannot drift from what
+`TimmBackbone` produces.
+
+**The run.** `slurm/corpus.sbatch` with `VISBENCH_PARTS_DIR` pointing at a
+staging directory (`results/corpus/parts/23a/`), never the archive — the 21b
+rule. `--gres=gpu:1 --qos=normal --exclude=dgx1`: the first array was
+cancelled after it landed on `dgx1`, and the auto-submit loop for the second
+died with its session, so it was submitted by hand. The user also paused it
+for a cache clean-up on the shared filesystem (the nine legacy cache roots
+were deleted in parallel, `xargs -P 16` being ~14x faster than a serial `rm`
+on NFS). 180 cells, all on V100s, no failures. The new/old wall-clock ratio
+was 0.96, which is jitter rather than a speed-up.
+
+**The gate**, before anything was merged: every record carries `/crop1`, a V100
+and (if trained) a `training` block, and the 36 cells that overlap 22c's
+control reproduce it within 1e-4. Then
+`PARTS=results/corpus/parts/23a scripts/merge_corpus.sh`: +180, 598 records,
+20 comparability groups — `comparability_key` does not read `backbone_key`, so
+the corrected cells join their boards rather than forming new ones.
+
+**What broke, and why most of it should not be "fixed".** 38 fast tests went
+red. Six were the `mae_vitb16` leader count (five → three) and one the corpus
+size. **Thirty were the seed sweeps**: every sweep was fitted under the legacy
+keys, and each consumer — the seed-0 gate, the totals, 22a's placements, 22b's
+correlations — compared it with the *newest* cell, now a different
+measurement. Re-tolerancing the gate would have been the wrong fix, since the
+gate failing is correct. `pinned_to_keys(corpus, sweep)` instead hands each
+consumer the cells under the sweep's own keys, so the audits stay
+self-consistent descriptions of the cropped boards, and a sweep re-run under
+`/crop1` (23b) follows the board forward with no edit. 22b's script also pins
+the three zero-shot boards, which have no sweep, to the same per-backbone keys,
+or its "83 published at |rho| ≥ 0.5" would mix two corpora.
+`test_resolution_control.py` had a latent bug: it took the maximum over *every*
+corpus record rather than the board's cells, which was harmless until a
+superseded record existed. It now reads `latest_per_backbone`, and records that
+`generic_segmentation` is no longer a DINOv2-B lead.
+
+**What moved** — the board table is in `CORPUS_FINDINGS.md`. Four leaders,
+all to `dino_vitb8` (`edge`, `generic_segmentation`, `keypoints2d`,
+`orientation`); five last places; per-board Spearman +0.929 to +1.000. Mean
+relative change of the six timm ViTs: +12.9% `corner`, +13.1%
+`correspondence`, +15.1% `edge`, +13.6% `keypoints2d`, +14.6% `orientation`,
++4-7% segmentation and occlusion, about 0 on image-level classification.
+`rho(tokens, train_loss)` −0.662 → −0.717, still negative on 12 of 12.
+
+**The one board that goes the other way.** `detection` falls: timm ViTs −6.1%,
+CNNs −12.5% (`convnext_base` 0.0912 → 0.0732). Same `task_params`, same
+fingerprint, slightly higher `train_loss` on every row checked, so a worse fit
+rather than a moved metric. The instance board agrees in its box half
+(`mae_vitb16` `box_map_50` 0.297 → 0.275) while its mask half rises. One
+hypothesis: the crop magnified objects by 1/`crop_pct`, which a single-scale,
+pyramid-less head may prefer. Untested; it would take a box-size breakdown of
+both runs.
+
+**The lesson worth keeping.** 22a's paired re-fit called MAE's `orientation`
+lead solid, and a preprocessing fix took it. A seed sweep measures the noise
+around a configuration; it cannot see an error every seed shares. So a
+"survives a re-fit" verdict is conditional on the configuration being right,
+and 23b is needed to re-establish any such verdict on the corrected boards.
+
 ## Steps 7a-14a — write-ups lifted from `CLAUDE.md`
 
 ### 10a — `TimmBackbone` learns to read a ViT

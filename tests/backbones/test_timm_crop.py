@@ -2,18 +2,18 @@
 
 Every VisBench dataset resizes and centre-crops to the working size before a
 backbone sees an image. A timm backbone then applies its checkpoint's eval
-transform -- resize to ``size / crop_pct``, crop ``size`` -- so at the default
-``crop_pct`` it crops a **second** time. The control re-runs the timm rows with
-``crop_pct=1.0``.
+transform -- resize to ``size / crop_pct``, crop ``size`` -- so at the
+checkpoint's ``crop_pct`` it crops a **second** time (22c). Since 23a the
+default is ``crop_pct=1.0``, a no-op on a dataset-cropped image.
 
 Three things must stay true, and each fails silently rather than loudly:
 
-- **the default key must not move**, or every published timm record stops
-  matching its cache on every machine and every timm cell re-extracts;
-- **an override must move the key**, or the full-frame run is served the
-  published (cropped) features from cache and measures nothing;
-- **an override must carry its own name**, or ``latest_per_backbone`` evicts
-  the published row it was built to be compared against.
+- **the legacy key must not move**, or ``crop_pct=None`` stops reproducing the
+  pre-23a records that still sit in the append-only corpus;
+- **the full-frame key must differ from it**, or the corrected run is served the
+  cropped features from cache and measures nothing;
+- **a non-default crop must carry its own name**, or ``latest_per_backbone``
+  sees one name under two keys that no listed correction explains.
 
 The fast suite has no timm (CI installs ``.[dev]``), so these exercise the pure
 helper and a key computed on an instance built without ``__init__``. The

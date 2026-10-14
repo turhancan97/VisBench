@@ -44,15 +44,15 @@ Measured on VOC 2012, 600 train / 600 val images at 224px, ten epochs:
 | `dinov2_vits14` | 0.2284 | 0.0704 | 20 | 83.0450 |
 | `clip_vitb32` | 0.1886 | 0.0584 | 20 | 91.3850 |
 | `clip_vitb16` | 0.1885 | 0.0624 | 20 | 88.7200 |
-| `siglip_vitb16` | 0.1870 | 0.0641 | 20 | 99.8500 |
-| `sam_vitb16` | 0.1797 | 0.0544 | 20 | 56.0017 |
-| `supervised_vitb16` | 0.1672 | 0.0558 | 20 | 83.5600 |
-| `dino_vitb16` | 0.1657 | 0.0581 | 20 | 78.6500 |
-| `dino_vitb8` | 0.1471 | 0.0517 | 20 | 63.1950 |
-| `resnet50` | 0.1380 | 0.0420 | 20 | 48.2150 |
-| `mae_vitb16` | 0.1296 | 0.0460 | 20 | 63.7000 |
-| `convnext_base` | 0.0912 | 0.0237 | 20 | 81.1467 |
-| `resnet18` | 0.0912 | 0.0270 | 20 | 57.1083 |
+| `siglip_vitb16` | 0.1720 | 0.0617 | 20 | 99.7500 |
+| `dino_vitb16` | 0.1682 | 0.0548 | 20 | 78.0917 |
+| `supervised_vitb16` | 0.1638 | 0.0511 | 20 | 83.2400 |
+| `dino_vitb8` | 0.1500 | 0.0553 | 20 | 61.7967 |
+| `sam_vitb16` | 0.1407 | 0.0455 | 20 | 54.1617 |
+| `mae_vitb16` | 0.1187 | 0.0393 | 20 | 65.8200 |
+| `resnet50` | 0.1183 | 0.0380 | 20 | 47.0067 |
+| `resnet18` | 0.0880 | 0.0256 | 20 | 55.4417 |
+| `convnext_base` | 0.0732 | 0.0205 | 20 | 82.1467 |
 
 Ordered by `map_50`, which **disagrees with `map_50_95`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
 
