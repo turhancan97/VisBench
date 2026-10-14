@@ -9,12 +9,29 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+## [0.27.0] — 2026-10-14
+
 **Nine of the thirteen corpus columns were measured on a frame cropped twice.
-This release measures how much that matters (22c), corrects the corpus (23a):
-published numbers move on nine columns, and four boards change leader — and
-re-fits every seed sweep on the corrected boards (23b), where no adjacent pair
-reverses any more — and re-reads every number the documentation quotes against
-the corrected corpus (23c).**
+This release corrects the corpus, and published numbers move.**
+
+Every timm backbone (`convnext_base`, both ResNets and six ViTs) re-cropped an
+image the dataset had already cropped, so its features covered the central
+87.5-95% of a frame whose dense targets span all of it. The release measures
+the effect (22c), makes the full frame the default and re-runs all 180 affected
+board cells (23a), re-fits every seed sweep on the corrected boards (23b), and
+re-reads every number the documentation quotes (23c).
+
+- **Four boards change leader**, all to `dino_vitb8`: `edge`,
+  `generic_segmentation`, `keypoints2d` and `orientation`. The
+  `generic_segmentation` change is a tie under a re-fit.
+- **The corrected boards are more orderable**: 143 of 192 adjacent pairs are
+  ordered at five seeds, against 126, and **no pair reverses**, against three.
+- **`detection` is the one board that scores lower full-frame** — measured, not
+  explained.
+- **Upgrading**: a timm number from an earlier release is not comparable with
+  one from this release; the backbone key now ends `/crop1`. To reproduce an
+  earlier cell, pass `TimmBackbone(..., crop_pct=None, name=...)` under a
+  distinct name. The schema is unchanged at v9.
 
 ### Found
 
