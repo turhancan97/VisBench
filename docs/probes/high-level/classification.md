@@ -3,7 +3,7 @@
 **Basic-level object category, from a linear probe on pooled features.**
 
 The simplest probe here, and the one whose board is most nearly saturated —
-eleven of twelve backbones score above 0.99 on Imagenette, so read the spread
+eleven of thirteen backbones score above 0.99 on Imagenette, so read the spread
 rather than the winner.
 
 ```{figure} /_static/gallery/classification.png

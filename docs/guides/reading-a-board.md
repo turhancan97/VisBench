@@ -111,20 +111,23 @@ the correlation table treated all five as confounded.
 
 That control could only *lower* a grid. Raising one — `dino_vitb8` against
 `dino_vitb16`, same objective, data, width and depth, 784 tokens against 196 —
-moves the published boards on this site by a rounding error or the wrong way,
-and moves the same five probes **with a DPT head** by one to two orders of
-magnitude more, improving 5 of 5. The ceilings say why: they rise every time,
-and the share a linear head recovers of them falls every time.
+improves **all five** low-level boards on this site: by +0.0985 on `edge`,
++0.0864 on `corner` and 3.86 degrees on `orientation`, and only marginally on
+`keypoints2d` (+0.0029) and `occlusion_edge` (+0.0066).
 
-The effect is not confined to that pair. Across all ten ViTs in the corpus
-(49 to 784 tokens), the correlation between token count and score is
-**stronger under a DPT head on 4 of 5 low-level boards** — mean +0.388 against
-+0.701, and `keypoints2d` +0.096 against +0.775 — and it is largest exactly
-where the linear head recovers least of its own oracle.
+**An earlier version of this page said the opposite** — that the linear boards
+moved by a rounding error and only a DPT head could see the grid. That reading
+was made while nine of the thirteen columns, `dino_vitb8` and `dino_vitb16`
+among them, were fed a frame cropped a second time inside the backbone, which
+misregisters every dense target; the fix (23a) is what made the linear gap
+appear. A DPT head moved the same probes further on those cropped frames, and
+that control has not been re-run on the corrected ones, so how much more a
+richer head would show is open.
 
-So feature resolution is causal about what a representation **carries** and
-close to invisible in what these boards **report**. The boards are linear on
-purpose (see above); the price is that this is one thing they cannot show you.
+So feature resolution is causal about what a representation **carries**, and
+the linear boards do report it once image and target are registered. Never read
+a small linear gap as evidence that resolution does not help without first
+checking that the frames line up.
 
 ## Two boards are close to in-distribution recall, not transfer
 

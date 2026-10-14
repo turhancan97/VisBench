@@ -2,7 +2,7 @@
 
 **2D keypoint response, from Taskonomy's `keypoints2d`.**
 
-The weakest-scoring low-level probe, at 0.18-0.26 — and it ranks backbones
+The weakest-scoring low-level probe, at 0.16-0.32 — and it ranks backbones
 perfectly well anyway, which is why the criterion is the spread rather than the
 level. It reaches only 41% of its own oracle where `corner` reaches 80%.
 

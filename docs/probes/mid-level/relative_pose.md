@@ -72,7 +72,11 @@ Measured on the same 50,519 pairs:
 | probe3d's MLP (512/256/128) | 22.70–43.14 | +23.7 to +44.2 | 20.44 | 0.0020–0.0057 |
 | one affine map | 62.94–65.99 | **+0.85 to +3.91** | 3.06 | 0.0680–0.0729 |
 
-Measured over all thirteen backbones, on the same pairs and the same features.
+Measured over all thirteen backbones, on the same pairs and the same features —
+the features as they stood at 16a-3, when nine columns were still cropped a
+second time inside the backbone. The board above is the corrected one (MLP
+20.27–43.56); the comparison is between two heads on identical inputs, which the
+fix does not touch.
 **A linear head is at or near chance here**: it clears the no-feature floor by
 under four degrees for every backbone, and `resnet50` at +0.85 is
 indistinguishable from predicting a constant. It **underfits** — a flat training
@@ -146,24 +150,25 @@ Ordered by `rotation_error_deg`, which **disagrees with `rotation_acc@15deg`, `r
 
 **Nothing on this board is at chance**, which is the first thing to check here
 and the reason the floor travels with the score: every row clears the
-no-feature floor by between 23.7 and 44.2 degrees, so the 20-degree spread is
+no-feature floor by between 23.3 and 46.6 degrees, so the 23-degree spread is
 signal rather than thirteen different ways of failing.
 
 **It is close to orthogonal to the semantic boards.** Mean Spearman over the
-same thirteen backbones is **+0.701** against the four low-level boards,
-**+0.642** against its own mid-level tier and **+0.099** against the seven
-high-level ones — with `semantic_segmentation` at **−0.115**,
-`scene_classification` at −0.104 and `retrieval` at −0.016. Its strongest
-partners are `surface_normal` (+0.791), `occlusion_edge` (+0.764) and `corner`
-(+0.758). A pose number is therefore close to independent evidence about a
+same thirteen backbones is **+0.678** against its own mid-level tier,
+**+0.630** against the four low-level boards and **+0.165** against the nine
+high-level ones — with `classification` at **−0.126**, `retrieval` at −0.066
+and `semantic_segmentation` at +0.011. Its strongest partners are
+`occlusion_edge` (+0.841), `surface_normal` (+0.830) and
+`instance_segmentation` (+0.780), the one high-level board that ranks with
+geometry. A pose number is therefore close to independent evidence about a
 backbone rather than another way of asking what the object boards already
 answered. See {doc}`reading a board </guides/reading-a-board>` before quoting
 any of that.
 
 **Quote the objective gap against the recipe gap.** `mae_vitb16` and
 `supervised_vitb16` share an architecture, a width and a pretraining set and
-differ in what they were trained to do: **18.73 degrees**. The recipe control on
-the same board, `sam_vitb16` against `supervised_vitb16`, is **6.41**. And the
+differ in what they were trained to do: **20.81 degrees**. The recipe control on
+the same board, `sam_vitb16` against `supervised_vitb16`, is **6.34**. And the
 grid pair `dino_vitb8` against `dino_vitb16` — same objective and data at four
-times the tokens — is **1.94**, which is worth noting on a probe that reads
+times the tokens — is **2.55**, which is worth noting on a probe that reads
 *pooled* features and so has no grid for its head to read.

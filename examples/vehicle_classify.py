@@ -6,9 +6,9 @@ inside one basic-level class. What differs is the kind of object. Two bird
 species share a body plan and differ in a wing bar; two car models share a
 silhouette and differ in badge, grille and lamp geometry, and whether a
 representation keeps one kind of detail says little about whether it keeps the
-other. Measured over thirteen backbones, the two boards correlate +0.879 and
-**change leader**: ``siglip_vitb16`` is first here and fifth on CUB, while
-``supervised_vitb16`` falls from eleventh to last.
+other. Measured over thirteen backbones, the two boards correlate +0.835 and
+**change leader**: ``siglip_vitb16`` is first here and sixth on CUB, while
+``supervised_vitb16`` falls from eleventh to twelfth.
 
 Expects the standard labelled layout::
 

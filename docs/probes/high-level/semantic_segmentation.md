@@ -39,46 +39,47 @@ Ordered by `miou`, which **disagrees with `miou_per_image`, `pixel_acc`** — th
 
 **What this board ranks by is not what nearly every other dense board ranks
 by, and that is worth knowing before quoting it.** Correlate each board's
-ordering against the backbones' feature-grid area, over the twelve backbones
-in the corpus: across the eleven whose head reads one vector per patch,
-**nine have the grid as their strongest correlate**, and this is one of the
-two that do not. Grid **+0.496**, against pretraining scale **+0.689**. And the
-+0.496 is carried almost entirely by DINOv2, which has both the finest grid
-and the largest pretraining corpus — drop those two rows and it falls to
-**+0.071**, and with the pretraining data held fixed (the seven IN1k
-backbones) it is **exactly 0.000**.
+ordering against the backbones' feature-grid area, over the thirteen
+backbones in the corpus: across the twelve whose head reads one vector per
+patch, **nine have the grid as their strongest correlate**, and this is one of
+the three that do not. Grid **+0.494**, against pretraining scale **+0.673**.
+Much of the +0.494 is carried by DINOv2, which has both the finest grid and the
+largest pretraining corpus — drop those two rows and it falls to **+0.240** —
+and with the pretraining data held fixed (the eight IN1k backbones) it is
+**+0.300**: within one pretraining set the finer grids do score a little
+higher, just far less than pretraining breadth separates the rest.
 
 **Read that as "the grid does not win here", not as "the grid coefficient is
-small".** `keypoints2d` (+0.481) and `orientation` (+0.511) sit either side of
-+0.496 and *are* grid-ranked, because on them nothing else comes close. What
+small".** `keypoints2d` and `orientation` read grid +0.658 — not far above this
+board — and *are* grid-ranked, because on them nothing else comes close. What
 singles this board out is that something does: pretraining scale beats the
-grid on it, and among the eleven only `detection` (+0.752 against +0.649) does
-the same.
+grid on it, and among the twelve only `detection` (+0.761 against +0.550) and
+`scene_parsing` (+0.692 against +0.647) do the same.
 
 The control is already on this page. `generic_segmentation` runs on the *same
 1449 VOC images* at the same resolution with the same linear head and the same
 schedule, and differs only in whether the target has 2 classes or 21 — it
-ranks by grid at **+0.878** against pretraining's +0.247, which is the
+ranks by grid at **+0.935** against pretraining's +0.088, which is the
 ordering this board reverses. Same pixels, same probe, opposite behaviour, so
 this is a property of the target rather than the data, the head or the
 protocol.
 
 What it rewards instead is, weakly, pretraining breadth: corpus size is its
-best single correlate at **+0.707** — third of the twenty boards, behind
-`scene_classification` (+0.811) and `detection` (+0.761) — and unmoved by the
-WebLI size assumption anywhere between 4e9 and 1.8e10. But within the six
+best single correlate at **+0.673** — fifth of the twenty boards, behind
+`scene_classification` (+0.874), `vehicle_classification` (+0.849),
+`detection` (+0.761) and `scene_parsing` (+0.692). But within the six
 *identical* ViT-B/16 backbones — same shape, same width, same 196 tokens — the
-spread is **0.3207 mIoU** (`clip_vitb16` 0.6546 down to `sam_vitb16` 0.3339)
+spread is **0.3153 mIoU** (`clip_vitb16` 0.6546 down to `sam_vitb16` 0.3393)
 at a +0.541 correlation, so a large part of this board's variance is not
 structural at all. **Treat this board as evidence about representations, not
 about training objectives** — step 10e's recipe control showed it cannot
 separate those at all.
 
-Reproduce any of it with `scripts/analyse_board_correlates.py`. At twelve
+Reproduce any of it with `scripts/analyse_board_correlates.py`. At thirteen
 backbones the coefficients have wide error bars, **and where one board's
 coefficient sits relative to another's is a fact about this corpus, not about
 the task**: these read +0.545 and +0.615 against thirteen boards, before the
-2026-09-13 tie fix and four further boards moved both.
+2026-09-13 tie fix, further boards and the 23a crop fix moved both.
 
 ## Things that will bite otherwise
 

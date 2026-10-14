@@ -29,22 +29,23 @@ would therefore not join the CUB board — it would make that board
 precisely what needs a different task name to be rankable at all.
 
 **It earns the board by ranking differently, which was measured before it was
-built.** The published board is Spearman **+0.863** against CUB over all
-thirteen backbones, spanning **0.8603** to **0.4353** — high, but a dozen of the
+built.** The published board is Spearman **+0.835** against CUB over all
+thirteen backbones, spanning **0.8795** to **0.4358** — high, but 23 of the
 corpus's existing board pairs are *more* correlated than that, and the leader
-changes: ``siglip_vitb16`` is **first** here and fifth on CUB. Web image-text
+changes: ``siglip_vitb16`` is **first** here and sixth on CUB. Web image-text
 pretraining ahead of everything else on manufactured categories is the kind of
 statement this corpus exists to make. Had the ordering merely reproduced CUB's,
 this probe should not have shipped — the standard relative depth was rejected
 against.
 
-**Its closest neighbour is not the other subordinate board.** The strongest
-partner is ``scene_classification`` at **+0.901**, ahead of
-``fine_grained_classification``'s +0.863 — so what these boards share is not
-*granularity*, which is the property this probe was expected to isolate. Mean
-rho is +0.525 against the high-level tier, +0.149 against mid-level and
-**−0.190** against low-level; read it in ``CORPUS_FINDINGS.md`` rather than
-here.
+**The other subordinate board is no closer than the place board.** The
+published corpus reads ``scene_classification`` at **+0.923** against
+``fine_grained_classification``'s +0.835, but that margin is one draw: on the
+seed-mean boards the two tie (22b), so neither is *the* closest partner. What
+they share with this board is not *granularity*, which is the property this
+probe was expected to isolate. Mean rho is +0.503 against the high-level tier,
++0.205 against mid-level and **−0.147** against low-level; read it in
+``CORPUS_FINDINGS.md`` rather than here.
 
 **The split is VisBench's own, and that is not a detail.** The Stanford Cars
 copy on this machine is *not* the official 8,144/8,041 split: its train side
@@ -85,8 +86,8 @@ class VehicleClassificationTask(ClassificationTask):
     is the condition under which a weak number is a property of the
     representation. CUB reaches a flat 1.0000 where this board does not, which
     is the one place the two differ mechanically and the reason to read
-    ``train_top1`` here before quoting a low row. The board spans **0.8603**
-    (``siglip_vitb16``) to **0.4353** (``mae_vitb16``).
+    ``train_top1`` here before quoting a low row. The board spans **0.8795**
+    (``siglip_vitb16``) to **0.4358** (``mae_vitb16``).
 
     One caveat belongs with every number here, in the same place its sibling
     keeps one: ImageNet-1k contains several car classes ("sports car",

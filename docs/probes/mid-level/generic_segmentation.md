@@ -5,7 +5,7 @@
 The same 1449 VOC images as {doc}`semantic_segmentation </probes/high-level/semantic_segmentation>`, at the same resolution with the same linear head
 and the same schedule, differing **only** in whether the target has 2 classes
 or 21. That makes the pair a control, and they behave oppositely: this board
-ranks by feature-grid area at **+0.958**, the semantic one at +0.545 — so that
+ranks by feature-grid area at **+0.935**, the semantic one at +0.494 — so that
 difference is a property of the target, not of the data or the protocol.
 
 ```{figure} /_static/gallery/generic_segmentation.png
