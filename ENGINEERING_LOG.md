@@ -1308,6 +1308,35 @@ The four most recent entries were lifted out of `CLAUDE.md` on 2026-09-03,
 when that file passed the 150k-character limit it is loaded under for the second
 time. Nothing was rewritten; each paragraph is as its release recorded it.
 
+**`0.27.0` is fully released** (2026-10-14). On PyPI — wheel and sdist both
+(450,815 and 1,825,426 bytes, wheel sha256 `4f5fce13…`, sdist `2c8158e6…`) —
+tagged `v0.27.0`, **annotated** (tag object `2d2514d`), on merge commit
+`c9da72e`, which is `main`, with a GitHub release cut from that tag (published
+2026-10-14T18:37:22Z) and archived by Zenodo as version DOI
+**`10.5281/zenodo.23376348`**, the **twenty-second**. The concept DOI
+`10.5281/zenodo.21822684` resolves to it with `metadata.version` `v0.27.0`,
+read off Zenodo's API with `-L`. Both artifacts match the locally built ones
+byte for byte, checked against PyPI's own digests.
+
+**Verified out of the published wheel by import** — `__version__` 0.27.0,
+`SCHEMA_VERSION` **9**, **twenty** probes, **fourteen** registered backbones,
+five heads, `show_probes() == list_probes()` — with an assert on
+`visbench.__file__`. **This release's content is a default value**, so it was
+read back through the import as well: `DEFAULT_CROP_PCT` **1.0** and nine
+`SUPERSEDED_KEYS`. It ships 22c, 23a, 23b and 23c, and **moves published
+numbers** on nine of thirteen columns.
+
+**The archive abstract still reads "Twenty probes span"**, correct because no
+probe shipped and it quotes no number the crop fix moved, and the deposit's
+publication date is **2026-10-14**, the advanced `date-released`. Both rules
+held for the fifth time.
+
+**The order was upload then release**, 12 seconds apart — 18:37:10Z against
+18:37:22Z, dated from the wheel's `upload_time_iso_8601`. **The release PR was
+merged and `pyproject.toml` checked inside the command block before tagging**,
+the two checks 0.26.0's first attempt added; this release went through first
+time.
+
 **`0.26.0` is fully released** (2026-10-10). On PyPI — wheel and sdist both
 (448,221 and 1,660,198 bytes, wheel sha256 `c1cbc8d5…`, sdist `fd398120…`) —
 tagged `v0.26.0`, **annotated** (tag object `5fd2212`), on merge commit
