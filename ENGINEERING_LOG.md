@@ -3050,6 +3050,244 @@ around a configuration; it cannot see an error every seed shares. So a
 "survives a re-fit" verdict is conditional on the configuration being right,
 and 23b is needed to re-establish any such verdict on the corrected boards.
 
+## Lifted from CLAUDE.md, 2026-10-14
+
+`CLAUDE.md` reached 145.2k, within a few thousand of the size at which it had
+gone over budget five times, so these five passages were compressed there to
+their rules. Their full text, verbatim as it stood, is kept here.
+
+### The release paragraphs of "Current state"
+
+**Twenty-one releases are archived, `0.26.0` the newest** (2026-10-10). Byte
+counts, wheel digests, the commit each tag resolves to and what every
+`__version__`/`SCHEMA_VERSION` import read back are recorded release by release
+in [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md) under "Release history"; read them
+there. `0.26.0` is the **fourteenth running with no gap** between tag, wheel,
+release and `main`; `0.18.0` is the only release to move the schema (v8 -> v9), so a
+v0.17.0 install cannot read a record written by it while older records read
+fine here. **`0.19.0` shipped without its wheel check and without its
+release-history entry** — both were done retrospectively on 2026-09-16 — and
+**`0.21.0` and `0.22.0` both stopped with PyPI complete and no GitHub
+release**, so Zenodo had archived nothing while `CITATION.cff` already named the
+new version. Twice running makes it structural rather than a slip: the upload is
+the step that feels like the finish line, CI went green long before, and
+**nothing anywhere turns red when the archive never happens**. It has held on
+`0.23.0` through `0.26.0`, each cut as a step of their own and confirmed
+with `gh release view`; so has the `date-released` rule, advanced in all four
+release commits. **Tag only after the release PR is merged and
+`pyproject.toml` reads the new version** (0.26.0): a first attempt tagged and
+built the pre-bump `main`, so `dist/` held fresh *0.25.0* artifacts under a
+`v0.26.0` tag; only an expired token stopped the upload, and the unpushed tag
+was deleted rather than moved. **Date an upload from the artifact's `upload_time_iso_8601`**,
+not from when an index last answered: a poll minutes before `0.23.0`'s release
+reported the previous version and was nearly written up as the release preceding
+the upload.
+
+**And the aggregate JSON endpoint can lie in the other direction** (0.25.0).
+Minutes *after* a successful upload, `https://pypi.org/pypi/visbench/json`
+still reported `0.24.0` with no `0.25.0` key in `releases` — which reads exactly
+like a failed upload. The version-specific
+`https://pypi.org/pypi/visbench/0.25.0/json` returned HTTP 200 with both
+artifacts, and `/simple/visbench/` already listed them. **Ask the
+version-specific endpoint or the simple index before concluding an upload did
+not happen**, the same way `pip download`'s cached "No matching distribution
+found" is not evidence either.
+
+Four rules those releases left behind, beyond the standing list below; the
+release-by-release detail is in `ENGINEERING_LOG.md` under "Release history".
+**A PyPI version can never be re-uploaded, so a dead link or a stale line on the
+front page is only fixed by the *next* release** (0.16.0). **Read Zenodo's API
+before claiming an archive is wrong** (0.16.1) — it prefers `.zenodo.json` where
+GitHub's cite button prefers `CITATION.cff`, so a divergence is half wrong and
+half fine. **Both archive abstracts are hand-checked whenever a probe ships**
+(0.17.0), since each states the probe count in prose and
+`tests/test_citation.py` compares only the two files' *titles*; three older
+archives say "Fifteen" and always will. **An empty `uv lock` diff after a
+version bump is a symptom, not a pass** (0.18.0): the version lives in two
+literals and the lockfile pins only one, so a bump always moves the lockfile.
+
+**The concept DOI is `10.5281/zenodo.21822684`**, unchanged across all
+**twenty-one** version DOIs and now resolving to v0.26.0 (confirmed against
+Zenodo's API on 2026-10-10 — record 21822684 redirects to `id` 23288216, which
+reports `metadata.version` `v0.26.0` — rather than assumed).
+
+**That API 302s, and without `-L` the check lies to you**: `curl` alone returns
+a 229-byte HTML redirect page and the JSON parse fails with a traceback that
+reads as Zenodo serving garbage. Use `curl -sL`. That is the point of quoting it
+rather than a version DOI; `tests/test_citation.py` rejects any other Zenodo
+DOI in `README.md`, `docs/index.md` and `CITATION.cff`, because pasting one
+over it is the realistic mistake and it freezes every citation at one release.
+
+### The seed-sweep bullet (20a-21b, 20d)
+
+- **A threshold on a gap cannot say whether two rows are ordered; a paired
+  re-fit can** (20a; the table is in `results/controls/README.md`). When runs
+  are repeatable, **re-run both rows under the same seeds and test the paired
+  difference** rather than comparing their gap to a noise figure — the gap is
+  one draw, and on the pose board pairs 1.58 apart are solidly ordered while a
+  pair 0.12 apart is **reversed by 2.08**. Widening the threshold to the
+  measured noise would have called two ordered pairs tied and still missed the
+  reversal. Only 11% of that board's seed variance is common-mode, so the two
+  rows move independently and no function of the gap can carry the answer.
+  **The gate that makes such a sweep mean anything is free**: the corpus cells
+  were run at seed 0, so the sweep's own seed-0 rows must reproduce them, and
+  all thirteen did at delta 0.0.
+
+  **Every trained board is now swept, a third of all adjacent pairs are
+  unordered, and a reversal is rare rather than absent** (20b/20c/21b;
+  `results/controls/seeds/`, read with `scripts/analyse_seeds.py <probe>`).
+  **126 of 192 pairs ordered, 63 tied, 3 reversed.** 20b swept three boards,
+  found no reversal and published "the reversals do not generalise"; **20c
+  refuted it the next day** — `surface_normal`, a linear board, reverses
+  `siglip_vitb16`/`convnext_base`. Say **rare and marginal** instead: all three
+  reversals sit at |t| 2.90-3.15 against 2.776 at n=5. The unorderable fraction
+  is a property of the *board* — `occlusion_edge` orders 4 of 12,
+  `generic_segmentation` 11 of 12 — and on **11 of 16** boards the largest
+  unordered gap exceeds the smallest ordered one, so a threshold cannot exist
+  there. **A board's spread does not predict that count**: the three image-level
+  classification boards each order exactly 7 of 12 across a ten-fold range of
+  spread, because the per-row scatter grows with it. Sweep before ordering
+  adjacent rows, and quote `results/controls/README.md` for which pairs are
+  ordered. **Totals here are recomputed from the committed sweeps** by
+  `tests/results/test_sweep_totals.py`, which pins them in this file,
+  `CORPUS_FINDINGS.md` and `results/controls/README.md` — they had drifted
+  through three files with nothing checking them.
+  **A sweep re-fits the published flags** — `SEEDS=5` on `build_corpus.sh`, not
+  a second script — and **must never reach the corpus**, since `seed` is not in
+  `comparability_key`; both are refused in code and pinned by tests.
+  **And "reproduces the board" is per board**: exact for three boards, 1.7e-07
+  to 2.9e-05 for the nine dense ones (float32 reduction order), and 9.2e-04 to
+  **2.5e-02** for `detection`, `instance_segmentation` and `orientation`, whose
+  metrics are not smooth in the prediction. Every one of those runs reported a
+  `train_loss` identical to its published cell's, which is the only thing that
+  separates a moved metric from a moved configuration — and it is what made
+  **`scene_classification` legible**: eleven of its thirteen seed-0 rows miss
+  their published cells by up to **−0.0102** *with a different fit*, so its
+  sweep is **held out** at `results/controls/scene_classification_seeds.jsonl`.
+
+  **20d says why, and the answer is amplification rather than hardware.** The
+  silicon was the last hypothesis and the other boards refute it — five were
+  published in the same 2026-09-10 batch and all five reproduce today.
+  Perturbing this board's features across a **thousand-fold** range moves
+  `resnet50` by 0.0044-0.0069, the same at every size, while `mae_vitb16` moves
+  150x less and is one of the two rows that reproduce: **a trigger not a dose,
+  on a different head, metric and dataset from 19b's**. So **a disturbance too
+  small to identify is sufficient, and identifying it would change no number** —
+  which is why no A100 slot was spent on it. The board still gets a verdict (8
+  of 12 pairs ordered) and it **survives the disagreement**: the two
+  configurations differ on 2 of 78 pairs, both already tied. **No published
+  number moves.**
+
+  Two rules from building that study, both of which cost a run: **a
+  pre-measurement must call the CLI's dataset builder rather than copy it** —
+  the copy got `ImageFolderDataset`'s root/split shape wrong and found no images
+  — and **it must seed before constructing the backbone**, as `run()` does, or
+  the head initialises from a different RNG state and the baseline misses by
+  6e-3 with every recorded field identical. **Give such a script a `--gate-only`
+  mode**: the check is 30 seconds and the curve is 45 minutes.
+
+### The resolution and double-crop bullets (15a/15b, 22c, 23a)
+
+  - **Feature resolution correlates with nearly every dense board and is causal
+    about what a representation carries** (`dino_vitb8`, 2026-09-16). **Its
+    "the LINEAR board cannot see it" half is largely retracted by 22c**: that
+    board was double-cropped (next bullet), and without the crop `edge`'s B/8
+    gap is +0.0985 rather than +0.0007, and 23a's corrected boards show the
+    same on `corner` (+0.0864), `generic_segmentation` (+0.0541) and
+    `orientation` (3.86°). The text below is the 15a/15b reading, kept as
+    history. Quadrupling the grid at fixed objective, data,
+    width and depth moves the published linear boards by a rounding error and
+    the same probes under a DPT head by one to two orders of magnitude more —
+    over one sibling pair, and over all ten ViTs (stronger under DPT on 4 of 5,
+    largest where the linear head recovers least of its oracle).
+    **Never quote a linear board as evidence that resolution does not help**;
+    the first draft of this finding did exactly that, and its headline here
+    contradicted its own body until 2026-09-16. `analyse_dpt_control.py --grid`
+    reprints it. Separately: **check who leads a board before explaining their
+    lead.**
+  - **Every timm row was measured on a second, unrecorded centre crop** (22c;
+    `results/controls/crop_control.jsonl`). Datasets crop to 224, then a timm
+    backbone's eval transform resizes to `224/crop_pct` and crops again, so 9
+    of 13 columns see the central 87.5-95% of a frame whose target spans all
+    of it; DINOv2/open_clip are a no-op. On four boards the timm ViTs were
+    understated by up to 32%, and the finest grid pays most. **Check that a
+    "no-op" preprocess is one by pushing a coordinate-encoded image through
+    it** — a docstring asserted it was, and nothing checked.
+  - **23a corrected the corpus**: `TimmBackbone` defaults to `crop_pct=1.0`
+    (key `timm/<model>/<tag>/224/crop1`), all 180 timm cells were re-run on a
+    V100 and gated against 22c's control, and `SUPERSEDED_KEYS` lets the new
+    key replace the old under the same name — **only for the nine listed
+    pairs**; any other key change still raises. `crop_pct=None` reproduces a
+    pre-23a cell and requires a distinct `name`. **Four boards change leader,
+    all to `dino_vitb8`** (`edge`, `generic_segmentation`, `keypoints2d`,
+    `orientation`), five change last place, and **`detection` gets *worse*
+    full-frame** (timm ViTs −6%, CNNs −12.5%, same config, slightly worse fit)
+    — measured, not explained. Numbers in `CORPUS_FINDINGS.md`.
+
+### The "Open issues" preamble
+
+**Every issue below is closed; the tracker was empty as of 2026-08-06.** The
+fast suite **collects 2445 tests**, green on 2026-10-14 along with all three
+lint steps, mypy and the `-W` docs build. The slow suite is **116** since
+16a-1, whose own slow test was run then; the other 115 were last green on
+`main` on 2026-09-11. Earlier fast counts, for dating a claim: 2433 at 22c, 2414 at 22b, 2406 at 22a, 2397 at 21b, 2381 at 21a, 2362 at 20d,
+2304 at v0.23.0, 2301 at 20a, 2296 at 19b, 2281 at v0.21.0, 1824 at the oracle
+gate. **Keep that list to a handful** — it is one of the places this file
+accretes, and its only job is to date a claim.
+
+**Quote the collected count, not "N passed", because the skip count is a fact
+about the environment rather than the suite.** Measured on one commit (1930
+collected): 1927 passed + 3 skipped on CI, 1922 + 8 on `.venv`, 1930 + 0 with
+every extra installed — so a remembered "(8 skipped)" is wrong two ways out of
+three. `pytest --collect-only` is the number that means something.
+
+Run the checks via `sbatch` (`.venv/bin/python` does not resolve on a `dgxh100`
+login shell) and **`--exclude=dgx1`**, per the cluster's node map above; the
+usable node is `dgx2`. `uv lock --check` is green as of 2026-09-05 — 13a moved
+it twice, adding `sphinx-design` to `docs` and `sphinx` to `dev`, which is the
+first dependency change since 2026-08-06. If anything is red for you, that is
+new — do not go looking for a known cause here.
+
+The entries are kept because each one records a *class* of failure this
+codebase has actually shipped, and the next one will rhyme with them.
+
+The four closed entries are kept as *classes* of failure, since the next one
+will rhyme with them. **[#2] CI never ran `-m slow`** — fixed by
+`.github/workflows/slow.yml` (pushes to `main`, nightly, on demand, weights
+cached against `HUB_REF`); it does not gate pull requests, so **a check that
+guards a silently wrong number still belongs in the fast suite**. **[#4]
+`zip(strict=)`** — `B905` is enforced; the one real hole it found was
+`CorrespondenceTask.evaluate_ceiling` scoring nine geometries against ten pairs
+and reporting it as covering the split, so **`strict=True` is the default when
+you pair two things by index**. **[#1] DINOv2 on 3.9** and **[#3] the CLIP
+QuickGELU guard** are both above, under the Python floor and the dead-guard
+rules respectively.
+
+### The budget paragraph
+
+This file is loaded into every session's context whole, so it has a budget, and
+it has now been over that budget **five times** — 203k, 151k, 158k, 150k, and
+**148k on 2026-09-19**, trimmed to **135.8k**.
+
+**Every time, the growth has been retrospective narrative rather than rules**,
+and every time the fix has been the same: keep the *rule* here and send the
+*derivation* to the file that already owns it, which then says so. Nothing is
+deleted. The 2026-09-17 pass compressed eleven blocks (the corpus-claim list,
+the pose write-up, 9a, 9d, 10a, the DPT control, the optional-extra trap, the
+split control, the second-dataset edit list, the library-surface backlog, the
+derived-target gauntlet and schema v8); the 2026-09-19 pass compressed the
+gauntlet again, the pose pre-measurement, the relative-pose paragraph, the
+post-v0.11 probe summary, the per-release rules, the closed-issue list, the Hub
+paragraphs and the node map, and **moved the dataset survey wholesale** to
+`ENGINEERING_LOG.md`. **10a and the dataset survey are the only two whose
+derivation was not already filed elsewhere**, so their full text moved rather
+than being cut.
+
+**So when it next crosses, look first for a closed step's write-up, a
+per-release paragraph, or a claim restated here in the same detail as the file
+that owns it** — before touching "decisions already paid for", which is the bulk
+of this file and is what it is for.
+
 ## Steps 7a-14a — write-ups lifted from `CLAUDE.md`
 
 ### 10a — `TimmBackbone` learns to read a ViT
