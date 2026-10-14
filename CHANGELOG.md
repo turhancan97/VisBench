@@ -9,6 +9,16 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+### Found
+
+- **The held-out `scene_classification` sweep stays held out, and the reason is
+  now pinned down** (23d). Re-sweeping its four non-timm columns reproduces the
+  committed sweep bit for bit, so the sweep is deterministic and the four
+  published cells from 2026-09-10 are what today's pipeline does not reproduce.
+  23b had read the opposite. One consequence is visible on the board:
+  `dinov2_vits14` and `dino_vitb8` should be quoted as tied, because the board
+  mixes cells from two pipeline states. No published number moves.
+
 ## [0.27.0] — 2026-10-14
 
 **Nine of the thirteen corpus columns were measured on a frame cropped twice.

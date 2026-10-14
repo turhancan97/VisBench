@@ -3143,12 +3143,13 @@ narrower than the statistic's own scatter, because 187 pairs over twenty boards
 are nothing like 187 independent draws. `null_percentiles` now prints the null
 and the test is calibrated against it.
 
-**A lead, not a result: the held-out sweep.** All nine re-swept
-`scene_classification` columns reproduce the board **exactly, with the same
-fit**, while the four original columns still miss with a different one. 20d
-found amplification of a disturbance too small to identify; this says that
-disturbance belonged to the original sweep *run*, not to the board. Re-sweeping
-the four columns (20 fits) would say whether the sweep can come back in.
+**A lead, not a result: the held-out sweep — and 23d refuted it.** All nine
+re-swept `scene_classification` columns reproduce the board **exactly, with the
+same fit**, while the four original columns still miss with a different one.
+This entry read that as the disturbance belonging to the original sweep *run*.
+**It had it backwards**: the nine agree because 23a re-made their *published
+cells* with today's pipeline, so both sides are today's. 23d re-swept the four
+and got the old sweep back bit for bit (below).
 
 **Not done, and named.** Every board-pair coefficient quoted in
 `CORPUS_FINDINGS.md` prose — the vehicle partners (+0.901/+0.863, now
@@ -3202,6 +3203,34 @@ the shipped pages quote, through the script, and was checked the useful way:
 pointed at the cropped corpus it fails 20 of 22, and the two that pass quote
 values the fix did not move. `CORPUS_FINDINGS.md` is deliberately not pinned —
 its dated entries keep old values on purpose.
+
+## 23d — the held-out sweep's four columns, re-swept: the sweep was right
+
+**What 23b proposed.** After 23b, nine of `scene_classification`'s thirteen
+seed-0 rows reproduced the board exactly and four — `dinov2_vits14`,
+`dinov2_vitb14`, `clip_vitb16`, `clip_vitb32`, the columns 23b did not touch —
+still missed with a different fit. 23b read that as a faulty original sweep run
+and proposed re-sweeping the four (20 fits, job 533318, V100s).
+
+**What it found.** The re-sweep reproduces the **old sweep** to every digit —
+metrics and `training` identical on all twenty rows — and so misses the board
+by exactly what the old sweep did (−5.5e-04 to −2.9e-03 on top-1, fit
+different). The harness is deterministic; the four published cells, written on
+2026-09-10, are what today's pipeline does not reproduce. The nine timm columns
+agree only because 23a re-made their published cells with today's pipeline, so
+both sides of that comparison are today's. This is 20d's finding again —
+amplification on a near-interpolating fit, a disturbance too small to identify
+— seen from the other side, and 23b's lead was a misreading of which side had
+moved.
+
+**What it changes.** Nothing measured. The sweep stays held out, because
+bringing it in would mean replacing four published cells with re-runs that do
+not reproduce them — exactly what "a re-run replaces a published record only
+where it reproduces it" forbids. The re-swept rows are not merged: they are
+bit-identical to the committed ones, so there is nothing to merge. **The lesson
+is 22a's again, in a new place: when two things disagree, check which one
+moved before calling either faulty** — here the nine "good" rows had agreement
+manufactured by 23a re-making one side.
 
 ## Lifted from CLAUDE.md, 2026-10-14
 

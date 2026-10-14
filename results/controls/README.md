@@ -886,6 +886,25 @@ order the same way.
 does not reproduce its board, and the guard that says so is the reason this was
 investigated rather than averaged over.
 
+> **Since 23a/23b, four rows miss rather than eleven — and 23d showed why that
+> is not progress.** 23a re-made the nine timm cells with today's pipeline and
+> 23b re-swept those columns, so both sides of those nine are today's and they
+> agree exactly. The other four (`dinov2_vits14`, `dinov2_vitb14`,
+> `clip_vitb16`, `clip_vitb32`) still carry the 2026-09-10 cells. 23d re-swept
+> them (job 533318) and got **this file's rows back bit for bit**, metrics and
+> fit, so the sweep is deterministic and those four cells are what today's
+> pipeline does not reproduce (−5.5e-04 to −2.9e-03). The file stays held out:
+> admitting it would mean replacing four published cells with re-runs that do
+> not reproduce them.
+>
+> **The board is now a mix of two pipeline states, and one adjacent pair
+> shows it.** Read against it, this sweep orders 7 pairs, ties 4 and
+> **reverses** `dinov2_vits14` / `dino_vitb8` (t −3.46): the board puts
+> `dinov2_vits14` ahead by 0.0007, and today's pipeline puts it 0.0029 lower
+> on seed 0 alone, below `dino_vitb8` on every seed. That reversal is the
+> mixed board, not a finding about either backbone — quote those two rows as
+> tied.
+
 ## `pose_noise.json` — how much does a pose number move, and what moves it?
 
 **Not records.** The runs behind this perturb cached features, which no flag
