@@ -136,6 +136,26 @@ _VARIANTS = {
     # has no mode for; this official sibling pools by global average, which is
     # exactly VisBench's `mean`. Same features, a head that already fits.
     "siglip_vitb16": ("vit_base_patch16_siglip_gap_224", "webli"),
+    # `convnext_base`'s architecture under CLIP's objective and data, to break
+    # the corpus's one remaining all-or-nothing confound: **every CNN here was
+    # ImageNet-1k supervised**, so "CNN" and "supervised on IN1k" moved together
+    # and no board could say which of the two a CNN row's placement reflected.
+    # Against `convnext_base` this varies objective and data at fixed
+    # architecture; against the CLIP ViTs it varies architecture at a fixed
+    # objective (on different image-text data, LAION-2B against WIT).
+    #
+    # The plain `clip_laion2b` tag, not `_augreg` or any `_ft_*` one: a
+    # fine-tuned tag puts ImageNet labels back in, which is the variable this
+    # row exists to remove, and augreg is the more flattering recipe -- the
+    # reasoning `convnext_base` records above.
+    #
+    # Native resolution is **256**; it is registered at 224 like every other
+    # column (see `@register_backbone` below), so its grid is the 7x7 every
+    # stride-32 CNN here has and its key ends `/224/crop1`. A fully
+    # convolutional model takes the size change without position embeddings to
+    # interpolate, but it is off the training resolution, the caveat the
+    # `dinov2_vitb14_196` control records in the other direction.
+    "clip_convnext_base": ("convnext_base", "clip_laion2b"),
 }
 
 #: ``global_pool`` values this class can express, mapped to VisBench's modes.
@@ -246,6 +266,7 @@ def eval_config(config: dict, image_size: int | None, crop_pct: float | None) ->
 @register_backbone("dino_vitb8", variant="dino_vitb8")
 @register_backbone("sam_vitb16", variant="sam_vitb16")
 @register_backbone("siglip_vitb16", variant="siglip_vitb16")
+@register_backbone("clip_convnext_base", variant="clip_convnext_base", image_size=224)
 class TimmBackbone(BaseBackbone):
     """Any timm model — CNN or transformer — through the one interface.
 

@@ -156,6 +156,11 @@ STRUCTURE: dict[str, Structure] = {
     "resnet18": Structure(49, 512, "CNN", "IN1k", 1.28e6, "supervised"),
     "resnet50": Structure(49, 2048, "CNN", "IN1k", 1.28e6, "supervised"),
     "convnext_base": Structure(49, 1024, "CNN", "IN1k", 1.28e6, "supervised"),
+    # `convnext_base`'s architecture and grid under CLIP's objective on
+    # LAION-2B (~2.32e9 image-text pairs): the first CNN here that is not
+    # ImageNet-1k supervised, so "CNN" and "IN1k supervised" stop being one
+    # variable in every coefficient this script prints.
+    "clip_convnext_base": Structure(49, 1024, "CNN", "LAION-2B", 2.3e9, "language"),
 }
 
 

@@ -209,6 +209,36 @@ class TestTheVariantTable:
             assert "patch16" in model, f"{name} is no longer a patch-16 model: {model}"
         assert "patch16" not in _VARIANTS["dino_vitb8"][0]
 
+    def test_the_clip_cnn_moves_only_objective_and_data(self):
+        """`clip_convnext_base` breaks "every CNN is ImageNet-1k supervised".
+
+        Until it, `convnext_base` and both ResNets were the only CNNs and all
+        three were IN1k supervised, so a CNN row's placement could not be told
+        apart from a supervised-IN1k one's. This row keeps `convnext_base`'s
+        architecture and changes the objective and data to CLIP on LAION-2B.
+
+        Pinned because the tempting tags are the stronger ones: any `_ft_*`
+        tag fine-tunes on ImageNet labels, which puts back the variable the row
+        exists to remove, and `_augreg` is the more flattering recipe.
+        """
+        model, tag = _VARIANTS["clip_convnext_base"]
+        sibling_model, _ = _VARIANTS["convnext_base"]
+        assert model == sibling_model == "convnext_base", "the architecture is held fixed"
+        assert tag == "clip_laion2b", f"plain CLIP pretraining, not a fine-tuned tag: {tag}"
+
+    def test_the_clip_cnn_is_registered_at_the_corpus_resolution(self):
+        """Its checkpoint is 256px native, and every corpus column runs at 224.
+
+        `TimmBackbone` defaults `image_size` to the checkpoint's own, so without
+        the registered default this row would read an 8x8 grid where every other
+        stride-32 CNN reads 7x7 -- a grid difference arriving silently inside a
+        comparison meant to vary only objective and data.
+        """
+        from visbench.registry import _BACKBONES
+
+        _, defaults = _BACKBONES["clip_convnext_base"]
+        assert defaults.get("image_size") == 224
+
     def test_deit3_is_not_in_the_objective_family(self):
         """The near-miss, excluded by measurement rather than by name.
 

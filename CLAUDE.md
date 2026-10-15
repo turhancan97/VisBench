@@ -86,6 +86,7 @@ step is next rather than attempting the whole roadmap in one session.
 | 23b | The sweeps re-fitted on the corrected boards: no pair reverses any more | done |
 | 23c | The prose re-read on the corrected corpus, and a guard on what the pages quote | done |
 | 23d | The held-out sweep's last four columns re-swept: the sweep was right, the cells moved | done |
+| 24a | `clip_convnext_base`: a fourteenth backbone, registered to break "every CNN is IN1k supervised" | done |
 
 **A closed step's full write-up lives in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md), not here.** That file is the archive
@@ -291,6 +292,7 @@ Registered names — `visbench.list_backbones()`, `list_probes()`,
 backbones  dinov2_vits14, dinov2_vitb14, clip_vitb16, clip_vitb32,
            resnet18, resnet50, convnext_base, mae_vitb16, siglip_vitb16,
            supervised_vitb16, dino_vitb16, sam_vitb16, dino_vitb8,
+           clip_convnext_base (registered 24a; no board until 24b),
            dinov2_vitb14_196 (a resolution control, not a corpus column)
            (+ CustomBackbone, unregistered)
 probes     classification, scene_classification,
@@ -1726,9 +1728,9 @@ designed up front; extend it the same way, from a case that already runs.
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite **collects 2508 tests**, green on 2026-10-14 along with all three
+fast suite **collects 2512 tests**, green on 2026-10-14 along with all three
 lint steps, mypy and the `-W` docs build; the slow suite is **116**, last fully
-green on `main` on 2026-09-11. Earlier fast counts, for dating a claim: 2486 at 23b, 2445 at 23a, 2433 at
+green on `main` on 2026-09-11. Earlier fast counts, for dating a claim: 2508 at 23c, 2486 at 23b, 2445 at 23a, 2433 at
 22c, 2414 at 22b, 2397 at 21b, 2304 at v0.23.0, 1824 at the oracle gate — keep
 that list to a handful. **Quote the collected count, not "N passed"**: the skip
 count depends on which extras are installed (3 on CI, 8 on `.venv`, 0 with
@@ -2039,7 +2041,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 2508 fast tests
+pytest                                              # 2512 fast tests
 pytest -m slow                                      # 116, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/

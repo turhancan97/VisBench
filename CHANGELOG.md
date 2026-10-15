@@ -9,6 +9,21 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+### Added
+
+- **`clip_convnext_base`, a fourteenth backbone** (24a): `convnext_base`'s
+  architecture trained with CLIP on LAION-2B (`convnext_base.clip_laion2b`).
+  Every CNN in the corpus was ImageNet-1k supervised, so "CNN" and
+  "supervised on IN1k" moved together on every board; this row varies objective
+  and data at fixed architecture. Registered at 224px like every other column,
+  although its checkpoint is 256px native. Verified on the real weights: a 7x7
+  grid at 1024 channels, `pooled` equal to the mean of `dense`, all four stages
+  extractable, and the full frame kept under CLIP's normalisation. **No board
+  yet** — the corpus run is 24b.
+- `tests/test_backbone_guide.py`: every registered backbone must be named in
+  `docs/guides/backbones.md`, which had been missing `dino_vitb8` since it was
+  added.
+
 ### Found
 
 - **The held-out `scene_classification` sweep stays held out, and the reason is
