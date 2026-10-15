@@ -85,6 +85,7 @@ step is next rather than attempting the whole roadmap in one session.
 | 23a | The crop fixed: timm defaults to the full frame, and nine columns re-run | done |
 | 23b | The sweeps re-fitted on the corrected boards: no pair reverses any more | done |
 | 23c | The prose re-read on the corrected corpus, and a guard on what the pages quote | done |
+| 23d | The held-out sweep's last four columns re-swept: the sweep was right, the cells moved | done |
 
 **A closed step's full write-up lives in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md), not here.** That file is the archive
@@ -1262,10 +1263,12 @@ designed up front; extend it the same way, from a case that already runs.
   moved configuration** — to three figures, never bit-identical, and only to
   ~1.6e-3 on `orientation`, whose fit is ill-conditioned like its metric. That is what held **`scene_classification`'s sweep
   out** (`results/controls/scene_classification_seeds.jsonl`): eleven seed-0
-  rows missed *with a different fit*. **23b's nine re-swept columns reproduce
-  it exactly, same fit**, and the four original columns still miss — so the
-  disagreement lives in the original sweep run, and re-sweeping those four is
-  the open lead. **20d: amplification, not hardware** — a
+  rows missed *with a different fit*; nine reproduce now only because 23a
+  re-made those **cells** with today's pipeline. **23d re-swept the other four
+  and got the old sweep back bit for bit** — the sweep is deterministic and the
+  four 2026-09-10 cells are what today does not reproduce, so it stays held
+  out unless those cells are replaced, which the reproduce-first rule above
+  forbids. **20d: amplification, not hardware** — a
   trigger rather than a dose, so a disturbance too small to identify is
   sufficient and identifying it would change no number.
 

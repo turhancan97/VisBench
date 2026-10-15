@@ -1870,7 +1870,10 @@ Three standing cautions apply to everything below:
   > is first on objects and ninth on scenes, `supervised_vitb16` third and
   > twelfth, `mae_vitb16` last and eleventh. The scene board correlates +0.676
   > with `detection` and +0.582 with `semantic_segmentation`, against +0.071
-  > with `classification` and −0.253 with `retrieval`.
+  > with `classification` and −0.253 with `retrieval`. **Quote
+  > `dinov2_vits14` and `dino_vitb8` as tied** (0.0007 apart): the first's
+  > cell is one of four from 2026-09-10 that today's pipeline does not
+  > reproduce (23d), and its re-run lands below the second on every seed.
 
 - **`orientation` — a target that is independent per pixel and a board that is
   not** (2026-08-28, 12 backbones, the same pinned Taskonomy `tiny` frames as
