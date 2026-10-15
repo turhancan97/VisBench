@@ -14,12 +14,17 @@ visbench.list_backbones()
 | --- | --- | --- |
 | DINOv2 | `dinov2_vits14`, `dinov2_vitb14` | *(core)* |
 | CLIP | `clip_vitb16`, `clip_vitb32` | `clip` |
-| timm CNNs | `resnet18`, `resnet50`, `convnext_base` | `timm` |
-| timm ViTs | `mae_vitb16`, `dino_vitb16`, `sam_vitb16`, `supervised_vitb16`, `siglip_vitb16` | `timm` |
+| timm CNNs | `resnet18`, `resnet50`, `convnext_base`, `clip_convnext_base` | `timm` |
+| timm ViTs | `mae_vitb16`, `dino_vitb16`, `dino_vitb8`, `sam_vitb16`, `supervised_vitb16`, `siglip_vitb16` | `timm` |
 
 `dinov2_vitb14_196` is also registered and is **not** a corpus column: it is
 the same weights at 196px, a resolution control that exists to separate "finer
 grid" from "better representation".
+
+`clip_convnext_base` is `convnext_base`'s architecture trained with CLIP on
+LAION-2B — the first CNN here that is not ImageNet-1k supervised. Its checkpoint
+is 256px native and it is registered at 224 like every other column. It is
+registered ahead of its corpus run, so it has no board yet.
 
 ## A missing extra is not a missing backbone
 

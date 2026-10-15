@@ -3232,6 +3232,44 @@ is 22a's again, in a new place: when two things disagree, check which one
 moved before calling either faulty** — here the nine "good" rows had agreement
 manufactured by 23a re-making one side.
 
+## 24a — `clip_convnext_base`: a fourteenth backbone, registered
+
+**Why this row.** Scoped before 22c and parked by it. The corpus's three CNNs
+(`resnet18`, `resnet50`, `convnext_base`) are all ImageNet-1k supervised, so on
+every board "CNN" and "IN1k supervised" are one variable. `convnext_base.
+clip_laion2b` keeps `convnext_base`'s architecture and moves objective and data
+to CLIP on LAION-2B. The plain tag, not `_augreg` (the more flattering recipe)
+and not any `_ft_*` tag (ImageNet labels back in).
+
+**Registered at 224, not its native 256.** `TimmBackbone` defaults
+`image_size` to the checkpoint's own, which would give this row an 8x8 grid
+against every other stride-32 CNN's 7x7 — a grid difference inside a
+comparison meant to vary objective and data. A registered default fixes it, and
+a fast test pins it. Being fully convolutional it needs no position-embedding
+interpolation, but 224 is off its training resolution; the caveat is recorded
+beside the variant.
+
+**Verified on the real weights before anything else** (dgx2, V100): key
+`timm/convnext_base/clip_laion2b/224/crop1`; dense (1, 1024, 7, 7); no CLS;
+`default` pooling resolves to mean and `pooled` equals the mean of `dense`;
+stages 0-3 at 56/28/14/7; and the 22c check — a column-encoded image through
+the real `preprocess` keeps columns 0-223 under CLIP's mean and std.
+
+**Three things the registration exposed.**
+- `test_every_retired_key_is_the_legacy_key_of_a_registered_timm_variant`
+  derived "every timm variant was double-cropped". A variant born after 23a
+  has no legacy key, so the test now names `BORN_FULL_FRAME`.
+- `scripts/run_crop_control.py` read its columns off `_VARIANTS` and would
+  have offered the new row to a control it was never part of; it derives them
+  from `SUPERSEDED_KEYS` now — the table that names exactly the nine cropped
+  columns.
+- `docs/guides/backbones.md` had been missing `dino_vitb8` since 15a; a test
+  now requires every registered backbone to appear there.
+
+**`STRUCTURE` row**: 49 tokens, 1024 wide, CNN, LAION-2B at 2.3e9, objective
+`language`. No board, no record and no published number moves; the twenty-cell
+run is 24b.
+
 ## Lifted from CLAUDE.md, 2026-10-14
 
 `CLAUDE.md` reached 145.2k, within a few thousand of the size at which it had

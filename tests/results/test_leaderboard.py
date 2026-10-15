@@ -617,11 +617,22 @@ def test_a_reference_with_two_keys_for_one_cell_is_refused():
         pinned_to_keys([], mixed)
 
 
+#: timm variants registered after 23a's fix. They were never measured on the
+#: cropped frame, so they have no legacy key to retire -- and giving one a
+#: `SUPERSEDED_KEYS` entry would license a key change nothing ever made.
+BORN_FULL_FRAME = frozenset({"clip_convnext_base"})
+
+
 def test_every_retired_key_is_the_legacy_key_of_a_registered_timm_variant():
     """So the table cannot drift from what TimmBackbone actually produces."""
     from visbench.backbones.timm_backbone import _VARIANTS
 
-    legacy = {f"timm/{model}/{tag}/224" for model, tag in _VARIANTS.values()}
+    assert BORN_FULL_FRAME <= set(_VARIANTS)
+    legacy = {
+        f"timm/{model}/{tag}/224"
+        for name, (model, tag) in _VARIANTS.items()
+        if name not in BORN_FULL_FRAME
+    }
     assert set(SUPERSEDED_KEYS) == legacy
     assert all(new == f"{old}/crop1" for old, new in SUPERSEDED_KEYS.items())
 

@@ -57,15 +57,24 @@ import visbench
 from visbench.backbones.timm_backbone import _VARIANTS, TimmBackbone
 from visbench.cli.main import main as cli_main
 from visbench.registry import register_backbone
+from visbench.results.leaderboard import SUPERSEDED_KEYS
 
 ROOT = Path(__file__).resolve().parents[1]
 CORPUS = ROOT / "results" / "corpus" / "visbench.jsonl"
 SUFFIX = "_fullframe"
 
-#: The timm corpus columns. Read off `_VARIANTS` so a new timm column is
-#: covered without an edit; `dinov2_vitb14_196` and the open_clip rows are
-#: not timm and already preprocess with a no-op.
-TIMM_COLUMNS = tuple(sorted(_VARIANTS))
+#: The timm columns that were measured on the cropped frame: the variants whose
+#: legacy key `SUPERSEDED_KEYS` retires. Not every `_VARIANTS` entry -- a column
+#: registered after 23a (`clip_convnext_base`) was never cropped, so it has no
+#: cropped cell for this control to compare against. `dinov2_vitb14_196` and the
+#: open_clip rows are not timm and already preprocess with a no-op.
+TIMM_COLUMNS = tuple(
+    sorted(
+        name
+        for name, (model, tag) in _VARIANTS.items()
+        if f"timm/{model}/{tag}/224" in SUPERSEDED_KEYS
+    )
+)
 
 
 def register_legacy(variant: str) -> str:
