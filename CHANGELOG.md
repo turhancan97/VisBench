@@ -9,6 +9,32 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`load_probe` / `load_probe_from_hub` can rebuild every probe from its
+  artifact.** With no `task=`, the loader called `visbench.get_probe(name)`.
+  That raised `TypeError` for `detection`, `semantic_segmentation` and
+  `instance_segmentation`, whose constructors require `num_classes`. So the
+  one-line load printed on every model card failed for those heads, four of
+  them public since 2026-08-07. The value was already stored in the artifact's
+  `task_params`, and every required constructor argument is now read from
+  there. A test rebuilds all twenty probes this way, so a future probe that
+  doesn't record a required argument fails in CI rather than on a user's
+  machine.
+- `scripts/publish_collection.py` listed only the ten probes from the first
+  push, and refused to collect the heads of the seven trained probes added
+  since. It now lists all seventeen, pinned against `list_probes()` by a test.
+
+### Added
+
+- **Twelve more trained heads on the Hub**: `fine_grained_classification`,
+  `vehicle_classification`, `instance_segmentation`, `scene_parsing`,
+  `orientation` and `relative_pose`, each against DINOv2-S/14 and DINOv2-B/14.
+  That makes thirty-two public heads. Each was pushed private, checked to
+  reproduce its corpus cell and to load back through the Hub, then made
+  public. `scene_classification`'s heads stay private: its DINOv2 cells are
+  among the four that today's pipeline does not reproduce.
+
 ## [0.28.0] — 2026-11-25
 
 **A fourteenth backbone, and a finding about what three dense boards rank.**

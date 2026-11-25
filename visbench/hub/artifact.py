@@ -156,6 +156,43 @@ def save_probe(
     return path
 
 
+def _task_from_meta(meta: dict) -> Any:
+    """Build the probe an artifact was saved from, out of what the artifact records.
+
+    The registry default is enough for most probes, but ``detection``,
+    ``semantic_segmentation`` and ``instance_segmentation`` take a required
+    ``num_classes``, so ``visbench.get_probe(name)`` raised ``TypeError`` and the
+    one-line load every model card shows failed for exactly those heads. The
+    value is already in the artifact's ``task_params``, so each **required**
+    constructor argument is read from there -- and only those: an optional
+    argument keeps its default, which is the behaviour every other probe had
+    before this function existed. A required argument the artifact does not
+    record still raises, naming it, rather than being guessed.
+    """
+    import inspect
+
+    import visbench
+    from visbench.registry import get_task_class
+
+    name = meta["task"]
+    params = meta.get("task_params") or {}
+    # The class's signature is its constructor's, with `self` already bound.
+    signature = inspect.signature(get_task_class(name))
+    required = [
+        parameter.name
+        for parameter in signature.parameters.values()
+        if parameter.default is inspect.Parameter.empty
+        and parameter.kind in (parameter.POSITIONAL_OR_KEYWORD, parameter.KEYWORD_ONLY)
+    ]
+    missing = [key for key in required if key not in params]
+    if missing:
+        raise TypeError(
+            f"{name!r} needs {missing} to be rebuilt and this artifact does not record "
+            "them; construct the probe yourself and pass it as task=."
+        )
+    return visbench.get_probe(name, **{key: params[key] for key in required})
+
+
 def load_probe(
     path: str | Path,
     *,
@@ -169,10 +206,11 @@ def load_probe(
     ----------
     task:
         A probe of the same kind, constructed with the same hyperparameters.
-        Built here from the registry when omitted — but a probe whose
-        constructor took arguments that shape the head (``num_classes``,
-        ``epochs``, a custom ``head_kwargs``) should be passed in, since the
-        registry default may not match what the artifact expects.
+        Built here from the registry when omitted, with any *required*
+        constructor argument (``num_classes``) read from the artifact's own
+        ``task_params``. Optional arguments that shape the head (a custom
+        ``head_kwargs``) still take their defaults, so pass the probe in when
+        it was built with non-default ones.
     strict:
         When ``False``, an identity mismatch warns instead of raising. Provided
         because deliberately probing how far a head transfers is a legitimate
@@ -189,8 +227,6 @@ def load_probe(
     """
     import warnings
 
-    import visbench
-
     # weights_only: this file may have come from a hub. See the module
     # docstring -- an unrestricted load here is remote code execution.
     payload = torch.load(Path(path), map_location="cpu", weights_only=True)
@@ -205,7 +241,7 @@ def load_probe(
         )
 
     if task is None:
-        task = visbench.get_probe(meta["task"])
+        task = _task_from_meta(meta)
 
     expected = probe_metadata(task, backbone)
     mismatched = {

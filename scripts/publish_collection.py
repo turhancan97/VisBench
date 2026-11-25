@@ -43,7 +43,21 @@ TRAINED_PROBES = (
     "edge",
     "keypoints2d",
     "corner",
+    # Seven probes that train a head shipped after the first push (2026-08-07)
+    # and were missing here until 2026-11-25, which made this script refuse to
+    # collect their heads. `tests/scripts/test_publish_collection.py` now pins
+    # this tuple against `list_probes()` minus the zero-shot three.
+    "scene_classification",
+    "fine_grained_classification",
+    "vehicle_classification",
+    "instance_segmentation",
+    "scene_parsing",
+    "orientation",
+    "relative_pose",
 )
+
+#: Probes that fit no head, so have nothing to publish.
+ZERO_SHOT_PROBES = ("retrieval", "correspondence", "similarity")
 
 #: The Hub caps this at 150 characters, so it carries only the thing a visitor
 #: has to know before the weights mean anything: a head belongs to exactly one
