@@ -56,3 +56,8 @@ results/corpus/parts/
 # scripts/merge_controls.sh is the other half of it. results/controls/*.jsonl
 # is the deliverable.
 results/controls/parts/
+
+# The explainer video's renders, audio and stills; sources are committed.
+video/build/
+video/scenes/__pycache__/
+video/__pycache__/
