@@ -189,11 +189,20 @@ def test_the_high_level_tier_is_two_clusters_not_one(script):
         "fine_grained_classification",
     )
 
-    # Each cluster is tight,
+    # Each cluster is tight, and the two ignore each other. Pinned as the claim
+    # is made -- the weakest pair inside a cluster beats the strongest pair
+    # across, which is also what `analyse_correlation_seeds.py`'s
+    # `two_clusters` claim re-fits -- rather than as a fixed bar per pair. The
+    # bar used to be +0.5 for every localised pair, and the fourteenth column
+    # (24b) took `semantic_segmentation`/`scene_classification` from +0.582 to
+    # +0.349 while the structure held with a margin of +0.19: `clip_convnext_base`
+    # is 1st on one board and 12th on the other, and its scale control shows
+    # about half that drop is a fitting artefact (CORPUS_FINDINGS.md, 24b).
     assert rho(*image_level) > 0.6
-    for a, b in itertools.combinations(localised, 2):
-        assert rho(a, b) > 0.5, f"{a}/{b} = {rho(a, b):+.3f} breaks the localised cluster"
-    # and the two ignore each other.
+    within = [rho(a, b) for a, b in itertools.combinations(localised, 2)]
+    between = [rho(a, b) for a in image_level for b in localised]
+    assert min(within) > max(between) + 0.1, (min(within), max(between))
+    assert min(within) > 0.3, "the localised cluster has stopped being a cluster"
     for a in image_level:
         for b in localised:
             assert rho(a, b) < 0.4, f"{a}/{b} = {rho(a, b):+.3f} bridges the two clusters"

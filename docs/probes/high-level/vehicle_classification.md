@@ -70,7 +70,8 @@ defines has no board until the data is pinned.
 
 | backbone | `top1` | `top5` |
 | --- | --- | --- |
-| `siglip_vitb16` | **0.8795** | **0.9776** |
+| `clip_convnext_base` | **0.8926** | **0.9852** |
+| `siglip_vitb16` | 0.8795 | 0.9776 |
 | `clip_vitb16` | 0.8074 | 0.9660 |
 | `dinov2_vitb14` | 0.7953 | 0.9509 |
 | `dinov2_vits14` | 0.7614 | 0.9370 |
@@ -89,30 +90,34 @@ Ordered by `top1`.
 <sub>vehicle_classification on val/val, protocol=visbench_vehicle_linear_probe, frozen [47c01df8]</sub>
 <!-- /visbench:board -->
 
-**`siglip_vitb16` leads at 0.8795**, where it is sixth on CUB. Web image-text
-pretraining is ahead of everything else here, including both DINOv2 rows —
-plausible for categories whose names saturate web alt-text, and the sharpest
-single statement this board makes.
+**`clip_convnext_base` leads at 0.8926, ahead of `siglip_vitb16` at 0.8795**
+(third and seventh on CUB). Web image-text pretraining takes the top three
+places, ahead of both DINOv2 rows — plausible for categories whose names
+saturate web alt-text, and the sharpest single statement this board makes.
+The leader is a CNN, and the IN1k-supervised model with the same architecture
+(`convnext_base`) is eleventh, so on this board the objective separates rows
+that the architecture does not (paired over five seeds, t = +94).
 
 **It ranks differently from the bird board**, which is what earns it a place at
-all: Spearman **+0.835** against `fine_grained_classification`, where 23 of the
+all: Spearman **+0.837** against `fine_grained_classification`, where 21 of the
 corpus's 190 board pairs are *more* correlated than that. Had it
 merely reproduced CUB's ordering it should not have shipped, on the standard
 relative depth was rejected against.
 
 **The other subordinate board is no closer than the place board.** On the
-published corpus `scene_classification` reads +0.923 against CUB's +0.835, but
-that margin is one draw: re-fitted over the committed seed sweeps the two tie at
-**+0.874** each, and the place board comes out ahead in only 62% of re-fits. So
-neither is *the* closest partner — what the two share with this board is not
-granularity, which is the property this probe was built to isolate. Mean rho is
-+0.503 against the high-level tier, +0.205 against mid-level and **−0.147**
-against low-level, an ordering that holds on every re-fit
+published corpus `scene_classification` reads +0.938 against CUB's +0.837, but
+that margin is one draw: re-fitted over the committed seed sweeps the seed-mean
+reads +0.899 against +0.868, and the place board comes out ahead in 93% of
+re-fits — not all of them. So neither is reliably *the* closest partner — what
+the two share with this board is not granularity, which is the property this
+probe was built to isolate. Mean rho is +0.419 against the high-level tier,
++0.087 against mid-level and **−0.240** against low-level, an ordering that
+holds on every re-fit
 (`scripts/analyse_correlation_seeds.py`). See
 {doc}`reading a board </guides/reading-a-board>` before quoting any of it.
 
-**`train_top1` reaches 1.0000 on seven of thirteen rows and 0.985 or better on
-the rest**, so the gap to the validation score is generalisation rather than an
+**`train_top1` reaches 1.0000 on eight of fourteen rows and 0.979 or better on
+the rest** (`convnext_base` is the 0.979), so the gap to the validation score is generalisation rather than an
 unconverged probe. CUB reaches a flat 1.0000 where this board does not, which is
 the one place the two differ mechanically — read `train_top1` before quoting a
 low row here.
@@ -121,7 +126,7 @@ One caveat travels with every number: ImageNet-1k holds several car classes
 ("sports car", "convertible", "limousine") but none at *model* granularity, so
 the in-distribution-recall confound `CORPUS_FINDINGS.md` records for the
 Imagenette board is weaker here than on CUB rather than absent.
-`supervised_vitb16` sits twelfth of thirteen, which is consistent with that and
+`supervised_vitb16` sits thirteenth of fourteen, which is consistent with that and
 does not on its own separate "the confound is weak" from "this backbone is weak
 at this task".
 

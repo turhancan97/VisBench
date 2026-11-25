@@ -107,6 +107,13 @@ def test_every_listed_probe_has_a_builder(build_text):
         assert f"probe_{probe}()" in build_text, f"ALL_PROBES names {probe}, no builder"
 
 
+#: Corpus columns added after this control ran. Its timm rows were measured
+#: before 23a's crop fix, so a full-frame row added now would sit beside cropped
+#: ones and the control would mix two pipeline states. Re-running the control
+#: full-frame for every column is the honest way to include one.
+POSTDATES_CONTROL = frozenset({"clip_convnext_base"})
+
+
 def test_both_groups_cover_every_corpus_backbone(build_text, sbatch_text):
     """The two groups together must be every backbone the corpus has a board for.
 
@@ -128,6 +135,7 @@ def test_both_groups_cover_every_corpus_backbone(build_text, sbatch_text):
     # asserted rather than filtered, since a resolution control appearing in the
     # corpus would be a different and much worse problem.
     assert "dinov2_vitb14_196" not in corpus
+    corpus -= POSTDATES_CONTROL
 
     specs = re.findall(r'"([a-z0-9_]+)=[-\d ]+"', build_text)
     assert set(specs) == corpus, "a corpus backbone is in neither DPT group"

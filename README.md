@@ -20,9 +20,9 @@
 
 ---
 
-> **Status: v0.27.0.** Twenty probes across high, mid and low level, thirteen
-> backbones from three families, and a committed corpus covering **260 board
-> cells** — twenty boards, thirteen backbones each, every one of them
+> **Status: v0.27.0.** Twenty probes across high, mid and low level, fourteen
+> backbones from three families, and a committed corpus covering **280 board
+> cells** — twenty boards, fourteen backbones each, every one of them
 > reproducible from the flags in its own record. The full
 > documentation, including a generated API reference, is at
 > **[https://turhancan97.github.io/VisBench](https://turhancan97.github.io/VisBench/)**.
@@ -187,7 +187,7 @@ the backbone forward pass runs at most once per image per backbone.
 | Every probe, its data layout and its board | [The probes](https://turhancan97.github.io/VisBench/probes/overview.html) |
 | **How to read a board before quoting one** | [Reading a board](https://turhancan97.github.io/VisBench/guides/reading-a-board.html) |
 | Every class, function and attribute | [API reference](https://turhancan97.github.io/VisBench/api/index.html) |
-| Twenty probes against thirteen backbones | [LEADERBOARD.md](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md) |
+| Twenty probes against fourteen backbones | [LEADERBOARD.md](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md) |
 | What each board means, and what it does not | [CORPUS_FINDINGS.md](https://github.com/turhancan97/VisBench/blob/main/CORPUS_FINDINGS.md) |
 | Setting up, the checks, adding a probe | [CONTRIBUTING.md](https://github.com/turhancan97/VisBench/blob/main/CONTRIBUTING.md) |
 | How it was built, and what might come next | [docs/roadmap.md](https://github.com/turhancan97/VisBench/blob/main/docs/roadmap.md) |
@@ -196,7 +196,7 @@ the backbone forward pass runs at most once per image per backbone.
 
 ## Reproducibility
 
-**Twenty probes against thirteen backbones, as records:
+**Twenty probes against fourteen backbones, as records:
 [LEADERBOARD.md](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md).** Every board is generated from
 [`results/corpus/visbench.jsonl`](https://github.com/turhancan97/VisBench/blob/main/results/corpus/visbench.jsonl), the
 committed corpus, by [`scripts/render_tables.py`](https://github.com/turhancan97/VisBench/blob/main/scripts/render_tables.py).

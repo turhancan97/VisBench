@@ -66,9 +66,15 @@ def test_every_claim_but_the_corrected_one_holds_on_every_draw(audit):
     )
 
 
-def test_the_corrected_claim_is_a_tie_on_the_seed_mean(audit):
+def test_the_corrected_claim_is_still_short_of_every_draw(audit):
+    """A tie at thirteen columns (seed-mean margin 0.000); +0.031 and 93% at fourteen.
+
+    What the prose rests on is that the superlative fails the every-draw bar,
+    so that is what is pinned, with the margin kept small enough that "no
+    closer" rather than "closest" is still the honest wording.
+    """
     row = audit["claims"]["vehicle_closest_is_place"]
-    assert abs(row["seed_mean"]) < 0.01
+    assert abs(row["seed_mean"]) < 0.05
     assert row["holds"] < 0.95
 
 

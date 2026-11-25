@@ -23,8 +23,11 @@ grid" from "better representation".
 
 `clip_convnext_base` is `convnext_base`'s architecture trained with CLIP on
 LAION-2B — the first CNN here that is not ImageNet-1k supervised. Its checkpoint
-is 256px native and it is registered at 224 like every other column. It is
-registered ahead of its corpus run, so it has no board yet.
+is 256px native and it is registered at 224 like every other column. Its
+features are about 9x smaller in scale than `convnext_base`'s, and on three
+linear dense boards that alone reorders the pair. See
+[`CORPUS_FINDINGS.md`](https://github.com/turhancan97/VisBench/blob/main/CORPUS_FINDINGS.md)
+before reading its dense placements.
 
 ## A missing extra is not a missing backbone
 

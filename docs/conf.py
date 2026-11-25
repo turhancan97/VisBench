@@ -46,6 +46,17 @@ extensions = [
 # pages it produces duplicate-label warnings, and `-W` turns those fatal --
 # the seventeen probe pages alone share a "Data layout" heading.
 
+# sphinx-design 0.8.0 deprecated the `^^^`/`+++` card separators that
+# `index.md` uses, and `-W` turned the deprecation into a failed docs build
+# (2026-11-25; `docs.yml` installs with pip, so it took 0.8.0 while `uv.lock`
+# pins 0.6.1/0.7.0). The replacement `card-header`/`card-footer` directives
+# do not exist in 0.6.1, so migrating would break the locked build instead.
+# Suppressed by its own code, which older versions never emit; every other
+# warning stays fatal. Migrate the cards once the lock reaches 0.8 -- and note
+# `sphinx-design<1.0` in pyproject.toml, so the legacy syntax cannot be removed
+# under us without a deliberate bump.
+suppress_warnings = ["design.card_legacy"]
+
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 # -- autodoc ----------------------------------------------------------------

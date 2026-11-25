@@ -46,7 +46,8 @@ the same path and schedule as object `classification`.
 
 | backbone | `top1` | `top5` |
 | --- | --- | --- |
-| `siglip_vitb16` | **0.4082** | **0.6997** |
+| `clip_convnext_base` | **0.4174** | **0.7132** |
+| `siglip_vitb16` | 0.4082 | 0.6997 |
 | `clip_vitb16` | 0.3934 | 0.6760 |
 | `clip_vitb32` | 0.3890 | 0.6769 |
 | `dinov2_vitb14` | 0.3865 | 0.6562 |
@@ -68,19 +69,26 @@ Ordered by `top1`, which **disagrees with `top5`** — this task does not rank i
 <!-- /visbench:board -->
 
 **This board ranks backbones almost independently of the object board.**
-Spearman correlation between the two orderings is **+0.16** across the twelve
-backbones. The image-text models take the top three places (`siglip_vitb16`
-0.4035, both CLIPs behind it), where on Imagenette they sit mid-pack. The two
-ImageNet-1k **supervised** backbones fall the hardest: `convnext_base` goes from
-first on objects to ninth here, `supervised_vitb16` from fifth to eleventh —
-Imagenette's classes are ImageNet-1k wnids, so their object numbers are close to
-in-distribution recall, and Places365 is where that advantage does not apply.
-`mae_vitb16` is tenth, consistent with its last-or-near-last placing on every
-other semantic board.
+Spearman correlation between the two orderings is **+0.077** across the
+fourteen backbones. The image-text models take the top four places
+(`clip_convnext_base` 0.4174, `siglip_vitb16` 0.4082, then both CLIPs), where on
+Imagenette they sit mid-pack. The ImageNet-1k **supervised** backbones fall the
+hardest: `convnext_base` goes from first on objects to tenth here,
+`supervised_vitb16` from third to thirteenth — Imagenette's classes are
+ImageNet-1k wnids, so their object numbers are close to in-distribution recall,
+and Places365 is where that advantage does not apply. `mae_vitb16` is twelfth,
+consistent with its last-or-near-last placing on every other semantic board.
 
-The object board is also **saturated** — eleven of twelve backbones score above
-0.988 top-1, a spread of 0.04 — where this one spans 0.271 to 0.404, a spread of
-0.13. A saturated board cannot rank; this is the reason scene classification is
+**This board holds a controlled objective comparison.**
+`clip_convnext_base` is `convnext_base`'s architecture retrained by CLIP on
+LAION-2B, and it goes from the supervised model's tenth place to **first** —
+paired over five seeds, t = +128. One architecture, one grid, one width; only
+objective and data differ. (Its sweep is the held-out one, so read the
+magnitude as the held-out sweep's.)
+
+The object board is also **saturated** — thirteen of fourteen backbones score
+above 0.988 top-1, a spread of 0.04 — where this one spans 0.277 to 0.417, a
+spread of 0.14. A saturated board cannot rank; this is the reason scene classification is
 a separate probe rather than a note under the object one.
 
 ## Run it

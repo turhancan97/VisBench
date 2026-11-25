@@ -30,6 +30,7 @@ What `visbench show correspondence` draws. {doc}`How to read it </guides/visuali
 | `resnet18` | 0.0948 | 0.3111 | 0.0326 | 0.0352 | 0.3636 | 0.1039 | 4,928 |
 | `clip_vitb32` | 0.0897 | 0.2951 | 0.0321 | 0.0352 | 0.3633 | 0.1002 | 4,283 |
 | `resnet50` | 0.0858 | 0.2912 | 0.0290 | 0.0334 | 0.3555 | 0.1005 | 4,625 |
+| `clip_convnext_base` | 0.0834 | 0.2932 | 0.0284 | 0.0323 | 0.3608 | 0.0971 | 4,315 |
 | `convnext_base` | 0.0821 | 0.2904 | 0.0268 | 0.0315 | 0.3540 | 0.0951 | 5,469 |
 
 Ordered by `recall@5px`, which **disagrees with `auc@10px`, `auc@1px`, `auc@2px`, `auc@5px`, `recall@10px`, `recall@1px`, `recall@2px`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.

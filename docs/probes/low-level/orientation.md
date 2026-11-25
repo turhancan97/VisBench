@@ -60,6 +60,7 @@ travels in `dataset_params` and splits the comparability groups on its own.
 | `siglip_vitb16` | 29.8435 | 0.3935 | 0.5512 | 0.7047 | 0.8450 | 12.1822 |
 | `clip_vitb32` | 29.9416 | 0.3859 | 0.5494 | 0.5699 | 0.7348 | 18.5669 |
 | `resnet50` | 30.2203 | 0.3944 | 0.5490 | 0.5699 | 0.7348 | 18.5669 |
+| `clip_convnext_base` | 30.9253 | 0.3698 | 0.5316 | 0.5699 | 0.7348 | 18.5669 |
 
 Ordered by `orientation_error`, which **disagrees with `d1`, `median`, `rmse`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
 

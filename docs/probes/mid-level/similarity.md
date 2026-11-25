@@ -45,6 +45,7 @@ features at 224px. Humans chose "right" 49.1% of the time, so chance is ~51%:
 | `dinov2_vitb14` | 0.8580 | 0.8575 | 0.0000 |
 | `siglip_vitb16` | 0.8564 | 0.8533 | 0.0000 |
 | `clip_vitb32` | 0.8465 | 0.8443 | 0.0000 |
+| `clip_convnext_base` | 0.8405 | 0.8388 | 0.0000 |
 | `resnet18` | 0.8295 | 0.8294 | 0.0000 |
 | `clip_vitb16` | 0.8284 | 0.8266 | 0.0000 |
 | `resnet50` | 0.8257 | 0.8260 | 0.0000 |

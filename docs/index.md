@@ -80,7 +80,7 @@ against is not a crash, it is a plausible wrong answer.
 
 | | |
 | --- | --- |
-| Twenty probes against thirteen backbones, ranked | [LEADERBOARD.md](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md) |
+| Twenty probes against fourteen backbones, ranked | [LEADERBOARD.md](https://github.com/turhancan97/VisBench/blob/main/LEADERBOARD.md) |
 | What each board means, and the readings it corrected | [CORPUS_FINDINGS.md](https://github.com/turhancan97/VisBench/blob/main/CORPUS_FINDINGS.md) |
 | Setting up, the checks, and how to add a probe | [CONTRIBUTING.md](https://github.com/turhancan97/VisBench/blob/main/CONTRIBUTING.md) |
 | What each step measured, rejected and decided | [ENGINEERING_LOG.md](https://github.com/turhancan97/VisBench/blob/main/ENGINEERING_LOG.md) |
