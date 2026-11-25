@@ -333,7 +333,7 @@ collection whose URL is quoted in `README.md` and `docs/guides/sharing.md` —
 **read it from one of those two files rather than reconstructing it**, since
 the slug carries a generated hash. The three zero-shot probes are deliberately
 absent, and so is **`scene_classification`**: its DINOv2 heads were pushed
-private and stay private, because those two cells are among the four today's
+private and then deleted (2026-11-25), because those two cells are among the four today's
 pipeline does not reproduce. **A head goes public only when the run that
 trained it reproduces its corpus cell *and* it loads back through
 `load_probe_from_hub` with no `task=`** — the second check found that

@@ -3306,7 +3306,7 @@ with no `task=`, exactly as the card shows.
 | `scene_parsing` | to 5e-08 | yes | public |
 | `orientation` | 2.9e-03 / 6.6e-03 (floor 5e-2) | yes | public |
 | `instance_segmentation` | 8.8e-04 / 1.4e-03 (floor 2e-3) | **no**, then yes after the fix | public |
-| `scene_classification` | **no**: 2.9e-03 / 1.5e-03, fit differs | yes | **private** |
+| `scene_classification` | **no**: 2.9e-03 / 1.5e-03, fit differs | yes | private, then **deleted** |
 
 `scene_classification` fails for the reason 23d recorded: its DINOv2 cells
 (2026-09-10) are two of the four that today's pipeline does not reproduce, so

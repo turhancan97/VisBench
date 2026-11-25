@@ -9,6 +9,21 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+## [0.28.1] — 2026-11-25
+
+**A bug-fix release: every published probe head now loads with the one line
+its model card shows.**
+
+`load_probe_from_hub(repo, backbone=backbone)` raised `TypeError` for
+`detection`, `semantic_segmentation` and `instance_segmentation`, because
+their constructors require `num_classes` and the loader never read it back
+from the artifact, where it was already stored. On 0.28.0 and earlier, pass
+`task=visbench.get_probe(name, num_classes=...)` instead. The release also
+completes the Hub set to 32 public heads: sixteen probes, each against
+DINOv2-S/14 and DINOv2-B/14.
+
+- **Upgrading**: no number changes, and the schema is unchanged at v9.
+
 ### Fixed
 
 - **`load_probe` / `load_probe_from_hub` can rebuild every probe from its
@@ -32,7 +47,7 @@ so it stands on its own rather than assuming you have read the ones above it.
   `orientation` and `relative_pose`, each against DINOv2-S/14 and DINOv2-B/14.
   That makes thirty-two public heads. Each was pushed private, checked to
   reproduce its corpus cell and to load back through the Hub, then made
-  public. `scene_classification`'s heads stay private: its DINOv2 cells are
+  public. `scene_classification`'s heads were deleted unpublished: its DINOv2 cells are
   among the four that today's pipeline does not reproduce.
 
 ## [0.28.0] — 2026-11-25
