@@ -1308,6 +1308,23 @@ The four most recent entries were lifted out of `CLAUDE.md` on 2026-09-03,
 when that file passed the 150k-character limit it is loaded under for the second
 time. Nothing was rewritten; each paragraph is as its release recorded it.
 
+**`0.28.1` is fully released** (2026-11-25), a patch release that moved no
+number. On PyPI — wheel and sdist both (451,969 and 1,871,821 bytes, wheel
+sha256 `edf39744…`, sdist `61f8808c…`, uploaded 17:00:24Z and 17:00:27Z),
+**byte-identical to the artifacts built from the release branch before the
+merge**, as for 0.28.0 — tagged `v0.28.1`, **annotated** (tag object
+`4fd1863`), on merge commit `acf4668`, which is `main`, with a GitHub release
+published 2026-11-25T17:00:31Z and archived by Zenodo as version DOI
+**`10.5281/zenodo.24538739`**, the **twenty-fourth**; the concept DOI resolves
+to it with `metadata.version` `v0.28.1`. **Verified out of the published wheel
+by import** (`__file__` asserted inside it): 0.28.1, schema 9, twenty probes —
+**and the release's own content was checked through it**: using only the
+published wheel's code, the public `detection`, `semantic_segmentation` and
+`instance_segmentation` heads for DINOv2-B all load from the Hub with no
+`task=` (`num_classes` 20, 21, 20), which is what 0.28.0 could not do. Ships
+the `load_probe` fix and the completed Hub set (#164); `date-released` was
+already the same day, and no abstract moved.
+
 **`0.28.0` is fully released** (2026-11-25). On PyPI — wheel and sdist both
 (451,352 and 1,867,301 bytes, wheel sha256 `00947770…`, sdist `b6eaa6ed…`,
 uploaded 15:21:59Z and 15:22:01Z) — tagged `v0.28.0`, **annotated** (tag object

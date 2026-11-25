@@ -118,7 +118,7 @@ published reading.
 
 ## Current state
 
-**Everything through v0.28.0 is shipped**, and every numbered step in the build
+**Everything through v0.28.1 is shipped**, and every numbered step in the build
 table before 14a is done — every task, all three backbone families, the CLI,
 fine-tuning, detection, the low-level probes, the leaderboard and probe
 sharing. Each release's narrative is in `CHANGELOG.md`, its derivation in
@@ -349,7 +349,7 @@ it would be checked against — that diff is the only reason the seeding bug bel
 was ever found. And **do not pipe a long publishing run through `tail`**: it
 buffers, so a run killed part-way leaves no log.
 
-**Twenty-three releases are archived, `0.28.0` the newest** (2026-11-25); every
+**Twenty-four releases are archived, `0.28.1` the newest** (2026-11-25); every
 byte count, digest, tag commit and import read-back is in `ENGINEERING_LOG.md`
 under "Release history", and the narrative this paragraph used to carry is under
 "Lifted from CLAUDE.md, 2026-10-14". The rules it left:
