@@ -326,13 +326,21 @@ probe *before* the run rather than after spending it, and
 `scripts/publish_collection.py` groups the pushed repositories into one
 collection, dry-run unless `--create`.
 
-**Twenty trained heads are published and public**, as of 2026-08-07: ten probes
-against DINOv2-S/14 and DINOv2-B/14, one repository per pair at
-`turhancan97/visbench-<probe>-<backbone>`, in a collection whose URL is quoted
-in `README.md` and `docs/guides/sharing.md` — **read it from one of those two
-files rather than reconstructing it**, since the slug carries a generated hash.
-Four probes that train a head shipped after the push, and the three zero-shot
-ones are deliberately absent.
+**Thirty-two trained heads are published and public**: sixteen probes against
+DINOv2-S/14 and DINOv2-B/14 (ten on 2026-08-07, six more on 2026-11-25), one
+repository per pair at `turhancan97/visbench-<probe>-<backbone>`, in a
+collection whose URL is quoted in `README.md` and `docs/guides/sharing.md` —
+**read it from one of those two files rather than reconstructing it**, since
+the slug carries a generated hash. The three zero-shot probes are deliberately
+absent, and so is **`scene_classification`**: its DINOv2 heads were pushed
+private and stay private, because those two cells are among the four today's
+pipeline does not reproduce. **A head goes public only when the run that
+trained it reproduces its corpus cell *and* it loads back through
+`load_probe_from_hub` with no `task=`** — the second check found that
+`detection`, `semantic_segmentation` and `instance_segmentation` could not be
+loaded the way their own model cards said (their `num_classes` was in the
+artifact and never read; fixed in `load_probe`, pinned for every probe by
+`tests/hub/test_artifact.py`).
 
 Republishing the board is `PUSH_TO=... PUSH_PUBLIC=1 scripts/build_corpus.sh`.
 **Point `RESULTS=` at a scratch file, never `results/corpus/visbench.jsonl`**,
@@ -1746,9 +1754,9 @@ designed up front; extend it the same way, from a case that already runs.
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite **collects 2536 tests**, green on 2026-11-25 along with all three
+fast suite **collects 2560 tests**, green on 2026-11-25 along with all three
 lint steps, mypy and the `-W` docs build; the slow suite is **116**, last fully
-green on `main` on 2026-09-11. Earlier fast counts, for dating a claim: 2512 at 24a, 2508 at 23c, 2486 at 23b, 2445 at 23a, 2433 at
+green on `main` on 2026-09-11. Earlier fast counts, for dating a claim: 2536 at 24b, 2512 at 24a, 2508 at 23c, 2486 at 23b, 2445 at 23a, 2433 at
 22c, 2414 at 22b, 2397 at 21b, 2304 at v0.23.0, 1824 at the oracle gate — keep
 that list to a handful. **Quote the collected count, not "N passed"**: the skip
 count depends on which extras are installed (3 on CI, 8 on `.venv`, 0 with
@@ -2066,7 +2074,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 2536 fast tests
+pytest                                              # 2560 fast tests
 pytest -m slow                                      # 116, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/

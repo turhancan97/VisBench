@@ -3290,6 +3290,47 @@ the real `preprocess` keeps columns 0-223 under CLIP's mean and std.
 `language`. No board, no record and no published number moves; the twenty-cell
 run is 24b.
 
+## The Hub heads completed (2026-11-25) — and a loader that could not load three of them
+
+**What shipped.** Twelve heads, six probes × DINOv2-S/B. Each was pushed
+**private** by re-running its cell's exact corpus command (`build_corpus.sh`,
+`PUSH_TO`, `RESULTS=` a scratch file) and checked twice before going public:
+the run against its corpus cell (backbone key, fingerprint, `dataset_params`,
+`task_params`, pooling, layers, feature mode and seed equal; headline within
+the board's seed-0 floor), and the private repo through `load_probe_from_hub`
+with no `task=`, exactly as the card shows.
+
+| probe | reproduces | loads bare | outcome |
+| --- | --- | --- | --- |
+| `fine_grained_classification`, `vehicle_classification`, `relative_pose` | exactly | yes | public |
+| `scene_parsing` | to 5e-08 | yes | public |
+| `orientation` | 2.9e-03 / 6.6e-03 (floor 5e-2) | yes | public |
+| `instance_segmentation` | 8.8e-04 / 1.4e-03 (floor 2e-3) | **no**, then yes after the fix | public |
+| `scene_classification` | **no**: 2.9e-03 / 1.5e-03, fit differs | yes | **private** |
+
+`scene_classification` fails for the reason 23d recorded: its DINOv2 cells
+(2026-09-10) are two of the four that today's pipeline does not reproduce, so
+a head trained today does not score what the board says.
+
+**The load check found a bug older than any of these heads.** `load_probe`
+rebuilt a missing `task` with `visbench.get_probe(name)`, and three probes
+require `num_classes`. The four public `detection` and `semantic_segmentation`
+heads (2026-08-07) had therefore never been loadable the way their cards said.
+Nothing caught it: the round-trip tests all pass `task=`, and the original
+publish verified scores, not loading. `_task_from_meta` now reads each
+**required** constructor argument from the artifact's `task_params`, and only
+those, so every probe that loaded before still loads the same way. The
+regression test rebuilds all twenty registered probes from their own
+`describe()`. Against the old code, the end-to-end test fails with the exact
+`TypeError` the Hub check hit. All six affected Hub heads were loaded bare
+from the Hub with the fix.
+
+**And the collection script could not collect them.** `TRAINED_PROBES` was
+the first push's ten, never extended, so `publish_collection.py` refused the
+new probes by name. It is pinned against `list_probes()` now. This is the
+same family as the corpus-matrix arrays (10b): a fixed list beside a registry,
+with nothing comparing the two.
+
 ## 24b — `clip_convnext_base`'s board, and the control that changed how it reads
 
 **What shipped.** Twenty corpus cells (2026-10-15, V100, torch 2.8.0+cu128),

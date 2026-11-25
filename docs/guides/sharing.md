@@ -19,7 +19,7 @@ identity they are valid against*, and refuses a load that does not match.
 Trained heads for the DINOv2 backbones are published as a collection:
 
 **[VisBench probes on the Hugging Face Hub](https://huggingface.co/collections/turhancan97/visbench-probes-6a7618f2f7f4c23e9d4e5fe8)**
-— twenty heads, ten probes against DINOv2-S/14 and DINOv2-B/14.
+— thirty-two heads, sixteen probes against DINOv2-S/14 and DINOv2-B/14.
 
 ```python
 import visbench
@@ -34,6 +34,26 @@ refused against any other, so pairing them in one repository would publish a
 file that is wrong for half its contents. The three zero-shot probes are not
 published: retrieval, correspondence and mid-level similarity train nothing,
 and the backbone alone reproduces their numbers.
+
+**One trained probe is deliberately missing: `scene_classification`.** A head is
+published only when the run that trained it reproduces its corpus cell, and
+that board's DINOv2 cells are two of the four that today's pipeline does not
+reproduce (see `results/controls/README.md`). Publishing those heads would put
+weights beside the board that do not score what the board says.
+
+**On VisBench 0.28.0 and earlier, pass the probe for `detection`,
+`semantic_segmentation` and `instance_segmentation`.** Their constructors
+require `num_classes`, which older releases did not read back from the
+artifact, so the one-line load above raised `TypeError` for them:
+
+```python
+task = visbench.get_probe("detection", num_classes=20)
+probe = load_probe_from_hub("turhancan97/visbench-detection-dinov2_vits14",
+                            backbone=backbone, task=task)
+```
+
+Later releases read every required constructor argument from the artifact
+itself, so the one-line form works for all sixteen.
 
 ## Install
 

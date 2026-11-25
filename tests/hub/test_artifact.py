@@ -349,3 +349,69 @@ def test_the_pose_floor_travels_with_the_weights(fitted_pose, fake_vit, pose_pai
     )
     assert loaded.context_metrics(features, labels) == fitted_pose.context_metrics(features, labels)
     assert loaded.context_metrics(features, labels) != {}
+
+
+# --------------------------------------------------------------------------
+# Rebuilding the probe from the artifact alone (no task= passed)
+# --------------------------------------------------------------------------
+
+
+def _required_args(name: str) -> list[str]:
+    import inspect
+
+    from visbench.registry import get_task_class
+
+    params = inspect.signature(get_task_class(name)).parameters.values()
+    return [
+        p.name
+        for p in params
+        if p.default is inspect.Parameter.empty
+        and p.kind in (p.POSITIONAL_OR_KEYWORD, p.KEYWORD_ONLY)
+    ]
+
+
+@pytest.mark.parametrize("name", visbench.list_probes())
+def test_every_probe_can_be_rebuilt_from_what_its_artifact_records(name):
+    """The model card's one-line load passes no task=, so this must work for all.
+
+    It failed for `detection`, `semantic_segmentation` and
+    `instance_segmentation`, whose constructors require `num_classes`: the value
+    was in the artifact's `task_params` and the loader never read it, so four
+    public Hub heads could not be loaded the way their own pages said
+    (found 2026-11-25). A future probe with a required argument it does not
+    record in `task_params` fails here rather than on a user's machine.
+    """
+    from visbench.hub.artifact import _task_from_meta
+
+    required = {arg: 3 for arg in _required_args(name)}
+    original = visbench.get_probe(name, **required)
+    meta = {"task": name, "task_params": original.describe()["task_params"]}
+
+    rebuilt = _task_from_meta(meta)
+    assert type(rebuilt) is type(original)
+    for arg, value in required.items():
+        assert getattr(rebuilt, arg) == value
+
+
+def test_a_required_argument_the_artifact_lacks_is_named_not_guessed():
+    from visbench.hub.artifact import _task_from_meta
+
+    with pytest.raises(TypeError, match="num_classes"):
+        _task_from_meta({"task": "detection", "task_params": {}})
+
+
+def test_a_semantic_probe_loads_without_task(fake_vit, tmp_path):
+    """End to end: save a probe whose constructor needs num_classes, load it bare."""
+    from visbench.tasks.high_level.semantic_segmentation import SemanticSegmentationTask
+
+    torch.manual_seed(0)
+    features = {"dense": torch.randn(6, fake_vit.embed_dim, 8, 8)}
+    targets = torch.randint(0, 4, (6, 16, 16))
+    task = SemanticSegmentationTask(num_classes=4, epochs=1, warmup_epochs=0, batch_size=2)
+    task.fit(features, targets)
+    before = task.predict(features)
+    save_probe(task, tmp_path / "sem.pt", backbone=fake_vit)
+
+    loaded = load_probe(tmp_path / "sem.pt", backbone=fake_vit)
+    assert loaded.num_classes == 4
+    assert torch.equal(before, loaded.predict(features))
