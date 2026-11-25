@@ -23,6 +23,54 @@ so it stands on its own rather than assuming you have read the ones above it.
 - `tests/test_backbone_guide.py`: every registered backbone must be named in
   `docs/guides/backbones.md`, which had been missing `dino_vitb8` since it was
   added.
+- **`clip_convnext_base`'s board** (24b): twenty cells, one per probe, so the
+  corpus is twenty boards of fourteen backbones (280 cells), and every seed
+  sweep carries the new column at five seeds. **It leads `scene_classification`
+  and `vehicle_classification`**, both taken from `siglip_vitb16`, and comes
+  last on `generic_segmentation` and `orientation`. Against `convnext_base`,
+  the same architecture supervised on ImageNet-1k, the CLIP objective is ahead
+  on the localised high-level boards, `occlusion_edge` and `relative_pose`, and
+  behind on Imagenette and the linear dense boards. Read the next entry before
+  quoting the dense half of that.
+- **The feature-scale control** (24b; `results/controls/scale_control.jsonl`,
+  `scripts/run_scale_control.py`, `scripts/analyse_scale_control.py`,
+  `slurm/scale_control.sbatch`). The linear dense heads fit raw features at a
+  fixed learning rate. Multiplying the two ConvNeXt columns' features onto each
+  other's scale removes nothing a linear head could use, yet it **reverses
+  that pair on `generic_segmentation`, `semantic_segmentation` and `depth`**.
+  It moves `edge` the other way and leaves `surface_normal` and `orientation`
+  alone. A gate at ×1 reproduces every published cell. A seed sweep cannot see
+  this effect, because every seed shares the scale.
+- `scripts/measure_feature_scale.py` and `results/controls/feature_scale.json`:
+  the fourteen columns span 9.7x in feature scale. Holding the feature grid
+  fixed, scale still tracks the two semantic boards, and no geometry or
+  low-level board.
+- `scripts/merge_sweep_refit.py --add` appends a new column to the live seed
+  sweeps. It refuses a backbone a sweep already holds, and a column whose seeds
+  differ from the existing ones.
+
+### Changed
+
+- **Readings re-measured at fourteen columns** (24b). Coefficients on the probe
+  pages and the overview were re-read. Several quoted totals moved: 152 of 208
+  adjacent pairs are ordered, 56 tied and none reversed, and 20 of 187 board
+  pairs change sign under a re-fit. The high-level tier is still two clusters
+  on every re-fit, but the localised one is looser.
+  `semantic_segmentation`/`scene_classification` fell from +0.582 to +0.349,
+  and about half of that comes from the new column's feature scale.
+  `semantic_segmentation` and `scene_parsing` now correlate with the feature
+  grid more than with pretraining size, partly through that same fitting
+  artefact. `detection` is the one board that ranks by neither.
+- `clip_convnext_base`'s `orientation` cell was re-run before the board was
+  read. Its first run sat outside the board's seed-0 tolerance against its own
+  sweep, with a different fit, so the run that reproduces was appended and the
+  tolerance left unchanged.
+
+### Fixed
+
+- `docs/probes/high-level/vehicle_classification.md` said every row reaches
+  `train_top1` 0.985 or better. That has been false since 23a re-ran
+  `convnext_base`, which reaches 0.979.
 
 ### Found
 

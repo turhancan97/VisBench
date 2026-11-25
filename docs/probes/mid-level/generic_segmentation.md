@@ -4,9 +4,10 @@
 
 The same 1449 VOC images as {doc}`semantic_segmentation </probes/high-level/semantic_segmentation>`, at the same resolution with the same linear head
 and the same schedule, differing **only** in whether the target has 2 classes
-or 21. That makes the pair a control, and they behave oppositely: this board
-ranks by feature-grid area at **+0.935**, the semantic one at +0.494 — so that
-difference is a property of the target, not of the data or the protocol.
+or 21. That makes the pair a control, and they behave differently: this board
+ranks by feature-grid area at **+0.936**, the semantic one at only +0.509 and
+barely ahead of pretraining scale — so that difference is a property of the
+target, not of the data or the protocol.
 
 ```{figure} /_static/gallery/generic_segmentation.png
 :alt: generic_segmentation — image, target and prediction
@@ -44,11 +45,23 @@ What `visbench show generic_segmentation` draws. {doc}`How to read it </guides/v
 | `convnext_base` | 0.5575 | 0.6811 | 0.8572 |
 | `resnet50` | 0.5422 | 0.6630 | 0.8628 |
 | `resnet18` | 0.5335 | 0.6581 | 0.8510 |
+| `clip_convnext_base` | 0.4840 | 0.6168 | 0.8312 |
 
 Ordered by `iou`, which **disagrees with `f1`, `pixel_acc`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.
 
 <sub>generic_segmentation on voc_binary/val, protocol=visbench_binary_seg, frozen [5c4cf9a6]</sub>
 <!-- /visbench:board -->
+
+**`clip_convnext_base`'s last place is a fact about the fit, not about its
+features.** It is repeatable (t = +44 over the row above it), but the linear
+head fits raw features at a fixed learning rate and this column's features
+are ~9x smaller than `convnext_base`'s. Moved onto each other's scale — a
+constant, which removes nothing a linear head could use — the two **swap**:
+`clip_convnext_base` rises to 11th (IoU 0.5605) and `convnext_base` falls to
+13th (0.4934). A seed sweep cannot see this, because every seed shares the
+scale; the control is in
+[`CORPUS_FINDINGS.md`](https://github.com/turhancan97/VisBench/blob/main/CORPUS_FINDINGS.md)
+under 24b.
 
 ## Run it
 

@@ -87,6 +87,7 @@ step is next rather than attempting the whole roadmap in one session.
 | 23c | The prose re-read on the corrected corpus, and a guard on what the pages quote | done |
 | 23d | The held-out sweep's last four columns re-swept: the sweep was right, the cells moved | done |
 | 24a | `clip_convnext_base`: a fourteenth backbone, registered to break "every CNN is IN1k supervised" | done |
+| 24b | Its board, its sweeps, and the scale control: three linear dense boards read feature *scale* | done |
 
 **A closed step's full write-up lives in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md), not here.** That file is the archive
@@ -128,17 +129,18 @@ precedent for shipping one: **v0.7.0** (contributor-facing) and **v0.16.0**
 (documentation). **v0.6.1** is the other one to know — it corrects a
 correspondence board that shipped ranked upside down; see step 6f.
 
-**The corpus file is 598 records resolving to 260 board cells** — twenty
-boards, thirteen backbones a board. The two numbers differ because the corpus
+**The corpus file is 619 records resolving to 280 board cells** — twenty
+boards, fourteen backbones a board. The two numbers differ because the corpus
 is **append-only** and re-runs have appended beside records they supersede:
 0.15.0 re-ran the five low-level boards for their `ceiling_*`, the
 schema-v8 `training` re-run (2026-09-10) re-ran the eight trained boards that
 predated that field, with three cells of it landing on 2026-09-11, and
 `dino_vitb8`'s two smoke-test cells were re-run inside its own array;
 **23a appended 180** — the nine timm columns re-run full-frame under
-`.../crop1` keys, which `SUPERSEDED_KEYS` lets replace the old ones.
-`latest_per_backbone` picks the newest. Quote 260 for
-coverage and 598 only for the file, and re-read both off `LEADERBOARD.md` and
+`.../crop1` keys, which `SUPERSEDED_KEYS` lets replace the old ones; and
+24b's `orientation` cell was re-made once (its first run missed its own
+sweep's seed 0). `latest_per_backbone` picks the newest. Quote 280 for
+coverage and 619 only for the file, and re-read both off `LEADERBOARD.md` and
 `wc -l` rather than from here.
 
 Standing consequences of that history, each of which has already cost a
@@ -292,7 +294,7 @@ Registered names — `visbench.list_backbones()`, `list_probes()`,
 backbones  dinov2_vits14, dinov2_vitb14, clip_vitb16, clip_vitb32,
            resnet18, resnet50, convnext_base, mae_vitb16, siglip_vitb16,
            supervised_vitb16, dino_vitb16, sam_vitb16, dino_vitb8,
-           clip_convnext_base (registered 24a; no board until 24b),
+           clip_convnext_base,
            dinov2_vitb14_196 (a resolution control, not a corpus column)
            (+ CustomBackbone, unregistered)
 probes     classification, scene_classification,
@@ -754,12 +756,12 @@ designed up front; extend it the same way, from a case that already runs.
     verdict.
   - **A correlation is one draw too** (22b, re-fitted by 23b;
     `scripts/analyse_correlation_seeds.py`, no GPU). On the seed sweeps a
-    board-pair rho moves by a median 0.099 and 17 of 187 pairs change sign,
+    board-pair rho moves by a median 0.088 and 20 of 187 pairs change sign,
     none of them published at |rho| ≥ 0.5; the published draws are **not**
     biased high — judged against the statistic's own null (any seed read as
     the published draw), never a guessed band. **15 of 16 correlational claims
     hold on every re-fit**; the one that fails is a *superlative* ("closest
-    partner", tied on the seed-mean). **Quote margins, not superlatives**, and
+    partner", 93% of draws at n=14). **Quote margins, not superlatives**, and
     a count of one extreme row ("worst fit on the coarsest grid", 11 of 12
     published, 9-12 on other seeds) as the sign it summarises. **23c re-read
     every quoted number on the corrected corpus**: the shipped pages carry
@@ -771,9 +773,11 @@ designed up front; extend it the same way, from a case that already runs.
   - **Quote an objective gap against the *recipe* gap on the same board, never
     against zero** — `sam_vitb16` against `supervised_vitb16`, and nothing in a
     record says which board you are on.
-  - **`semantic_segmentation` and `detection` are the two boards that rank by
-    neither objective nor grid** on every seed, and since 23b `scene_parsing`
-    does too (four of five on the cropped sweeps). The test is whether another property *beats*
+  - **`detection` is the one board that ranks by neither objective nor grid**
+    (four of five seeds). `semantic_segmentation` and `scene_parsing` were
+    pretraining boards until 24b's column turned both — partly through a
+    placement the scale control shows is the fit's, so read them as tied
+    between grid and pretraining. The test is whether another property *beats*
     the grid, never whether the grid coefficient is small — and a coefficient's
     rank among boards is a fact about which boards are in the corpus.
   - **The high-level tier is two clusters, not one**, and two probes that are
@@ -835,7 +839,16 @@ designed up front; extend it the same way, from a case that already runs.
     `tests/results/test_seed_sweeps.py` did catch it on the first seed-0 row,
     but only after the file existed: **a merge must not rely on a later test to
     undo it.**
-  - **n=13.** Every correlation above has wide error bars.
+  - **A linear dense board reads feature *scale* as well as representation**
+    (24b; `results/controls/README.md`). The heads fit raw features at a
+    fixed lr; moving two columns onto each other's scale **reverses** them on
+    `generic_segmentation`, `semantic_segmentation` and `depth` by tens of seed
+    sds, moves `edge` the *other* way, and leaves two boards alone. The
+    columns span 9.7x. **A seed sweep cannot see this** (every seed shares the
+    scale), so never read a placement on those three as representation
+    without the control. Standardising before the dense heads would move every
+    dense number — an open question, not a fix to slip into a step.
+  - **n=14.** Every correlation above has wide error bars.
 
 - **A trained probe records how its fit went** (schema v8, 2026-08-28; the
   derivation is in `ENGINEERING_LOG.md`). Every trained probe computed
@@ -921,8 +934,13 @@ designed up front; extend it the same way, from a case that already runs.
   not read this as "the custom path is unreliable"** — that is the intuition it
   was written to correct.
 
-- **The cluster's node map, measured rather than inferred.** The usable set is
-  `dgx1`, `dgx2` and `dgxa100`. **`dgxh100` cannot run `.venv` at all** — it
+- **The cluster's node map, measured rather than inferred — and it inverts.**
+  **As of 2026-11-25 `dgx2` is the slow one**: every task sat in NFS `D` state
+  for 45 min with the GPU idle, while `dgx1` imported torch in 9 s. The
+  paragraphs below describe 2026-09, and the sbatch files still carry
+  `--exclude=dgx1`; a `--exclude` on the `sbatch` command line overrides the
+  file's. **Time an `import torch` on the node before every corpus run.** The
+  usable set was `dgx1`, `dgx2` and `dgxa100`. **`dgxh100` cannot run `.venv` at all** — it
   ships `/usr/bin/python3.12` and no 3.10, so `.venv/bin/python` is a dead
   symlink and a job dies in one second; its `--qos=quick` refusal is a
   *scheduling* obstacle in front of that, so **a QoS fix is not evidence a node
@@ -1248,8 +1266,8 @@ designed up front; extend it the same way, from a case that already runs.
   must reproduce them, or the sweep describes some adjacent configuration.
 
   **Every trained board is swept** (`results/controls/seeds/`, read with
-  `scripts/analyse_seeds.py <probe>`): **143 of 192 pairs ordered, 49 tied, 0
-  reversed** on the corrected boards (23b). The cropped boards had three
+  `scripts/analyse_seeds.py <probe>`): **152 of 208 pairs ordered, 56 tied, 0
+  reversed** on the corrected boards at fourteen columns (24b). The cropped boards had three
   reversals, all marginal, and the crop fix ordered or tied every one — so
   "no reversal" is a fact about these boards, not a law (20b claimed it, 20c
   refuted it, 23b restored it for a different reason). The unorderable
@@ -1728,9 +1746,9 @@ designed up front; extend it the same way, from a case that already runs.
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite **collects 2512 tests**, green on 2026-10-14 along with all three
+fast suite **collects 2536 tests**, green on 2026-11-25 along with all three
 lint steps, mypy and the `-W` docs build; the slow suite is **116**, last fully
-green on `main` on 2026-09-11. Earlier fast counts, for dating a claim: 2508 at 23c, 2486 at 23b, 2445 at 23a, 2433 at
+green on `main` on 2026-09-11. Earlier fast counts, for dating a claim: 2512 at 24a, 2508 at 23c, 2486 at 23b, 2445 at 23a, 2433 at
 22c, 2414 at 22b, 2397 at 21b, 2304 at v0.23.0, 1824 at the oracle gate — keep
 that list to a handful. **Quote the collected count, not "N passed"**: the skip
 count depends on which extras are installed (3 on CI, 8 on `.venv`, 0 with
@@ -2034,14 +2052,21 @@ board.
 ### Verifying — use these exact commands
 
 The project venv is `.venv/` — Python 3.10.12, the supported floor, with
-`visbench` installed editable and all extras present. **Use it.** Another
+`visbench` installed editable and all extras present. **It is `uv sync
+--frozen --all-extras` plus one override: torch 2.8.0+cu128** (and torchvision
+0.23.0) from the PyTorch cu128 index, because the lock's torch 2.13 ships
+CUDA-13 wheels, which have no V100 (sm_70) kernels, and every corpus cell with
+a `hardware` field ran on 2.8.0+cu128 on a V100. The venv lives on
+`/shared/results` (`.venv` is a symlink) and was deleted once (2026-11-23);
+rebuild it that way, on a dgx node, and check `torch.__version__` in a record
+before comparing against one. **Use it.** Another
 interpreter on the machine will not have `visbench` importable (examples fail
 with `ModuleNotFoundError`) and may have different dependency versions.
 
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 2512 fast tests
+pytest                                              # 2536 fast tests
 pytest -m slow                                      # 116, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/

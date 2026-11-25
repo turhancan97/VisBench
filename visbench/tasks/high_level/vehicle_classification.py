@@ -29,22 +29,25 @@ would therefore not join the CUB board — it would make that board
 precisely what needs a different task name to be rankable at all.
 
 **It earns the board by ranking differently, which was measured before it was
-built.** The published board is Spearman **+0.835** against CUB over all
-thirteen backbones, spanning **0.8795** to **0.4358** — high, but 23 of the
+built.** The published board is Spearman **+0.837** against CUB over all
+fourteen backbones, spanning **0.8926** to **0.4358** — high, but 21 of the
 corpus's existing board pairs are *more* correlated than that, and the leader
-changes: ``siglip_vitb16`` is **first** here and sixth on CUB. Web image-text
-pretraining ahead of everything else on manufactured categories is the kind of
-statement this corpus exists to make. Had the ordering merely reproduced CUB's,
+changes: ``clip_convnext_base`` is **first** here and third on CUB, with
+``siglip_vitb16`` second here and seventh there. Web image-text pretraining
+ahead of everything else on manufactured categories is the kind of statement
+this corpus exists to make. Had the ordering merely reproduced CUB's,
 this probe should not have shipped — the standard relative depth was rejected
 against.
 
 **The other subordinate board is no closer than the place board.** The
-published corpus reads ``scene_classification`` at **+0.923** against
-``fine_grained_classification``'s +0.835, but that margin is one draw: on the
-seed-mean boards the two tie (22b), so neither is *the* closest partner. What
-they share with this board is not *granularity*, which is the property this
-probe was expected to isolate. Mean rho is +0.503 against the high-level tier,
-+0.205 against mid-level and **−0.147** against low-level; read it in
+published corpus reads ``scene_classification`` at **+0.938** against
+``fine_grained_classification``'s +0.837, but that margin is one draw: over
+the seed sweeps the place board is ahead in 93% of re-fits, not all (22b,
+re-read at fourteen columns by 24b), so neither is reliably *the* closest
+partner. What they share with this board is not *granularity*, which is the
+property this probe was expected to isolate. Mean rho is +0.419 against the
+high-level tier, +0.087 against mid-level and **−0.240** against low-level;
+read it in
 ``CORPUS_FINDINGS.md`` rather than here.
 
 **The split is VisBench's own, and that is not a detail.** The Stanford Cars

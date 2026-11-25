@@ -3270,6 +3270,79 @@ the real `preprocess` keeps columns 0-223 under CLIP's mean and std.
 `language`. No board, no record and no published number moves; the twenty-cell
 run is 24b.
 
+## 24b — `clip_convnext_base`'s board, and the control that changed how it reads
+
+**What shipped.** Twenty corpus cells (2026-10-15, V100, torch 2.8.0+cu128),
+five-seed rows for the new column in every sweep (appended with
+`merge_sweep_refit.py --add`), and two controls: the scale control and the
+feature-scale table. The column leads `scene_classification` and
+`vehicle_classification` and is last on `generic_segmentation` and
+`orientation`. The reading is in `CORPUS_FINDINGS.md`; this entry records how
+the numbers were obtained and what nearly went wrong.
+
+**The `orientation` cell did not reproduce its own sweep, and the first fix
+proposed was wrong.** The cell read 30.989° (`train_loss` 1.0404); its sweep's
+seed 0 read 30.922° (1.0382), 6.7e-2 apart against the board's 5e-2 seed-0
+tolerance, with a different fit beside it. The session that ran it widened the
+tolerance to 1e-1 and left that uncommitted. Undone here. A warm-cache re-run
+(30.924°) and a re-run on the rebuilt environment (30.925°, delta 3.4e-3) both
+agree with the sweep, so the cell was the outlier. It was unpublished, so the
+reproducing run was **appended** (append-only; `latest_per_backbone` takes it)
+and the tolerance restored. Every non-measurement field was checked equal
+before appending. Why the first run differed is unidentified; on an
+amplifying board (20d) it would change no number.
+
+**`.venv` had been deleted (around 2026-11-23), and a `--frozen` rebuild would
+not have reproduced the corpus.** `uv.lock` pins torch 2.13.0, whose
+CUDA-13 wheels have no sm_70 kernels, while every record carrying `hardware`
+says 2.8.0+cu128 on a V100. The old venv had evidently been synced and then had
+torch swapped, undocumented. Rebuilt as `uv sync --frozen --all-extras` plus
+`uv pip install torch==2.8.0 torchvision==0.23.0` from the cu128 index, on
+dgx2 (`/usr/bin/python3.10` exists only on the dgx nodes). Downloads ran at
+~1.1 MB/s, so the rebuild took 79 minutes against a 90-minute limit. The
+`orientation` re-make is what proved the rebuilt environment reproduces a V100
+run.
+
+**dgx2 hung every task in NFS `D` state.** Five processes sat in
+`nfs_wait_bit_killable` for 45 minutes with the GPU at 0% and `read_bytes`
+flat over 20 s; three small cache files took 1.3 s to read there and 0.05 s
+from the login node. dgx1 — which CLAUDE.md's node map called degraded —
+imported torch and ran a GPU matmul in 9.4 s. The gmum notes (2026-10-26)
+already said to exclude dgx2. Everything was re-run on dgx1 with
+`--exclude=dgx2`; the other sbatch files were left carrying `--exclude=dgx1`,
+since node health changes week to week and a command-line `--exclude`
+overrides the file.
+
+**The scale control, and why it needed a gate.** The aliases rescale every
+extracted layer and carry their own name and cache key (`.../x<scale>`), so the
+×1 arm is a fresh extraction rather than a cache hit — which is what makes it a
+gate on the whole alias path, not just on the multiplication. All twelve smooth
+gate cells reproduce to 6.3e-07 or better; `orientation`'s land at 2.3e-02 and
+4.8e-03. The partial run from 2026-10-15 (three boards, no gate) was not used:
+its `orientation` scaled arm read 30.952° where the gated run reads 31.204°,
+which is that board's amplification again and a reason to trust only gated
+arms there.
+
+**What changed in the guards, and why each is not a loosened guard.**
+- `test_the_high_level_tier_is_two_clusters_not_one` pinned every localised pair
+  above +0.5. At fourteen columns `semantic_segmentation`/`scene_classification`
+  reads +0.349. The claim in the prose and in `analyse_correlation_seeds.py`
+  is *min within > max between*. It still holds (+0.349 against +0.163), so that
+  is what is pinned now, with a 0.1 margin and a floor of 0.3.
+- The vehicle superlative was an exact seed-mean tie; it is now +0.031 at 93%
+  of draws. The test pins what the prose rests on: short of every draw.
+- `feature_scale` is a JSON list, not `.jsonl`, because every `.jsonl` under
+  `results/controls/` is read as result records by
+  `test_controls_stay_out_of_the_corpus.py`.
+- `analyse_seeds.py` defaults to `--tolerance 0`, so the dense boards report
+  "NOT REPRODUCING" unless given their floor from `SEED_ZERO_TOLERANCE`. That
+  reads as a broken sweep and is not one.
+
+**A sentence 23c missed.** The vehicle page said every row reaches
+`train_top1` ≥ 0.985. That has been false since 23a re-ran `convnext_base`
+(0.979). The guard on that page pins coefficients, not fit diagnostics, which
+is how it survived.
+
 ## Lifted from CLAUDE.md, 2026-10-14
 
 `CLAUDE.md` reached 145.2k, within a few thousand of the size at which it had

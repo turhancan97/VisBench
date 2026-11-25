@@ -3,7 +3,7 @@
 **Basic-level object category, from a linear probe on pooled features.**
 
 The simplest probe here, and the one whose board is most nearly saturated —
-eleven of thirteen backbones score above 0.99 on Imagenette, so read the spread
+twelve of fourteen backbones score above 0.99 on Imagenette, so read the spread
 rather than the winner.
 
 ```{figure} /_static/gallery/classification.png
@@ -51,6 +51,7 @@ separate those classes.
 | `sam_vitb16` | 0.9977 | **1.0000** |
 | `dinov2_vitb14` | 0.9975 | **1.0000** |
 | `clip_vitb16` | 0.9954 | 0.9997 |
+| `clip_convnext_base` | 0.9954 | **1.0000** |
 | `dino_vitb8` | 0.9949 | **1.0000** |
 | `siglip_vitb16` | 0.9946 | **1.0000** |
 | `dinov2_vits14` | 0.9939 | 0.9997 |

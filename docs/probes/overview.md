@@ -30,9 +30,9 @@ Four of those eight share one implementation and ask four different questions:
 distinct probe *name* rather than a dataset flag, because a board is keyed on
 the task name — a second dataset under one name does not merge into that board,
 it makes it unrenderable. And the four do not form a granularity ladder in the
-corpus: `vehicle_classification` correlates **+0.923** with the *place* board
-against +0.835 with the other subordinate one — a margin that ties under a
-re-fit, so the claim is that the subordinate board is no closer.
+corpus: `vehicle_classification` correlates **+0.938** with the *place* board
+against +0.837 with the other subordinate one — a margin that does not survive
+every re-fit, so the claim is that the subordinate board is no closer.
 
 ## Mid level — geometry and structure, before naming anything
 
@@ -77,15 +77,29 @@ down should be read.
 
 ## Feature resolution is the strongest correlate of every dense board
 
-Across the thirteen backbones, the size of the feature grid correlates with every
-dense board — +0.935 with `generic_segmentation`, +0.808 with `surface_normal`,
-+0.767 with `depth` — while embedding width correlates with essentially nothing
-(-0.40 to +0.65 across all boards, no consistent sign). Reproduce with
+Across the fourteen backbones, the size of the feature grid correlates with every
+dense board — +0.936 with `generic_segmentation`, +0.833 with `surface_normal`,
++0.793 with `depth` — while embedding width correlates with essentially nothing
+(-0.48 to +0.63 across all boards, no consistent sign). Reproduce with
 `scripts/analyse_board_correlates.py --section structure`. Grid size is the
-*strongest* structural correlate on nine of the dense heads that read one
-vector per patch (twelve such), on every one of five re-fits; on
-`semantic_segmentation`, `detection` and `scene_parsing`, pretraining scale
-beats it, also on every re-fit (`scripts/analyse_correlation_seeds.py`).
+*strongest* structural correlate on eleven of the twelve dense heads that read
+one vector per patch, on every one of five re-fits; on `detection` pretraining
+scale beats it on four of five (`scripts/analyse_correlation_seeds.py`). At
+thirteen backbones `semantic_segmentation` and `scene_parsing` were pretraining
+boards too; the fourteenth column turned both, and its low scores on them are
+partly a fitting artefact — see below.
+
+**A linear dense board also reads feature *scale*, which is not
+representation.** The linear heads fit raw features at a fixed learning rate,
+and the fourteen columns span 9.7x in feature scale. Moving
+`clip_convnext_base` and `convnext_base` onto each other's scale — a constant,
+which removes nothing a linear head could use — **reverses that pair** on
+`generic_segmentation`, `semantic_segmentation` and `depth` by tens of seed
+deviations, moves `edge` the other way, and leaves `surface_normal` and
+`orientation` alone. A seed sweep cannot see this, because every seed shares
+the scale. The control and the cross-corpus measurement are in
+[`CORPUS_FINDINGS.md`](https://github.com/turhancan97/VisBench/blob/main/CORPUS_FINDINGS.md)
+under 24b.
 
 That was confounded, because the only backbones carrying 256 tokens are the two
 DINOv2s: grid size, the DINOv2 training objective and LVD-142M pretraining were
@@ -172,26 +186,32 @@ image-level high-level boards disagree sharply with the low-level tier (the most
 negative pair in the corpus is `orientation` / `scene_classification` at
 −0.390). The within-high-level mean is a set that is still bimodal.
 
-What is stable across six, nine and twelve backbones is that high-level is
-**two tight clusters that ignore each other**:
+What is stable from six to fourteen backbones is that high-level is **two
+clusters that ignore each other**:
 
 | pair | rho |
 | --- | --- |
-| detection / semantic_segmentation | **+0.830** |
-| classification / retrieval | **+0.802** |
-| detection / scene_classification | **+0.676** |
-| scene_classification / semantic_segmentation | +0.582 |
-| classification / semantic_segmentation | +0.110 |
-| classification / scene_classification | +0.071 |
-| retrieval / semantic_segmentation | −0.044 |
-| classification / detection | −0.192 |
-| detection / retrieval | −0.225 |
-| retrieval / scene_classification | −0.253 |
+| detection / semantic_segmentation | **+0.789** |
+| classification / retrieval | **+0.796** |
+| detection / scene_classification | **+0.578** |
+| scene_classification / semantic_segmentation | +0.349 |
+| classification / semantic_segmentation | +0.079 |
+| classification / scene_classification | +0.077 |
+| retrieval / semantic_segmentation | +0.007 |
+| classification / detection | −0.191 |
+| detection / retrieval | −0.209 |
+| retrieval / scene_classification | −0.257 |
+
+The localised side is looser at fourteen backbones than it was at thirteen
+(`scene_classification` / `semantic_segmentation` fell from +0.582): the new
+column is first on one and twelfth on the other, and about half of that is its
+feature scale rather than its representation. The structure — every pair
+inside a cluster above every pair across — holds on every re-fit.
 
 Image-level categorisation on one side, localised prediction on VOC on the
 other, and nothing linking them. **`scene_classification` is image-level
-classification and still lands with the localised cluster** (+0.68 with
-detection, −0.25 with retrieval) — a place category is recovered from layout
+classification and still lands with the localised cluster** (+0.58 with
+detection, −0.26 with retrieval) — a place category is recovered from layout
 and context, which is what the VOC-dense probes reward and single-object
 Imagenette does not. So **do not average a backbone's high-level results into
 one figure of merit** — the five boards are not measuring one capability, and a
@@ -201,19 +221,19 @@ This clustering is **not** an artefact of which images each probe reads, which
 is the first thing to suspect since `detection` and `semantic_segmentation`
 both run on VOC. `semantic_segmentation` and `generic_segmentation` read the
 *same 1449 images* through the same head, and they agree less than either
-pair that reads different frames (+0.418, against +0.830 and +0.571), while
+pair that reads different frames (+0.464, against +0.789 and +0.503), while
 `instance_segmentation` on those same images agrees with semantic segmentation
-least of all (+0.330). Off VOC, `generic_segmentation` reaches
-`surface_normal` (+0.857), `occlusion_edge` (+0.852) and `depth` (+0.846) on
+least of all (+0.358). Off VOC, `generic_segmentation` reaches
+`surface_normal` (+0.881), `depth` (+0.864) and `occlusion_edge` (+0.789) on
 NYUv2 and Taskonomy. And the three probes that share Imagenette average
-+0.201, the lowest figure of any shared corpus here.
++0.196, the lowest figure of any shared corpus here.
 
 The low-level tier, by contrast, is *one* cluster, and `orientation` (the
 fifteenth board) tightened it. That is worth a note: the
 orientation *target* is near-independent of every other probe's per pixel — it
 is a phase, and `|r|` with the `edge` and `corner` targets is under 0.09 — yet
-its *board* ranks backbones almost exactly like `keypoints2d` (rho **+0.945**),
-`corner` (+0.929) and `edge` (+0.896). Target independence and board independence
+its *board* ranks backbones almost exactly like `keypoints2d` (rho **+0.921**),
+`corner` (+0.921) and `edge` (+0.868). Target independence and board independence
 are different things: a backbone that is good at localised geometric structure
 is good at all of it, magnitude and phase alike, even though those are different
 quantities.

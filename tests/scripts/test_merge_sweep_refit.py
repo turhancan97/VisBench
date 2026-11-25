@@ -94,3 +94,53 @@ def test_a_part_off_a_v100_is_refused(merge, tmp_path):
     (tmp_path / "seeds_edge__resnet18.jsonl").write_text(json.dumps(row) + "\n")
     with pytest.raises(SystemExit, match="V100"):
         merge.staged(tmp_path)
+
+
+NEW = "timm/convnext_base/clip_laion2b/224/crop1"
+
+
+def test_a_new_column_is_appended_and_nothing_else_moves(merge):
+    new = [_row("clip_convnext_base", s, NEW, 0.7) for s in (3, 1, 4, 0, 2)]
+    merged = merge.append_column(_sweep(), new)
+    assert merged[:10] == _sweep()
+    assert [r["seed"] for r in merged[10:]] == [0, 1, 2, 3, 4]
+
+
+def test_adding_a_column_the_sweep_already_holds_is_refused(merge):
+    new = [_row("resnet18", s, LEGACY + "/crop1") for s in range(5)]
+    with pytest.raises(ValueError, match="already in the sweep"):
+        merge.append_column(_sweep(), new)
+
+
+def test_a_new_column_short_of_a_seed_is_refused(merge):
+    new = [_row("clip_convnext_base", s, NEW) for s in range(4)]
+    with pytest.raises(ValueError, match="differ"):
+        merge.append_column(_sweep(), new)
+
+
+def test_add_mode_reads_the_live_sweep_and_never_the_archive(merge, tmp_path, monkeypatch):
+    """The archive holds the cropped sweeps; appending onto it would undo 23b."""
+    controls = tmp_path / "controls"
+    (controls / "seeds").mkdir(parents=True)
+    (controls / "pre23a" / "seeds").mkdir(parents=True)
+    live = [_row("dinov2_vits14", s, "dinov2/x", 0.9) for s in range(5)]
+    cropped = [_row("dinov2_vits14", s, "dinov2/x", 0.1) for s in range(5)]
+    (controls / "seeds" / "edge.jsonl").write_text("".join(json.dumps(r) + "\n" for r in live))
+    (controls / "pre23a" / "seeds" / "edge.jsonl").write_text(
+        "".join(json.dumps(r) + "\n" for r in cropped)
+    )
+    parts = tmp_path / "parts"
+    parts.mkdir()
+    gpu = {"hardware": {"gpu": "Tesla V100-SXM2-32GB"}}
+    (parts / "seeds_edge__clip_convnext_base.jsonl").write_text(
+        "".join(json.dumps(_row("clip_convnext_base", s, NEW) | gpu) + "\n" for s in range(5))
+    )
+    monkeypatch.setattr(merge, "CONTROLS", controls)
+    monkeypatch.setattr(merge, "ARCHIVE", controls / "pre23a")
+
+    assert merge.main([str(parts), "--add", "--write"]) == 0
+    written = [
+        json.loads(line) for line in (controls / "seeds" / "edge.jsonl").read_text().splitlines()
+    ]
+    assert [r["x"] for r in written if r["backbone"] == "dinov2_vits14"] == [0.9] * 5
+    assert {r["backbone"] for r in written} == {"dinov2_vits14", "clip_convnext_base"}

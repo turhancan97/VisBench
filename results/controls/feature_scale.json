@@ -1,0 +1,184 @@
+[
+ {
+  "backbone": "clip_convnext_base",
+  "images": 64,
+  "channels": 1024,
+  "dense_shape": [
+   1024,
+   7,
+   7
+  ],
+  "std": 0.35660749673843384,
+  "channel_std": 0.29555442929267883,
+  "token_norm": 10.411600112915039
+ },
+ {
+  "backbone": "clip_vitb16",
+  "images": 64,
+  "channels": 768,
+  "dense_shape": [
+   768,
+   14,
+   14
+  ],
+  "std": 0.769768238067627,
+  "channel_std": 0.6322370767593384,
+  "token_norm": 21.912832260131836
+ },
+ {
+  "backbone": "clip_vitb32",
+  "images": 64,
+  "channels": 768,
+  "dense_shape": [
+   768,
+   7,
+   7
+  ],
+  "std": 0.8448241949081421,
+  "channel_std": 0.6142141819000244,
+  "token_norm": 23.990459442138672
+ },
+ {
+  "backbone": "convnext_base",
+  "images": 64,
+  "channels": 1024,
+  "dense_shape": [
+   1024,
+   7,
+   7
+  ],
+  "std": 3.3041584491729736,
+  "channel_std": 2.862459659576416,
+  "token_norm": 93.12448120117188
+ },
+ {
+  "backbone": "dino_vitb16",
+  "images": 64,
+  "channels": 768,
+  "dense_shape": [
+   768,
+   14,
+   14
+  ],
+  "std": 2.2060580253601074,
+  "channel_std": 1.8987678289413452,
+  "token_norm": 61.071903228759766
+ },
+ {
+  "backbone": "dino_vitb8",
+  "images": 64,
+  "channels": 768,
+  "dense_shape": [
+   768,
+   28,
+   28
+  ],
+  "std": 2.0384156703948975,
+  "channel_std": 1.8428078889846802,
+  "token_norm": 56.398067474365234
+ },
+ {
+  "backbone": "dinov2_vitb14",
+  "images": 64,
+  "channels": 768,
+  "dense_shape": [
+   768,
+   16,
+   16
+  ],
+  "std": 1.7669689655303955,
+  "channel_std": 1.675187110900879,
+  "token_norm": 48.907196044921875
+ },
+ {
+  "backbone": "dinov2_vits14",
+  "images": 64,
+  "channels": 384,
+  "dense_shape": [
+   384,
+   16,
+   16
+  ],
+  "std": 2.5015509128570557,
+  "channel_std": 2.385329484939575,
+  "token_norm": 48.96087646484375
+ },
+ {
+  "backbone": "mae_vitb16",
+  "images": 64,
+  "channels": 768,
+  "dense_shape": [
+   768,
+   14,
+   14
+  ],
+  "std": 0.6341854929924011,
+  "channel_std": 0.28654178977012634,
+  "token_norm": 17.217456817626953
+ },
+ {
+  "backbone": "resnet18",
+  "images": 64,
+  "channels": 512,
+  "dense_shape": [
+   512,
+   7,
+   7
+  ],
+  "std": 0.7773725986480713,
+  "channel_std": 0.7430809140205383,
+  "token_norm": 15.359233856201172
+ },
+ {
+  "backbone": "resnet50",
+  "images": 64,
+  "channels": 2048,
+  "dense_shape": [
+   2048,
+   7,
+   7
+  ],
+  "std": 0.33918264508247375,
+  "channel_std": 0.29484355449676514,
+  "token_norm": 13.407743453979492
+ },
+ {
+  "backbone": "sam_vitb16",
+  "images": 64,
+  "channels": 768,
+  "dense_shape": [
+   768,
+   14,
+   14
+  ],
+  "std": 0.3830934166908264,
+  "channel_std": 0.30685901641845703,
+  "token_norm": 10.616497039794922
+ },
+ {
+  "backbone": "siglip_vitb16",
+  "images": 64,
+  "channels": 768,
+  "dense_shape": [
+   768,
+   14,
+   14
+  ],
+  "std": 2.2753336429595947,
+  "channel_std": 2.0425736904144287,
+  "token_norm": 62.41106414794922
+ },
+ {
+  "backbone": "supervised_vitb16",
+  "images": 64,
+  "channels": 768,
+  "dense_shape": [
+   768,
+   14,
+   14
+  ],
+  "std": 1.145825743675232,
+  "channel_std": 1.0839277505874634,
+  "token_norm": 31.530153274536133
+ }
+]

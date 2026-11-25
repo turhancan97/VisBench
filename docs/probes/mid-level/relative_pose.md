@@ -133,6 +133,7 @@ backbone is about an hour and later ones are minutes.
 | `dinov2_vitb14` | 29.0808 | 18.0390 | 0.7115 | 0.1563 | 66.8464 | 65.6347 |
 | `dino_vitb16` | 29.3293 | 18.8479 | 0.7034 | 0.1563 | 66.8464 | 65.6347 |
 | `sam_vitb16` | 34.7421 | 21.7504 | 0.6184 | 0.1563 | 66.8464 | 65.6347 |
+| `clip_convnext_base` | 36.0866 | 24.1740 | 0.5966 | 0.1563 | 66.8464 | 65.6347 |
 | `resnet50` | 37.0055 | 23.5906 | 0.5897 | 0.1563 | 66.8464 | 65.6347 |
 | `siglip_vitb16` | 38.5268 | 26.0050 | 0.5678 | 0.1563 | 66.8464 | 65.6347 |
 | `convnext_base` | 38.5551 | 25.4773 | 0.5759 | 0.1563 | 66.8464 | 65.6347 |
@@ -154,12 +155,12 @@ no-feature floor by between 23.3 and 46.6 degrees, so the 23-degree spread is
 signal rather than thirteen different ways of failing.
 
 **It is close to orthogonal to the semantic boards.** Mean Spearman over the
-same thirteen backbones is **+0.678** against its own mid-level tier,
-**+0.630** against the four low-level boards and **+0.165** against the nine
-high-level ones — with `classification` at **−0.126**, `retrieval` at −0.066
-and `semantic_segmentation` at +0.011. Its strongest partners are
-`occlusion_edge` (+0.841), `surface_normal` (+0.830) and
-`instance_segmentation` (+0.780), the one high-level board that ranks with
+same fourteen backbones is **+0.651** against its own mid-level tier,
+**+0.602** against the four low-level boards and **+0.152** against the nine
+high-level ones — with `classification` at **−0.143**, `retrieval` at −0.046
+and `semantic_segmentation` at −0.042. Its strongest partners are
+`occlusion_edge` (+0.855), `surface_normal` (+0.771) and
+`instance_segmentation` (+0.745), the one high-level board that ranks with
 geometry. A pose number is therefore close to independent evidence about a
 backbone rather than another way of asking what the object boards already
 answered. See {doc}`reading a board </guides/reading-a-board>` before quoting

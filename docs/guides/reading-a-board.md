@@ -37,10 +37,10 @@ prints for every board.
 
 Every coefficient on these pages compares two boards that were each fitted once.
 Re-fitted over the five committed seeds, a board-pair rho moves by a median of
-**0.10**, and 17 of 187 pairs change sign, though none of those published
+**0.09**, and 20 of 187 pairs change sign, though none of those published
 at |rho| ≥ 0.5 does. Of the sixteen correlational readings tested, fifteen hold
 on every re-fit. **The one that fails is a superlative**: a board's "closest
-partner" chosen between two coefficients that tie on the seed-mean boards. So
+partner" chosen between two coefficients a re-fit does not keep apart. So
 quote "A agrees with B more than with C" when that margin survives, and never a
 single closest partner without checking the range.
 [`scripts/analyse_correlation_seeds.py`](https://github.com/turhancan97/VisBench/blob/main/scripts/analyse_correlation_seeds.py)

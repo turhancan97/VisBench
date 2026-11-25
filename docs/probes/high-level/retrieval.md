@@ -27,6 +27,7 @@ What `visbench show retrieval` draws. {doc}`How to read it </guides/visualising>
 | `dino_vitb16` | 0.9190 | 0.9870 | 0.9972 |
 | `dinov2_vitb14` | 0.9171 | 0.9954 | 0.9977 |
 | `clip_vitb16` | 0.9102 | 0.9893 | 0.9975 |
+| `clip_convnext_base` | 0.9056 | 0.9878 | 0.9975 |
 | `dinov2_vits14` | 0.8893 | 0.9921 | 0.9972 |
 | `clip_vitb32` | 0.8680 | 0.9806 | 0.9941 |
 | `resnet18` | 0.8646 | 0.9717 | 0.9929 |

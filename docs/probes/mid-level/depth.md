@@ -51,6 +51,7 @@ that means nothing.
 | `siglip_vitb16` | 0.6318 | 0.2276 | 0.8975 | 0.9750 | 0.7244 |
 | `supervised_vitb16` | 0.6259 | 0.2286 | 0.8957 | 0.9735 | 0.7174 |
 | `convnext_base` | 0.6232 | 0.2344 | 0.8951 | 0.9727 | 0.7386 |
+| `clip_convnext_base` | 0.6203 | 0.2260 | 0.8938 | 0.9763 | 0.7316 |
 | `resnet50` | 0.5380 | 0.3119 | 0.8283 | 0.9406 | 0.8691 |
 | `resnet18` | 0.5276 | 0.3112 | 0.8177 | 0.9384 | 0.8853 |
 
@@ -58,6 +59,15 @@ Ordered by `d1`, which **disagrees with `abs_rel`, `d2`, `d3`, `rmse`** — this
 
 <sub>depth on test/test, protocol=probe3d, frozen [ec5f45be]</sub>
 <!-- /visbench:board -->
+
+**Two of these rows are placed by their feature scale.** The linear head fits
+raw features at a fixed learning rate, and `clip_convnext_base`'s features are
+~9x smaller than `convnext_base`'s. Moved onto each other's scale — a
+constant, which removes nothing a linear head could use — `clip_convnext_base`
+goes from 12th to **6th** (`d1` 0.6552) and `convnext_base` from 11th to 12th,
+so this board's ordering of that pair is the fit's. See
+[`CORPUS_FINDINGS.md`](https://github.com/turhancan97/VisBench/blob/main/CORPUS_FINDINGS.md)
+under 24b.
 
 ## Run it
 

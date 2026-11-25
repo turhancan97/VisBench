@@ -25,7 +25,9 @@ those are the most dangerous records in this directory: they differ from their
 board only in `seed`, which `comparability_key` does not read, so they would
 merge *into* the published group rather than beside it.
 
-**One file here is not records at all.** `pose_noise.json` holds a study whose
+**Two files here are not records at all.** `feature_scale.json` is a
+measurement table (one row of feature statistics per backbone, no run behind
+it), and `pose_noise.json` holds a study whose
 runs perturb cached features — something no flag expresses and no
 `ResultRecord` could honestly describe — so it is JSON rather than a `.jsonl`
 of records, and the distinction is deliberate: a record claims a run happened
@@ -34,6 +36,79 @@ state.
 
 Nothing here feeds a generated table. `scripts/render_tables.py` and
 `LEADERBOARD.md` read the corpus only.
+
+## `scale_control.jsonl` and `feature_scale.json` — does a linear dense board read feature scale? (24b)
+
+**28 records and one table.** `clip_convnext_base` (24b) came last or near it on
+several linear dense boards, and its stage-4 features are ~9x smaller than its
+supervised sibling `convnext_base`'s. The image-level probes standardise
+features before fitting; the dense heads fit raw features with AdamW at a fixed
+learning rate, which is not scale-invariant. So a low dense placement could be
+the optimiser rather than the representation, and no record could say which.
+
+### The control, and its gate
+
+`scripts/run_scale_control.py` re-runs each cell's exact corpus command (read
+from `build_corpus.sh`, as `run_crop_control.py` does) with the backbone swapped
+for an alias whose every extracted layer is multiplied by a constant:
+`clip_convnext_base` ×8.66, `convnext_base` ×0.1155 — each onto the other's
+scale. Multiplying features by a constant removes nothing a linear head could
+use; the optimum is the same map rescaled. The alias has its own name and cache
+key (`.../x<scale>`), so it can neither evict a corpus row nor be served
+unscaled features, and `--check` proves the rescaling exact before any run.
+
+**The gate** runs the same alias path at ×1, through a fresh extraction under
+its own key. All twelve gate cells on the six smooth boards reproduce the
+published value to 6.3e-07 or better; `orientation`'s two land at 2.3e-02 and
+4.8e-03, inside that board's 5e-2. Seven boards × two columns × {scaled, gate},
+on a V100 (`slurm/scale_control.sbatch`). Read it with
+`scripts/analyse_scale_control.py`.
+
+### The answer
+
+Shift is scaled minus gate, in units of that column's seed standard deviation
+from `seeds/`:
+
+| board | `clip_convnext_base` ×8.66 | `convnext_base` ×0.1155 |
+| --- | --- | --- |
+| `generic_segmentation` | +0.0765 IoU, **+60 sd**, 14th → 11th | −0.0641, **−192 sd**, 11th → 13th |
+| `semantic_segmentation` | +0.0943 mIoU, **+126 sd**, 12th → 9th | −0.0773, **−51 sd**, 9th → 11th |
+| `depth` | +0.0349 d1, **+58 sd**, 12th → 6th | −0.0502, **−71 sd**, 11th → 12th |
+| `edge` | −0.0121, −2.1 sd | **+0.0335, +7.0 sd**, 12th → 10th |
+| `corner` | +0.0166, +2.5 sd | +0.0093, +2.5 sd |
+| `surface_normal` | −0.098°, −1.9 sd | −0.122°, −1.4 sd |
+| `orientation` | +0.256°, +2.5 sd | +0.005°, +0.1 sd |
+
+**On three boards the pair reverses at matched scale**, by tens of seed
+deviations, so the published ordering of these two rows there is the fit's.
+**`edge` moves the other way** (the smaller scale fits better), and two boards
+do not care: this is a fixed-step optimiser meeting each loss surface, not a
+monotone "bigger features fit better". A seed sweep cannot see any of it,
+because every seed shares the scale.
+
+### `feature_scale.json` — the quantity the control varied, for every column
+
+`scripts/measure_feature_scale.py` measures the last-layer `dense` map
+(`dense_only`, exactly what `LinearHead` reads) on the first 64 frames of the
+`generic_segmentation` val split, built through the CLI's own `build_parser` +
+`SPECS`: the std over every value, the mean per-channel std and the mean token
+norm. A forward pass only. The fourteen columns span **9.7x**, from `resnet50`
+(0.339), `clip_convnext_base` (0.357) and `sam_vitb16` (0.383) to
+`convnext_base` (3.304). `--report` correlates log std with each of the ten
+linear dense boards, and with the feature grid held fixed (scale and grid
+correlate +0.39): scale still tracks `scene_parsing` (partial rho +0.558) and
+`semantic_segmentation` (+0.446), and no geometry or low-level board (−0.41 to
++0.09).
+
+### What this licenses, and what it does not
+
+It licenses **not reading those three boards' placement of this pair as a
+statement about representations**, and a caution on every linear dense board
+whose columns differ in scale — which is all of them. It does **not** license a
+corrected board: the control moved two columns, and standardising features
+before the dense heads would change every published dense number, which is a
+re-run of its own and an open question this step hands on. Nothing here enters
+the corpus; a scaled backbone is a model nobody would choose.
 
 ## `crop_control.jsonl` — what the timm rows score without a second crop (22c)
 
@@ -554,7 +629,7 @@ lets a reader see how much, rather than take a sentence for it.
 
 ## `pose_seeds.jsonl` — which rows of the pose board are actually ordered?
 
-Sixty-five records: all thirteen corpus backbones re-fitted at five seeds in the
+Seventy records: all fourteen corpus backbones re-fitted at five seeds in the
 **published** configuration — same pairs, same MLP, same flags, only `--seed`
 moves. `scripts/build_pose_seed_sweep.sh` produces them and
 `scripts/analyse_pose_seeds.py` reads them.
@@ -565,8 +640,8 @@ other controls here differ from the board in something that lands in
 group and *could not* be listed beside it. These carry the published
 configuration exactly, so they land in the **identical** group, and
 `latest_per_backbone` would happily let a seed-3 run evict a published seed-0
-one. A board is one seed by construction; thirteen backbones at five seeds is
-sixty-five rankable rows describing thirteen models.
+one. A board is one seed by construction; fourteen backbones at five seeds is
+seventy rankable rows describing fourteen models.
 
 **The harness check, which is the gate.** Every corpus pose cell was run at the
 default seed 0, so all thirteen seed-0 rows here must reproduce their published
@@ -660,10 +735,10 @@ pairs are ordered.**
 
 ## `seeds/*.jsonl` — which rows of which boards are actually ordered? (20b, 20c, 21b)
 
-**975 records across fifteen boards**: every trained board except
+**1,050 records across fifteen boards**: every trained board except
 `relative_pose` (whose sweep is `pose_seeds.jsonl`, below) and
 `scene_classification` (held out; its own section follows), each re-fitted at
-five seeds across all thirteen corpus backbones in the **published**
+five seeds across all fourteen corpus backbones in the **published**
 configuration — same flags, same head, only `--seed` moves.
 `slurm/seed_sweep.sbatch` produces them through `scripts/build_corpus.sh`
 (`SEEDS=5`, so a sweep re-fits the published flags rather than a second copy of
@@ -671,7 +746,7 @@ them) and `scripts/analyse_seeds.py <probe>` reads them.
 
 **Why they must not go near the corpus**: these carry the published
 configuration and differ only in `seed`, which `comparability_key` does not
-read, so merged they would be sixty-five rankable rows inside each published
+read, so merged they would be seventy rankable rows inside each published
 board's own group. `build_corpus.sh` refuses `SEEDS>1` against a corpus path,
 and `tests/results/test_seed_sweeps.py` checks the committed files.
 
@@ -686,17 +761,18 @@ appending), and kept the four unchanged columns' rows. The cropped sweeps are in
 
 | | |
 | --- | --- |
-| adjacent pairs **ordered** | 143 |
-| **tied** — not separable at five seeds | 49 |
+| adjacent pairs **ordered** | 152 |
+| **tied** — not separable at five seeds | 56 |
 | **reversed** — the board's order is the minority outcome | **0** |
 | boards where the largest *unordered* gap exceeds the smallest *ordered* one | **12 of 16** |
 
-On the cropped boards it was 126, 63 and 3, and 11 of 16. **The corrected
+At thirteen columns (23b) it was 143, 49 and 0; on the cropped boards 126, 63
+and 3, and 11 of 16. **The corrected
 boards are more orderable and none reverses** — the double crop was adding
 noise between columns as well as moving them. **About a quarter of all adjacent
 pairs still cannot be ordered**, and the fraction is a property of the board
-rather than of the corpus: `occlusion_edge` and `keypoints2d` order only **5** of
-their twelve pairs, against **12 of 12** for `scene_parsing` and
+rather than of the corpus: `occlusion_edge` and `keypoints2d` order only **5**
+and **6** of their thirteen pairs, against **13 of 13** for `scene_parsing` and
 `semantic_segmentation`.
 
 ### 20b's own conclusion, corrected (on the cropped boards)
@@ -728,41 +804,44 @@ rather than an emphatic one; more seeds are what would firm them up.
 
 ### Per board
 
-`ordered`/`tied`/`reversed` are over the twelve adjacent pairs of a
-thirteen-row board. `min ordered` is the smallest gap that *is* separable and
+`ordered`/`tied`/`reversed` are over the thirteen adjacent pairs of a
+fourteen-row board (24b added `clip_convnext_base` with
+`scripts/merge_sweep_refit.py --add`, which appends a column and refuses to
+move an existing row). `min ordered` is the smallest gap that *is* separable and
 `max unordered` the largest that is *not*; wherever the second exceeds the
 first, no threshold on the gap can sort that board's pairs.
 
 | board | ord | tie | rev | min ordered | max unordered | median sd | board spread | common-mode |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `scene_parsing` | 12 | 0 | 0 | 0.00114 | -- | 0.00151 | 0.3579 | 12% |
-| `semantic_segmentation` | 12 | 0 | 0 | 0.00724 | -- | 0.00161 | 0.414 | 12% |
-| `orientation` | 11 | 1 | 0 | 0.09814 | 0.2787 | 0.1013 | 15.43 | 7% |
-| `surface_normal` | 11 | 1 | 0 | 0.09080 | 0.02477 | 0.08159 | 11.82 | 9% |
-| `corner` | 10 | 2 | 0 | 0.00377 | 0.00482 | 0.00408 | 0.3417 | 7% |
-| `depth` | 10 | 2 | 0 | 0.00263 | 0.00229 | 0.00071 | 0.2575 | 14% |
-| `generic_segmentation` | 10 | 2 | 0 | 0.00623 | 0.00662 | 0.00231 | 0.2288 | 6% |
-| `instance_segmentation` | 10 | 2 | 0 | 0.00212 | 0.00926 | 0.00249 | 0.2093 | 3% |
-| `classification` | 9 | 3 | 0 | 0.00025 | 0.00127 | 0.00046 | 0.03975 | 16% |
-| `edge` | 8 | 4 | 0 | 0.01379 | 0.01534 | 0.00574 | 0.2977 | 8% |
-| `fine_grained_classification` | 8 | 4 | 0 | 0.00293 | 0.01899 | 0.00174 | 0.4298 | 14% |
-| `vehicle_classification` | 8 | 4 | 0 | 0.02268 | 0.05370 | 0.00759 | 0.4437 | 13% |
-| `detection` | 7 | 5 | 0 | 0.00380 | 0.01377 | 0.00823 | 0.2168 | 6% |
-| `relative_pose` | 7 | 5 | 0 | 0.4246 | 2.303 | 0.5863 | 23.3 | 11% |
-| `keypoints2d` | 5 | 7 | 0 | 0.00288 | 0.01689 | 0.00588 | 0.1589 | 3% |
-| `occlusion_edge` | 5 | 7 | 0 | 0.00658 | 0.02894 | 0.00749 | 0.1734 | 7% |
+| `scene_parsing` | 13 | 0 | 0 | 0.001142 | -- | 0.0015 | 0.3579 | 12% |
+| `semantic_segmentation` | 13 | 0 | 0 | 0.007138 | -- | 0.00156 | 0.414 | 13% |
+| `orientation` | 12 | 1 | 0 | 0.09814 | 0.2787 | 0.103 | 16.13 | 7% |
+| `depth` | 11 | 2 | 0 | 0.002634 | 0.002289 | 0.000654 | 0.2575 | 13% |
+| `generic_segmentation` | 11 | 2 | 0 | 0.006228 | 0.006622 | 0.00218 | 0.2783 | 5% |
+| `instance_segmentation` | 11 | 2 | 0 | 0.0001196 | 0.009262 | 0.00269 | 0.2093 | 3% |
+| `surface_normal` | 11 | 2 | 0 | 0.08521 | 0.02477 | 0.076 | 11.82 | 9% |
+| `corner` | 10 | 3 | 0 | 0.003766 | 0.02008 | 0.00449 | 0.3417 | 5% |
+| `classification` | 9 | 4 | 0 | 0.0002548 | 0.001274 | 0.000463 | 0.03975 | 13% |
+| `fine_grained_classification` | 9 | 4 | 0 | 0.002934 | 0.01899 | 0.00155 | 0.4298 | 13% |
+| `vehicle_classification` | 9 | 4 | 0 | 0.01308 | 0.0537 | 0.00722 | 0.4568 | 12% |
+| `edge` | 8 | 5 | 0 | 0.01251 | 0.01534 | 0.00579 | 0.2977 | 6% |
+| `detection` | 7 | 6 | 0 | 0.003796 | 0.01089 | 0.00801 | 0.2168 | 5% |
+| `relative_pose` | 7 | 6 | 0 | 0.4246 | 2.303 | 0.593 | 23.3 | 8% |
+| `keypoints2d` | 6 | 7 | 0 | 0.002877 | 0.01202 | 0.00585 | 0.1589 | 2% |
+| `occlusion_edge` | 5 | 8 | 0 | 0.006579 | 0.01695 | 0.00717 | 0.1734 | 5% |
 
 **A board's spread does not predict how many of its pairs are ordered**, which
 21b made hard to miss. On the cropped boards the three image-level
 classification boards ordered **exactly 7 of 12 each** across a ten-fold range
-of spreads; on the corrected ones `classification` orders 9 on a spread of
-0.0398 and the other two 8 on spreads ten times wider. `orientation` spans 15.43
-and orders 11; `relative_pose` spans 23.3 and orders 7. **The quantity a gap
+of spreads; on the corrected ones at fourteen columns all three order 9 of 13,
+`classification` on a spread of 0.0398 and the other two on spreads ten times
+wider. `orientation` spans 16.13 and orders 12; `relative_pose` spans 23.3 and
+orders 7. **The quantity a gap
 has to beat is the board's own noise, and reading the spread tells you nothing
 about it.**
 
 Common-mode — the share of seed variance that moves every row together, and so
-cancels in a difference — runs **3% to 16%** (2% to 17% on the cropped boards). On no board is it the majority,
+cancels in a difference — runs **2% to 13%** (3% to 16% at thirteen columns, 2% to 17% on the cropped boards). On no board is it the majority,
 which is why a gap is a poor instrument everywhere rather than only where the
 sweep happens to disagree with it.
 
@@ -806,9 +885,9 @@ quote to three decimals.
 
 ## `scene_classification_seeds.jsonl` and `scene_noise.json` — the board that amplifies
 
-**65 records and one study.** `scene_classification` was swept with the other
-fourteen boards (20c) and **eleven of its thirteen seed-0 rows do not reproduce
-their published cells**, worst **−0.0102** on `resnet50`, *and* carry a
+**70 records and one study.** `scene_classification` was swept with the other
+fourteen boards (20c) and **eleven of its thirteen original seed-0 rows do not
+reproduce their published cells**, worst **−0.0102** on `resnet50`, *and* carry a
 different `train_loss`. The sweep is kept here rather than under `seeds/`
 because a sweep that does not reproduce its board cannot be read as that board's
 noise — the same rule that held three cells out of the corpus in the v8 re-run.

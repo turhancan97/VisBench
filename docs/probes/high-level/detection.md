@@ -47,6 +47,7 @@ Measured on VOC 2012, 600 train / 600 val images at 224px, ten epochs:
 | `siglip_vitb16` | 0.1720 | 0.0617 | 20 | 99.7500 |
 | `dino_vitb16` | 0.1682 | 0.0548 | 20 | 78.0917 |
 | `supervised_vitb16` | 0.1638 | 0.0511 | 20 | 83.2400 |
+| `clip_convnext_base` | 0.1529 | 0.0458 | 20 | 95.2100 |
 | `dino_vitb8` | 0.1500 | 0.0553 | 20 | 61.7967 |
 | `sam_vitb16` | 0.1407 | 0.0455 | 20 | 54.1617 |
 | `mae_vitb16` | 0.1187 | 0.0393 | 20 | 65.8200 |

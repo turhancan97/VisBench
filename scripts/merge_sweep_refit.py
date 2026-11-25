@@ -27,6 +27,12 @@ that silently describes fewer pairs than the board has.
 
 Dry run by default; ``--write`` copies the archive (once -- an existing archive
 is never overwritten) and rewrites the live files.
+
+**``--add`` appends a new column instead** (24b's `clip_convnext_base`). It
+reads the *live* sweeps and archives nothing: the archive holds the cropped
+sweeps, and splicing a new column onto those would silently undo 23b. In this
+mode every staged backbone must be one the sweep does not hold yet, carrying
+exactly the seeds every existing column carries, and no existing row may move.
 """
 
 from __future__ import annotations
@@ -77,6 +83,38 @@ def staged(parts: Path) -> dict[str, list[dict]]:
     return dict(out)
 
 
+def append_column(old: list[dict], new: list[dict]) -> list[dict]:
+    """The old sweep, unchanged, with each new column's rows appended in seed order.
+
+    Pure, like :func:`splice`. Refuses a backbone the sweep already holds (that
+    is a re-fit, and `splice` is the tool), a duplicated seed, and any column
+    whose seeds differ from the ones the existing columns share -- a column short
+    of a seed is invisible afterwards and quietly shortens every paired test.
+    """
+    held: dict[str, set[int]] = defaultdict(set)
+    for record in old:
+        held[record["backbone"]].add(record["seed"])
+    seed_sets = {frozenset(s) for s in held.values()}
+    if len(seed_sets) != 1:
+        raise ValueError(f"the existing columns do not share one seed set: {seed_sets}")
+    (expected,) = seed_sets
+
+    added: dict[str, list[dict]] = defaultdict(list)
+    for record in new:
+        added[record["backbone"]].append(record)
+    for backbone, rows in added.items():
+        if backbone in held:
+            raise ValueError(f"{backbone} is already in the sweep; re-fit it with splice")
+        seeds = [r["seed"] for r in rows]
+        if len(seeds) != len(set(seeds)):
+            raise ValueError(f"{backbone}: a seed appears twice in the new column")
+        if set(seeds) != expected:
+            raise ValueError(
+                f"{backbone}: seeds {sorted(seeds)} differ from the sweep's {sorted(expected)}"
+            )
+    return list(old) + [r for b in sorted(added) for r in sorted(added[b], key=lambda r: r["seed"])]
+
+
 def splice(old: list[dict], new: list[dict]) -> list[dict]:
     """The old sweep with every re-fitted column's rows replaced by the new ones.
 
@@ -119,6 +157,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("parts", type=Path, help="staging directory holding only 23b's parts")
     parser.add_argument("--write", action="store_true", help="archive and rewrite; else dry run")
+    parser.add_argument(
+        "--add", action="store_true", help="append new columns to the live sweeps; archive nothing"
+    )
     args = parser.parse_args(argv)
 
     by_probe = staged(args.parts)
@@ -131,9 +172,9 @@ def main(argv: list[str] | None = None) -> int:
         if not live.is_file():
             raise SystemExit(f"{probe}: no committed sweep at {live}")
         archived = ARCHIVE / relative
-        old = read_jsonl(archived if archived.is_file() else live)
+        old = read_jsonl(live if args.add or not archived.is_file() else archived)
         try:
-            merged = splice(old, by_probe[probe])
+            merged = (append_column if args.add else splice)(old, by_probe[probe])
         except ValueError as error:
             raise SystemExit(f"{probe}: {error}") from None
         stale = sorted({r["backbone"] for r in merged if r["backbone_key"] in SUPERSEDED_KEYS})
@@ -142,10 +183,10 @@ def main(argv: list[str] | None = None) -> int:
         refitted = sorted({r["backbone"] for r in by_probe[probe]})
         print(
             f"{probe:28s} {len(old):3d} rows -> {len(merged):3d}; "
-            f"{len(refitted)} columns re-fitted -> {relative}"
+            f"{len(refitted)} columns {'added' if args.add else 're-fitted'} -> {relative}"
         )
         if args.write:
-            if not archived.is_file():
+            if not args.add and not archived.is_file():
                 archived.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(live, archived)
             live.write_text(

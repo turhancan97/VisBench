@@ -33,8 +33,9 @@ Three standing cautions apply to everything below:
 - **A placement is not automatically a result, and a count of placements
   weighs a coin flip the same as a twenty-sigma lead** (22a;
   `scripts/analyse_placements.py` reprints it; re-fitted on the corrected
-  boards by 23b). Of the twenty boards, **18 first places and 15 last places
-  survive a paired re-fit**. Two leads do not — `generic_segmentation`'s new
+  boards by 23b; unchanged by 24b's fourteenth column). Of the twenty boards,
+  **18 first places and 15 last places survive a paired re-fit**. Two leads do
+  not — `generic_segmentation`'s new
   `dino_vitb8` lead over `dinov2_vitb14` at **t = +0.66**, and
   `fine_grained_classification` at +1.64 — and no placement is reversed. On the
   cropped boards it was 17 and 13, with `edge` a coin flip at t = +0.11 and
@@ -44,13 +45,14 @@ Three standing cautions apply to everything below:
 - **A correlation is one draw too, and every correlational claim below has now
   been re-read on the seed sweeps** (22b;
   [`scripts/analyse_correlation_seeds.py`](scripts/analyse_correlation_seeds.py)
-  reprints it, no GPU; re-run on the corrected boards by 23b). The corpus holds
+  reprints it, no GPU; re-run on the corrected boards by 23b, and at fourteen
+  columns by 24b). The corpus holds
   one seed per cell, so every coefficient here was a single draw. Re-fitting
   each board at its five committed seeds, a board-pair rho moves by a median
-  **0.099** (at most 0.368), and **17 of 187** movable pairs change sign — but
-  **none of the 82 published at |rho| ≥ 0.5**. The published draws are **not
+  **0.088** (at most 0.360), and **20 of 187** movable pairs change sign — but
+  **none of the 77 published at |rho| ≥ 0.5**. The published draws are **not
   biased high**: they sit at a mean percentile of **0.57** in their own ranges,
-  where any one seed read as the published draw gives 0.44-0.56 — the published
+  where any one seed read as the published draw gives 0.43-0.56 — the published
   cells *are* seed 0, the highest of the five, and one seed in five has to be.
   (22b read 0.50 against a band of 0.45-0.55 that nobody had measured the
   statistic's scatter against; the null is the comparison.) **15 of the 16
@@ -135,15 +137,114 @@ Three standing cautions apply to everything below:
   note what a re-fit cannot do**: 22a called MAE's `orientation` lead solid,
   and the crop fix took it — a seed sweep measures noise, never a bias every
   seed shares.
-- **n=13, so every correlation here has wide error bars**, and the backbone
+- **n=14, so every correlation here has wide error bars**, and the backbone
   properties are correlated with each other. Coefficients quoted below as n=12
-  were measured before `dino_vitb8`; where one has been re-measured the entry
-  says so.
+  were measured before `dino_vitb8`, and as n=13 before `clip_convnext_base`
+  (24b); where one has been re-measured the entry says so.
   [`scripts/analyse_board_correlates.py`](scripts/analyse_board_correlates.py)
   reproduces the correlational findings, and its `--drop` re-runs without any
   row so you can see which conclusions survive.
 
 ---
+
+
+- **`clip_convnext_base` is the fourteenth column, and on three dense boards
+  its placement is set by its feature *scale*, not only by what its features
+  carry** (24b, 2026-11-25; the board is in `LEADERBOARD.md`, the controls in
+  `results/controls/scale_control.jsonl` and `feature_scale.json`, reprinted by
+  `scripts/analyse_scale_control.py` and `scripts/measure_feature_scale.py
+  --report`).
+
+  **What the column was added to answer.** Every CNN on the board was
+  ImageNet-1k supervised, so "CNN" and "IN1k supervised" were one variable.
+  This row keeps `convnext_base`'s architecture and moves objective and data to
+  CLIP on LAION-2B. Read paired on the seed sweeps (five seeds, |t| ≥ 2.776),
+  the objective moves the pair a long way, in both directions:
+
+  | CLIP ahead of IN1k (same ConvNeXt) | IN1k ahead of CLIP | tied |
+  | --- | --- | --- |
+  | `scene_classification` (**1st**, t +128), `vehicle_classification` (**1st**, +94), `fine_grained_classification` (3rd, +32), `detection` (+33), `instance_segmentation` (+13), `occlusion_edge` (+24), `relative_pose` (+3.7) | `classification` (−67) and `retrieval` (exact) — in-distribution recall, see the Imagenette caution; `scene_parsing` (−141), `semantic_segmentation` (−110), `generic_segmentation` (−103), `orientation` (−61), `keypoints2d` (−18), `depth` (−12), `corner` (−6.8), `surface_normal` (−6.6) | `edge` |
+
+  The first column is the localised high-level cluster plus two geometry
+  boards; the second is the in-distribution pair and the dense linear boards.
+  **The second column cannot be read as an objective effect on three of its
+  boards**, which is the rest of this entry.
+
+  **The scale control.** The linear dense heads fit raw features at a fixed
+  learning rate, which is not scale-invariant, and this column's stage-4
+  features are ~9x smaller than `convnext_base`'s. So seven linear boards were
+  re-fitted with each column moved onto the other's scale (`clip_convnext_base`
+  ×8.66, `convnext_base` ×0.1155) — a constant that removes nothing a linear
+  head could use. A ×1 gate through the identical alias path reproduces every
+  published cell (to ~1e-7; `orientation` within its own 5e-2). Shift is
+  scaled minus gate, in units of that column's seed standard deviation:
+
+  | board | `clip_convnext_base` ×8.66 | `convnext_base` ×0.1155 | reading |
+  | --- | --- | --- | --- |
+  | `generic_segmentation` | +60 sd, 14th → 11th | −192 sd, 11th → 13th | **the pair reverses** |
+  | `semantic_segmentation` | +126 sd, 12th → 9th | −51 sd, 9th → 11th | **the pair reverses** |
+  | `depth` | +58 sd, 12th → **6th** | −71 sd, 11th → 12th | **the pair reverses** |
+  | `edge` | −2.1 sd | **+7.0 sd**, 12th → 10th | the *other* direction |
+  | `corner` | +2.5 sd | +2.5 sd | both improve; marginal |
+  | `surface_normal`, `orientation` | under 2.5 sd | under 2.5 sd | insensitive |
+
+  **So on `generic_segmentation`, `semantic_segmentation` and `depth` the
+  published ordering of this pair is the fit's, not the representations'** —
+  at matched scale it reverses by tens of seed deviations. Two things follow.
+  The column's last place on `generic_segmentation` (t = +44 as a *placement*)
+  is a repeatable fact about the board as configured and **not** evidence that
+  CLIP features carry less figure/ground; a seed sweep cannot see this, because
+  every seed shares the scale. And **there is no single direction to correct**:
+  `edge` prefers the *smaller* scale, and two boards do not care, so this is
+  the fixed-step optimiser meeting each target's loss surface, not "bigger is
+  better". `scene_parsing` shares the semantic boards' profile and was not in
+  the control; treat its −141 as unmeasured in the same way.
+
+  **The corpus's columns already span 9.7x in scale.** Measured on the first 64
+  VOC val frames, last-layer `dense`, exactly what `LinearHead` reads:
+  `resnet50` (std 0.34), `clip_convnext_base` (0.36) and `sam_vitb16` (0.38) at
+  the bottom, `convnext_base` (3.30) at the top. Log scale correlates
+  positively with all ten linear dense boards, but it also correlates +0.39
+  with the feature grid, the corpus's strongest dense correlate. **Holding the
+  grid fixed, scale still tracks the two semantic boards** — `scene_parsing`
+  partial rho +0.558, `semantic_segmentation` +0.446 — and nothing else
+  (−0.41 to +0.09). Read both halves together: the control shows the
+  segmentation and depth boards *can* be moved by scale; across the corpus as
+  it stands, scale tracks only the semantic boards beyond what the grid
+  explains. n=14, confounded, and **a reason to run the control on more
+  columns, never a substitute for it.**
+
+  **What the column did to the readings.**
+  - **Two leaders and two last places change, all to this row**: first on
+    `scene_classification` and `vehicle_classification` (from `siglip_vitb16`;
+    both solid, t +7.3 and +4.6), last on `generic_segmentation` (from
+    `resnet18`) and `orientation` (from `resnet50`), both solid as placements
+    and the first of them a scale artefact above. `mae_vitb16` is unchanged at
+    three firsts and five lasts.
+  - **The localised cluster loosens, and half of it is the scale artefact.**
+    `semantic_segmentation`/`scene_classification` falls from +0.582 to
+    **+0.349** — this row is 1st on one and 12th on the other. The two-cluster
+    *structure* still holds on every re-fit (weakest within-cluster pair
+    +0.349 against strongest between +0.163). With this row's semseg cell at
+    its scaled value the pair would read +0.477: a counterfactual, not a
+    number to quote, but it says about half the drop is the fit.
+  - **`semantic_segmentation` now ranks by the grid on every seed** (+0.509),
+    leaving `detection` (4 of 5 seeds) as the one board that ranks by neither
+    objective nor grid. A low-scoring 7x7 column joined the dense boards, and
+    the scale control shows part of that lowness is the fit — so a grid
+    coefficient that rose here rose partly on a fitting artefact.
+  - **Every other correlational claim survives a re-fit** (15 of 16, the 16th
+    the already-corrected vehicle superlative), and no adjacent pair reverses:
+    152 of 208 ordered, 56 tied.
+
+  **The `orientation` cell was re-made before the board was read.** Its first
+  run (30.989°, `train_loss` 1.0404) sat 6.7e-2 from its own sweep's seed 0
+  (30.922°, 1.0382) — past the board's 5e-2 seed-0 tolerance, with a different
+  *fit* beside it. Two later runs of the same configuration agreed with the
+  sweep (30.924°, and 30.925° on the rebuilt environment). It was replaced by
+  appending the reproducing run, not by widening the tolerance; the cell was
+  unpublished. Why that first run differed is unidentified and, on this
+  amplifying board (20d), would change no number.
 
 
 - **`vehicle_classification` is the twentieth board, and it separates
@@ -176,6 +277,12 @@ Three standing cautions apply to everything below:
   > board is **no closer** than the place board: granularity does not make two
   > boards agree more than a different question does. Both remain this board's
   > two strongest partners, and the tier ordering below holds on every draw.
+  >
+  > **Re-read at fourteen columns (24b).** `clip_convnext_base` leads both this
+  > board and the place board, and the seed-mean reads +0.899 for the place
+  > board against +0.868 for CUB: the place board now comes out ahead in **93%**
+  > of draws, margin +0.031. Still short of every draw, so the verdict stands —
+  > "no closer", not "closest".
 
   Mean rho is **+0.503** against high-level, +0.205 against mid-level and
   **−0.147** against low-level, so it sits in the semantic cluster the other
@@ -413,9 +520,10 @@ Three standing cautions apply to everything below:
   boards none reverses** (20b/20c, 2026-09-19; extended to the twentieth board
   by 21b, 2026-09-21; re-fitted on the corrected boards by 23b; the tables are in `results/controls/README.md`, reprinted by
   `scripts/analyse_seeds.py <probe>`).
-  Every trained board has now been re-fitted at five seeds across all thirteen
-  backbones: **143 of 192 adjacent pairs ordered, 49 tied, 0 reversed** (23b,
-  on the corrected boards; 126, 63 and 3 on the cropped ones).
+  Every trained board has now been re-fitted at five seeds across all fourteen
+  backbones: **152 of 208 adjacent pairs ordered, 56 tied, 0 reversed** (24b;
+  143, 49 and 0 of 192 at thirteen columns on the corrected boards, 23b; 126,
+  63 and 3 on the cropped ones).
 
   **The three reversals below were all on the cropped boards, and 23b's
   re-fit orders or ties every one** — so the honest statement is now that no
@@ -436,19 +544,20 @@ Three standing cautions apply to everything below:
   value at n=5 — each a 95% call rather than an emphatic one.
 
   **How much of a board is unorderable is a property of that board.**
-  `occlusion_edge` and `keypoints2d` order **5** of their twelve pairs, against
-  **12 of 12** for `scene_parsing` and `semantic_segmentation`. So "a quarter"
-  is a corpus average and not a per-board rate.
+  `occlusion_edge` and `keypoints2d` order **5** and **6** of their thirteen
+  pairs, against **13 of 13** for `scene_parsing` and `semantic_segmentation`.
+  So "a quarter" is a corpus average and not a per-board rate.
 
   **On 12 of 16 boards the largest *unordered* gap exceeds the smallest
   *ordered* one**, so on three boards in four no threshold on the gap could sort
   the pairs even in principle. **Nor does a board's spread predict how many
-  pairs it orders** — `classification` orders 9 of 12 on a spread of 0.0398,
-  `fine_grained_classification` and `vehicle_classification` 8 on spreads ten
-  times wider, because the per-row scatter grows with the spread rather than
-  staying put. Common-mode — the share of seed variance that moves every row
-  together and so cancels in a difference — runs **3% to 16%** and is the
-  majority on no board.
+  pairs it orders** — `classification`, `fine_grained_classification` and
+  `vehicle_classification` each order 9 of 13, the first on a spread of 0.0398
+  and the other two on spreads ten times wider, because the per-row scatter
+  grows with the spread rather than staying put. Common-mode — the share of
+  seed variance that moves every row together and so cancels in a difference
+  — runs **2% to 13%** (3% to 16% at thirteen columns) and is the majority on
+  no board.
 
 - **Last place is a much weaker claim than first place, and the prose treats
   them as equals** (22a, 2026-09-21; `scripts/analyse_placements.py`). Applying
@@ -1514,16 +1623,19 @@ Three standing cautions apply to everything below:
   The taxonomy's claim, tested as "probes within a tier agree with each other
   more than probes across tiers":
 
-  | | n=9, 13 boards | n=12, 13 boards | n=12, 14 boards | n=12, 15 boards | n=12, 16 boards | n=13, 20 boards, corrected (23c) |
-  | --- | --- | --- | --- | --- | --- | --- |
-  | within low_level | +0.761 | +0.825 | +0.825 | +0.839 | +0.839 | **+0.933** |
-  | within mid_level | +0.666 | +0.666 | +0.666 | +0.666 | +0.666 | **+0.695** |
-  | within high_level | +0.497 | +0.296 | +0.297 | +0.297 | +0.373 | **+0.380** |
-  | across tiers | +0.340 | +0.304 | +0.265 | +0.266 | +0.276 | **+0.310** |
+  | | n=9, 13 boards | n=12, 13 boards | n=12, 14 boards | n=12, 15 boards | n=12, 16 boards | n=13, 20 boards, corrected (23c) | n=14, 20 boards (24b) |
+  | --- | --- | --- | --- | --- | --- | --- | --- |
+  | within low_level | +0.761 | +0.825 | +0.825 | +0.839 | +0.839 | +0.933 | **+0.922** |
+  | within mid_level | +0.666 | +0.666 | +0.666 | +0.666 | +0.666 | +0.695 | **+0.684** |
+  | within high_level | +0.497 | +0.296 | +0.297 | +0.297 | +0.373 | +0.380 | **+0.333** |
+  | across tiers | +0.340 | +0.304 | +0.265 | +0.266 | +0.276 | +0.310 | **+0.294** |
 
   On the corrected corpus every within-tier mean clears the cross-tier one,
   and the low-level tier is tighter than it has ever read (+0.933): the double
-  crop was blurring the boards that need registration most.
+  crop was blurring the boards that need registration most. The fourteenth
+  column (24b) lowers every mean slightly and the high-level one most
+  (+0.380 → +0.333), through the localised cluster loosening — see its entry,
+  where about half of that is shown to be a fitting artefact.
 
   At nine backbones every within-tier mean cleared the cross-tier mean. At
   twelve it did not — high-level landed below. Adding `scene_classification` as

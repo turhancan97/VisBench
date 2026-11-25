@@ -101,6 +101,7 @@ board is ordered by the first.
 | `clip_vitb32` | 0.2918 | 0.2278 | 0.5969 |
 | `convnext_base` | 0.2906 | 0.1980 | 0.5787 |
 | `supervised_vitb16` | 0.2868 | 0.2122 | 0.5869 |
+| `clip_convnext_base` | 0.2174 | 0.1942 | 0.5313 |
 | `sam_vitb16` | 0.1888 | 0.1775 | 0.5551 |
 | `resnet50` | 0.1753 | 0.1676 | 0.5177 |
 | `mae_vitb16` | 0.1518 | 0.1857 | 0.5519 |
@@ -114,22 +115,22 @@ Ordered by `miou`, which **disagrees with `mean_acc`, `miou_per_image`, `pixel_a
 <!-- /visbench:board -->
 
 **It ranks with the semantic boards, not with the ones it shares images with.**
-Mean Spearman over the same thirteen backbones is **+0.572** against the other
-eight high-level boards, +0.418 against mid-level and **+0.129** against the four
+Mean Spearman over the same fourteen backbones is **+0.513** against the other
+eight high-level boards, +0.422 against mid-level and **+0.203** against the four
 low-level ones. Its strongest partners are `semantic_segmentation`
-(**+0.852**), `fine_grained_classification` (**+0.835**) and `detection`
-(+0.824); its weakest are `classification` (+0.082), `orientation` (+0.022) and
-`retrieval` (−0.060).
+(**+0.855**), `detection` (+0.811) and `fine_grained_classification`
+(**+0.714**); its weakest are `orientation` (+0.099), `classification` (+0.055)
+and `retrieval` (−0.007).
 
 That is worth sitting with, because this probe reads the **identical frames**
-`depth` and `surface_normal` read — and correlates with those two at +0.571 and
-+0.407, against +0.852 with a VOC board that shares no image with it. On this
+`depth` and `surface_normal` read — and correlates with those two at +0.591 and
++0.437, against +0.855 with a VOC board that shares no image with it. On this
 pair of boards the *question* dominates the *data*. It is the complement of
 {doc}`the split control </guides/reading-a-board>` rather than a contradiction:
 that control showed a board's cluster can move when its split moves; this shows
 the split alone does not decide it.
 
-**`mae_vitb16` is twelfth of thirteen here** and first on three other boards —
+**`mae_vitb16` is thirteenth of fourteen here** and first on three other boards —
 and its `train_loss` is 1.5951 against `dinov2_vitb14`'s 0.7238, so that is the
 representation rather than an unconverged fit. Checking the fit before reading a
 low score is the rule the `training` field exists for.

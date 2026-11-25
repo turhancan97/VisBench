@@ -50,6 +50,7 @@ and dropping the other manufactures a result — read the whole row.
 | `siglip_vitb16` | 38.0345 | 0.1216 | 0.3046 | 0.4253 | 34.4498 | 44.3042 |
 | `convnext_base` | 38.3952 | 0.1303 | 0.3186 | 0.4337 | 34.0880 | 45.1367 |
 | `resnet50` | 38.4200 | 0.1439 | 0.3266 | 0.4371 | 34.2610 | 45.4686 |
+| `clip_convnext_base` | 38.5052 | 0.1202 | 0.3100 | 0.4263 | 34.5308 | 44.9378 |
 | `resnet18` | 38.5108 | 0.1262 | 0.3132 | 0.4281 | 34.6235 | 45.0627 |
 
 Ordered by `mean`, which **disagrees with `d1`, `d2`, `d3`, `median`, `rmse`** — this task does not rank its backbones the same way twice, so the row order is one of several defensible ones.

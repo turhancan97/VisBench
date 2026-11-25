@@ -29,6 +29,7 @@ What `visbench show semantic_segmentation` draws. {doc}`How to read it </guides/
 | `convnext_base` | 0.4967 | 0.4656 | 0.8335 | 0.5951 |
 | `resnet50` | 0.4513 | 0.5146 | 0.8296 | 0.5164 |
 | `resnet18` | 0.4234 | 0.4516 | 0.8213 | 0.4925 |
+| `clip_convnext_base` | 0.4162 | 0.5112 | 0.8081 | 0.4722 |
 | `mae_vitb16` | 0.3546 | 0.4596 | 0.8362 | 0.3960 |
 | `sam_vitb16` | 0.3393 | 0.3787 | 0.8202 | 0.3896 |
 
@@ -37,45 +38,54 @@ Ordered by `miou`, which **disagrees with `miou_per_image`, `pixel_acc`** — th
 <sub>semantic_segmentation on VOC2012/val, protocol=visbench_semantic_seg, frozen [e14b47db]</sub>
 <!-- /visbench:board -->
 
-**What this board ranks by is not what nearly every other dense board ranks
-by, and that is worth knowing before quoting it.** Correlate each board's
-ordering against the backbones' feature-grid area, over the thirteen
-backbones in the corpus: across the twelve whose head reads one vector per
-patch, **nine have the grid as their strongest correlate**, and this is one of
-the three that do not. Grid **+0.494**, against pretraining scale **+0.673**.
-Much of the +0.494 is carried by DINOv2, which has both the finest grid and the
-largest pretraining corpus — drop those two rows and it falls to **+0.240** —
-and with the pretraining data held fixed (the eight IN1k backbones) it is
-**+0.300**: within one pretraining set the finer grids do score a little
-higher, just far less than pretraining breadth separates the rest.
+**What this board ranks by is less settled than on any other dense board, and
+that is worth knowing before quoting it.** Correlate each board's ordering
+against the backbones' feature-grid area, over the fourteen backbones in the
+corpus: across the twelve whose head reads one vector per patch, **eleven have
+the grid as their strongest correlate**, and on this one it only just wins —
+grid **+0.509**, against pretraining scale **+0.427**. At thirteen backbones it
+was the other way round (+0.494 against +0.673), and the column that turned it
+is `clip_convnext_base`: the largest pretraining corpus of any CNN, a coarse
+7x7 grid, and a low score here. That low score is partly not the
+representation's — see below — so read this board as tied between the two
+properties, not as grid-ranked. Much of the grid coefficient is carried by
+DINOv2, which has both the finest grid and a large curated corpus — drop those
+two rows and it falls to **+0.276** — and with the pretraining data held fixed
+(the eight IN1k backbones) it is **+0.300**: within one pretraining set the
+finer grids do score a little higher, just far less than the rest of the
+board's spread.
 
-**Read that as "the grid does not win here", not as "the grid coefficient is
-small".** `keypoints2d` and `orientation` read grid +0.658 — not far above this
-board — and *are* grid-ranked, because on them nothing else comes close. What
-singles this board out is that something does: pretraining scale beats the
-grid on it, and among the twelve only `detection` (+0.761 against +0.550) and
-`scene_parsing` (+0.692 against +0.647) do the same.
+**Its fourteenth column is placed by its feature scale.** The linear heads fit
+raw features at a fixed learning rate, and `clip_convnext_base`'s features are
+~9x smaller than `convnext_base`'s. Re-fitted with the two moved onto each
+other's scale — a constant, which removes nothing a linear head could use — the
+pair **reverses**: `clip_convnext_base` goes from 12th to 9th (+126 seed
+deviations) and `convnext_base` from 9th to 11th. So this board's placement of
+that pair says how the fit met each feature scale, not which representation
+carries more; the control is in
+[`CORPUS_FINDINGS.md`](https://github.com/turhancan97/VisBench/blob/main/CORPUS_FINDINGS.md)
+under 24b. Across all fourteen columns, scale still tracks this board with the
+grid held fixed (partial rho +0.446), which no geometry board does.
 
 The control is already on this page. `generic_segmentation` runs on the *same
 1449 VOC images* at the same resolution with the same linear head and the same
 schedule, and differs only in whether the target has 2 classes or 21 — it
-ranks by grid at **+0.935** against pretraining's +0.088, which is the
-ordering this board reverses. Same pixels, same probe, opposite behaviour, so
-this is a property of the target rather than the data, the head or the
-protocol.
+ranks by grid at **+0.936** against pretraining's −0.129, an ordering this
+board does not share. Same pixels, same probe, different behaviour, so this is
+a property of the target rather than the data, the head or the protocol.
 
-What it rewards instead is, weakly, pretraining breadth: corpus size is its
-best single correlate at **+0.673** — fifth of the twenty boards, behind
-`scene_classification` (+0.874), `vehicle_classification` (+0.849),
-`detection` (+0.761) and `scene_parsing` (+0.692). But within the six
-*identical* ViT-B/16 backbones — same shape, same width, same 196 tokens — the
-spread is **0.3153 mIoU** (`clip_vitb16` 0.6546 down to `sam_vitb16` 0.3393)
-at a +0.541 correlation, so a large part of this board's variance is not
-structural at all. **Treat this board as evidence about representations, not
-about training objectives** — step 10e's recipe control showed it cannot
-separate those at all.
+Pretraining breadth is still a real correlate here: corpus size reads
+**+0.427**, sixth of the twenty boards, behind `scene_classification`
+(+0.896), `vehicle_classification` (+0.876), `detection` (+0.661),
+`fine_grained_classification` (+0.571) and `scene_parsing` (+0.534). But
+within the six *identical* ViT-B/16 backbones — same shape, same width, same
+196 tokens — the spread is **0.3153 mIoU** (`clip_vitb16` 0.6546 down to
+`sam_vitb16` 0.3393) at a +0.541 correlation, so a large part of this board's
+variance is not structural at all. **Treat this board as evidence about
+representations, not about training objectives** — step 10e's recipe control
+showed it cannot separate those at all.
 
-Reproduce any of it with `scripts/analyse_board_correlates.py`. At thirteen
+Reproduce any of it with `scripts/analyse_board_correlates.py`. At fourteen
 backbones the coefficients have wide error bars, **and where one board's
 coefficient sits relative to another's is a fact about this corpus, not about
 the task**: these read +0.545 and +0.615 against thirteen boards, before the
