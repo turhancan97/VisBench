@@ -1308,6 +1308,26 @@ The four most recent entries were lifted out of `CLAUDE.md` on 2026-09-03,
 when that file passed the 150k-character limit it is loaded under for the second
 time. Nothing was rewritten; each paragraph is as its release recorded it.
 
+**`0.28.0` is fully released** (2026-11-25). On PyPI — wheel and sdist both
+(451,352 and 1,867,301 bytes, wheel sha256 `00947770…`, sdist `b6eaa6ed…`,
+uploaded 15:21:59Z and 15:22:01Z) — tagged `v0.28.0`, **annotated** (tag object
+`25711ac`), on merge commit `0decb8b`, which is `main`, with a GitHub release
+cut from that tag (published 2026-11-25T15:22:06Z) and archived by Zenodo as
+version DOI **`10.5281/zenodo.24536548`**, the **twenty-third**. The concept DOI
+`10.5281/zenodo.21822684` resolves to it with `metadata.version` `v0.28.0`,
+read off Zenodo's API with `-L`. **Both published artifacts are byte-identical
+to the ones built from the release branch before the merge** (same SHA256) —
+the first release where that was checked, and it means the pre-merge
+`twine check` and wheel import were checks of the exact bytes that shipped.
+**Verified out of the published wheel by import**, with `visbench.__file__`
+asserted inside the extracted wheel: `__version__` 0.28.0, `SCHEMA_VERSION` 9,
+twenty probes, `clip_convnext_base` registered. `date-released` was advanced
+to 2026-11-25 before the tag; both archive abstracts were hand-checked and name
+twenty probes, counting no backbones. Ships 24a and 24b; no existing number
+moved. The maintainer ran the step-by-step block with the merge and the
+`grep '^version'` check inside it, as for 0.27.0, and every step held first
+time.
+
 **`0.27.0` is fully released** (2026-10-14). On PyPI — wheel and sdist both
 (450,815 and 1,825,426 bytes, wheel sha256 `4f5fce13…`, sdist `2c8158e6…`) —
 tagged `v0.27.0`, **annotated** (tag object `2d2514d`), on merge commit
