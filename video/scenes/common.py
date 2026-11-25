@@ -31,6 +31,17 @@ def label(text: str, size: float = 28, colour: str = INK, **kwargs) -> Text:
     return Text(text, font=FONT, font_size=size, color=colour, **kwargs)
 
 
+def stack(lines: list[str], size: float = 22, colour: str = INK, spacing: float = 0.9) -> Text:
+    """Lines as one Pango text block, so every line sits on the same baseline grid.
+
+    Stacking separate Text objects spaces them by bounding box, and a line with
+    descenders ("g", "p") or tall letters ("f", "l") gets a different gap from
+    one without: the list looks uneven however it is aligned. Pango lays out a
+    multi-line string on consistent baselines.
+    """
+    return Text("\n".join(lines), font=FONT, font_size=size, color=colour, line_spacing=spacing)
+
+
 # Spoken and on-screen names differ only where the reader needs it to.
 DISPLAY = {
     "clip_convnext_base": "CLIP ConvNeXt-B",
@@ -115,3 +126,70 @@ def assert_in_frame(mobjects, where: str) -> None:
                     f"{where}: {type(part).__name__} at x[{left:.2f},{right:.2f}] "
                     f"y[{bottom:.2f},{top:.2f}] runs off the frame"
                 )
+
+
+# ---- shared pieces: probe names, rank colours, the rank grid ---------------
+
+#: Short on-screen names, grouped by level in the order the grid shows them.
+PROBE_NAMES = {
+    "classification": "object cls.",
+    "scene_classification": "scene cls.",
+    "fine_grained_classification": "fine-grained",
+    "vehicle_classification": "vehicles",
+    "retrieval": "retrieval",
+    "detection": "detection",
+    "instance_segmentation": "instance seg.",
+    "semantic_segmentation": "semantic seg.",
+    "scene_parsing": "scene parsing",
+    "depth": "depth",
+    "surface_normal": "normals",
+    "generic_segmentation": "figure-ground",
+    "occlusion_edge": "occlusion",
+    "correspondence": "correspondence",
+    "similarity": "similarity",
+    "relative_pose": "camera pose",
+    "edge": "edges",
+    "keypoints2d": "keypoints",
+    "corner": "corners",
+    "orientation": "orientation",
+}
+LEVEL_ORDER = ("high_level", "mid_level", "low_level")
+
+
+def probes_by_level() -> list[str]:
+    """Every probe, grouped high -> mid -> low, in PROBE_NAMES order."""
+    return [p for level in LEVEL_ORDER for p in PROBE_NAMES if DATA["levels"][p] == level]
+
+
+def by_mean_rank() -> list[str]:
+    return sorted(DATA["mean_rank"], key=DATA["mean_rank"].get)
+
+
+def rank_colour(rank: int, n: int = 14) -> str:
+    """Rank 1 is full blue, rank n fades to the stage: one hue, so it reads as order."""
+    from manim import ManimColor, interpolate_color
+    from palette import APPLE_BLUE, DIM
+
+    return interpolate_color(
+        ManimColor(DIM), ManimColor(APPLE_BLUE), 1 - (rank - 1) / (n - 1)
+    ).to_hex()
+
+
+def rank_grid(cell: float = 0.34, gap: float = 0.04):
+    """14 rows (by mean rank) x 20 columns (by level): each cell coloured by rank.
+
+    Returns (grid, cells, columns) where cells[(backbone, probe)] is the square
+    and columns is the probe order, so a scene can outline any cell it narrates.
+    """
+    from manim import Square, VGroup
+
+    rows, columns = by_mean_rank(), probes_by_level()
+    cells, grid = {}, VGroup()
+    for i, name in enumerate(rows):
+        for j, probe in enumerate(columns):
+            rank = DATA["ranks"][probe][name]
+            square = Square(cell, fill_color=rank_colour(rank), fill_opacity=1, stroke_width=0)
+            square.move_to([j * (cell + gap), -i * (cell + gap), 0])
+            cells[(name, probe)] = square
+            grid.add(square)
+    return grid, cells, columns

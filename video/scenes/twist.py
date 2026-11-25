@@ -196,7 +196,7 @@ class Twist(NarratedScene):
                 moves.append(VGroup(text, bar, value).animate.set_y(y))
         before_rank = {n: i + 1 for i, n in enumerate(order)}
         swap_tag = label(
-            f"{before_rank[CLIP]}th  <->  {before_rank[SUP]}th", 26, APPLE_ORANGE
+            f"{before_rank[CLIP]}th  ↔  {before_rank[SUP]}th", 26, APPLE_ORANGE
         ).move_to([panel_x + 2.6, 0.45, 0])
         swap_note = label("a constant changed the ranking", 20, APPLE_ORANGE).next_to(
             swap_tag, DOWN, buff=0.15

@@ -43,12 +43,13 @@ signal, from edges to corners.
 
 **On screen.** Fourteen rows, twenty columns of ranks as a heatmap. Highlight
 MAE's row: three firsts, five lasts. Then the CLIP ConvNeXt row: first on
-scene and car recognition, last on figure-ground segmentation.
+scene and car recognition, last on figure-ground segmentation and orientation.
 
 **Narration.**
 Run fourteen backbones through all twenty, and the rankings do not agree.
 M.A.E. is first on three boards and last on five. A CLIP-trained Conv-Next
-tops scene and car recognition, and comes last on figure-ground segmentation.
+tops scene and car recognition, and comes last on figure-ground segmentation
+and on orientation.
 Even the high-level tier splits into two clusters that barely correlate.
 Averaging across them produces a number that describes nothing.
 

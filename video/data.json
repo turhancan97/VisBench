@@ -65,6 +65,21 @@
    "supervised_vitb16": 0.6184289997093235
   }
  },
+ "clusters": {
+  "across_max": 0.16281638015180636,
+  "image_level": [
+   "classification",
+   "retrieval"
+  ],
+  "localised": [
+   "detection",
+   "semantic_segmentation",
+   "scene_classification",
+   "fine_grained_classification"
+  ],
+  "within_image": 0.7964801299318094,
+  "within_localised_min": 0.34945054945054943
+ },
  "feature_std": {
   "clip_convnext_base": 0.35660749673843384,
   "clip_vitb16": 0.769768238067627,
@@ -102,6 +117,22 @@
   "similarity": "mid_level",
   "surface_normal": "mid_level",
   "vehicle_classification": "high_level"
+ },
+ "mean_rank": {
+  "clip_convnext_base": 9.3,
+  "clip_vitb16": 6.55,
+  "clip_vitb32": 8.8,
+  "convnext_base": 10.1,
+  "dino_vitb16": 5.2,
+  "dino_vitb8": 4.2,
+  "dinov2_vitb14": 3.9,
+  "dinov2_vits14": 4.55,
+  "mae_vitb16": 7.4,
+  "resnet18": 12.7,
+  "resnet50": 10.7,
+  "sam_vitb16": 6.0,
+  "siglip_vitb16": 7.85,
+  "supervised_vitb16": 7.75
  },
  "metric": {
   "classification": "top1",
@@ -520,5 +551,66 @@
    0.7331301148732503,
    0.7378242190678914
   ]
+ },
+ "sweep_totals": {
+  "boards": 16,
+  "ordered": 152,
+  "pairs": 208,
+  "reversed": 0,
+  "thresholdless": 12,
+  "tied": 56
+ },
+ "threshold_example": {
+  "metric": "top1",
+  "ordered": {
+   "better": "sam_vitb16",
+   "gap": 0.002934098243713379,
+   "seeds": {
+    "dino_vitb16": [
+     0.7847773432731628,
+     0.7443907260894775,
+     0.7455989122390747,
+     0.7737314701080322,
+     0.7480151653289795
+    ],
+    "sam_vitb16": [
+     0.7877114415168762,
+     0.7871936559677124,
+     0.7868484854698181,
+     0.7861580848693848,
+     0.7852951288223267
+    ]
+   },
+   "t": 3.3282451528811183,
+   "verdict": "ordered",
+   "wins": 5,
+   "worse": "dino_vitb16"
+  },
+  "ratio": 4.588185105432089,
+  "task": "fine_grained_classification",
+  "tied": {
+   "better": "dino_vitb16",
+   "gap": 0.013462185859680176,
+   "seeds": {
+    "dino_vitb16": [
+     0.7847773432731628,
+     0.7443907260894775,
+     0.7455989122390747,
+     0.7737314701080322,
+     0.7480151653289795
+    ],
+    "siglip_vitb16": [
+     0.7713151574134827,
+     0.7718329429626465,
+     0.7709699869155884,
+     0.7694166302680969,
+     0.7714877128601074
+    ]
+   },
+   "t": -1.3682205525294064,
+   "verdict": "tied",
+   "wins": 2,
+   "worse": "siglip_vitb16"
+  }
  }
 }

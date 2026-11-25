@@ -36,8 +36,14 @@ t = json.load(open(f"video/build/audio/{scene}/timing.json"))
 end = 0.0
 for i, d in enumerate(t["durations"]):
     end += d + t["gap"]
-    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-ss", f"{end - 0.15:.2f}", "-i", mp4,
-                    "-frames:v", "1", f"video/build/stills/{scene}/beat{i}.png"], check=True)
+    # 0.4 s before the beat ends: ffmpeg seeking within a frame or two of the
+    # end of a draft writes no image and still exits 0, so check the file too.
+    still = f"video/build/stills/{scene}/beat{i}.png"
+    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-ss", f"{max(0.0, end - 0.4):.2f}",
+                    "-i", mp4, "-frames:v", "1", still], check=True)
+    import os
+    if not os.path.exists(still):
+        sys.exit(f"no still written for {scene} beat {i}")
 print(f"{scene}: {mp4}  ({end:.1f}s, {len(t['durations'])} stills)")
 PY
 done
