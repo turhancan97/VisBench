@@ -9,6 +9,33 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+## [0.28.0] — 2026-11-25
+
+**A fourteenth backbone, and a finding about what three dense boards rank.**
+
+`clip_convnext_base` has `convnext_base`'s architecture, trained with CLIP on
+LAION-2B. Before it, every CNN in the corpus was ImageNet-1k supervised, so
+"CNN" and "supervised on IN1k" could not be told apart. Its board (24b) answers
+that differently per board, and a control run alongside it shows that three
+linear dense boards rank feature *scale* as well as representation.
+
+- **It leads `scene_classification` and `vehicle_classification`**, both
+  previously led by `siglip_vitb16`. It comes last on `generic_segmentation`
+  and `orientation`. The corpus is now twenty boards of fourteen backbones
+  (280 cells).
+- **The dense linear heads are not scale-invariant.** Moving the two ConvNeXts
+  onto each other's feature scale reverses that pair on
+  `generic_segmentation`, `semantic_segmentation` and `depth`, by 50-190 seed
+  deviations. A seed sweep cannot detect this, and the fourteen columns
+  already span 9.7x in scale. Read a placement on those three boards with the
+  control beside it (`results/controls/README.md`).
+- **Readings re-measured at fourteen columns.** 152 of 208 adjacent pairs are
+  ordered and none reverses. 15 of 16 correlational claims hold on every
+  re-fit. `detection` is the one board that ranks by neither objective nor
+  grid.
+- **Upgrading**: no existing number changes. The new column adds records, and
+  the schema is unchanged at v9.
+
 ### Added
 
 - **`clip_convnext_base`, a fourteenth backbone** (24a): `convnext_base`'s
