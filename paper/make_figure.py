@@ -37,20 +37,20 @@ def main() -> None:
     grid = [[ranks[p][b] for p in columns] for b in rows]
 
     cmap = LinearSegmentedColormap.from_list("rank", [BLUE, PALE])
-    fig, ax = plt.subplots(figsize=(10, 3.9), dpi=200)
+    fig, ax = plt.subplots(figsize=(10, 5.4), dpi=200)
     ax.imshow(grid, cmap=cmap, vmin=1, vmax=n, aspect="auto")
     for i, row in enumerate(grid):
         for j, rank in enumerate(row):
             ax.text(
-                j, i, str(rank), ha="center", va="center", fontsize=6.5,
+                j, i, str(rank), ha="center", va="center", fontsize=9,
                 color="white" if rank <= n / 2 else "#1E2028",
             )
 
     ax.set_xticks(range(len(columns)))
-    ax.set_xticklabels(columns, rotation=45, ha="right", rotation_mode="anchor", fontsize=7)
+    ax.set_xticklabels(columns, rotation=45, ha="right", rotation_mode="anchor", fontsize=9)
     ax.set_yticks(range(n))
     ax.set_yticklabels(
-        [f"{b}  ({DATA['mean_rank'][b]:.1f})" for b in rows], fontsize=7
+        [f"{b}  ({DATA['mean_rank'][b]:.1f})" for b in rows], fontsize=9
     )
     ax.tick_params(length=0)
     for spine in ax.spines.values():
@@ -66,7 +66,7 @@ def main() -> None:
         )
         ax.text(
             start + (width - 1) / 2, -1.2, LEVEL_NAME[level], ha="center",
-            va="bottom", fontsize=8, color=LEVEL_COLOUR[level], weight="bold",
+            va="bottom", fontsize=10, color=LEVEL_COLOUR[level], weight="bold",
         )
         if start:
             ax.axvline(start - 0.5, color="white", linewidth=2)
