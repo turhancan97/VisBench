@@ -21,7 +21,7 @@ Packaging conventions (pyproject.toml, semantic versioning, a lockfile) apply
 from v0.1 onward, not bolted on later.
 
 **Prior art to credit explicitly, not re-derive**:
-- [probe3d](https://arxiv.org/abs/2404.08476) (El Banani et al., CVPR 2024) —
+- [probe3d](https://arxiv.org/abs/2404.08636) (El Banani et al., CVPR 2024) —
   reuse its evaluation protocols for depth, surface normal, and correspondence.
 - Chen, Marks & Cheng, ["Probing the Mid-level Vision Capabilities of
   Self-Supervised Learning"](https://arxiv.org/abs/2411.17474) — the task

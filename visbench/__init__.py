@@ -11,7 +11,7 @@ ergonomic philosophy, applied to representation probing instead of matching.
 Task categorization follows Chen, Marks & Cheng, "Probing the Mid-level Vision
 Capabilities of Self-Supervised Learning" (arXiv:2411.17474). Evaluation
 protocols for depth, surface normal and correspondence follow probe3d
-(El Banani et al., CVPR 2024, arXiv:2404.08476).
+(El Banani et al., CVPR 2024, arXiv:2404.08636).
 """
 
 from typing import Any

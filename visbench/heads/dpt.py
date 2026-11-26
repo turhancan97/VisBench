@@ -1,6 +1,6 @@
 """DPT-style multiscale head.
 
-Follows probe3d (El Banani et al., CVPR 2024, arXiv:2404.08476), which is also
+Follows probe3d (El Banani et al., CVPR 2024, arXiv:2404.08636), which is also
 where the depth and surface-normal protocols come from — using the same head
 as the reference protocol keeps VisBench numbers comparable to published ones.
 The architecture itself is Ranftl et al., "Vision Transformers for Dense

@@ -229,7 +229,7 @@ backbone is best" is not a well-formed question against this corpus —
 VisBench reuses established protocols rather than re-deriving them, and cites
 them at the point of use in the code:
 
-- **[probe3d](https://arxiv.org/abs/2404.08476)** (El Banani et al., CVPR 2024)
+- **[probe3d](https://arxiv.org/abs/2404.08636)** (El Banani et al., CVPR 2024)
   — evaluation protocols for depth, surface normal and correspondence.
 - **[Probing the Mid-level Vision Capabilities of Self-Supervised Learning](https://arxiv.org/abs/2411.17474)**
   (Chen, Marks & Cheng) — the task categorization used throughout.

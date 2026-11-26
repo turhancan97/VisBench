@@ -1,6 +1,6 @@
 """Dense-prediction metrics (depth, surface normals, segmentation) — v0.2.
 
-Definitions come from probe3d (El Banani et al., CVPR 2024, arXiv:2404.08476)
+Definitions come from probe3d (El Banani et al., CVPR 2024, arXiv:2404.08636)
 rather than being re-derived, so VisBench numbers stay comparable to published
 ones. Its ``evals/utils/metrics.py`` carries an explicit MIT header — unlike
 ``evals/utils/correspondence.py``, which is CC BY-NC and could not be used this
