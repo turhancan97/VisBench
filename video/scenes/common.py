@@ -184,12 +184,16 @@ class NarratedScene(Scene):
             mob.move_to([0, SUBTITLE_Y, 0]).set_opacity(0)
             texts.append(mob)
         clock = Mobject()
-        clock.t = 0.0
         clock.shown = None
+        renderer = self.renderer
 
         def tick(mob, dt):
-            mob.t += dt
-            now = next((i for i, (a, b, _) in enumerate(cues) if a <= mob.t < b), None)
+            # The time of the frame being drawn, read from the renderer, which
+            # counts every frame written. Summing `dt` instead loses a frame per
+            # play(): Manim restarts each animation's clock and hands its first
+            # frame dt=0, so the subtitles fell ~0.15 s behind within a scene.
+            now_t = renderer.time
+            now = next((i for i, (a, b, _) in enumerate(cues) if a <= now_t < b), None)
             if now != mob.shown:
                 if mob.shown is not None:
                     texts[mob.shown].set_opacity(0)
@@ -235,12 +239,16 @@ class NarratedScene(Scene):
             )
         length = durations[self._beat] + self.timing["gap"]
         self._beat += 1
+        # Where this sentence ends in the audio, absolutely. Waiting *until* it,
+        # rather than for `length`, stops each play()/wait() rounding to whole
+        # frames from accumulating into a picture that lags the voice.
+        end = sum(durations[: self._beat]) + self.timing["gap"] * self._beat
         if animations:
             run = max(0.3, share * length)
             self.play(*animations, run_time=run, **kwargs)
-            self.wait(length - run)
-        else:
-            self.wait(length)
+        remaining = end - self.renderer.time
+        if remaining > 1 / config.frame_rate:
+            self.wait(remaining)
         content = [m for m in self.mobjects if m not in self.chrome]
         assert_in_frame(content, f"{self.narration} beat {self._beat - 1}", floor=SUBTITLE_TOP)
 
