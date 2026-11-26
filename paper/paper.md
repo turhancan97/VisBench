@@ -13,9 +13,7 @@ authors:
     orcid: 0000-0002-6751-4773
     affiliation: 1
 affiliations:
-  # TODO(author): confirm the exact affiliation (faculty / doctoral school)
-  # and add its ROR identifier if wanted.
-  - name: Jagiellonian University, Kraków, Poland
+  - name: Independent Researcher, Poland
     index: 1
 date: 26 November 2026
 bibliography: paper.bib
@@ -160,7 +158,6 @@ all AI-generated content, and takes responsibility for it.
 
 # Acknowledgements
 
-<!-- TODO(author): computing resources, funding (with a statement of whether
-the sponsor had any role), and anyone to thank. -->
+This work received no funding.
 
 # References
