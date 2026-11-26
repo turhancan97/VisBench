@@ -61,8 +61,11 @@ for a frozen representation.
 
 The library makes the protocol part of the result. A run is one call,
 `visbench.run(backbone, probe, dataset)`, where the backbone is either a
-registered model (DINO, DINOv2, CLIP, SigLIP, MAE, SAM, supervised ViTs,
-ResNets and ConvNeXts) or any PyTorch module wrapped in a few lines. The
+registered model (DINO [@caron2021dino], DINOv2
+[@oquab2024dinov2], CLIP [@radford2021clip], SigLIP [@zhai2023siglip], MAE
+[@he2022mae], ViTs trained with sharpness-aware minimisation
+[@chen2022vitsam], supervised ViTs [@dosovitskiy2021vit; @steiner2022augreg],
+ResNets [@he2016resnet] and ConvNeXts [@liu2022convnext]) or any PyTorch module wrapped in a few lines. The
 record it writes carries the probe's `protocol` string, the pooling and
 layers *as resolved* for that backbone, whether any block was fine-tuned,
 a fingerprint of the exact dataset split, how the probe's own fit went, and
