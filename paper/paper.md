@@ -145,9 +145,9 @@ with Claude Code (Anthropic), using the models Claude Opus 4.8, Claude Opus 5,
 Claude Opus 5.5 and Claude Sonnet 5, as recorded in the `Co-Authored-By`
 trailers of 271 of the repository's first 440 commits.
 
-<!-- TODO(author): one sentence on how AI was used for this manuscript. The
-current text was drafted by Claude Code; the sentence must describe that
-accurately (see the PR discussion). -->
+This manuscript was drafted with Claude Code (Claude Opus 5.5) from the
+author's outline and facts; the author revised the text and verified every
+statement in it.
 
 The author framed the problem and its scope, chose the task taxonomy, the
 backbones and the published protocols to follow, and set the design rules
