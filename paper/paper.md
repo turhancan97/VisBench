@@ -113,14 +113,19 @@ so the score reflects what the features already contain. Tasks that need more
 structure get their own head: one that predicts object boxes for detection,
 one that adds per-object masks for instance segmentation, and a small
 multi-layer network for camera pose. A DPT head [@ranftl2021vision] is also
-available for comparison on dense tasks. Results are written under an
-additive-only schema, now at version 9, so records written by earlier
-releases remain readable. Two further mechanisms guard the numbers a user
-reads. A recoverability check scores a candidate dense target after pooling
-it to the feature grid, before any backbone is run, which rejects targets
-that no per-patch probe could recover. Seed re-fits test whether two adjacent
-rows of a ranking are ordered or tied by their paired difference across
-seeds, rather than by the size of their gap.
+available for comparison on dense tasks. Every result is saved in the same record
+format. New fields can be added to it, but none is ever removed or changed,
+so results saved by older versions of VisBench can still be read.
+
+Two further checks protect the numbers a user reads. The first is applied
+before a new dense task is added. Because a probe sees only one feature
+vector per image patch, some fine detail in a target can never be recovered,
+whatever the backbone. The check measures how much of the target survives
+at that patch resolution, without running any backbone, and rejects tasks
+where too little does. The second is applied to the rankings. Each probe is
+re-trained with several random seeds, and two neighbouring backbones count
+as ordered only if one beats the other consistently across those seeds;
+otherwise they are reported as tied.
 
 The command-line interface exposes every probe (`visbench run`), renders
 image, target and prediction panels (`visbench show`), and runs a complete
