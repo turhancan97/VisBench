@@ -106,9 +106,13 @@ dataset rather than held in memory.
 
 Probes share a small interface (`fit`, `evaluate`, `predict`) and a common
 training base for dense tasks, so a new dense probe supplies only its output
-activation, loss and metric. Heads are pluggable: a linear head is the
-default, with DPT [@ranftl2021vision], detection, instance-segmentation and
-pose heads where a task requires them. Results are written under an
+activation, loss and metric. The head, the small trainable part that sits on top
+of the frozen features, is pluggable. Most probes use a single linear layer,
+so the score reflects what the features already contain. Tasks that need more
+structure get their own head: one that predicts object boxes for detection,
+one that adds per-object masks for instance segmentation, and a small
+multi-layer network for camera pose. A DPT head [@ranftl2021vision] is also
+available for comparison on dense tasks. Results are written under an
 additive-only schema, now at version 9, so records written by earlier
 releases remain readable. Two further mechanisms guard the numbers a user
 reads. A recoverability check scores a candidate dense target after pooling
