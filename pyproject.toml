@@ -112,7 +112,9 @@ packages = ["visbench"]
 # regenerate the lot. `assets/gallery_frames` goes with them for the same
 # reason -- it is the gallery's input, and third-party photographs under a
 # licence that is not this package's have no business inside the wheel.
-exclude = ["docs/_static/gallery", "assets/gallery_frames"]
+# `video` is the explainer's source (Manim scenes, the narration script and the
+# data they read): a separate toolchain, not needed to install or use VisBench.
+exclude = ["docs/_static/gallery", "assets/gallery_frames", "video"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

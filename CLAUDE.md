@@ -605,6 +605,10 @@ docs/            conf.py, index.md (the landing page: sphinx-design cards)
                    excluded from the sdist)
                  — a Sphinx source tree; `_build/` is gitignored
 .github/         workflows/{ci,slow,docs}.yml, ISSUE_TEMPLATE/, PR template
+video/           the explainer film's SOURCE (Manim + Kokoro; own conda env, not
+                 .venv; renders gitignored, excluded from the sdist). script.md
+                 is the one narration source; numbers come from data.json via
+                 extract_data.py, which asserts what the narration says
 CITATION.cff     GitHub's cite button + what Zenodo archives (7e)
 .zenodo.json     the deposit metadata Zenodo prefers over the .cff
 ```

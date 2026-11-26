@@ -9,6 +9,18 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ## [Unreleased]
 
+### Added
+
+- **An explainer video's source**, under `video/`: a 3.5-minute Manim film with
+  Kokoro-82M narration and subtitles, for ML researchers. It covers probing, the
+  disagreeing boards, the seed sweeps, the feature-scale control and the timm
+  double crop. Every number on screen is read from the corpus and controls
+  through `video/extract_data.py`, which asserts the counts the narration says.
+  Narration and picture are locked to the audio clock, and a scene refuses to
+  render if anything leaves the frame or covers the subtitles. Rendered files
+  are gitignored, and the folder is excluded from the sdist. Not part of the
+  package.
+
 ## [0.28.1] — 2026-11-25
 
 **A bug-fix release: every published probe head now loads with the one line

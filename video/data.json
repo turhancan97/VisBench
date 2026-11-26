@@ -1,0 +1,642 @@
+{
+ "backbones": [
+  "clip_convnext_base",
+  "clip_vitb16",
+  "clip_vitb32",
+  "convnext_base",
+  "dino_vitb16",
+  "dino_vitb8",
+  "dinov2_vitb14",
+  "dinov2_vits14",
+  "mae_vitb16",
+  "resnet18",
+  "resnet50",
+  "sam_vitb16",
+  "siglip_vitb16",
+  "supervised_vitb16"
+ ],
+ "boards": {
+  "depth": {
+   "clip_convnext_base": 0.6203112620461607,
+   "clip_vitb16": 0.6320973036850629,
+   "clip_vitb32": 0.6538650976773067,
+   "convnext_base": 0.6232340587388485,
+   "dino_vitb16": 0.677694549072044,
+   "dino_vitb8": 0.6840970680254315,
+   "dinov2_vitb14": 0.7851375199239189,
+   "dinov2_vits14": 0.7651661180574959,
+   "mae_vitb16": 0.6929715458041666,
+   "resnet18": 0.5275955367890337,
+   "resnet50": 0.5380383184925861,
+   "sam_vitb16": 0.6343858644867527,
+   "siglip_vitb16": 0.6318064182541057,
+   "supervised_vitb16": 0.62586769252013
+  },
+  "generic_segmentation": {
+   "clip_convnext_base": 0.48397869211052763,
+   "clip_vitb16": 0.6786757513027178,
+   "clip_vitb32": 0.6018918551520037,
+   "convnext_base": 0.5575098721342633,
+   "dino_vitb16": 0.7081130528713276,
+   "dino_vitb8": 0.76226131043161,
+   "dinov2_vitb14": 0.7556393258813499,
+   "dinov2_vits14": 0.7494110189445106,
+   "mae_vitb16": 0.6772884819078149,
+   "resnet18": 0.5334938388598056,
+   "resnet50": 0.5421531212749442,
+   "sam_vitb16": 0.6958835087125264,
+   "siglip_vitb16": 0.6345214088922373,
+   "supervised_vitb16": 0.6541789953999885
+  },
+  "semantic_segmentation": {
+   "clip_convnext_base": 0.4162359894268888,
+   "clip_vitb16": 0.6545858609308671,
+   "clip_vitb32": 0.5813112782849623,
+   "convnext_base": 0.4966543151822077,
+   "dino_vitb16": 0.5198876889451098,
+   "dino_vitb8": 0.5304390486493604,
+   "dinov2_vitb14": 0.7533236687040195,
+   "dinov2_vits14": 0.7327572039178942,
+   "mae_vitb16": 0.35462938366219654,
+   "resnet18": 0.4233743771034355,
+   "resnet50": 0.45125832447213493,
+   "sam_vitb16": 0.3393012575437371,
+   "siglip_vitb16": 0.5885472076198633,
+   "supervised_vitb16": 0.6184289997093235
+  }
+ },
+ "clusters": {
+  "across_max": 0.16281638015180636,
+  "image_level": [
+   "classification",
+   "retrieval"
+  ],
+  "localised": [
+   "detection",
+   "semantic_segmentation",
+   "scene_classification",
+   "fine_grained_classification"
+  ],
+  "within_image": 0.7964801299318094,
+  "within_localised_min": 0.34945054945054943
+ },
+ "crop_fix": {
+  "changes": [
+   {
+    "after": "dino_vitb8",
+    "before": "mae_vitb16",
+    "task": "edge"
+   },
+   {
+    "after": "dino_vitb8",
+    "before": "dinov2_vitb14",
+    "task": "generic_segmentation"
+   },
+   {
+    "after": "dino_vitb8",
+    "before": "dino_vitb16",
+    "task": "keypoints2d"
+   },
+   {
+    "after": "dino_vitb8",
+    "before": "mae_vitb16",
+    "task": "orientation"
+   }
+  ],
+  "columns": 9,
+  "rerun_cells": 180
+ },
+ "feature_std": {
+  "clip_convnext_base": 0.35660749673843384,
+  "clip_vitb16": 0.769768238067627,
+  "clip_vitb32": 0.8448241949081421,
+  "convnext_base": 3.3041584491729736,
+  "dino_vitb16": 2.2060580253601074,
+  "dino_vitb8": 2.0384156703948975,
+  "dinov2_vitb14": 1.7669689655303955,
+  "dinov2_vits14": 2.5015509128570557,
+  "mae_vitb16": 0.6341854929924011,
+  "resnet18": 0.7773725986480713,
+  "resnet50": 0.33918264508247375,
+  "sam_vitb16": 0.3830934166908264,
+  "siglip_vitb16": 2.2753336429595947,
+  "supervised_vitb16": 1.145825743675232
+ },
+ "levels": {
+  "classification": "high_level",
+  "corner": "low_level",
+  "correspondence": "mid_level",
+  "depth": "mid_level",
+  "detection": "high_level",
+  "edge": "low_level",
+  "fine_grained_classification": "high_level",
+  "generic_segmentation": "mid_level",
+  "instance_segmentation": "high_level",
+  "keypoints2d": "low_level",
+  "occlusion_edge": "mid_level",
+  "orientation": "low_level",
+  "relative_pose": "mid_level",
+  "retrieval": "high_level",
+  "scene_classification": "high_level",
+  "scene_parsing": "high_level",
+  "semantic_segmentation": "high_level",
+  "similarity": "mid_level",
+  "surface_normal": "mid_level",
+  "vehicle_classification": "high_level"
+ },
+ "mean_rank": {
+  "clip_convnext_base": 9.3,
+  "clip_vitb16": 6.55,
+  "clip_vitb32": 8.8,
+  "convnext_base": 10.1,
+  "dino_vitb16": 5.2,
+  "dino_vitb8": 4.2,
+  "dinov2_vitb14": 3.9,
+  "dinov2_vits14": 4.55,
+  "mae_vitb16": 7.4,
+  "resnet18": 12.7,
+  "resnet50": 10.7,
+  "sam_vitb16": 6.0,
+  "siglip_vitb16": 7.85,
+  "supervised_vitb16": 7.75
+ },
+ "metric": {
+  "classification": "top1",
+  "corner": "corner_correlation",
+  "correspondence": "recall@5px",
+  "depth": "d1",
+  "detection": "map_50",
+  "edge": "edge_correlation",
+  "fine_grained_classification": "top1",
+  "generic_segmentation": "iou",
+  "instance_segmentation": "mask_map_50",
+  "keypoints2d": "keypoint_correlation",
+  "occlusion_edge": "occlusion_edge_correlation",
+  "orientation": "orientation_error",
+  "relative_pose": "rotation_error_deg",
+  "retrieval": "mAP",
+  "scene_classification": "top1",
+  "scene_parsing": "miou",
+  "semantic_segmentation": "miou",
+  "similarity": "accuracy",
+  "surface_normal": "mean",
+  "vehicle_classification": "top1"
+ },
+ "ranks": {
+  "classification": {
+   "clip_convnext_base": 7,
+   "clip_vitb16": 6,
+   "clip_vitb32": 12,
+   "convnext_base": 1,
+   "dino_vitb16": 11,
+   "dino_vitb8": 8,
+   "dinov2_vitb14": 5,
+   "dinov2_vits14": 10,
+   "mae_vitb16": 14,
+   "resnet18": 13,
+   "resnet50": 2,
+   "sam_vitb16": 4,
+   "siglip_vitb16": 9,
+   "supervised_vitb16": 3
+  },
+  "corner": {
+   "clip_convnext_base": 12,
+   "clip_vitb16": 8,
+   "clip_vitb32": 10,
+   "convnext_base": 11,
+   "dino_vitb16": 2,
+   "dino_vitb8": 1,
+   "dinov2_vitb14": 6,
+   "dinov2_vits14": 7,
+   "mae_vitb16": 3,
+   "resnet18": 13,
+   "resnet50": 14,
+   "sam_vitb16": 4,
+   "siglip_vitb16": 9,
+   "supervised_vitb16": 5
+  },
+  "correspondence": {
+   "clip_convnext_base": 13,
+   "clip_vitb16": 8,
+   "clip_vitb32": 11,
+   "convnext_base": 14,
+   "dino_vitb16": 3,
+   "dino_vitb8": 1,
+   "dinov2_vitb14": 7,
+   "dinov2_vits14": 6,
+   "mae_vitb16": 2,
+   "resnet18": 10,
+   "resnet50": 12,
+   "sam_vitb16": 5,
+   "siglip_vitb16": 9,
+   "supervised_vitb16": 4
+  },
+  "depth": {
+   "clip_convnext_base": 12,
+   "clip_vitb16": 8,
+   "clip_vitb32": 6,
+   "convnext_base": 11,
+   "dino_vitb16": 5,
+   "dino_vitb8": 4,
+   "dinov2_vitb14": 1,
+   "dinov2_vits14": 2,
+   "mae_vitb16": 3,
+   "resnet18": 14,
+   "resnet50": 13,
+   "sam_vitb16": 7,
+   "siglip_vitb16": 9,
+   "supervised_vitb16": 10
+  },
+  "detection": {
+   "clip_convnext_base": 8,
+   "clip_vitb16": 4,
+   "clip_vitb32": 3,
+   "convnext_base": 14,
+   "dino_vitb16": 6,
+   "dino_vitb8": 9,
+   "dinov2_vitb14": 1,
+   "dinov2_vits14": 2,
+   "mae_vitb16": 11,
+   "resnet18": 13,
+   "resnet50": 12,
+   "sam_vitb16": 10,
+   "siglip_vitb16": 5,
+   "supervised_vitb16": 7
+  },
+  "edge": {
+   "clip_convnext_base": 11,
+   "clip_vitb16": 6,
+   "clip_vitb32": 10,
+   "convnext_base": 12,
+   "dino_vitb16": 3,
+   "dino_vitb8": 1,
+   "dinov2_vitb14": 8,
+   "dinov2_vits14": 7,
+   "mae_vitb16": 2,
+   "resnet18": 14,
+   "resnet50": 13,
+   "sam_vitb16": 4,
+   "siglip_vitb16": 9,
+   "supervised_vitb16": 5
+  },
+  "fine_grained_classification": {
+   "clip_convnext_base": 3,
+   "clip_vitb16": 4,
+   "clip_vitb32": 9,
+   "convnext_base": 10,
+   "dino_vitb16": 6,
+   "dino_vitb8": 8,
+   "dinov2_vitb14": 1,
+   "dinov2_vits14": 2,
+   "mae_vitb16": 14,
+   "resnet18": 13,
+   "resnet50": 11,
+   "sam_vitb16": 5,
+   "siglip_vitb16": 7,
+   "supervised_vitb16": 12
+  },
+  "generic_segmentation": {
+   "clip_convnext_base": 14,
+   "clip_vitb16": 6,
+   "clip_vitb32": 10,
+   "convnext_base": 11,
+   "dino_vitb16": 4,
+   "dino_vitb8": 1,
+   "dinov2_vitb14": 2,
+   "dinov2_vits14": 3,
+   "mae_vitb16": 7,
+   "resnet18": 13,
+   "resnet50": 12,
+   "sam_vitb16": 5,
+   "siglip_vitb16": 9,
+   "supervised_vitb16": 8
+  },
+  "instance_segmentation": {
+   "clip_convnext_base": 12,
+   "clip_vitb16": 7,
+   "clip_vitb32": 10,
+   "convnext_base": 14,
+   "dino_vitb16": 4,
+   "dino_vitb8": 6,
+   "dinov2_vitb14": 1,
+   "dinov2_vits14": 2,
+   "mae_vitb16": 3,
+   "resnet18": 13,
+   "resnet50": 11,
+   "sam_vitb16": 5,
+   "siglip_vitb16": 9,
+   "supervised_vitb16": 8
+  },
+  "keypoints2d": {
+   "clip_convnext_base": 11,
+   "clip_vitb16": 9,
+   "clip_vitb32": 10,
+   "convnext_base": 8,
+   "dino_vitb16": 2,
+   "dino_vitb8": 1,
+   "dinov2_vitb14": 7,
+   "dinov2_vits14": 6,
+   "mae_vitb16": 4,
+   "resnet18": 14,
+   "resnet50": 13,
+   "sam_vitb16": 3,
+   "siglip_vitb16": 12,
+   "supervised_vitb16": 5
+  },
+  "occlusion_edge": {
+   "clip_convnext_base": 8,
+   "clip_vitb16": 7,
+   "clip_vitb32": 10,
+   "convnext_base": 13,
+   "dino_vitb16": 4,
+   "dino_vitb8": 3,
+   "dinov2_vitb14": 2,
+   "dinov2_vits14": 5,
+   "mae_vitb16": 1,
+   "resnet18": 14,
+   "resnet50": 12,
+   "sam_vitb16": 6,
+   "siglip_vitb16": 9,
+   "supervised_vitb16": 11
+  },
+  "orientation": {
+   "clip_convnext_base": 14,
+   "clip_vitb16": 9,
+   "clip_vitb32": 12,
+   "convnext_base": 8,
+   "dino_vitb16": 3,
+   "dino_vitb8": 1,
+   "dinov2_vitb14": 7,
+   "dinov2_vits14": 6,
+   "mae_vitb16": 2,
+   "resnet18": 10,
+   "resnet50": 13,
+   "sam_vitb16": 4,
+   "siglip_vitb16": 11,
+   "supervised_vitb16": 5
+  },
+  "relative_pose": {
+   "clip_convnext_base": 7,
+   "clip_vitb16": 11,
+   "clip_vitb32": 13,
+   "convnext_base": 10,
+   "dino_vitb16": 5,
+   "dino_vitb8": 3,
+   "dinov2_vitb14": 4,
+   "dinov2_vits14": 2,
+   "mae_vitb16": 1,
+   "resnet18": 14,
+   "resnet50": 8,
+   "sam_vitb16": 6,
+   "siglip_vitb16": 9,
+   "supervised_vitb16": 12
+  },
+  "retrieval": {
+   "clip_convnext_base": 9,
+   "clip_vitb16": 8,
+   "clip_vitb32": 11,
+   "convnext_base": 3,
+   "dino_vitb16": 6,
+   "dino_vitb8": 4,
+   "dinov2_vitb14": 7,
+   "dinov2_vits14": 10,
+   "mae_vitb16": 14,
+   "resnet18": 12,
+   "resnet50": 5,
+   "sam_vitb16": 2,
+   "siglip_vitb16": 13,
+   "supervised_vitb16": 1
+  },
+  "scene_classification": {
+   "clip_convnext_base": 1,
+   "clip_vitb16": 3,
+   "clip_vitb32": 4,
+   "convnext_base": 10,
+   "dino_vitb16": 11,
+   "dino_vitb8": 7,
+   "dinov2_vitb14": 5,
+   "dinov2_vits14": 6,
+   "mae_vitb16": 12,
+   "resnet18": 14,
+   "resnet50": 8,
+   "sam_vitb16": 9,
+   "siglip_vitb16": 2,
+   "supervised_vitb16": 13
+  },
+  "scene_parsing": {
+   "clip_convnext_base": 10,
+   "clip_vitb16": 4,
+   "clip_vitb32": 7,
+   "convnext_base": 8,
+   "dino_vitb16": 6,
+   "dino_vitb8": 5,
+   "dinov2_vitb14": 1,
+   "dinov2_vits14": 2,
+   "mae_vitb16": 13,
+   "resnet18": 14,
+   "resnet50": 12,
+   "sam_vitb16": 11,
+   "siglip_vitb16": 3,
+   "supervised_vitb16": 9
+  },
+  "semantic_segmentation": {
+   "clip_convnext_base": 12,
+   "clip_vitb16": 3,
+   "clip_vitb32": 6,
+   "convnext_base": 9,
+   "dino_vitb16": 8,
+   "dino_vitb8": 7,
+   "dinov2_vitb14": 1,
+   "dinov2_vits14": 2,
+   "mae_vitb16": 13,
+   "resnet18": 11,
+   "resnet50": 10,
+   "sam_vitb16": 14,
+   "siglip_vitb16": 5,
+   "supervised_vitb16": 4
+  },
+  "similarity": {
+   "clip_convnext_base": 8,
+   "clip_vitb16": 10,
+   "clip_vitb32": 7,
+   "convnext_base": 13,
+   "dino_vitb16": 1,
+   "dino_vitb8": 2,
+   "dinov2_vitb14": 5,
+   "dinov2_vits14": 4,
+   "mae_vitb16": 14,
+   "resnet18": 9,
+   "resnet50": 11,
+   "sam_vitb16": 3,
+   "siglip_vitb16": 6,
+   "supervised_vitb16": 12
+  },
+  "surface_normal": {
+   "clip_convnext_base": 13,
+   "clip_vitb16": 7,
+   "clip_vitb32": 9,
+   "convnext_base": 11,
+   "dino_vitb16": 5,
+   "dino_vitb8": 4,
+   "dinov2_vitb14": 3,
+   "dinov2_vits14": 2,
+   "mae_vitb16": 1,
+   "resnet18": 14,
+   "resnet50": 12,
+   "sam_vitb16": 6,
+   "siglip_vitb16": 10,
+   "supervised_vitb16": 8
+  },
+  "vehicle_classification": {
+   "clip_convnext_base": 1,
+   "clip_vitb16": 3,
+   "clip_vitb32": 6,
+   "convnext_base": 11,
+   "dino_vitb16": 9,
+   "dino_vitb8": 8,
+   "dinov2_vitb14": 4,
+   "dinov2_vits14": 5,
+   "mae_vitb16": 14,
+   "resnet18": 12,
+   "resnet50": 10,
+   "sam_vitb16": 7,
+   "siglip_vitb16": 2,
+   "supervised_vitb16": 13
+  }
+ },
+ "scale_control": {
+  "corner": {
+   "clip_convnext_base@1": 0.5158369501431783,
+   "clip_convnext_base@8.66": 0.5324618033568065,
+   "convnext_base@0.1155": 0.5411305936177572,
+   "convnext_base@1": 0.5318552867571513
+  },
+  "depth": {
+   "clip_convnext_base@1": 0.6203106366530835,
+   "clip_convnext_base@8.66": 0.6552434189968518,
+   "convnext_base@0.1155": 0.573038973757251,
+   "convnext_base@1": 0.6232340813412214
+  },
+  "edge": {
+   "clip_convnext_base@1": 0.3709224232037862,
+   "clip_convnext_base@8.66": 0.3588654613494873,
+   "convnext_base@0.1155": 0.3971754320462545,
+   "convnext_base@1": 0.36370453556378685
+  },
+  "generic_segmentation": {
+   "clip_convnext_base@1": 0.48397866035429177,
+   "clip_convnext_base@8.66": 0.5604950031220625,
+   "convnext_base@0.1155": 0.49339423640750046,
+   "convnext_base@1": 0.5575098464660105
+  },
+  "orientation": {
+   "clip_convnext_base@1": 30.948146133422853,
+   "clip_convnext_base@8.66": 31.20415303548177,
+   "convnext_base@0.1155": 27.48523228963216,
+   "convnext_base@1": 27.480451787312827
+  },
+  "semantic_segmentation": {
+   "clip_convnext_base@1": 0.41623599162957253,
+   "clip_convnext_base@8.66": 0.5105320929114425,
+   "convnext_base@0.1155": 0.4193230322107202,
+   "convnext_base@1": 0.49665424529490454
+  },
+  "surface_normal": {
+   "clip_convnext_base@1": 38.50519734420543,
+   "clip_convnext_base@8.66": 38.406866802717204,
+   "convnext_base@0.1155": 38.27311575886671,
+   "convnext_base@1": 38.39521888709579
+  }
+ },
+ "seeds_corner": {
+  "dino_vitb16": [
+   0.7426896603902181,
+   0.7380502184232076,
+   0.7432199207941691,
+   0.7368090168635051,
+   0.7374829308191935
+  ],
+  "dino_vitb8": [
+   0.8291087937355042,
+   0.8377756929397583,
+   0.8317755007743836,
+   0.8334735774993897,
+   0.844253659248352
+  ],
+  "dinov2_vitb14": [
+   0.6526379426320393,
+   0.6593112182617188,
+   0.6451115806897482,
+   0.6451733938852946,
+   0.6528947806358337
+  ],
+  "mae_vitb16": [
+   0.7389237221082051,
+   0.7295942791302998,
+   0.7384794473648071,
+   0.7331301148732503,
+   0.7378242190678914
+  ]
+ },
+ "sweep_totals": {
+  "boards": 16,
+  "ordered": 152,
+  "pairs": 208,
+  "reversed": 0,
+  "thresholdless": 12,
+  "tied": 56
+ },
+ "threshold_example": {
+  "metric": "top1",
+  "ordered": {
+   "better": "sam_vitb16",
+   "gap": 0.002934098243713379,
+   "seeds": {
+    "dino_vitb16": [
+     0.7847773432731628,
+     0.7443907260894775,
+     0.7455989122390747,
+     0.7737314701080322,
+     0.7480151653289795
+    ],
+    "sam_vitb16": [
+     0.7877114415168762,
+     0.7871936559677124,
+     0.7868484854698181,
+     0.7861580848693848,
+     0.7852951288223267
+    ]
+   },
+   "t": 3.3282451528811183,
+   "verdict": "ordered",
+   "wins": 5,
+   "worse": "dino_vitb16"
+  },
+  "ratio": 4.588185105432089,
+  "task": "fine_grained_classification",
+  "tied": {
+   "better": "dino_vitb16",
+   "gap": 0.013462185859680176,
+   "seeds": {
+    "dino_vitb16": [
+     0.7847773432731628,
+     0.7443907260894775,
+     0.7455989122390747,
+     0.7737314701080322,
+     0.7480151653289795
+    ],
+    "siglip_vitb16": [
+     0.7713151574134827,
+     0.7718329429626465,
+     0.7709699869155884,
+     0.7694166302680969,
+     0.7714877128601074
+    ]
+   },
+   "t": -1.3682205525294064,
+   "verdict": "tied",
+   "wins": 2,
+   "worse": "siglip_vitb16"
+  }
+ }
+}
