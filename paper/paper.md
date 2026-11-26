@@ -32,11 +32,17 @@ features for twenty tasks spanning three levels of vision: high-level
 semantics (object, scene and fine-grained categories, detection,
 segmentation), mid-level geometry (depth, surface normals, correspondence,
 camera pose) and low-level signal (edges, keypoints, corners, orientation),
-following the taxonomy of @chen2024probing. Every run writes a structured
+following the taxonomy of @chen2025probing. Every run writes a structured
 record stating exactly what produced its number, and explicit rules decide
 which records may be ranked together. VisBench is installable from PyPI
 (`pip install visbench`), exposes a three-call Python API and a command-line
 interface, and is archived on Zenodo [@visbench].
+
+![Each backbone's rank (1 = best of fourteen) on each of the twenty probes,
+grouped by level; rows are ordered by mean rank, shown in brackets. Rankings
+change from probe to probe, which is why VisBench reports one board per
+probe and never a single aggregate score. A rank is one placement: VisBench's
+seed re-fits mark which adjacent rows are statistically tied.\label{fig:ranks}](figure.png)
 
 # Statement of need
 
@@ -73,7 +79,7 @@ correspondence for a fixed set of models; it is research code organised
 around that paper's experiments, and parts of it are released under a
 non-commercial licence, so VisBench reimplements its protocols from the
 permissively licensed metric and loss code instead of vendoring them.
-@chen2024probing probe mid-level vision capabilities of self-supervised
+@chen2025probing probe mid-level vision capabilities of self-supervised
 models, and VisBench adopts their task categorisation. The Visual Task
 Adaptation Benchmark [@zhai2019vtab] measures transfer through fine-tuning
 on a suite of mostly image-level tasks, and Battle of the Backbones
