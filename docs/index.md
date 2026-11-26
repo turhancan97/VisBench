@@ -14,6 +14,19 @@ this vision backbone actually encode?* Twenty probes, three backbone
 families, one `run()` call, and a result record that says exactly how every
 number was produced.
 
+```{raw} html
+<div class="video-embed">
+  <iframe src="https://www.youtube-nocookie.com/embed/giKxewO0-lo"
+          title="Which Vision Backbone Is Best? It Depends on the Question | VisBench"
+          allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
+          allowfullscreen loading="lazy"></iframe>
+</div>
+```
+
+A 3.5-minute explainer: what a probe is, why the boards disagree, which
+placements survive a re-fit, and two biases every seed shared. Every number on
+screen is read from the committed corpus.
+
 ::::{grid} 1 1 2 2
 :gutter: 3
 
@@ -32,7 +45,7 @@ Installation · Quickstart · The command line
 :link-type: doc
 
 Twenty probes across three levels. Each page states what it measures, the
-data it expects, its `protocol` string, and its thirteen-backbone board.
+data it expects, its `protocol` string, and its fourteen-backbone board.
 +++
 High level · Mid level · Low level · Leaderboard
 :::

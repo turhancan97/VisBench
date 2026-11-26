@@ -27,6 +27,17 @@
 > documentation, including a generated API reference, is at
 > **[https://turhancan97.github.io/VisBench](https://turhancan97.github.io/VisBench/)**.
 
+## Watch the explainer
+
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=giKxewO0-lo"><img src="https://img.youtube.com/vi/giKxewO0-lo/maxresdefault.jpg" alt="Which Vision Backbone Is Best? It Depends on the Question | VisBench (3:30, on YouTube)" width="640"></a>
+</p>
+
+<p align="center">
+  <em>3.5 minutes: what a probe is, why the boards disagree, which placements survive a re-fit,
+  and two biases every seed shared. Every number on screen comes from the committed corpus.</em>
+</p>
+
 ## Try it in thirty seconds
 
 No dataset, no configuration, no large download:
