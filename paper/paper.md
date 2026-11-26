@@ -176,6 +176,10 @@ the experiments behind every published number were run on a computing
 cluster under the author's direction and checked by the author. The author reviewed, modified and validated
 all AI-generated content, and takes responsibility for it.
 
+# Conflict of interest
+
+The author declares no competing interests.
+
 # Acknowledgements
 
 This work received no funding.
