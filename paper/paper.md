@@ -38,11 +38,10 @@ which records may be ranked together. VisBench is installable from PyPI
 (`pip install visbench`), exposes a three-call Python API and a command-line
 interface, and is archived on Zenodo [@visbench].
 
-![Each backbone's rank (1 = best of fourteen) on each of the twenty probes,
-grouped by level; rows are ordered by mean rank, shown in brackets. Rankings
-change from probe to probe, which is why VisBench reports one board per
-probe and never a single aggregate score. A rank is one placement: VisBench's
-seed re-fits mark which adjacent rows are statistically tied.\label{fig:ranks}](figure.png)
+![Each backbone's rank (1 = best of fourteen) on each probe; rows ordered by
+mean rank (in brackets). Rankings change from probe to probe, so VisBench
+reports one board per probe, never an aggregate; seed re-fits mark which
+adjacent rows are tied.\label{fig:ranks}](figure.png)
 
 # Statement of need
 

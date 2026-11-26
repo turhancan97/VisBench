@@ -37,8 +37,8 @@ def main() -> None:
     grid = [[ranks[p][b] for p in columns] for b in rows]
 
     cmap = LinearSegmentedColormap.from_list("rank", [BLUE, PALE])
-    fig, ax = plt.subplots(figsize=(10, 5.6), dpi=200)
-    ax.imshow(grid, cmap=cmap, vmin=1, vmax=n, aspect="equal")
+    fig, ax = plt.subplots(figsize=(10, 3.9), dpi=200)
+    ax.imshow(grid, cmap=cmap, vmin=1, vmax=n, aspect="auto")
     for i, row in enumerate(grid):
         for j, rank in enumerate(row):
             ax.text(
@@ -47,7 +47,7 @@ def main() -> None:
             )
 
     ax.set_xticks(range(len(columns)))
-    ax.set_xticklabels(columns, rotation=60, ha="right", fontsize=7)
+    ax.set_xticklabels(columns, rotation=45, ha="right", rotation_mode="anchor", fontsize=7)
     ax.set_yticks(range(n))
     ax.set_yticklabels(
         [f"{b}  ({DATA['mean_rank'][b]:.1f})" for b in rows], fontsize=7
@@ -61,11 +61,11 @@ def main() -> None:
     for level in LEVELS:
         width = sum(levels[p] == level for p in columns)
         ax.plot(
-            [start - 0.45, start + width - 0.55], [-0.95, -0.95],
+            [start - 0.45, start + width - 0.55], [-0.85, -0.85],
             color=LEVEL_COLOUR[level], linewidth=4, solid_capstyle="butt", clip_on=False,
         )
         ax.text(
-            start + (width - 1) / 2, -1.45, LEVEL_NAME[level], ha="center",
+            start + (width - 1) / 2, -1.2, LEVEL_NAME[level], ha="center",
             va="bottom", fontsize=8, color=LEVEL_COLOUR[level], weight="bold",
         )
         if start:
