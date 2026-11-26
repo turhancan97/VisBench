@@ -1,5 +1,7 @@
 # The VisBench explainer video
 
+**Published: [https://www.youtube.com/watch?v=giKxewO0-lo](https://www.youtube.com/watch?v=giKxewO0-lo)** (3:30).
+
 A 3–4 minute explainer for ML researchers who know backbones, built in the
 style of 3Blue1Brown: [Manim](https://www.manim.community/) scenes, narration
 synthesised with [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M).

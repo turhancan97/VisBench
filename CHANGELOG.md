@@ -19,7 +19,8 @@ so it stands on its own rather than assuming you have read the ones above it.
   Narration and picture are locked to the audio clock, and a scene refuses to
   render if anything leaves the frame or covers the subtitles. Rendered files
   are gitignored, and the folder is excluded from the sdist. Not part of the
-  package.
+  package. **Published on YouTube** (https://www.youtube.com/watch?v=giKxewO0-lo), linked from the README
+  and embedded on the docs landing page.
 
 ## [0.28.1] — 2026-11-25
 
