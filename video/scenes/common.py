@@ -61,8 +61,93 @@ DISPLAY = {
 }
 
 
+#: The subtitle band: the bottom of the frame, below this line, belongs to the
+#: subtitles. Every beat checks that no content has strayed into it.
+SUBTITLE_TOP = -2.95
+SUBTITLE_Y = -3.47
+SUBTITLE_SIZE = 26
+#: Characters per subtitle line and lines per cue; a longer sentence is split
+#: into several cues timed in proportion to their length.
+LINE_CHARS, CUE_LINES = 72, 2
+#: Silent hold at the end of every scene, before the next one starts.
+HOLD = 1.0
+#: Safe margin inside the frame edge, in scene units.
+MARGIN = 0.15
+
+
+def subtitle_cues(texts: list[str], durations: list[float], gap: float) -> list[tuple]:
+    """`(start, end, text)` per cue, from each sentence's measured duration.
+
+    A sentence that wraps to more than CUE_LINES lines is split at word
+    boundaries into cues of at most CUE_LINES lines, each shown for a share of
+    the sentence proportional to its length. A cue stays up until the next one
+    starts, so there is no flicker of empty band between sentences.
+    """
+
+    cues, t = [], 0.0
+    for text, duration in zip(texts, durations, strict=True):
+        # As few cues as fit, then words shared out evenly between them, so a
+        # long sentence never ends on a two-word orphan cue.
+        k = max(1, -(-len(text) // (LINE_CHARS * CUE_LINES)))
+        chunks = ["\n".join(balanced_lines(c)) for c in split_evenly(text.split(), k)]
+        total = sum(len(c) for c in chunks)
+        start = t
+        for chunk in chunks:
+            length = duration * len(chunk) / total
+            cues.append([start, start + length, chunk])
+            start += length
+        t += duration + gap
+    for here, after in zip(cues, cues[1:], strict=False):
+        here[1] = after[0]
+    if cues:
+        cues[-1][1] = t
+    return [tuple(c) for c in cues]
+
+
+def split_evenly(words: list[str], parts: int) -> list[str]:
+    """`parts` runs of words of near-equal length, breaking at punctuation if close.
+
+    Each break goes after the word nearest the ideal length; a word ending in
+    , : ; within a quarter of a part of that point is preferred, since that is
+    where a reader pauses anyway.
+    """
+    if parts <= 1:
+        return [" ".join(words)]
+    ends, total = [], 0
+    for word in words:
+        total += len(word) + 1
+        ends.append(total)
+    breaks, start = [], 0
+    for p in range(1, parts):
+        ideal = total * p / parts
+        window = total / parts / 4
+        candidates = range(start, len(words) - (parts - p))
+        nearest = min(candidates, key=lambda i: abs(ends[i] - ideal))
+        punctuated = [
+            i for i in candidates if words[i][-1] in ",:;" and abs(ends[i] - ideal) <= window
+        ]
+        cut = min(punctuated, key=lambda i: abs(ends[i] - ideal)) if punctuated else nearest
+        breaks.append(cut + 1)
+        start = cut + 1
+    bounds = [0, *breaks, len(words)]
+    return [" ".join(words[a:b]) for a, b in zip(bounds, bounds[1:], strict=False)]
+
+
+def balanced_lines(text: str) -> list[str]:
+    """As few lines as LINE_CHARS allows, of near-equal width (no one-word last line)."""
+    import textwrap
+
+    lines = max(1, -(-len(text) // LINE_CHARS))
+    width = -(-len(text) // lines)
+    while True:
+        wrapped = textwrap.wrap(text, width)
+        if len(wrapped) <= lines or width >= LINE_CHARS:
+            return wrapped
+        width += 2
+
+
 class NarratedScene(Scene):
-    """A Scene whose beats are sized to the narration's sentences."""
+    """A Scene whose beats are sized to the narration's sentences, with subtitles."""
 
     #: The `## n. name` of this scene in script.md.
     narration: str = ""
@@ -72,13 +157,75 @@ class NarratedScene(Scene):
         self.timing = json.loads(timing_path.read_text())
         self._beat = 0
         self.add_sound(str(timing_path.parent / "scene.wav"))
+        self._add_subtitles()
+
+    def _add_subtitles(self) -> None:
+        from manim import DOWN, Mobject, Rectangle, VGroup
+        from palette import BACKGROUND
+
+        cues = subtitle_cues(self.timing["subtitles"], self.timing["durations"], self.timing["gap"])
+        # The band is the frame below SUBTITLE_TOP, opaque enough to read over
+        # anything that animates past it on the way out.
+        band = Rectangle(
+            width=config.frame_width + 0.2,
+            height=config.frame_height / 2 + SUBTITLE_TOP,
+            fill_color=BACKGROUND,
+            fill_opacity=0.92,
+            stroke_width=0,
+        )
+        band.move_to([0, (-config.frame_height / 2 + SUBTITLE_TOP) / 2, 0])
+        texts = []
+        for _, _, text in cues:
+            # One Text per line, centred: a multi-line Text aligns left.
+            mob = VGroup(*[label(line, SUBTITLE_SIZE, INK) for line in text.split("\n")])
+            mob.arrange(DOWN, buff=0.12)
+            if mob.width > config.frame_width - 1.2:
+                mob.scale_to_fit_width(config.frame_width - 1.2)
+            mob.move_to([0, SUBTITLE_Y, 0]).set_opacity(0)
+            texts.append(mob)
+        clock = Mobject()
+        clock.t = 0.0
+        clock.shown = None
+
+        def tick(mob, dt):
+            mob.t += dt
+            now = next((i for i, (a, b, _) in enumerate(cues) if a <= mob.t < b), None)
+            if now != mob.shown:
+                if mob.shown is not None:
+                    texts[mob.shown].set_opacity(0)
+                if now is not None:
+                    texts[now].set_opacity(1)
+                mob.shown = now
+
+        clock.add_updater(tick)
+        self.chrome = [band, *texts, clock]
+        for mob in (band, *texts):
+            mob.set_z_index(100)
+        self.add(band, *texts, clock)
+
+    def swap(self, outgoing, *incoming, out_share: float = 0.3):
+        """Fade `outgoing` fully out, *then* play `incoming`: never both at once.
+
+        A cross-fade puts the old and the new text on screen together, and
+        where they share a place they overprint. Returned as one animation, so
+        it can be handed to `beat()` beside others.
+        """
+        from manim import AnimationGroup, FadeOut, Succession
+
+        outgoing = outgoing if isinstance(outgoing, (list, tuple)) else [outgoing]
+        return Succession(
+            FadeOut(*outgoing, run_time=out_share),
+            AnimationGroup(*incoming, run_time=1 - out_share),
+        )
 
     def beat(self, *animations, share: float = 0.6, **kwargs) -> None:
         """Play `animations` over `share` of the next sentence, then hold.
 
         With no animations the whole sentence is held. Raises if a scene asks
         for more beats than the narration has sentences, which is how a script
-        edit that drops a sentence fails loudly instead of desynchronising.
+        edit that drops a sentence fails loudly instead of desynchronising. At
+        the end of every beat, nothing may have left the frame or entered the
+        subtitle band.
         """
         durations = self.timing["durations"]
         if self._beat >= len(durations):
@@ -94,37 +241,37 @@ class NarratedScene(Scene):
             self.wait(length - run)
         else:
             self.wait(length)
+        content = [m for m in self.mobjects if m not in self.chrome]
+        assert_in_frame(content, f"{self.narration} beat {self._beat - 1}", floor=SUBTITLE_TOP)
 
     def finish(self) -> None:
-        """Refuse to end a scene that left sentences un-animated or ran off-frame."""
+        """Refuse to end a scene that left sentences un-animated; then hold."""
         unused = len(self.timing["durations"]) - self._beat
         if unused:
             raise RuntimeError(f"{self.narration}: {unused} sentence(s) never got a beat")
-        assert_in_frame(self.mobjects, self.narration)
+        self.wait(HOLD)
 
 
-#: Safe margin inside the frame edge, in scene units.
-MARGIN = 0.15
+def assert_in_frame(mobjects, where: str, floor: float | None = None) -> None:
+    """Raise if anything ends outside the frame, or below `floor` when given.
 
-
-def assert_in_frame(mobjects, where: str) -> None:
-    """Raise if anything on screen ends outside the frame.
-
-    Clipping is easy to miss in a still and impossible to miss in this error,
-    so every scene checks what is left on screen when it ends.
+    Clipping, and content sliding under the subtitles, are easy to miss in a
+    still and impossible to miss in this error.
     """
     half_w = config.frame_width / 2 - MARGIN
     half_h = config.frame_height / 2 - MARGIN
+    lowest = -half_h if floor is None else floor
     for mob in mobjects:
         for part in mob.get_family():
             if not part.has_points():
                 continue
             left, right = part.get_left()[0], part.get_right()[0]
             bottom, top = part.get_bottom()[1], part.get_top()[1]
-            if left < -half_w or right > half_w or bottom < -half_h or top > half_h:
+            if left < -half_w or right > half_w or bottom < lowest or top > half_h:
                 raise RuntimeError(
                     f"{where}: {type(part).__name__} at x[{left:.2f},{right:.2f}] "
-                    f"y[{bottom:.2f},{top:.2f}] runs off the frame"
+                    f"y[{bottom:.2f},{top:.2f}] leaves the content area "
+                    f"(x within +-{half_w:.2f}, y in [{lowest:.2f}, {half_h:.2f}])"
                 )
 
 

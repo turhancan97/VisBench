@@ -32,16 +32,30 @@ SAMPLE_RATE = 24_000  # Kokoro's output rate
 GAP = 0.35
 
 
+#: `[shown](spoken)`: the subtitle shows the first part, Kokoro says the second.
+#: One source for both, so "MAE" on screen and "M.A.E." in the voice cannot drift.
+MARKUP = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
+
+
+def spoken(sentence: str) -> str:
+    return MARKUP.sub(r"\2", sentence)
+
+
+def shown(sentence: str) -> str:
+    return MARKUP.sub(r"\1", sentence)
+
+
 def scenes() -> dict[str, list[str]]:
-    """`{scene: [sentence, ...]}` in script order."""
+    """`{scene: [sentence, ...]}` in script order, still carrying the markup."""
     text = SCRIPT.read_text(encoding="utf-8")
     out: dict[str, list[str]] = {}
     for match in re.finditer(
         r"^## \d+\. (\w+)\s*$.*?\*\*Narration\.\*\*\n(.*?)(?=^## |\Z)", text, re.S | re.M
     ):
         name, body = match.group(1), " ".join(match.group(2).split())
-        # Split after . ! ? followed by a capital, so "M.A.E. is" stays whole.
-        out[name] = [s for s in re.split(r"(?<=[.!?])\s+(?=[A-Z])", body) if s]
+        # Split after . ! ? followed by a capital or a markup bracket, so "M.A.E.
+        # is" stays whole; markup is split as written, before either rendering.
+        out[name] = [s for s in re.split(r"(?<=[.!?])\s+(?=[A-Z\[])", body) if s]
     return out
 
 
@@ -49,7 +63,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("scenes", nargs="*")
     parser.add_argument("--voice", default="af_heart")
-    parser.add_argument("--speed", type=float, default=1.0)
+    parser.add_argument("--speed", type=float, default=0.9)
     args = parser.parse_args()
 
     import numpy as np
@@ -65,7 +79,7 @@ def main() -> None:
         for i, sentence in enumerate(all_scenes[name]):
             chunks = [
                 np.asarray(audio)
-                for _, _, audio in pipeline(sentence, voice=args.voice, speed=args.speed)
+                for _, _, audio in pipeline(spoken(sentence), voice=args.voice, speed=args.speed)
             ]
             wave = np.concatenate(chunks)
             sf.write(out / f"{i:02d}.wav", wave, SAMPLE_RATE)
@@ -81,7 +95,8 @@ def main() -> None:
             "voice": args.voice,
             "speed": args.speed,
             "gap": GAP,
-            "sentences": all_scenes[name],
+            "sentences": [spoken(s) for s in all_scenes[name]],
+            "subtitles": [shown(s) for s in all_scenes[name]],
             "durations": durations,
             "total": sum(durations) + GAP * len(durations),
         }

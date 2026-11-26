@@ -19,7 +19,6 @@ from manim import (
     Create,
     Dot,
     FadeIn,
-    FadeOut,
     LaggedStart,
     Line,
     VGroup,
@@ -48,7 +47,7 @@ class Seeds(NarratedScene):
         def x(v: float) -> float:
             return x0 + (v - lo) / (hi - lo) * (x1 - x0)
 
-        ys = {rows[0]: 1.3, rows[1]: 0.0, rows[2]: -1.3}
+        ys = {rows[0]: 1.55, rows[1]: 0.35, rows[2]: -0.85}
 
         # s0  "So is a placement a fact, or a coin flip?"
         question = label("A placement: fact, or coin flip?", 38).to_corner(UP + LEFT)
@@ -96,9 +95,8 @@ class Seeds(NarratedScene):
                 for k in range(5)
             ]
         )
-        caption = label("dots = 5 seeds; a line joins the same seed", 20, MUTED).to_corner(
-            DOWN + LEFT
-        )
+        caption = label("dots = 5 seeds; a line joins the same seed", 20, MUTED)
+        caption.move_to([0.9, -2.2, 0])  # where the tally will be, above the subtitles
         self.beat(
             LaggedStart(*[FadeIn(d, scale=0.4) for r in rows for d in dots[r]], lag_ratio=0.04),
             Create(links_o),
@@ -122,18 +120,19 @@ class Seeds(NarratedScene):
             label(f"{t['reversed']} reversed", 30, INK),
         ).arrange(RIGHT, buff=0.7)
         of = label(f"of {t['pairs']} adjacent pairs, {t['boards']} boards", 22, MUTED)
-        tally = VGroup(totals, of).arrange(DOWN, buff=0.2).move_to([0.9, -2.75, 0])
-        self.beat(FadeOut(caption), FadeIn(verdict_o, verdict_t), FadeIn(tally, shift=UP * 0.2))
+        tally = VGroup(totals, of).arrange(DOWN, buff=0.2).move_to([0.9, -2.3, 0])
+        self.beat(self.swap(caption, FadeIn(verdict_o, verdict_t), FadeIn(tally, shift=UP * 0.2)))
 
         # s3  "And on most boards, no threshold on the gap could have told you which was which."
-        point = label(
-            f"the wider gap is the coin flip -- on {t['thresholdless']} of {t['boards']} boards,"
-            " no gap threshold can sort the pairs",
-            22,
-            APPLE_ORANGE,
-        )
-        if point.width > 12.6:
-            point.scale_to_fit_width(12.6)
-        point.move_to([0, -2.75, 0])
-        self.beat(FadeOut(tally), Write(point))
+        point = VGroup(
+            label("the wider gap is the coin flip", 26, APPLE_ORANGE),
+            label(
+                f"on {t['thresholdless']} of {t['boards']} boards, no gap threshold"
+                " can sort the pairs",
+                22,
+                APPLE_ORANGE,
+            ),
+        ).arrange(DOWN, buff=0.18)
+        point.move_to([0.9, -2.3, 0])
+        self.beat(self.swap(tally, Write(point)))
         self.finish()

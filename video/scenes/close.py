@@ -33,7 +33,7 @@ class Close(NarratedScene):
     def construct(self) -> None:
         # s0  "That is what VisBench is for."
         value = DATA["boards"]["generic_segmentation"]["dino_vitb8"]
-        number = label(f"{value:.3f}", 96, INK).move_to([0, 0.4, 0])
+        number = label(f"{value:.3f}", 96, INK).move_to([0, 0.8, 0])
         what = label("DINO-B/8, figure-ground segmentation, IoU", 24, MUTED).next_to(
             number, DOWN, buff=0.3
         )
@@ -41,14 +41,14 @@ class Close(NarratedScene):
 
         # s1  "Not a winner, but a number you can compare ... the controls ..."
         context = [
-            ("protocol: visbench_binary_seg", APPLE_PURPLE, [-4.4, 2.6, 0]),
-            ("pooling: resolved, recorded", APPLE_TEAL, [4.3, 2.6, 0]),
-            ("layers: resolved, recorded", APPLE_MUSTARD, [-4.6, -1.6, 0]),
-            ("seed sweep: ordered vs. tied", APPLE_GREEN, [4.4, -1.6, 0]),
-            ("controls: e.g. feature scale", APPLE_ORANGE, [0, 2.0, 0]),
+            ("protocol: visbench_binary_seg", APPLE_PURPLE, [-4.4, 2.85, 0]),
+            ("pooling: resolved, recorded", APPLE_TEAL, [4.3, 2.85, 0]),
+            ("layers: resolved, recorded", APPLE_MUSTARD, [-4.6, -0.95, 0]),
+            ("seed sweep: ordered vs. tied", APPLE_GREEN, [4.4, -0.95, 0]),
+            ("controls: e.g. feature scale", APPLE_ORANGE, [0, 2.2, 0]),
         ]
         tags = VGroup(*[label(text, 24, colour).move_to(at) for text, colour, at in context])
-        install = label("pip install visbench", 34, APPLE_PINK).move_to([0, -2.75, 0])
+        install = label("pip install visbench", 34, APPLE_PINK).move_to([0, -1.85, 0])
         repo = label("github.com/turhancan97/VisBench", 22, APPLE_BLUE).next_to(
             install, DOWN, buff=0.2
         )

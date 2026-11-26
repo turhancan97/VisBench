@@ -29,7 +29,6 @@ from manim import (
     Create,
     DashedLine,
     FadeIn,
-    FadeOut,
     LaggedStart,
     Line,
     RoundedRectangle,
@@ -80,7 +79,7 @@ class Disagree(NarratedScene):
             title, RIGHT, buff=0.35, aligned_edge=DOWN
         )
         grid, cells, columns = rank_grid(cell=0.3, gap=0.04)
-        grid.move_to([1.35, -0.35, 0])
+        grid.move_to([1.35, -0.5, 0])
         names = by_mean_rank()
         row_labels = VGroup()
         for name in names:
@@ -120,7 +119,11 @@ class Disagree(NarratedScene):
             outline("mae_vitb16", mae_first, APPLE_YELLOW),
             outline("mae_vitb16", mae_last, APPLE_ORANGE),
         )
-        mae_note = label("MAE: 1st on 3, last on 5", 22, APPLE_YELLOW).to_corner(DOWN + LEFT)
+        # Notes sit on a line under the title: the bottom of the frame is the
+        # subtitles'.
+        note_at = [-6.75, 2.62, 0]
+        mae_note = label("MAE: 1st on 3, last on 5", 22, APPLE_YELLOW)
+        mae_note.move_to(note_at, aligned_edge=LEFT)
         self.beat(mae_row.animate.set_color(APPLE_YELLOW), Create(mae_marks), FadeIn(mae_note))
 
         # s2  "A CLIP-trained Conv-Next tops scene and car recognition, ... last on figure-ground"
@@ -133,13 +136,15 @@ class Disagree(NarratedScene):
             "CLIP ConvNeXt-B: 1st on scene + vehicles, last on figure-ground + orientation",
             22,
             APPLE_YELLOW,
-        ).to_corner(DOWN + LEFT)
+        ).move_to(note_at, aligned_edge=LEFT)
         self.beat(
-            mae_row.animate.set_color(INK),
-            FadeOut(mae_marks, mae_note),
-            clip_row.animate.set_color(APPLE_YELLOW),
-            Create(clip_marks),
-            FadeIn(clip_note),
+            self.swap(
+                [mae_marks, mae_note],
+                mae_row.animate.set_color(INK),
+                clip_row.animate.set_color(APPLE_YELLOW),
+                Create(clip_marks),
+                FadeIn(clip_note),
+            )
         )
 
         # s3  "Even the high-level tier splits into two clusters that barely correlate."
@@ -163,16 +168,18 @@ class Disagree(NarratedScene):
         )
         heading = label("The high-level tier: two clusters", 36, APPLE_PURPLE).to_corner(UP + LEFT)
         self.beat(
-            FadeOut(board),
-            FadeIn(heading),
-            FadeIn(image_box, local_box),
-            FadeIn(within_a, within_b),
-            Create(across),
-            FadeIn(across_text),
+            self.swap(
+                board,
+                FadeIn(heading),
+                FadeIn(image_box, local_box),
+                FadeIn(within_a, within_b),
+                Create(across),
+                FadeIn(across_text),
+            )
         )
 
         # s4  "Averaging across them produces a number that describes nothing."
-        average = label("average = ?", 34, APPLE_ORANGE).move_to([0, -2.7, 0])
+        average = label("average = ?", 34, APPLE_ORANGE).move_to([0, -2.25, 0])
         strike = Line(average.get_left(), average.get_right(), color=APPLE_ORANGE, stroke_width=5)
         self.beat(Write(average), Create(strike))
         self.finish()

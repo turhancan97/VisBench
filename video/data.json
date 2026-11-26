@@ -80,6 +80,32 @@
   "within_image": 0.7964801299318094,
   "within_localised_min": 0.34945054945054943
  },
+ "crop_fix": {
+  "changes": [
+   {
+    "after": "dino_vitb8",
+    "before": "mae_vitb16",
+    "task": "edge"
+   },
+   {
+    "after": "dino_vitb8",
+    "before": "dinov2_vitb14",
+    "task": "generic_segmentation"
+   },
+   {
+    "after": "dino_vitb8",
+    "before": "dino_vitb16",
+    "task": "keypoints2d"
+   },
+   {
+    "after": "dino_vitb8",
+    "before": "mae_vitb16",
+    "task": "orientation"
+   }
+  ],
+  "columns": 9,
+  "rerun_cells": 180
+ },
  "feature_std": {
   "clip_convnext_base": 0.35660749673843384,
   "clip_vitb16": 0.769768238067627,

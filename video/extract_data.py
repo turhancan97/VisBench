@@ -155,6 +155,40 @@ def threshold_example(pairs: dict[str, list[dict]]) -> dict:
     return best
 
 
+def crop_fix() -> dict:
+    """The timm double-crop fix (22c/23a): leaders before and after, and its size.
+
+    "Before" is each board as it stood with the cropped timm cells, which the
+    append-only corpus still holds under their pre-23a keys; "after" is the
+    published board. The fourteenth column arrived after the fix, so it is left
+    out of both: the comparison is the thirteen columns the fix re-measured.
+    """
+    from visbench.results.leaderboard import SUPERSEDED_KEYS
+    from visbench.results.writer import iter_records
+
+    records = [r for r in iter_records(CORPUS) if r.backbone != "clip_convnext_base"]
+    fixed_keys = set(SUPERSEDED_KEYS.values())
+    changes = []
+    for task in sorted({r.task for r in records}):
+        metric = HEADLINE_METRICS[task]
+        higher = metric_direction(metric) == "higher"
+
+        def leader(rows: list, metric: str = metric, higher: bool = higher) -> str:
+            newest = {}
+            for row in rows:  # file order is append order, so the last one wins
+                newest[row.backbone] = row.metrics[metric]
+            pick = max if higher else min
+            return pick(newest, key=newest.get)
+
+        rows = [r for r in records if r.task == task]
+        before = leader([r for r in rows if r.backbone_key not in fixed_keys])
+        after = leader(rows)
+        if before != after:
+            changes.append({"task": task, "before": before, "after": after})
+    rerun = sum(r.backbone_key in fixed_keys for r in records)
+    return {"changes": changes, "rerun_cells": rerun, "columns": len(SUPERSEDED_KEYS)}
+
+
 def main() -> None:
     boards = load_boards(CORPUS)
     levels = load_levels(CORPUS)
@@ -239,6 +273,12 @@ def main() -> None:
         name: sum(data["ranks"][t][name] for t in data["ranks"]) / len(data["ranks"])
         for name in data["backbones"]
     }
+    data["crop_fix"] = crop_fix()
+    # What the crop scene's narration says; fail here rather than in the voice.
+    assert data["crop_fix"]["rerun_cells"] == 180, data["crop_fix"]["rerun_cells"]
+    assert data["crop_fix"]["columns"] == 9
+    assert len(data["crop_fix"]["changes"]) == 4
+    assert {c["after"] for c in data["crop_fix"]["changes"]} == {"dino_vitb8"}
     OUT.write_text(json.dumps(data, indent=1, sort_keys=True) + "\n")
     print(
         f"wrote {OUT.relative_to(ROOT)}: {len(data['backbones'])} backbones, {len(boards)} boards"

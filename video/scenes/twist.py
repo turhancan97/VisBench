@@ -34,7 +34,7 @@ CLIP, SUP = "clip_convnext_base", "convnext_base"
 COLOUR = {CLIP: APPLE_YELLOW, SUP: APPLE_BLUE}
 
 # Board geometry (frame is 14.2 x 8 units).
-TOP, ROW = 2.55, 0.41
+TOP, ROW = 2.55, 0.36  # 14 rows end above the subtitle band
 NAME_X, BAR_X, BAR_MAX = -6.75, -4.05, 3.6
 PANEL_X = 1.25  # left edge of the right-hand panel
 AXIS_LO, AXIS_HI = 0.40, 0.80  # the axis is truncated, and labelled so
@@ -92,7 +92,7 @@ class Twist(NarratedScene):
             value = label(f"{board[name]:.3f}", 18, MUTED).next_to(bar, RIGHT, buff=0.12)
             rows[name] = VGroup(text, bar, value)
 
-        axis_y = self.row_y(len(order)) - 0.42
+        axis_y = self.row_y(len(order)) - 0.36
         axis = Line([BAR_X, axis_y, 0], [BAR_X + BAR_MAX, axis_y, 0], color=MUTED, stroke_width=2)
         ticks = VGroup(
             *[
@@ -226,7 +226,7 @@ class Twist(NarratedScene):
                 )
             ]
         )
-        self.beat(FadeOut(right_panel), FadeIn(charts, shift=UP * 0.2))
+        self.beat(self.swap(right_panel, FadeIn(charts, shift=UP * 0.2)))
 
         # s5  "The head is fitted with a fixed learning rate, so part of what..."
         caption = VGroup(
@@ -234,7 +234,7 @@ class Twist(NarratedScene):
             label("the board reads feature scale,", 22, APPLE_ORANGE),
             label("not only representation.", 22, APPLE_ORANGE),
         ).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
-        caption.move_to([PANEL_X, -1.3, 0], aligned_edge=UP + LEFT)
+        caption.move_to([PANEL_X, -0.95, 0], aligned_edge=UP + LEFT)
         self.beat(FadeIn(caption, shift=UP * 0.15))
 
         # s6  "Every seed shares that scale, so no amount of re-fitting..."
@@ -243,7 +243,7 @@ class Twist(NarratedScene):
         )
         seed_note = label("all five seeds share the same scale", 20, MUTED)
         foot = VGroup(seeds, seed_note).arrange(DOWN, aligned_edge=LEFT, buff=0.18)
-        foot.move_to([PANEL_X, -2.7, 0], aligned_edge=UP + LEFT)
+        foot.move_to([PANEL_X, -2.1, 0], aligned_edge=UP + LEFT)
         self.beat(
             LaggedStart(*[FadeIn(d, scale=0.5) for d in seeds], lag_ratio=0.15), FadeIn(seed_note)
         )

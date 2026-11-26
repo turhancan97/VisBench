@@ -27,7 +27,6 @@ from manim import (
     AnimationGroup,
     Circle,
     FadeIn,
-    FadeOut,
     LaggedStart,
     Line,
     Rectangle,
@@ -57,28 +56,37 @@ class Hook(NarratedScene):
             title, RIGHT, buff=0.35, aligned_edge=DOWN
         )
         top, step = 2.55, 0.4
-        rows = VGroup()
+        # The numbers are their own group, not children of the rows, so that
+        # fading them out really removes them (a FadeOut of mobjects that are
+        # also inside a group still on screen leaves them drawn).
+        rows, column = VGroup(), VGroup()
         for i, name in enumerate(names):
             y = top - i * step
             row = VGroup(
                 label(f"{i + 1:>2}", 20, MUTED).move_to([-6.3, y, 0]),
                 label(DISPLAY[name], 22, INK).move_to([-5.85, y, 0], aligned_edge=LEFT),
-                label(f"{mean[name]:.1f}", 22, APPLE_BLUE).move_to([-1.9, y, 0]),
             )
             row[1].set_x(-5.85 + row[1].width / 2)
             rows.add(row)
+            column.add(label(f"{mean[name]:.1f}", 22, APPLE_BLUE).move_to([-1.9, y, 0]))
         self.beat(
             FadeIn(title, sub),
-            LaggedStart(*[FadeIn(r, shift=RIGHT * 0.2) for r in rows], lag_ratio=0.06),
+            LaggedStart(
+                *[
+                    FadeIn(VGroup(r, c), shift=RIGHT * 0.2)
+                    for r, c in zip(rows, column, strict=True)
+                ],
+                lag_ratio=0.06,
+            ),
             share=0.85,
         )
 
         # s1  "But a backbone is not one number."
-        column = VGroup(*[r[2] for r in rows])
         box = Rectangle(
             width=column.width + 0.35, height=column.height + 0.3, color=APPLE_ORANGE
         ).move_to(column)
-        question = label("one number?", 26, APPLE_ORANGE).next_to(box, UP, buff=0.12)
+        # Beside the box, not above it: above is the title line.
+        question = label("one number?", 26, APPLE_ORANGE).next_to(box, RIGHT, buff=0.3)
         self.beat(FadeIn(box), Write(question))
 
         # s2  "It is a representation, and different questions read different parts of it."
@@ -98,10 +106,12 @@ class Hook(NarratedScene):
             )
         sub2 = label("rank on each of the 20 tasks", 22, MUTED).move_to(sub, aligned_edge=LEFT)
         self.beat(
-            FadeOut(box, question, column, sub),
-            FadeIn(sub2),
-            AnimationGroup(*[FadeIn(b) for b in bands]),
-            LaggedStart(*[FadeIn(c, scale=0.6) for c in grid], lag_ratio=0.002),
+            self.swap(
+                [box, question, column, sub],
+                FadeIn(sub2),
+                AnimationGroup(*[FadeIn(b) for b in bands]),
+                LaggedStart(*[FadeIn(c, scale=0.6) for c in grid], lag_ratio=0.002),
+            ),
             share=0.8,
         )
 
@@ -127,9 +137,11 @@ class Hook(NarratedScene):
                 dot,
             )
         self.beat(
-            FadeOut(everything, name, tagline),
-            FadeIn(backbone, frozen),
-            LaggedStart(*[FadeIn(m) for m in fan], lag_ratio=0.03),
+            self.swap(
+                [everything, name, tagline],
+                FadeIn(backbone, frozen),
+                LaggedStart(*[FadeIn(m) for m in fan], lag_ratio=0.03),
+            ),
             share=0.8,
         )
         self.finish()

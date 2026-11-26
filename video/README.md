@@ -14,18 +14,34 @@ synthesised with [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M).
 | `scenes/common.py` | `NarratedScene`: beats sized to the narration, and a frame-bounds guard |
 | `scenes/<name>.py` | one scene per `## n. name` in the script |
 | `render.sh` | narration → Manim → one still per beat, for one or more scenes |
+| `assemble.sh` | joins the rendered scenes, in `script.md`'s order, into one file |
 
 Renders, audio and stills go to `video/build/`, which is gitignored.
 
-## Two guarantees the pipeline keeps
+## Narration and subtitles
+
+`script.md` is the one source for both. `[shown](spoken)` sends the first part
+to the subtitle and the second to Kokoro, for names it needs spelled
+phonetically (`[MAE](M.A.E.)`) and numbers it should say in words. Narration is
+synthesised at speed 0.9, every scene ends on a one-second hold, and subtitles
+are drawn by the scene itself in a reserved band at the bottom of the frame,
+switched on the measured sentence timings. A long sentence is split into cues
+of near-equal length, breaking at punctuation where there is one.
+
+## Three guarantees the pipeline keeps
 
 - **Picture and voice cannot drift.** Narration is generated per sentence and
   each scene's `beat()` lasts exactly that sentence's measured duration plus a
   fixed gap. A scene that asks for more or fewer beats than its narration has
   sentences raises, so a script edit cannot silently desynchronise a scene.
-- **Nothing on screen leaves the frame.** `finish()` checks every mobject still
-  on screen against the frame minus a margin and raises with its coordinates.
-  Clipping is easy to miss in a still and impossible to miss in this error.
+- **Nothing on screen leaves the frame or covers the subtitles.** At the end of
+  every beat, every mobject on screen is checked against the frame minus a
+  margin and against the top of the subtitle band, and a violation raises with
+  its beat and coordinates. Clipping is easy to miss in a still and impossible
+  to miss in this error.
+- **Old text leaves before new text arrives.** `NarratedScene.swap()` fades the
+  outgoing mobjects fully out and only then plays the incoming animations, so a
+  transition never overprints two labels in one place.
 
 ## Setup
 

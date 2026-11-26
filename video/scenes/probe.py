@@ -14,7 +14,6 @@ from manim import (
     Arrow,
     Create,
     FadeIn,
-    FadeOut,
     GrowArrow,
     LaggedStart,
     Rectangle,
@@ -152,12 +151,15 @@ class Probe(NarratedScene):
             column.set_y(2.6, direction=UP)
             columns.add(column)
         title2 = label("Twenty probes, three levels", 40).to_corner(UP + LEFT)
-        credit = label("levels after Chen, Marks & Cheng (2024)", 20, MUTED).to_corner(DOWN + RIGHT)
+        credit = label("levels after Chen, Marks & Cheng (2024)", 20, MUTED)
+        credit.move_to([6.9 - credit.width / 2, -2.6, 0])  # above the subtitle band
         self.beat(
-            FadeOut(diagram),
-            FadeIn(title2),
-            LaggedStart(*[FadeIn(c, shift=UP * 0.2) for c in columns], lag_ratio=0.25),
-            FadeIn(credit),
+            self.swap(
+                diagram,
+                FadeIn(title2),
+                LaggedStart(*[FadeIn(c, shift=UP * 0.2) for c in columns], lag_ratio=0.25),
+                FadeIn(credit),
+            ),
             share=0.7,
         )
         self.finish()
