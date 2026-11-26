@@ -22,7 +22,9 @@ bibliography: paper.bib
 # Summary
 
 Modern computer vision systems are built on *backbones*: large networks,
-pretrained once, whose internal features are reused for many downstream tasks.
+pretrained once, whose internal features are reused for many downstream tasks
+[@he2016resnet; @dosovitskiy2021vit; @radford2021clip; @he2022mae;
+@oquab2024dinov2].
 Choosing among them is hard, because a backbone is not good or bad in general:
 the features that make it recognise object categories well are not necessarily
 the ones that recover depth, surface orientation or edges
