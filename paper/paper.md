@@ -25,7 +25,8 @@ Modern computer vision systems are built on *backbones*: large networks,
 pretrained once, whose internal features are reused for many downstream tasks.
 Choosing among them is hard, because a backbone is not good or bad in general:
 the features that make it recognise object categories well are not necessarily
-the ones that recover depth, surface orientation or edges. VisBench is a
+the ones that recover depth, surface orientation or edges
+(\autoref{fig:ranks}). VisBench is a
 Python library for asking, systematically, what a frozen backbone's features
 encode. It fits small *probes* (usually a single linear map) on cached
 features for twenty tasks spanning three levels of vision: high-level
