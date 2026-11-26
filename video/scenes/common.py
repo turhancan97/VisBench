@@ -320,17 +320,17 @@ def by_mean_rank() -> list[str]:
     return sorted(DATA["mean_rank"], key=DATA["mean_rank"].get)
 
 
-def rank_colour(rank: int, n: int = 14) -> str:
+def rank_colour(rank: int, n: int = 14, low: str | None = None) -> str:
     """Rank 1 is full blue, rank n fades to the stage: one hue, so it reads as order."""
     from manim import ManimColor, interpolate_color
     from palette import APPLE_BLUE, DIM
 
     return interpolate_color(
-        ManimColor(DIM), ManimColor(APPLE_BLUE), 1 - (rank - 1) / (n - 1)
+        ManimColor(low or DIM), ManimColor(APPLE_BLUE), 1 - (rank - 1) / (n - 1)
     ).to_hex()
 
 
-def rank_grid(cell: float = 0.34, gap: float = 0.04):
+def rank_grid(cell: float = 0.34, gap: float = 0.04, low: str | None = None):
     """14 rows (by mean rank) x 20 columns (by level): each cell coloured by rank.
 
     Returns (grid, cells, columns) where cells[(backbone, probe)] is the square
@@ -343,7 +343,9 @@ def rank_grid(cell: float = 0.34, gap: float = 0.04):
     for i, name in enumerate(rows):
         for j, probe in enumerate(columns):
             rank = DATA["ranks"][probe][name]
-            square = Square(cell, fill_color=rank_colour(rank), fill_opacity=1, stroke_width=0)
+            square = Square(
+                cell, fill_color=rank_colour(rank, low=low), fill_opacity=1, stroke_width=0
+            )
             square.move_to([j * (cell + gap), -i * (cell + gap), 0])
             cells[(name, probe)] = square
             grid.add(square)
