@@ -140,11 +140,14 @@ on the Hugging Face Hub.
 statement, especially the last paragraph, before submitting. -->
 
 VisBench was developed with substantial assistance from generative AI. Code,
-tests, documentation, analysis scripts, cluster job scripts and a first draft
-of this manuscript were written with Claude Code (Anthropic), using the
-models Claude Opus 4.8, Claude Opus 5, Claude Opus 5.5 and Claude Sonnet 5,
-as recorded in the `Co-Authored-By` trailers of 271 of the repository's first
-440 commits; one commit was made by the GitHub Copilot coding agent.
+tests, documentation, analysis scripts and cluster job scripts were written
+with Claude Code (Anthropic), using the models Claude Opus 4.8, Claude Opus 5,
+Claude Opus 5.5 and Claude Sonnet 5, as recorded in the `Co-Authored-By`
+trailers of 271 of the repository's first 440 commits.
+
+<!-- TODO(author): one sentence on how AI was used for this manuscript. The
+current text was drafted by Claude Code; the sentence must describe that
+accurately (see the PR discussion). -->
 
 The author framed the problem and its scope, chose the task taxonomy, the
 backbones and the published protocols to follow, and set the design rules
