@@ -10,7 +10,7 @@ the consolidated list, not the only record.
 
 El Banani, Raza, Qian, Rodriguez, Kanazawa, Owens, Johnson et al.,
 "Probing the 3D Awareness of Visual Foundation Models", CVPR 2024.
-https://arxiv.org/abs/2404.08476 · https://github.com/mbanani/probe3d
+https://arxiv.org/abs/2404.08636 · https://github.com/mbanani/probe3d
 Copyright (c) 2024 Mohamed El Banani
 
 Used for: depth, surface normal, and geometric correspondence evaluation

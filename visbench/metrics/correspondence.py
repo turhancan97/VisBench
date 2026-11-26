@@ -1,6 +1,6 @@
 """Correspondence matching and metrics.
 
-Protocol follows probe3d (El Banani et al., CVPR 2024, arXiv:2404.08476).
+Protocol follows probe3d (El Banani et al., CVPR 2024, arXiv:2404.08636).
 Nearest-neighbour matching with a ratio test is standard practice inherited
 from classical local-feature matching, and is also what vismatch
 (https://github.com/gmberton/vismatch) does with dedicated matchers.

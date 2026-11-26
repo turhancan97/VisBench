@@ -6,7 +6,7 @@ the dense path in :meth:`BaseBackbone.extract_features`.
 Matching logic is conceptually the same as vismatch
 (https://github.com/gmberton/vismatch), applied to raw backbone features
 instead of dedicated matcher networks. Evaluation protocol follows probe3d
-(El Banani et al., CVPR 2024, arXiv:2404.08476), implemented from its
+(El Banani et al., CVPR 2024, arXiv:2404.08636), implemented from its
 published description rather than its code, which is CC BY-NC (see NOTICE).
 """
 

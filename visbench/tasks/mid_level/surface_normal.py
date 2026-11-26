@@ -1,7 +1,7 @@
 """Surface normal estimation — v0.2.
 
 The protocol comes from probe3d (El Banani et al., CVPR 2024,
-arXiv:2404.08476), whose ``evals/utils/losses.py`` and ``evals/utils/metrics.py``
+arXiv:2404.08636), whose ``evals/utils/losses.py`` and ``evals/utils/metrics.py``
 are MIT licensed. This reproduces its ``configs/probe/snorm_dpt.yaml`` plus
 ``configs/optimizer/ten_epoch.yaml``:
 

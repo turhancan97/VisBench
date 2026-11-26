@@ -22,6 +22,16 @@ so it stands on its own rather than assuming you have read the ones above it.
   package. **Published on YouTube** (https://www.youtube.com/watch?v=giKxewO0-lo), linked from the README
   and embedded on the docs landing page.
 
+### Fixed
+
+- **probe3d's arXiv link pointed at an unrelated paper.** Every citation of
+  El Banani et al. (CVPR 2024) carried `arXiv:2404.08476`, which is a NeurIPS
+  paper on uncertainty quantification; probe3d is
+  [`2404.08636`](https://arxiv.org/abs/2404.08636). Corrected in the README,
+  `NOTICE`, `.zenodo.json`, `visbench/__init__.py` and seven module docstrings.
+  No measurement or code path changes. Releases up to 0.28.1 on PyPI and Zenodo
+  keep the wrong link, since an archived version cannot be edited.
+
 ## [0.28.1] — 2026-11-25
 
 **A bug-fix release: every published probe head now loads with the one line
@@ -5657,7 +5667,7 @@ DPT) · multi-layer extraction
 ### Prior art
 
 Protocols are reused and cited at the point of use, not re-derived —
-[probe3d](https://arxiv.org/abs/2404.08476) (El Banani et al., CVPR 2024),
+[probe3d](https://arxiv.org/abs/2404.08636) (El Banani et al., CVPR 2024),
 [Probing the Mid-level Vision Capabilities of Self-Supervised Learning](https://arxiv.org/abs/2411.17474)
 (Chen, Marks & Cheng), and [vismatch](https://github.com/gmberton/vismatch) for
 API philosophy.
