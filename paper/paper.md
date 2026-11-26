@@ -157,9 +157,6 @@ on the Hugging Face Hub.
 
 # AI usage disclosure
 
-<!-- TODO(author): this section is an affirmation in your name. Check every
-statement, especially the last paragraph, before submitting. -->
-
 VisBench was developed with substantial assistance from generative AI. Code,
 tests, documentation, analysis scripts and cluster job scripts were written
 with Claude Code (Anthropic), primarily using the models Claude Opus 4.8,
@@ -178,6 +175,10 @@ each delivered as a pull request that the author reviewed and merged, and
 the experiments behind every published number were run on a computing
 cluster under the author's direction and checked by the author. The author reviewed, modified and validated
 all AI-generated content, and takes responsibility for it.
+
+# Conflict of interest
+
+The author declares no competing interests.
 
 # Acknowledgements
 
