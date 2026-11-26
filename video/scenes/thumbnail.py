@@ -11,8 +11,11 @@ make unreadable.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from common import DATA, LEVEL_ORDER, by_mean_rank, label, rank_grid
 from manim import (
+    BOLD,
     DOWN,
     LEFT,
     RIGHT,
@@ -21,6 +24,7 @@ from manim import (
     RoundedRectangle,
     Scene,
     SurroundingRectangle,
+    SVGMobject,
     VGroup,
     config,
 )
@@ -36,6 +40,13 @@ WHITE = "#FFFFFF"
 INK_ON_WHITE = "#1E2028"
 MUTED_ON_WHITE = "#5F6370"
 LOW_ON_WHITE = "#E4E8F2"  # the 14th-rank end of the grid's scale, on white
+
+#: The logo's own icon, in its own colours: the brand is not recoloured into
+#: the video palette. Manim's SVG import skips <text>, so the wordmark beside it
+#: is set here in the logo's ink colour (the logo names Arial semibold; the
+#: render nodes have no Arial, and DejaVu Sans Bold is the closest available).
+ICON = Path(__file__).resolve().parents[2] / "assets" / "visbench-icon-light.svg"
+LOGO_INK = "#262421"
 
 config.background_color = WHITE
 
@@ -79,7 +90,9 @@ class Thumbnail(Scene):
 
         # The words: left-hand side.
         left = -half_w + 0.7
-        title = label("VisBench", 92, INK_ON_WHITE)
+        wordmark = label("VisBench", 66, LOGO_INK, weight=BOLD)
+        icon = SVGMobject(str(ICON)).scale_to_fit_height(wordmark.height * 1.45)
+        title = VGroup(icon, wordmark).arrange(RIGHT, buff=0.3)
         question = label("Which vision backbone", 36, INK_ON_WHITE)
         question2 = label("is best?", 36, INK_ON_WHITE)
         answer = label("It depends on the question.", 31, APPLE_BLUE)
