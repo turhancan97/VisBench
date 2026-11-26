@@ -114,7 +114,7 @@ packages = ["visbench"]
 # licence that is not this package's have no business inside the wheel.
 # `video` is the explainer's source (Manim scenes, the narration script and the
 # data they read): a separate toolchain, not needed to install or use VisBench.
-exclude = ["docs/_static/gallery", "assets/gallery_frames", "video"]
+exclude = ["docs/_static/gallery", "assets/gallery_frames", "video", "paper"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
