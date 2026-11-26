@@ -65,16 +65,16 @@ registered model (DINO [@caron2021dino], DINOv2
 [@oquab2024dinov2], CLIP [@radford2021clip], SigLIP [@zhai2023siglip], MAE
 [@he2022mae], ViTs trained with sharpness-aware minimisation
 [@chen2022vitsam], supervised ViTs [@dosovitskiy2021vit; @steiner2022augreg],
-ResNets [@he2016resnet] and ConvNeXts [@liu2022convnext]) or any PyTorch module wrapped in a few lines. The
-record it writes carries the probe's `protocol` string, the pooling and
-layers *as resolved* for that backbone, whether any block was fine-tuned,
-a fingerprint of the exact dataset split, how the probe's own fit went, and
-the hardware it ran on. A comparability key built from these fields
-determines which records a leaderboard may place side by side, so a number
-produced under a different protocol cannot silently join a ranking. Where a
-published protocol exists it is reimplemented and cited rather than
-approximated: depth, surface normals and correspondence follow
-@elbanani2024probing.
+ResNets [@he2016resnet] and ConvNeXts [@liu2022convnext]) or any PyTorch module wrapped in a few lines. Each run also saves a record that says exactly how its number
+was produced: which evaluation protocol was used, how the features were
+pooled and which layers were read, whether any part of the backbone was
+fine-tuned, which images were used, how well the probe trained, and what
+hardware it ran on. VisBench only ranks two results side by side when
+their records show they were measured the same way, so a number produced
+under a different setup cannot slip into a ranking unnoticed. Where a
+published evaluation protocol already exists, VisBench reimplements it
+and cites it instead of inventing its own; for example, depth, surface
+normals and correspondence follow @elbanani2024probing.
 
 # State of the field
 
