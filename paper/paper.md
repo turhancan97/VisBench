@@ -157,9 +157,6 @@ on the Hugging Face Hub.
 
 # AI usage disclosure
 
-<!-- TODO(author): this section is an affirmation in your name. Check every
-statement, especially the last paragraph, before submitting. -->
-
 VisBench was developed with substantial assistance from generative AI. Code,
 tests, documentation, analysis scripts and cluster job scripts were written
 with Claude Code (Anthropic), primarily using the models Claude Opus 4.8,
