@@ -146,9 +146,8 @@ statement, especially the last paragraph, before submitting. -->
 
 VisBench was developed with substantial assistance from generative AI. Code,
 tests, documentation, analysis scripts and cluster job scripts were written
-with Claude Code (Anthropic), using the models Claude Opus 4.8, Claude Opus 5,
-Claude Opus 5.5 and Claude Sonnet 5, as recorded in the `Co-Authored-By`
-trailers of 271 of the repository's first 440 commits.
+with Claude Code (Anthropic), primarily using the models Claude Opus 4.8,
+Claude Opus 5 and Claude Opus 5.5.
 
 This manuscript was drafted with Claude Code (Claude Opus 5.5) from the
 author's outline and facts; the author revised the text and verified every
