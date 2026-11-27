@@ -1140,8 +1140,17 @@ designed up front; extend it the same way, from a case that already runs.
   derived from the cropped mask**, which deletes the rescale-and-shift hazard
   `data/detection.py` guards rather than re-testing it.
 
-- **Every dense target sits a sub-pixel from its image, in the shipped
-  loaders** (found in 14a-1, not fixed). `DenseFolderDataset` resamples targets
+- **Every dense target sat a sub-pixel from its image until #173; fixed by
+  default, legacy kept for reproduction** (found in 14a-1). Targets are now
+  resampled with PIL's nearest-neighbour (`target_resample="pil_nearest"`, CLI
+  `--target-resample`), the image's own geometry; `torch_nearest` reproduces
+  every pre-#173 cell, and it alone is left out of fingerprints and
+  `describe()`, so legacy re-runs match published fingerprints (checked on all
+  nine boards, `results/controls/target_alignment.json`). **Any dataset that
+  overrides `fingerprint()` must fold the setting in itself** — Taskonomy's
+  did not, and only the control caught it. The history below is kept as it
+  was written.
+  Originally: `DenseFolderDataset` resamples targets
   with `torch.nn.functional.interpolate(mode="nearest")`, which is
   left-aligned, while the *image* is resized by PIL, which is centre-aligned.
   The two crops of one VOC map differ on **1.7%** of pixels (1.5% for a
@@ -1783,10 +1792,10 @@ designed up front; extend it the same way, from a case that already runs.
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite **collects 2621 tests**, green on 2026-11-27 along with all three
+fast suite **collects 2637 tests**, green on 2026-11-27 along with all three
 lint steps, mypy and the `-W` docs build; the slow suite **collects 118**, green
 on `main` on 2026-11-27 (116 passed, and the two BSDS500 agreement tests skip
-because that dataset is not at their path on the dgx nodes; #176). Earlier fast counts, for dating a claim: 2605 at 25a, 2560 at v0.28.1, 2536 at 24b, 2512 at 24a, 2508 at 23c, 2486 at 23b, 2445 at 23a, 2433 at
+because that dataset is not at their path on the dgx nodes; #176). Earlier fast counts, for dating a claim: 2621 at 25b-1, 2605 at 25a, 2560 at v0.28.1, 2536 at 24b, 2512 at 24a, 2508 at 23c, 2486 at 23b, 2445 at 23a, 2433 at
 22c, 2414 at 22b, 2397 at 21b, 2304 at v0.23.0, 1824 at the oracle gate — keep
 that list to a handful. **Quote the collected count, not "N passed"**: the skip
 count depends on which extras are installed (3 on CI, 8 on `.venv`, 0 with
@@ -2105,7 +2114,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 2621 fast tests
+pytest                                              # 2637 fast tests
 pytest -m slow                                      # 118, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/

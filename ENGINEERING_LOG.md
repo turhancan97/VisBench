@@ -3348,6 +3348,36 @@ new probes by name. It is pinned against `list_probes()` now. This is the
 same family as the corpus-matrix arrays (10b): a fixed list beside a registry,
 with nothing comparing the two.
 
+## #173 — dense targets moved onto their images (2026-11-27)
+
+Decided with the maintainer by four yes/no answers:
+- the fix becomes the default, with the old geometry kept for reproduction;
+- it is measured first, on CPU;
+- 25b-2 also re-runs `surface_normal` and `instance_segmentation` under it;
+- it ships as its own PR, with its re-runs folded into 25b-2's one re-run.
+
+**What was measured before choosing.** torch's `nearest-exact` looked like the
+one-line fix. On random label maps it still differs from PIL on 0.3% of pixels
+for NYU's 480x640 and on **20%** for Taskonomy's 512x512 → 224, at half-pixel
+ties. PIL's float `"F"` nearest matches PIL's uint8 nearest exactly and keeps
+`NaN`. So `resample_target` goes through PIL, one channel at a time, and the
+legacy branch is the exact pre-#173 call, so it reproduces bit for bit.
+
+**Fingerprints.** The setting is folded in only when it is not the legacy one,
+so `torch_nearest` reproduces published fingerprints and the aligned default
+cannot. `scripts/measure_target_alignment.py` checked this on all nine boards.
+Its first run showed the three Taskonomy boards' *aligned* fingerprints equal
+to the published ones: `TaskonomyDataset.fingerprint` is an override that never
+saw the new attribute. That is fixed, re-measured, and tested. **A setting that
+must change a fingerprint has to be added to every override, and only a check
+against real records shows one was missed.**
+
+**One test changed for a real reason.** `test_image_and_target_stay_aligned_through_the_crop`
+used a 1-pixel stripe at an even column under a 2x downsample. Centre-aligned
+nearest samples odd columns, so the stripe correctly vanishes from the target,
+while the left-aligned resize had happened to hit it. The fixture stripe is now
+2 pixels wide.
+
 ## 25b-1 — a learning rate per board for standardised features (2026-11-27, #172)
 
 **The rule came first.** The maintainer answered seven yes/no questions before
