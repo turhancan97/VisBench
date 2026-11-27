@@ -95,11 +95,6 @@ def test_importing_the_script_registers_nothing(run):
     assert not [n for n in visbench.list_backbones() if re.search(r"_x[0-9.]+$", n)]
 
 
-def test_the_array_never_targets_the_node_it_was_moved_off():
-    text = SBATCH.read_text(encoding="utf-8")
-    assert "#SBATCH --exclude=dgx2" in text
-
-
 # -- the arithmetic ----------------------------------------------------------
 
 

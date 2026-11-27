@@ -47,6 +47,12 @@
 #
 # dgx, NOT dgxh100 -- the venv interpreter does not exist on the H100 image; see
 # slurm/corpus.sbatch for the full note.
+# Which dgx node is healthy changes over time (CLAUDE.md's node map has
+# inverted once already), so no node is excluded here (#194). Time an import
+# on each candidate first, then pass the exclusion on the command line, which
+# overrides nothing in this file because nothing here sets one:
+#   sbatch -w dgx1 slurm/node_check.sbatch   # repeat per node; read its log
+#   sbatch --exclude=<slow node> ... this file
 #SBATCH -p dgx
 #SBATCH --gres=gpu:1
 #SBATCH --qos=normal
@@ -56,7 +62,6 @@
 #SBATCH --job-name=visbench-seed-sweep
 #SBATCH --time=06:00:00
 #SBATCH --array=0-194%4
-#SBATCH --exclude=dgx1
 #SBATCH --output=logs/seed_sweep_%A_%a.log
 
 set -euo pipefail

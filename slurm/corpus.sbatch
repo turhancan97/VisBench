@@ -46,9 +46,12 @@
 # `--gpus=1` on both quick and normal with QOSMaxGRESPerJob, while the identical
 # `--gres=gpu:1` request queues (22c).
 #SBATCH --gres=gpu:1
-# dgx1 accepts work and starves it (~600x slow; CLAUDE.md's node map). This
-# array ran there for minutes in 23a before the exclusion was noticed missing.
-#SBATCH --exclude=dgx1
+# Which dgx node is healthy changes over time (CLAUDE.md's node map has
+# inverted once already), so no node is excluded here (#194). Time an import
+# on each candidate first, then pass the exclusion on the command line, which
+# overrides nothing in this file because nothing here sets one:
+#   sbatch -w dgx1 slurm/node_check.sbatch   # repeat per node; read its log
+#   sbatch --exclude=<slow node> ... this file
 #SBATCH --qos=normal
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
