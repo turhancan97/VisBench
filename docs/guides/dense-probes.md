@@ -51,6 +51,27 @@ measure. Measured, not asserted: across five probes and nine ViTs a DPT head
 reorders **24 of 174 separable pairs** and changes the leader on two of five
 boards.
 
+### `--standardize`: take feature scale out of the fit
+
+```bash
+visbench run depth --data ... --standardize
+```
+
+The heads are fitted with AdamW at a fixed learning rate, which is not
+scale-invariant, and backbones' features differ in scale by almost 10x. A
+control showed what that costs: multiplying two columns' features by a constant
+— which removes nothing a linear head could use — **reversed their order** on
+three boards. `--standardize` (`standardize=True` in Python) maps every feature
+channel to mean 0 and standard deviation 1 before the head, with statistics
+computed once on the **training** split and reused for evaluation. With it on, a
+constant rescaling of the features cannot move the score.
+
+It is **off by default**, and every published dense board was measured with it
+off. A run with it on records `standardize: true` and a `+std` suffix on its
+`protocol` (`probe3d+std`), so it never shares a ranking with an unstandardised
+number. The statistics travel inside a saved probe, and it is refused together
+with `--finetune-blocks`, since fine-tuning moves the features they describe.
+
 ## Features stream
 
 Dense features are ~250x the size of pooled ones — 24k NYUv2 images at DINOv2-B

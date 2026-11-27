@@ -193,10 +193,17 @@ def test_a_newer_artifact_version_is_refused(fitted, fake_vit, tmp_path):
 
 
 def test_unexpected_probe_state_is_refused_not_dropped(fitted, fake_vit, tmp_path):
-    """A probe told to restore state it does not understand runs without it."""
-    task = visbench.get_probe("depth")
+    """A probe told to restore state it does not understand runs without it.
+
+    Read through a probe with no state of its own. ``depth`` was the example
+    until #172 gave every dense probe a standardiser; its refusal of a key it
+    does not recognise is pinned in ``tests/tasks/test_dense_standardize.py``.
+    """
+    task = visbench.get_probe("retrieval")
     with pytest.raises(ValueError, match="no probe state to restore"):
         task.load_probe_state({"mystery": torch.zeros(1)})
+    with pytest.raises(ValueError, match="Unexpected probe state"):
+        visbench.get_probe("depth").load_probe_state({"mystery": torch.zeros(1)})
 
 
 def test_a_standardising_probe_refuses_an_artifact_without_one(fake_vit, pooled, labels):

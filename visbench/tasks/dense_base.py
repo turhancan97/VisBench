@@ -232,6 +232,7 @@ class DenseTrainingTask(BaseTask):
         device: str | None = None,
         finetune_blocks: int = 0,
         backbone_lr: float | None = None,
+        standardize: bool = False,
     ) -> None:
         """Configure the probe; the head is built lazily in :meth:`fit`.
 
@@ -269,6 +270,24 @@ class DenseTrainingTask(BaseTask):
             pretrained weights at the head's rate are destroyed within the first
             epoch, which shows up as a fine-tuned score *below* the frozen
             baseline rather than as an error.
+        standardize:
+            Standardise every feature channel to mean 0 and standard deviation 1
+            before the head, with statistics computed once on the **training**
+            split and reused unchanged for evaluation and :meth:`predict`
+            (#172). Off by default, and every published dense number was
+            measured with it off.
+
+            It exists because the head is fitted with AdamW at a fixed learning
+            rate, which is not scale-invariant: the 24b scale control multiplied
+            two columns' features by a constant -- which removes nothing a linear
+            head could use -- and reversed their order on three boards. With it
+            on, a backbone's feature scale cannot move its score. The record
+            says which a number came from: ``standardize: True`` in
+            ``task_params`` and a ``+std`` suffix on ``protocol``, so the two
+            never share a ranking.
+
+            Refused with ``finetune_blocks > 0``: statistics computed before
+            training would go stale as the backbone moves.
         """
         if epochs < 1:
             raise ValueError(f"epochs must be >= 1, got {epochs}")
@@ -284,6 +303,12 @@ class DenseTrainingTask(BaseTask):
                 f"backbone_lr={backbone_lr} was given with finetune_blocks=0, so nothing "
                 "in the backbone trains and the value would be silently ignored. Set "
                 "finetune_blocks, or drop backbone_lr."
+            )
+        if standardize and finetune_blocks > 0:
+            raise ValueError(
+                "standardize=True with finetune_blocks > 0 is not supported: the "
+                "statistics are computed once before training, and fine-tuning "
+                "moves the features they describe. Use one or the other."
             )
 
         self.head_name = head
@@ -322,6 +347,15 @@ class DenseTrainingTask(BaseTask):
         #: high training loss means the probe underfitted, which is a different
         #: finding from a representation that does not carry this signal.
         self.train_loss: float | None = None
+
+        self.standardize = standardize
+        #: Set by :meth:`fit` when ``standardize`` is on: one ``(1, C, 1, 1)``
+        #: mean and standard deviation per extracted layer, from the training
+        #: split. Learned outside ``self.head``, so they travel through
+        #: :meth:`probe_state` -- a head reloaded without them would score
+        #: against raw features, confidently wrong.
+        self._means: list[torch.Tensor] | None = None
+        self._stds: list[torch.Tensor] | None = None
 
     # -- subclass hooks ------------------------------------------------------
 
@@ -704,6 +738,8 @@ class DenseTrainingTask(BaseTask):
             raise ValueError("Cannot fit on an empty feature set")
 
         channels, output_size = self._shape_of(source)
+        if self.standardize:
+            self._fit_standardiser(source)
         self.head = self._build_head(channels, output_size)
         self.head.train()
 
@@ -741,6 +777,108 @@ class DenseTrainingTask(BaseTask):
         self.train_loss = running
         return self
 
+    @torch.no_grad()
+    def _fit_standardiser(self, source: Dataset) -> None:
+        """Per-channel mean and std of the training features, one pair per layer.
+
+        One extra pass over ``source`` in dataset order, accumulating sums in
+        float64 over every image and grid position, so a streaming source stays
+        streaming. Statistics come from the training split only; evaluation
+        reuses them rather than computing its own, which would leak the
+        evaluation split into the probe.
+        """
+        sums: list[torch.Tensor] = []
+        squares: list[torch.Tensor] = []
+        counts: list[int] = []
+        for batch in self._loader(source, shuffle=False):
+            features = batch[0] if isinstance(batch, tuple) else batch
+            layers = features if isinstance(features, list) else [features]
+            if not sums:
+                sums = [torch.zeros(0)] * len(layers)
+                squares = [torch.zeros(0)] * len(layers)
+                counts = [0] * len(layers)
+            for i, layer in enumerate(layers):
+                x = torch.as_tensor(layer).to(self.device, torch.float64)
+                if x.dim() != 4:
+                    raise ValueError(
+                        f"Expected (B, C, H, W) features to standardise, got shape {tuple(x.shape)}"
+                    )
+                total = x.sum(dim=(0, 2, 3))
+                square = (x * x).sum(dim=(0, 2, 3))
+                sums[i] = total if sums[i].numel() == 0 else sums[i] + total
+                squares[i] = square if squares[i].numel() == 0 else squares[i] + square
+                counts[i] += x.shape[0] * x.shape[2] * x.shape[3]
+
+        means, stds = [], []
+        for total, square, count in zip(sums, squares, counts, strict=True):
+            mean = total / count
+            # clamp: a constant channel would divide by zero, as in
+            # ClassificationTask's standardiser.
+            std = (square / count - mean * mean).clamp(min=0).sqrt().clamp(min=1e-6)
+            means.append(mean.float().view(1, -1, 1, 1))
+            stds.append(std.float().view(1, -1, 1, 1))
+        self._means, self._stds = means, stds
+
+    def _standardise(self, dense: torch.Tensor | list) -> torch.Tensor | list:
+        """Apply the training split's statistics; identity when off."""
+        if self._means is None or self._stds is None:
+            if self.standardize:
+                raise RuntimeError(
+                    "This probe standardises its features but has no statistics. "
+                    "Call fit(), or load a probe_state that carries them."
+                )
+            return dense
+        if isinstance(dense, list):
+            if len(dense) != len(self._means):
+                raise ValueError(
+                    f"Standardiser was fitted on {len(self._means)} layer(s), got {len(dense)}"
+                )
+            return [
+                (layer - mean.to(layer.device)) / std.to(layer.device)
+                for layer, mean, std in zip(dense, self._means, self._stds, strict=True)
+            ]
+        if len(self._means) != 1:
+            raise ValueError(
+                f"Standardiser was fitted on {len(self._means)} layers, got a single map"
+            )
+        return (dense - self._means[0].to(dense.device)) / self._stds[0].to(dense.device)
+
+    def probe_state(self) -> dict[str, torch.Tensor]:
+        """The standardiser's statistics, when it is on: ``mean_<i>``, ``std_<i>``."""
+        if self._means is None or self._stds is None:
+            return {}
+        state: dict[str, torch.Tensor] = {}
+        for i, (mean, std) in enumerate(zip(self._means, self._stds, strict=True)):
+            state[f"mean_{i}"] = mean
+            state[f"std_{i}"] = std
+        return state
+
+    def load_probe_state(self, state: dict[str, torch.Tensor]) -> None:
+        """Restore the standardiser, and turn it on if the artifact carries one.
+
+        A reloaded probe is rebuilt from its constructor's required arguments,
+        so it starts with ``standardize=False``; the statistics arriving are
+        what says the head was fitted on standardised features.
+        """
+        if not state:
+            if self.standardize:
+                raise ValueError(
+                    "This probe standardises its features, but the artifact carries "
+                    "no mean/std. The head was fitted on standardised inputs and "
+                    "would score against raw ones."
+                )
+            return
+        layers = len(state) // 2
+        expected = {f"{kind}_{i}" for i in range(layers) for kind in ("mean", "std")}
+        if set(state) != expected or len(state) % 2:
+            raise ValueError(
+                f"Unexpected probe state {sorted(state)}; a standardiser carries "
+                "mean_<i> and std_<i> for each layer."
+            )
+        self._means = [state[f"mean_{i}"].to(self.device) for i in range(layers)]
+        self._stds = [state[f"std_{i}"].to(self.device) for i in range(layers)]
+        self.standardize = True
+
     def _schedule(self, total_steps: int, steps_per_epoch: int):
         """Linear warmup then cosine decay, as a step-indexed multiplier.
 
@@ -763,7 +901,7 @@ class DenseTrainingTask(BaseTask):
             dense = [layer.to(self.device).float() for layer in dense]
         else:
             dense = dense.to(self.device).float()
-        return self._activate(head(dense))
+        return self._activate(head(self._standardise(dense)))
 
     def _require_head(self) -> nn.Module:
         if self.head is None:
@@ -1130,6 +1268,13 @@ class DenseTrainingTask(BaseTask):
             "protocol": "probe3d",
             **self._task_params(),
         }
+        # Only when on: old records lack the key, and comparability_key freezes
+        # all of task_params, so writing "standardize": False would split every
+        # new default run from the published boards it reproduces.
+        if self.standardize:
+            params = described["task_params"]
+            params["protocol"] = f"{params['protocol']}+std"
+            params["standardize"] = True
         return described
 
     def finetune(self) -> dict | None:

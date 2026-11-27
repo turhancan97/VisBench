@@ -86,15 +86,14 @@ class SceneParsingTask(SemanticSegmentationTask):
         # one field that has to move, and it is what keeps the two boards apart.
         self.name = "scene_parsing"
 
-    def describe(self) -> dict:
-        """Task metadata plus a ``protocol`` naming this as the parsing probe.
+    def _task_params(self) -> dict:
+        """The semantic probe's parameters, under a ``protocol`` naming this one.
 
         The task name already separates the comparability groups, so this string
         changes nothing about ranking — it says in the record what kind of
         number this is, and a test pins it *different* from
         ``visbench_semantic_seg``, since the failure mode two probes on one
-        implementation have is collapsing into one board.
+        implementation have is collapsing into one board. Set here rather than
+        in ``describe()`` so the base's ``+std`` suffix (#172) applies to it.
         """
-        described = super().describe()
-        described["task_params"]["protocol"] = "visbench_scene_parsing"
-        return described
+        return {**super()._task_params(), "protocol": "visbench_scene_parsing"}

@@ -6,8 +6,16 @@
 #   sbatch --array=0-27%6 slurm/scale_control.sbatch
 #
 # Tasks 0-13 are the scaled arms, 14-27 the gate (each arm at scale 1 through the
-# identical alias path, which must reproduce the corpus cell). The flags live in
-# build_corpus.sh, read through scripts/run_scale_control.py; nothing here
+# identical alias path, which must reproduce the corpus cell).
+#
+# STANDARDIZE=1 (#172, step 25a) passes --standardize to every run and writes to
+# results/controls/parts/scale_std/ instead. The gate then no longer reproduces
+# the corpus (a different protocol); its job is to be what each scaled arm must
+# equal, since a constant factor cancels under standardisation:
+#
+#   STANDARDIZE=1 sbatch --array=0-27%6 slurm/scale_control.sbatch
+#
+# The flags live in build_corpus.sh, read through scripts/run_scale_control.py; nothing here
 # restates one. Parts go to their own directory, never the shared
 # results/controls/parts/ that merge_controls.sh treats as a queue.
 #
@@ -70,8 +78,14 @@ probe=${PROBES[$(( rest / ${#ARM_LIST[@]} ))]}
 arm=${ARM_LIST[$(( rest % ${#ARM_LIST[@]} ))]}
 
 # One file per task: NFSv4 has no atomic O_APPEND.
-mkdir -p results/controls/parts/scale
-RESULTS="results/controls/parts/scale/${mode}__${probe}__${arm}.jsonl"
+parts=results/controls/parts/scale
+std_flag=()
+if [[ -n ${STANDARDIZE:-} ]]; then
+  parts=results/controls/parts/scale_std
+  std_flag=(--standardize)
+fi
+mkdir -p "$parts"
+RESULTS="${parts}/${mode}__${probe}__${arm}.jsonl"
 
 source .venv/bin/activate
 if ! python --version >/dev/null 2>&1; then
@@ -85,4 +99,4 @@ nvidia-smi -L
 gate_flag=()
 [[ $mode == gate ]] && gate_flag=(--gate)
 python scripts/run_scale_control.py "$probe" --arm "$arm" \
-  --results "$RESULTS" "${gate_flag[@]}"
+  --results "$RESULTS" "${gate_flag[@]}" "${std_flag[@]}"

@@ -154,6 +154,7 @@ class SurfaceNormalTask(DenseTrainingTask):
         device: str | None = None,
         finetune_blocks: int = 0,
         backbone_lr: float | None = None,
+        standardize: bool = False,
     ) -> None:
         """Configure the probe; the head is built lazily in :meth:`fit`.
 
@@ -182,6 +183,7 @@ class SurfaceNormalTask(DenseTrainingTask):
             device=device,
             finetune_blocks=finetune_blocks,
             backbone_lr=backbone_lr,
+            standardize=standardize,
         )
         self.name = "surface_normal"
         self.uncertainty_aware = uncertainty_aware

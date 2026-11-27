@@ -185,6 +185,7 @@ class RelativeDepthTask(DenseTrainingTask):
         device: str | None = None,
         finetune_blocks: int = 0,
         backbone_lr: float | None = None,
+        standardize: bool = False,
     ) -> None:
         """Configure the probe; the head is built lazily in :meth:`fit`.
 
@@ -214,6 +215,7 @@ class RelativeDepthTask(DenseTrainingTask):
             device=device,
             finetune_blocks=finetune_blocks,
             backbone_lr=backbone_lr,
+            standardize=standardize,
         )
         self.name = "relative_depth"
         if pairs_per_image < 1:

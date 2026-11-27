@@ -4,14 +4,18 @@
     python scripts/run_scale_control.py --check
     python scripts/run_scale_control.py generic_segmentation orientation \\
         --results results/controls/scale_control.jsonl
+    python scripts/run_scale_control.py generic_segmentation --standardize \\
+        --results results/controls/scale_control_std.jsonl      # #172, step 25a
 
 **The question.** `clip_convnext_base` fits worst of all fourteen columns on
 several dense boards, and its stage-4 features are about 8.7x smaller in scale
 than its supervised sibling `convnext_base`'s (std 0.35 against 3.03 on VOC).
-The image-level classification probes standardise features before fitting;
-the dense heads fit raw features with a fixed learning rate, which is not
-scale-invariant. So a low dense placement could be the optimiser rather than
-the representation, and the record cannot say which.
+The dense heads fit raw features with a fixed learning rate, which is not
+scale-invariant. (An earlier version of this docstring said the image-level
+classification probes standardise first. They can, but every published
+classification-family cell ran with ``standardize=False``.) So a low dense
+placement could be the optimiser rather than the representation, and the
+record cannot say which.
 
 **The control.** Refit the published configuration with the dense features
 multiplied by a constant: `clip_convnext_base` *up* by the measured ratio, and
@@ -27,6 +31,13 @@ adjacent configuration rather than the board. The alias carries its own name and
 (`.../x<scale>`), so it can neither evict a corpus row nor be served the
 unscaled features. **Never write these to the corpus**: a scaled backbone is a
 model nobody would choose.
+
+**``--standardize`` (#172, step 25a)** re-runs the same arms with the dense
+probes' per-channel standardiser on. Its prediction is exact: a constant factor
+cancels in ``(x - mean) / std``, so each scaled arm must land on its own
+``--gate`` arm, and the pair's order can no longer depend on scale. Both arms
+read the ``.../x<scale>`` caches 24b already extracted, so this costs no
+extraction.
 """
 
 from __future__ import annotations
@@ -114,6 +125,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--gate", action="store_true", help="run each arm at scale 1: must reproduce the corpus"
     )
+    parser.add_argument(
+        "--standardize",
+        action="store_true",
+        help="pass --standardize to every run (#172): each scaled arm must equal its gate",
+    )
     args = parser.parse_args(argv)
     if args.check:
         return check()
@@ -129,6 +145,8 @@ def main(argv: list[str] | None = None) -> int:
         for variant, scale in arms:
             cli_argv = corpus_command(probe, variant, args.results)
             cli_argv[cli_argv.index("--backbone") + 1] = register_scaled(variant, scale)
+            if args.standardize:
+                cli_argv.append("--standardize")
             print("=== " + " ".join(cli_argv), flush=True)
             code = cli_main(cli_argv)
             failed += code != 0
