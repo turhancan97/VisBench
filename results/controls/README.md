@@ -164,6 +164,61 @@ schedule would trade one optimiser artefact for another**, so 25b first has to
 choose a schedule for standardised features, by a rule that is the same for
 every backbone.
 
+## `lr_sweep.jsonl` — one learning rate per board for standardised features (25b-1, #172)
+
+**320 records, on V100s.** 25a found standardised features underfit at
+probe3d's 5e-4. This sweep chooses each board's rate **by the rule the maintainer
+set**, written down before any run:
+
+- one rate per board, shared by every backbone;
+- chosen on a **fixed 10% held-out slice of the training split** (seed 0, the
+  same images for every backbone; written into each record's `notes`), never on
+  the split a board reports;
+- four backbones spanning the feature-scale range: `convnext_base`,
+  `clip_convnext_base`, `resnet50` and `dinov2_vitb14`;
+- only the rate moves, with every other flag read from `build_corpus.sh`;
+- a raw arm (unstandardised, 5e-4) on the same slice is the bar. A board whose
+  best standardised mean falls more than 1% short of it is **stopped**: it stays
+  raw.
+
+Run by `scripts/run_lr_sweep.py` through `slurm/lr_sweep.sbatch`, as 280 runs
+over six rates (2e-4 to 1e-2), plus 40 more at 2e-2 and 5e-2 on the five
+boards that first chose 1e-2, the top of the grid. A choice at a grid's edge is
+a limit of the search, not a finding. Read it with
+`python scripts/analyse_lr_sweep.py`. `CHOSEN_RATES` in that script is
+recomputed from these records by `tests/scripts/test_lr_sweep.py`, which also
+checks that no chosen rate sits on the edge of its grid.
+
+| board | raw (5e-4) | standardised, chosen | rate | verdict |
+| --- | --- | --- | --- | --- |
+| `semantic_segmentation` (mIoU) | 0.5079 | 0.5634 | 5e-3 | OK |
+| `scene_parsing` (mIoU) | 0.2920 | 0.3465 | 2e-3 | OK |
+| `generic_segmentation` (IoU) | 0.5624 | 0.6014 | 1e-2 | OK |
+| `depth` (d1) | 0.6405 | 0.6767 | 2e-2 | OK |
+| `keypoints2d` (r) | 0.2194 | 0.2601 | 1e-2 | OK |
+| `occlusion_edge` (r) | 0.2144 | 0.2541 | 2e-3 | OK |
+| `edge` (r) | 0.3624 | 0.3963 | 5e-3 | OK |
+| `corner` (r) | 0.5247 | 0.5506 | 1e-2 | OK |
+| `orientation` (°, lower) | 28.19 | 26.95 | 5e-3 | OK |
+| `surface_normal` (°, lower) | 36.64 | 49.32 | 1e-2 | **STOP** |
+
+Means over the four backbones, on the held-out slice. **These are not board
+values**: never quote them as one.
+
+**What it says.** 25a's underfitting was the learning rate. At a rate chosen
+for them, standardised features fit better than raw on nine of ten boards, and
+the chosen rates are 4-40x probe3d's.
+
+**`surface_normal` is not a rate problem.** Its error and `train_loss` level
+off near 50° for three of four backbones whatever the rate, and DINOv2 goes
+from 30° raw to 43°. With a linear head a per-channel affine change of the input
+is a reparameterisation, so this must come from the optimisation or from the
+uncertainty-aware loss. It stays raw (#201).
+
+**A shared rate has a price, stated rather than hidden.** Each backbone's own
+best rate ranges from 1e-3 to 1e-2 on some boards. A per-backbone rate would let
+the tuning decide part of the ranking, which is why the rule shares one.
+
 ## `crop_control.jsonl` — what the timm rows score without a second crop (22c)
 
 **40 records, all on V100s**: 4 *gate* records (`convnext_base` under its
