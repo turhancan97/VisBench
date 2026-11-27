@@ -83,6 +83,7 @@ class SemanticSegmentationTask(DenseTrainingTask):
         device: str | None = None,
         finetune_blocks: int = 0,
         backbone_lr: float | None = None,
+        standardize: bool = False,
     ) -> None:
         if num_classes < 2:
             raise ValueError(
@@ -102,6 +103,7 @@ class SemanticSegmentationTask(DenseTrainingTask):
             device=device,
             finetune_blocks=finetune_blocks,
             backbone_lr=backbone_lr,
+            standardize=standardize,
         )
         self.num_classes = num_classes
         self.name = "semantic_segmentation"

@@ -88,6 +88,9 @@ step is next rather than attempting the whole roadmap in one session.
 | 23d | The held-out sweep's last four columns re-swept: the sweep was right, the cells moved | done |
 | 24a | `clip_convnext_base`: a fourteenth backbone, registered to break "every CNN is IN1k supervised" | done |
 | 24b | Its board, its sweeps, and the scale control: three linear dense boards read feature *scale* | done |
+| 25a | `--standardize` for the ten dense probes (#172): opt-in, and a control proving scale no longer moves a score | done |
+| 25b | A schedule for standardised features, then the ten dense boards re-run, their sweeps, and `SUPERSEDED_PROTOCOLS` | next |
+| 25c | v0.29.0, and the twenty dense Hub heads republished | |
 
 **A closed step's full write-up lives in
 [`ENGINEERING_LOG.md`](ENGINEERING_LOG.md), not here.** That file is the archive
@@ -858,8 +861,23 @@ designed up front; extend it the same way, from a case that already runs.
     sds, moves `edge` the *other* way, and leaves two boards alone. The
     columns span 9.7x. **A seed sweep cannot see this** (every seed shares the
     scale), so never read a placement on those three as representation
-    without the control. Standardising before the dense heads would move every
-    dense number — an open question, not a fix to slip into a step.
+    without the control. **The fix ships opt-in (25a)**: `standardize=True`
+    on `DenseTrainingTask` (CLI `--standardize`), per-channel train-split
+    mean/std applied in `_forward`, so a constant rescaling cannot move a
+    score. Four things not to undo: `standardize` enters `task_params`
+    **only when on** (old records lack it, and `comparability_key` freezes all
+    of `task_params`, so writing `False` would split every default run from
+    the board it reproduces); the protocol gains `+std`; the statistics ride
+    `probe_state` and `load_probe_state` turns the flag on (the Hub rebuilds a
+    probe from required args only); and it is refused with `finetune_blocks`.
+    **No published classification cell is standardised either** —
+    `ClassificationTask` defaults it off; an earlier 24b sentence claimed
+    otherwise (#199). **And standardised features underfit at probe3d's
+    schedule** (25a control, `results/controls/README.md`): scale invariance
+    holds exactly, but `train_loss` rises on five of seven boards and
+    `surface_normal` falls from 38° to 52-57°. So **do not re-run the boards by
+    flipping the flag**; 25b picks a schedule for standardised features first,
+    by one rule for every backbone.
   - **n=14.** Every correlation above has wide error bars.
 
 - **A trained probe records how its fit went** (schema v8, 2026-08-28; the
@@ -1758,9 +1776,9 @@ designed up front; extend it the same way, from a case that already runs.
 ### Open issues — read before assuming a red suite is your fault
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
-fast suite **collects 2560 tests**, green on 2026-11-25 along with all three
+fast suite **collects 2605 tests**, green on 2026-11-27 along with all three
 lint steps, mypy and the `-W` docs build; the slow suite is **116**, last fully
-green on `main` on 2026-09-11. Earlier fast counts, for dating a claim: 2536 at 24b, 2512 at 24a, 2508 at 23c, 2486 at 23b, 2445 at 23a, 2433 at
+green on `main` on 2026-09-11. Earlier fast counts, for dating a claim: 2560 at v0.28.1, 2536 at 24b, 2512 at 24a, 2508 at 23c, 2486 at 23b, 2445 at 23a, 2433 at
 22c, 2414 at 22b, 2397 at 21b, 2304 at v0.23.0, 1824 at the oracle gate — keep
 that list to a handful. **Quote the collected count, not "N passed"**: the skip
 count depends on which extras are installed (3 on CI, 8 on `.venv`, 0 with
@@ -2078,7 +2096,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 ```bash
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
-pytest                                              # 2560 fast tests
+pytest                                              # 2605 fast tests
 pytest -m slow                                      # 116, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/

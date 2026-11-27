@@ -6,6 +6,8 @@ tests read the parser directly rather than through a subprocess, which is why
 :func:`build_parser` returns it instead of parsing in place.
 """
 
+import argparse
+
 import pytest
 
 import visbench
@@ -227,3 +229,46 @@ class TestMissingExtras:
         result = run_cli("list", "backbones")
         assert "extra" not in result.out
         assert "pip install" not in result.out
+
+
+#: The ten probes whose heads read raw dense features, and so take #172's
+#: standardiser. Detection and instance segmentation are deliberately absent.
+DENSE_STANDARDISED = (
+    "depth",
+    "surface_normal",
+    "generic_segmentation",
+    "semantic_segmentation",
+    "scene_parsing",
+    "edge",
+    "keypoints2d",
+    "occlusion_edge",
+    "corner",
+    "orientation",
+)
+
+
+def _defaults(spec) -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    spec.add_arguments(parser)
+    return argparse.Namespace(
+        **{a.dest: a.default for a in parser._actions if a.dest != "help"},
+        backbone="fake",
+        device="cpu",
+        batch_size=32,
+    )
+
+
+@pytest.mark.parametrize("probe", DENSE_STANDARDISED)
+def test_the_standardize_flag_reaches_each_dense_probe(probe):
+    """Off unless asked for, and carried into the probe's constructor when it is."""
+    args = _defaults(spec_for(probe))
+    assert args.standardize is False
+    assert spec_for(probe).probe_kwargs(args)["standardize"] is False
+    args.standardize = True
+    assert spec_for(probe).probe_kwargs(args)["standardize"] is True
+
+
+@pytest.mark.parametrize("probe", ["detection", "instance_segmentation"])
+def test_detection_heads_do_not_offer_it(probe):
+    """Out of scope for #172: their heads are not DenseTrainingTask's."""
+    assert not hasattr(_defaults(spec_for(probe)), "standardize")

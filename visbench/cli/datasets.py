@@ -200,6 +200,15 @@ def _head_shape_flags(parser: argparse.ArgumentParser) -> None:
         help="backbone depths to read, e.g. --layers 2 5 8 11; dpt needs several",
     )
     parser.add_argument("--hidden-dim", type=int, default=512, help="DPT width")
+    # A head-shape flag rather than a schedule one, like classification's: a
+    # head fitted on standardised features is only usable with the statistics
+    # beside it, so it changes what a saved artifact needs (#172).
+    parser.add_argument(
+        "--standardize",
+        action="store_true",
+        help="standardise each feature channel (train-split mean/std) before the head; "
+        "off by default, and every published dense board was measured without it",
+    )
 
 
 def _schedule_flags(parser: argparse.ArgumentParser) -> None:
@@ -285,6 +294,7 @@ def _dense_probe_kwargs(args: argparse.Namespace) -> dict:
         "device": args.device,
         "finetune_blocks": args.finetune_blocks,
         "backbone_lr": args.backbone_lr,
+        "standardize": args.standardize,
     }
 
 

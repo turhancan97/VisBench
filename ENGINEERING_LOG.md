@@ -3348,6 +3348,58 @@ new probes by name. It is pinned against `list_probes()` now. This is the
 same family as the corpus-matrix arrays (10b): a fixed list beside a registry,
 with nothing comparing the two.
 
+## 25a — the dense standardiser, and what its control found (2026-11-27, #172)
+
+**What shipped.** `DenseTrainingTask(standardize=True)` / `--standardize` on the
+ten dense probes:
+- per-channel mean and std, accumulated in float64 over the training split, one
+  pair per extracted layer;
+- applied in `_forward`, the one point `fit`, `predict` and `evaluate` all pass
+  through;
+- carried in `probe_state` as `mean_<i>`/`std_<i>`, and `load_probe_state`
+  turns the flag on, because the Hub rebuilds a probe from required arguments
+  only.
+
+`standardize` enters `task_params` only when on, and the protocol gains `+std`.
+`scene_parsing` had set its protocol in `describe()` after `super()`, where a
+suffix applied in the base would have been overwritten; it moved into
+`_task_params()`. Refused with `finetune_blocks`.
+
+**Decided with the user, by ten yes/no answers:**
+- all ten boards;
+- per-channel statistics;
+- opt-in first;
+- eventual replacement of the boards under a new protocol;
+- classification boards out (#199), and detection/instance out;
+- re-sweep, and republish the twenty dense heads;
+- three steps, 25a / 25b / 25c.
+
+**A sentence that was wrong.** 24b's write-up, the roadmap and
+`run_scale_control.py` said the image-level probes standardise. All 129
+classification-family records ran `standardize=False`. Corrected; #199 asks
+whether they should.
+
+**The control** (`results/controls/scale_control_std.jsonl`, 28 records) re-ran
+24b's arms with the flag on, reading the `x<scale>` caches already on disk:
+- Each scaled arm equals its ×1 gate exactly on six boards, and to 0.1-0.8 seed
+  sd on `orientation`.
+- A flag-off gate reproduced every `convnext_base` cell after the change (≤ 5e-6
+  smooth, 1.5e-2 `orientation`).
+- On the three reversing boards, the standardised pair order agrees with 24b's
+  matched-scale order.
+
+**What it found that was not asked.** At probe3d's schedule (10 epochs, lr 5e-4),
+standardised features fit *worse*:
+- `train_loss` rises on `depth` (`convnext_base`), `edge`, `corner`,
+  `semantic_segmentation` (0.59/0.40 → 1.13/1.14) and `surface_normal`.
+- On `surface_normal`, mean error goes from 38° to 52-57°.
+
+That lr was tuned on raw features. Unit-scale channels are a different problem
+for it, so flipping the flag on every board would replace one optimiser
+artefact with another. **25b's first job is a schedule for standardised
+features**, chosen by one rule for every backbone (e.g. a short lr sweep scored
+on the training split's own `train_loss`, never on the evaluation split).
+
 ## 24b — `clip_convnext_base`'s board, and the control that changed how it reads
 
 **What shipped.** Twenty corpus cells (2026-10-15, V100, torch 2.8.0+cu128),

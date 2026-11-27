@@ -495,10 +495,14 @@ Worth naming so they are not re-scoped from scratch:
   representation. Moving two columns onto each other's scale reverses them on
   `generic_segmentation`, `semantic_segmentation` and `depth`, and the corpus's
   columns already span 9.7x in scale. Standardising features before the dense
-  heads, as the image-level probes already do, is the obvious remedy. It
-  would move every published dense number, so it is a re-run and a release of
-  its own, measured against the current boards. It is not a fix to fold into
-  another step. The control is in `results/controls/README.md`.
+  heads is the obvious remedy. (An earlier version of this paragraph said the
+  image-level probes already do; they can, but every published
+  classification-family cell ran unstandardised.) **The standardiser ships**
+  as an opt-in `--standardize` (#172, step 25a), and a control proves a
+  constant rescaling can no longer move a standardised score. Re-running the
+  ten dense boards with it on would move every published dense number, so that
+  is a step and a release of its own (25b). The control is in
+  `results/controls/README.md`.
 
 - **Edge / contour detection** is implemented (v0.4) as dense magnitude
   regression on Taskonomy. What is missing is **BSDS500's** ODS/OIS/AP boundary

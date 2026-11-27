@@ -41,9 +41,11 @@ Nothing here feeds a generated table. `scripts/render_tables.py` and
 
 **28 records and one table.** `clip_convnext_base` (24b) came last or near it on
 several linear dense boards, and its stage-4 features are ~9x smaller than its
-supervised sibling `convnext_base`'s. The image-level probes standardise
-features before fitting; the dense heads fit raw features with AdamW at a fixed
-learning rate, which is not scale-invariant. So a low dense placement could be
+supervised sibling `convnext_base`'s. The dense heads fit raw features with
+AdamW at a fixed learning rate, which is not scale-invariant. (This paragraph
+first said the image-level probes standardise features before fitting. They
+can — `ClassificationTask(standardize=True)` — but every published
+classification-family cell ran with it off; corrected in 25a.) So a low dense placement could be
 the optimiser rather than the representation, and no record could say which.
 
 ### The control, and its gate
@@ -109,6 +111,58 @@ corrected board: the control moved two columns, and standardising features
 before the dense heads would change every published dense number, which is a
 re-run of its own and an open question this step hands on. Nothing here enters
 the corpus; a scaled backbone is a model nobody would choose.
+
+## `scale_control_std.jsonl` — the same arms, standardised (25a, #172)
+
+**28 records, on V100s.** The 24b arms re-run with `--standardize`: the dense
+probes' per-channel standardiser, statistics from the training split
+(`DenseTrainingTask(standardize=True)`). Same script, same seven boards, same
+cached `.../x<scale>` features, so no extraction:
+`STANDARDIZE=1 sbatch --array=0-27%6 slurm/scale_control.sbatch`. Read it with
+`python scripts/analyse_scale_control.py --control results/controls/scale_control_std.jsonl`.
+Every record carries `standardize: true` and a `+std` protocol, so none of it
+could join a board even if it reached the corpus.
+
+**The prediction is exact, and it holds.** A constant factor cancels in
+`(x - mean) / std`, so each scaled arm must equal its own ×1 gate. On the six
+smooth boards the shift is **0.0000** for both columns, and on `orientation` it
+is +0.011° and +0.043° (0.1 and 0.8 seed sd), inside that board's known
+ill-conditioning. **Scale can no longer move a standardised score.**
+
+**With the standardiser off, nothing moved.** A separate gate re-ran
+`convnext_base`'s ×1 arm on all seven boards with the flag off, after the code
+change: every cell reproduces its published value (≤ 5e-6 on the six smooth
+boards, 1.5e-2 on `orientation` against its 5e-2 tolerance), and no record
+gained a `standardize` key.
+
+**What standardising does to the pair** (×1 arms, headline metric):
+
+| board | published `clip` / `cnx` | standardised `clip` / `cnx` | order |
+| --- | --- | --- | --- |
+| `generic_segmentation` | 0.4840 / 0.5575 | 0.5729 / 0.5610 | reverses, as 24b's matched-scale arms did |
+| `semantic_segmentation` | 0.4162 / 0.4967 | 0.4976 / 0.4943 | reverses, as 24b's did |
+| `depth` (d1) | 0.6203 / 0.6232 | 0.6152 / 0.5641 | reverses, as 24b's did |
+| `edge` | 0.3709 / 0.3637 | 0.3090 / 0.3104 | near tie |
+| `corner` | 0.5158 / 0.5319 | 0.5081 / 0.5038 | reverses |
+| `surface_normal` (mean °, lower better) | 38.51 / 38.40 | **51.96 / 56.67** | — |
+| `orientation` (°, lower better) | 30.93 / 27.48 | 30.49 / 27.44 | unchanged |
+
+On the three boards 24b found reversing, the standardised order agrees with
+24b's matched-scale order — the same answer reached two ways.
+
+**But standardised features fit worse at probe3d's schedule, and that is the
+finding this step hands on.** At the published ten epochs and lr 5e-4, the final
+`train_loss` is *higher* standardised than raw for both columns on `depth`
+(`convnext_base`), `edge`, `corner`, `semantic_segmentation` (0.59 / 0.40 →
+1.13 / 1.14) and `surface_normal`, where both columns fit badly (mean error 52-57° and d1 0.09, against 38° and
+0.12-0.13 published). So `edge`'s and `corner`'s
+lower scores, and the whole `surface_normal` row, are an underfitting probe,
+not a weaker representation — `training` is what says so. The learning rate
+was chosen for raw features, and moving every channel to unit scale changes
+what that rate does. **Re-running the ten boards standardised at today's
+schedule would trade one optimiser artefact for another**, so 25b first has to
+choose a schedule for standardised features, by a rule that is the same for
+every backbone.
 
 ## `crop_control.jsonl` — what the timm rows score without a second crop (22c)
 

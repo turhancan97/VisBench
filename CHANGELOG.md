@@ -11,6 +11,23 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Added
 
+- **An opt-in feature standardiser for the ten dense probes** (#172, step 25a):
+  `--standardize` on the CLI, `standardize=True` in Python. Every feature
+  channel is mapped to mean 0 and standard deviation 1 before the head, using
+  statistics computed once on the training split. It exists because step 24b
+  showed the linear dense boards read a backbone's feature *scale*: multiplying
+  two columns' features by a constant reversed their order on three boards. With
+  it on, a constant rescaling cannot move a score, which a fast test and a GPU
+  control (`results/controls/scale_control_std.jsonl`) both check. **Off by
+  default, and no published number moves.** A standardised run records
+  `standardize: true` and a `+std` protocol suffix, so it never shares a ranking
+  with a raw one. The statistics travel inside a saved probe, and the flag is
+  refused with `--finetune-blocks`. The control also found that standardised
+  features **underfit at probe3d's ten-epoch, 5e-4 schedule** (`train_loss`
+  rises on five of seven boards, and `surface_normal` worsens from 38° to
+  52-57°). Re-running the boards (25b) therefore starts by choosing a schedule
+  for standardised features.
+
 - **An explainer video's source**, under `video/`: a 3.5-minute Manim film with
   Kokoro-82M narration and subtitles, for ML researchers. It covers probing, the
   disagreeing boards, the seed sweeps, the feature-scale control and the timm
@@ -24,6 +41,11 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Fixed
 
+- **A wrong sentence about the image-level probes.** The 24b write-up, the
+  roadmap and the scale-control script said the classification probes
+  standardise features before fitting. They can, but every published
+  classification-family cell ran with `standardize=False`. Corrected in all
+  three places; no number changes.
 - **probe3d's arXiv link pointed at an unrelated paper.** Every citation of
   El Banani et al. (CVPR 2024) carried `arXiv:2404.08476`, which is a NeurIPS
   paper on uncertainty quantification; probe3d is
