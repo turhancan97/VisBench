@@ -1,0 +1,5 @@
+# Every path is owned by the maintainer, so a pull request from anyone else
+# requests their review automatically (and that request always notifies).
+# Not enforced: no branch protection requires code-owner approval, since a
+# sole maintainer cannot approve their own pull requests.
+* @turhancan97
