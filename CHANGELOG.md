@@ -45,6 +45,15 @@ so it stands on its own rather than assuming you have read the ones above it.
   package. **Published on YouTube** (https://www.youtube.com/watch?v=giKxewO0-lo), linked from the README
   and embedded on the docs landing page.
 
+### Changed
+
+- **No Slurm file hard-codes a node to avoid any more** (#194). Four excluded
+  `dgx1` from when it was degraded (2026-09); two excluded `dgx2` from when its
+  NFS stalled (2026-11-25), and the healthy node has swapped since. The new
+  `slurm/node_check.sbatch` times `import torch` on a node: on 2026-11-27, 2 s
+  on `dgx1` against 70 s on `dgx2`. Pass the slow one as `--exclude` on the
+  command line. A test keeps excludes out of the files.
+
 ### Fixed
 
 - **A wrong sentence about the image-level probes.** The 24b write-up, the

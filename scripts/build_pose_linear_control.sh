@@ -48,7 +48,7 @@
 # training is under an hour, where the board itself is thirteen hours of decode:
 #
 #   sbatch -p dgx --gpus=1 --cpus-per-task=8 --mem=64G --time=02:00:00 \
-#     --exclude=dgx1 --output=logs/pose_linear_%j.log \
+#     --exclude=<slow node> --output=logs/pose_linear_%j.log \
 #     --wrap '. .venv/bin/activate && \
 #       VISBENCH_CACHE=/shared/results/common/kargin/visbench_cache \
 #       scripts/build_pose_linear_control.sh'

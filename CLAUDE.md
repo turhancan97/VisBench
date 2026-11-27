@@ -972,9 +972,11 @@ designed up front; extend it the same way, from a case that already runs.
 - **The cluster's node map, measured rather than inferred — and it inverts.**
   **As of 2026-11-25 `dgx2` is the slow one**: every task sat in NFS `D` state
   for 45 min with the GPU idle, while `dgx1` imported torch in 9 s. The
-  paragraphs below describe 2026-09, and the sbatch files still carry
-  `--exclude=dgx1`; a `--exclude` on the `sbatch` command line overrides the
-  file's. **Time an `import torch` on the node before every corpus run.** The
+  paragraphs below describe 2026-09. **No `slurm/*.sbatch` excludes a node any
+  more** (#194, pinned by `tests/scripts/test_slurm_nodes.py`): run
+  `sbatch -w <node> slurm/node_check.sbatch` on each candidate and pass the slow
+  one as `--exclude` on the command line. **Time an `import torch` on the node
+  before every corpus run.** The
   usable set was `dgx1`, `dgx2` and `dgxa100`. **`dgxh100` cannot run `.venv` at all** — it
   ships `/usr/bin/python3.12` and no 3.10, so `.venv/bin/python` is a dead
   symlink and a job dies in one second; its `--qos=quick` refusal is a
@@ -987,8 +989,8 @@ designed up front; extend it the same way, from a case that already runs.
   ~2 s on dgx2), with nothing in Slurm reporting it unhealthy — so a job hangs
   with an empty log and the first read is that your new code is broken. Given
   three hours it imported, then spent 4.5 hours on one CUB cell that takes 80 s
-  elsewhere. **Submit with `--exclude=dgx1`**, and when a job hangs with no
-  output, time an `import torch` on the node before suspecting the code.
+  elsewhere. When a job hangs with no output, time an `import torch` on the
+  node (`slurm/node_check.sbatch`) before suspecting the code.
 
   **`dgx2` can go `DRAIN` mid-run**, which leaves `dgxa100` as the only healthy
   node — and it is the one whose silicon differs: an A100 has TF32 where a V100
@@ -1782,14 +1784,16 @@ designed up front; extend it the same way, from a case that already runs.
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
 fast suite **collects 2621 tests**, green on 2026-11-27 along with all three
-lint steps, mypy and the `-W` docs build; the slow suite is **116**, last fully
-green on `main` on 2026-09-11. Earlier fast counts, for dating a claim: 2605 at 25a, 2560 at v0.28.1, 2536 at 24b, 2512 at 24a, 2508 at 23c, 2486 at 23b, 2445 at 23a, 2433 at
+lint steps, mypy and the `-W` docs build; the slow suite **collects 118**, green
+on `main` on 2026-11-27 (116 passed, and the two BSDS500 agreement tests skip
+because that dataset is not at their path on the dgx nodes; #176). Earlier fast counts, for dating a claim: 2605 at 25a, 2560 at v0.28.1, 2536 at 24b, 2512 at 24a, 2508 at 23c, 2486 at 23b, 2445 at 23a, 2433 at
 22c, 2414 at 22b, 2397 at 21b, 2304 at v0.23.0, 1824 at the oracle gate — keep
 that list to a handful. **Quote the collected count, not "N passed"**: the skip
 count depends on which extras are installed (3 on CI, 8 on `.venv`, 0 with
 everything), so `pytest --collect-only` is the number that means something.
 
-Run the checks via `sbatch` with **`--exclude=dgx1`** (the node map above); if
+Run the checks via `sbatch`, excluding whichever node `slurm/node_check.sbatch`
+shows slow (the node map above); if
 anything is red for you, that is new. The four closed issues are kept as
 *classes* of failure: **[#2] CI never ran `-m slow`** (`slow.yml` now does, but
 does not gate PRs, so **a check that guards a silently wrong number belongs in
@@ -2102,7 +2106,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
 pytest                                              # 2621 fast tests
-pytest -m slow                                      # 116, real DINOv2/CLIP weights
+pytest -m slow                                      # 118, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/
 mypy visbench/ examples/ --ignore-missing-imports   # reads [tool.mypy], py 3.12

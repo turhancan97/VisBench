@@ -17,19 +17,18 @@
 # an H100 node ships only 3.12, so every console script fails naming the
 # *script* rather than the missing interpreter.
 #
-# --exclude=dgx1 is the default here, and it is not superstition. dgx1 accepts
-# work and starves it: `import torch` takes 1-1.6 s PER SUBMODULE there and
-# never finishes, while dgx2 imports the same venv in 6 s. Nothing in Slurm
-# reports the node as unhealthy. Re-confirmed 2026-09-04, when a pre-check job
-# sat on dgx1 for six minutes without printing its first line. Set
-# VISBENCH_NODES= to override once it clears.
+# Which dgx node is healthy changes over time (CLAUDE.md's node map has
+# inverted once already), so no node is excluded here (#194). Time an import
+# on each candidate first, then pass the exclusion on the command line, which
+# overrides nothing in this file because nothing here sets one:
+#   sbatch -w dgx1 slurm/node_check.sbatch   # repeat per node; read its log
+#   sbatch --exclude=<slow node> ... this file
 #SBATCH -p dgx
 #SBATCH --gpus=1
 #SBATCH --qos=quick
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
 #SBATCH --ntasks=1
-#SBATCH --exclude=dgx1
 #SBATCH --job-name=visbench-dpt
 #SBATCH --time=00:45:00
 #SBATCH --output=logs/dpt_%A_%a.log

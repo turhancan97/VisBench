@@ -17,14 +17,19 @@
 # results/controls/parts/ that merge_controls.sh treats as a queue.
 #
 # dgx, not dgxh100 (no python3.10 there). V100s, because every corpus cell ran
-# on one. --exclude=dgx2: its NFS stalled every task on 2026-11-25.
+# on one.
+# Which dgx node is healthy changes over time (CLAUDE.md's node map has
+# inverted once already), so no node is excluded here (#194). Time an import
+# on each candidate first, then pass the exclusion on the command line, which
+# overrides nothing in this file because nothing here sets one:
+#   sbatch -w dgx1 slurm/node_check.sbatch   # repeat per node; read its log
+#   sbatch --exclude=<slow node> ... this file
 #SBATCH -p dgx
 #SBATCH --gres=gpu:1
 #SBATCH --qos=normal
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
 #SBATCH --ntasks=1
-#SBATCH --exclude=dgx2
 #SBATCH --job-name=visbench-lrsweep
 #SBATCH --time=04:00:00
 #SBATCH --output=logs/lrsweep_%A_%a.log
