@@ -3348,6 +3348,38 @@ new probes by name. It is pinned against `list_probes()` now. This is the
 same family as the corpus-matrix arrays (10b): a fixed list beside a registry,
 with nothing comparing the two.
 
+## 25b-1 — a learning rate per board for standardised features (2026-11-27, #172)
+
+**The rule came first.** The maintainer answered seven yes/no questions before
+any run:
+- one rate per board, shared by all backbones;
+- chosen on a fixed held-out 10% of the training split;
+- four scale-spanning backbones;
+- only the rate moves;
+- a board below the raw bar stops;
+- a split into 25b-1 and 25b-2;
+- a recorded, fixed slice.
+
+`scripts/run_lr_sweep.py` reads each cell's corpus command from
+`build_corpus.sh` and parses it with the CLI's own `build_parser`. It holds out
+`holdout_indices(n)` (seed 0, 10%) through `dataset.subset`, and calls
+`visbench.run` with the backbone **by name**, so `run()`'s seeding is
+unchanged.
+
+**Two bugs, both caught early.** The first submission parsed `["run", *argv]`,
+where `argv` already began with `run`: all 40 tasks died at argument parsing
+and wrote nothing. A single smoke cell then preceded the array.
+
+**The result** is in `results/controls/README.md`:
+- Nine boards clear raw at rates of 2e-3 to 2e-2.
+- Five boards first chose the grid's top, so the grid was extended. Four then
+  stayed at 1e-2 and `depth` moved to 2e-2; every choice is now interior,
+  which a test pins.
+- `surface_normal` stops: 49.3° against 36.6°, flat across rates (#201).
+
+**For 25b-2:** re-run the nine boards with `--standardize --lr <CHOSEN_RATES>`;
+`surface_normal` stays raw.
+
 ## 25a — the dense standardiser, and what its control found (2026-11-27, #172)
 
 **What shipped.** `DenseTrainingTask(standardize=True)` / `--standardize` on the

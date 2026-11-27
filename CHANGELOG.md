@@ -27,6 +27,12 @@ so it stands on its own rather than assuming you have read the ones above it.
   rises on five of seven boards, and `surface_normal` worsens from 38° to
   52-57°). Re-running the boards (25b) therefore starts by choosing a schedule
   for standardised features.
+- **A learning rate per dense board for standardised features** (step 25b-1,
+  `results/controls/lr_sweep.jsonl`). Each rate is chosen on a fixed held-out
+  slice of the training split, one per board and shared by every backbone. At
+  rates of 2e-3 to 2e-2, standardised features beat raw on nine of ten boards.
+  `surface_normal` does not at any rate, and stays raw (#201). No published
+  number moves.
 
 - **An explainer video's source**, under `video/`: a 3.5-minute Manim film with
   Kokoro-82M narration and subtitles, for ML researchers. It covers probing, the
