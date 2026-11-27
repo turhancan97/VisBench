@@ -47,6 +47,16 @@ so it stands on its own rather than assuming you have read the ones above it.
 
 ### Changed
 
+- **Dense targets now land exactly on their images** (#173). Before, every
+  dense target was resized with torch's left-aligned nearest-neighbour while
+  its image went through PIL's centre-aligned resize, so targets sat a
+  sub-pixel off (1.6% of a VOC label map moved). Targets are now resampled
+  with PIL's nearest-neighbour by default (`target_resample="pil_nearest"`,
+  `--target-resample`). **`torch_nearest` reproduces every published cell**:
+  its fingerprint equals the published one on all nine affected boards, while
+  the aligned default gets a new one, so the two never share a board. No
+  published number moves until the boards are re-run (25b-2). Oracle ceilings
+  change by at most 0.01 (`results/controls/target_alignment.json`).
 - **No Slurm file hard-codes a node to avoid any more** (#194). Four excluded
   `dgx1` from when it was degraded (2026-09); two excluded `dgx2` from when its
   NFS stalled (2026-11-25), and the healthy node has swapped since. The new

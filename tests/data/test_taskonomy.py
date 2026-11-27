@@ -54,9 +54,15 @@ def _write_normal_png(path: Path, array: np.ndarray) -> None:
 
 
 def _stripe(height: int, width: int, column: int, value: int) -> np.ndarray:
-    """A blank field with one bright vertical stripe — a locatable feature."""
+    """A blank field with one bright vertical stripe — a locatable feature.
+
+    Two pixels wide, starting at ``column``. A one-pixel stripe under the
+    fixtures' 2x downsample falls between nearest-neighbour samples whenever it
+    sits on a column the centre-aligned resize skips (#173), so it would test
+    sampling luck rather than alignment.
+    """
     array = np.zeros((height, width), dtype=np.uint16)
-    array[:, column] = value
+    array[:, column : column + 2] = value
     return array
 
 
@@ -84,7 +90,7 @@ def taskonomy(tmp_path: Path) -> Path:
     for building in BUILDINGS:
         for point, view in ((0, 0), (1, 2)):
             rgb = np.zeros((64, 96, 3), dtype=np.uint8)
-            rgb[:, 20] = 255
+            rgb[:, 20:22] = 255
             image_path = tmp_path / "rgb" / building / f"point_{point}_view_{view}_domain_rgb.png"
             image_path.parent.mkdir(parents=True, exist_ok=True)
             Image.fromarray(rgb).save(image_path)
@@ -497,3 +503,19 @@ def test_describe_records_the_domain_and_partition(taskonomy: Path):
     assert info["domain"] == "edge_texture"
     assert info["partition"] == "tiny"
     assert info["dataset"] == "taskonomy_edge_texture"
+
+
+def test_the_alignment_fix_changes_the_fingerprint(taskonomy: Path):
+    """#173: an aligned and a legacy run must never share a board.
+
+    Taskonomy computes its own fingerprint, and the first version of the fix
+    forgot it -- the real-data control caught the three Taskonomy boards
+    reporting their published fingerprint with aligned targets.
+    """
+    aligned = TaskonomyDataset(taskonomy, split="train", image_size=32)
+    legacy = TaskonomyDataset(
+        taskonomy, split="train", image_size=32, target_resample="torch_nearest"
+    )
+    assert aligned.fingerprint() != legacy.fingerprint()
+    assert aligned.describe()["target_resample"] == "pil_nearest"
+    assert "target_resample" not in legacy.describe()

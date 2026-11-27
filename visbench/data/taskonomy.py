@@ -44,6 +44,8 @@ import torch
 from PIL import Image
 
 from visbench.data.dense import (
+    DEFAULT_TARGET_RESAMPLE,
+    LEGACY_TARGET_RESAMPLE,
     DenseFolderDataset,
     load_depth_map,
     load_edge_map,
@@ -314,6 +316,7 @@ class TaskonomyDataset(DenseFolderDataset):
         max_images: int | None = None,
         buildings: Sequence[str] | None = None,
         max_target: float | None = None,
+        target_resample: str = DEFAULT_TARGET_RESAMPLE,
     ) -> None:
         """Index one domain against the RGB frames named by an official split.
 
@@ -441,6 +444,7 @@ class TaskonomyDataset(DenseFolderDataset):
             target_loader=(
                 target_loader if target_loader is not None else spec.loader(target_scale)
             ),
+            target_resample=target_resample,
         )
         self.name = f"taskonomy_{domain}"
         self.domain = domain
@@ -581,6 +585,12 @@ class TaskonomyDataset(DenseFolderDataset):
             # of them are two different sets of supervision.
             f"{self._spec.invalid}|{self._spec.log_transform}".encode()
         )
+        # #173, as in DenseFolderDataset: only when not the pre-#173 method, so a
+        # legacy re-run reproduces its published fingerprint. This override was
+        # missed at first; the alignment control caught it, because the three
+        # Taskonomy boards' aligned fingerprints matched their published ones.
+        if self.target_resample != LEGACY_TARGET_RESAMPLE:
+            digest.update(f"|resample={self.target_resample}".encode())
         for stem in self.stems:
             digest.update(stem.encode())
         return digest.hexdigest()[:16]

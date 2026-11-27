@@ -60,23 +60,17 @@ for genuinely broken annotation.
 
 **On the nearest-neighbour convention, which is shared rather than chosen here.**
 :meth:`VOCInstanceDataset._crop_map` resamples through
-``torch.nn.functional.interpolate(mode="nearest")``, which is the call
-:class:`~visbench.data.dense.DenseFolderDataset` already makes for every dense
-target, while the *image* is resized by PIL. Those two disagree: torch's nearest
-is left-aligned where PIL's is centre-aligned, so a target sits a sub-pixel from
-its image. Measured on VOC's segmentation val, the two crops of one instance map
-differ on **1.7%** of pixels (1.5% for a semantic map), always at object
-boundaries, and on 28 of 60 images a one-pixel roll fits better than none — a
-sub-pixel offset, not a shift.
-
-This module keeps the shipped convention deliberately. Every published dense
-number was produced under it, and the `semantic_segmentation` board reads *these
-same 1,449 images*, so diverging for one probe would buy a fractionally better
-alignment at the cost of the comparability that makes a shared split worth
-having. The effect on what this dataset is for is small and measured: the
-oracle mask mAP@50 is 0.6666 through this class against 0.6638 through a PIL
-crop. Whether the shared convention should change is a question about five
-existing boards, not about this one.
+:func:`~visbench.data.dense.resample_target`, the same call
+:class:`~visbench.data.dense.DenseFolderDataset` makes for every dense target.
+Until #173 that was ``torch.nn.functional.interpolate(mode="nearest")``, which
+is left-aligned while PIL, which resizes the *image*, is centre-aligned, so a
+target sat a sub-pixel from its image. Measured on VOC's segmentation val, the
+two crops of one instance map differed on **1.7%** of pixels (1.5% for a
+semantic map), always at object boundaries. The default is now PIL's own
+nearest-neighbour (``target_resample="pil_nearest"``), and
+``"torch_nearest"`` reproduces every cell published before the fix. The
+setting is folded into the fingerprint whenever it is not the legacy one, so
+the two geometries can never share a board.
 """
 
 import hashlib
@@ -88,7 +82,13 @@ import torch
 from PIL import Image
 
 from visbench.data.base import BaseDataset, list_files
-from visbench.data.dense import load_label_map
+from visbench.data.dense import (
+    DEFAULT_TARGET_RESAMPLE,
+    LEGACY_TARGET_RESAMPLE,
+    check_target_resample,
+    load_label_map,
+    resample_target,
+)
 from visbench.data.detection import VOC_CLASSES
 from visbench.utils.image import load_image
 
@@ -211,6 +211,7 @@ class VOCInstanceDataset(BaseDataset):
         instance_loader: Callable[[Path], tuple[torch.Tensor, torch.Tensor]] | None = None,
         name: str = "voc_instance",
         split: str = "",
+        target_resample: str = DEFAULT_TARGET_RESAMPLE,
     ) -> None:
         if image_size < 1:
             raise ValueError(f"image_size must be >= 1, got {image_size}")
@@ -230,6 +231,7 @@ class VOCInstanceDataset(BaseDataset):
         self.name = name
         self.split = split
         self._instance_loader = instance_loader
+        self.target_resample = check_target_resample(target_resample)
 
         if not self.root.is_dir():
             raise NotADirectoryError(f"Dataset root does not exist: {self.root}")
@@ -376,11 +378,9 @@ class VOCInstanceDataset(BaseDataset):
         """
         height, width = plane.shape[-2:]
         resized_width, resized_height = self._resized_size(width, height)
-        resized = torch.nn.functional.interpolate(
-            plane[None, None].float(),
-            size=(resized_height, resized_width),
-            mode="nearest",
-        )[0, 0]
+        resized = resample_target(
+            plane[None].float(), (resized_height, resized_width), self.target_resample
+        )[0]
         left, top = self._crop_origin(resized_width, resized_height)
         cropped = resized[top : top + self.image_size, left : left + self.image_size]
         return cropped.to(plane.dtype)
@@ -541,6 +541,10 @@ class VOCInstanceDataset(BaseDataset):
             f"{self.name}|{self.split}|{len(self.stems)}|{self.image_size}|"
             f"{self.min_instance_pixels}|{len(self.classes)}".encode()
         )
+        # As in DenseFolderDataset: only when not the pre-#173 method, so a
+        # legacy re-run reproduces its published fingerprint.
+        if self.target_resample != LEGACY_TARGET_RESAMPLE:
+            digest.update(f"|resample={self.target_resample}".encode())
         # strict=True: the three lists are paired by index throughout this class,
         # so unequal lengths mean the pairing is already broken. Folding a
         # truncated list into a fingerprint that still looks valid would let a
@@ -560,4 +564,6 @@ class VOCInstanceDataset(BaseDataset):
         info["image_size"] = self.image_size
         info["min_instance_pixels"] = self.min_instance_pixels
         info["num_classes"] = len(self.classes)
+        if self.target_resample != LEGACY_TARGET_RESAMPLE:
+            info["target_resample"] = self.target_resample
         return info

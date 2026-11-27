@@ -1,0 +1,125 @@
+{
+  "note": "25b-0 (#173): legacy torch_nearest vs aligned pil_nearest, first 200 eval items per board; Taskonomy rows re-measured after their fingerprint fix",
+  "rows": [
+    {
+      "probe": "depth",
+      "legacy_fingerprint": "93c426321d66a9d3",
+      "published_fingerprint": "93c426321d66a9d3",
+      "legacy_reproduces_published": true,
+      "aligned_fingerprint_differs": true,
+      "items": 200,
+      "mean_fraction_moved": 0.5709481624681125,
+      "items_with_changed_instance_count": 0
+    },
+    {
+      "probe": "surface_normal",
+      "legacy_fingerprint": "9fe9118217d1e76f",
+      "published_fingerprint": "9fe9118217d1e76f",
+      "legacy_reproduces_published": true,
+      "aligned_fingerprint_differs": true,
+      "items": 200,
+      "mean_fraction_moved": 0.7506912667410713,
+      "items_with_changed_instance_count": 0
+    },
+    {
+      "probe": "generic_segmentation",
+      "legacy_fingerprint": "8e0b5603e2b3dcf1",
+      "published_fingerprint": "8e0b5603e2b3dcf1",
+      "legacy_reproduces_published": true,
+      "aligned_fingerprint_differs": true,
+      "items": 200,
+      "mean_fraction_moved": 0.01634038185586735,
+      "items_with_changed_instance_count": 0
+    },
+    {
+      "probe": "semantic_segmentation",
+      "legacy_fingerprint": "e6d967730ebb8a4c",
+      "published_fingerprint": "e6d967730ebb8a4c",
+      "legacy_reproduces_published": true,
+      "aligned_fingerprint_differs": true,
+      "items": 200,
+      "mean_fraction_moved": 0.01639847735969388,
+      "items_with_changed_instance_count": 0
+    },
+    {
+      "probe": "scene_parsing",
+      "legacy_fingerprint": "e861c699542e4c55",
+      "published_fingerprint": "e861c699542e4c55",
+      "legacy_reproduces_published": true,
+      "aligned_fingerprint_differs": true,
+      "items": 200,
+      "mean_fraction_moved": 0.034796117665816334,
+      "items_with_changed_instance_count": 0
+    },
+    {
+      "probe": "edge",
+      "legacy_fingerprint": "de21f6d984544fac",
+      "published_fingerprint": "de21f6d984544fac",
+      "legacy_reproduces_published": true,
+      "aligned_fingerprint_differs": true,
+      "items": 200,
+      "mean_fraction_moved": 0.9769520288584184,
+      "items_with_changed_instance_count": 0,
+      "oracle_legacy": {
+        "edge_correlation": 0.6330024456977844,
+        "rmse": 0.7749290776252746,
+        "mae": 0.4419994866847992
+      },
+      "oracle_aligned": {
+        "edge_correlation": 0.6343034529685974,
+        "rmse": 0.7747757482528687,
+        "mae": 0.4421075320243835
+      }
+    },
+    {
+      "probe": "keypoints2d",
+      "legacy_fingerprint": "910829fbcac2d5fb",
+      "published_fingerprint": "910829fbcac2d5fb",
+      "legacy_reproduces_published": true,
+      "aligned_fingerprint_differs": true,
+      "items": 200,
+      "mean_fraction_moved": 0.704601004464286,
+      "items_with_changed_instance_count": 0,
+      "oracle_legacy": {
+        "keypoint_correlation": 0.6952551865577697,
+        "rmse": 1.8512185430526733,
+        "mae": 0.8918828392028808
+      },
+      "oracle_aligned": {
+        "keypoint_correlation": 0.6856096816062928,
+        "rmse": 1.861918067932129,
+        "mae": 0.8960734605789185
+      }
+    },
+    {
+      "probe": "occlusion_edge",
+      "legacy_fingerprint": "d38f997506af24dd",
+      "published_fingerprint": "d38f997506af24dd",
+      "legacy_reproduces_published": true,
+      "aligned_fingerprint_differs": true,
+      "items": 200,
+      "mean_fraction_moved": 0.5941483976403062,
+      "items_with_changed_instance_count": 0,
+      "oracle_legacy": {
+        "occlusion_edge_correlation": 0.5331705820560455,
+        "rmse": 0.3840771877765656,
+        "mae": 0.1557318651676178
+      },
+      "oracle_aligned": {
+        "occlusion_edge_correlation": 0.534476808309555,
+        "rmse": 0.38344561457633974,
+        "mae": 0.15414653718471527
+      }
+    },
+    {
+      "probe": "instance_segmentation",
+      "legacy_fingerprint": "fdc4ef64fe0cbc95",
+      "published_fingerprint": "fdc4ef64fe0cbc95",
+      "legacy_reproduces_published": true,
+      "aligned_fingerprint_differs": true,
+      "items": 200,
+      "mean_fraction_moved": 0.007717224412166149,
+      "items_with_changed_instance_count": 1
+    }
+  ]
+}

@@ -72,6 +72,16 @@ off. A run with it on records `standardize: true` and a `+std` suffix on its
 number. The statistics travel inside a saved probe, and it is refused together
 with `--finetune-blocks`, since fine-tuning moves the features they describe.
 
+### `--target-resample`: where a target lands
+
+Every dense dataset resizes and centre-crops the image and its target together.
+Since #173 the target is resampled with PIL's nearest-neighbour, the same pixel
+geometry as the image's resize, so it lands exactly on the image.
+`--target-resample torch_nearest` restores the old left-aligned geometry, which
+every dense number published before #173 used; it reproduces their dataset
+fingerprints exactly. The two geometries get different fingerprints, so they
+never share a board.
+
 ## Features stream
 
 Dense features are ~250x the size of pooled ones — 24k NYUv2 images at DINOv2-B

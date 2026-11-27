@@ -301,6 +301,56 @@ def load_edge_map(path: Path, scale: float = 65535.0) -> torch.Tensor:
     return edges
 
 
+#: How a dense target is resampled to the working geometry (#173).
+#:
+#: ``"pil_nearest"`` (the default since #173) resamples with PIL's
+#: nearest-neighbour, which shares PIL's centre-aligned pixel geometry with the
+#: bicubic resize the *image* goes through, so a target lands exactly on its
+#: image. ``"torch_nearest"`` is ``torch.nn.functional.interpolate(mode=
+#: "nearest")``, which is left-aligned: every dense number published before
+#: #173 was produced with it, and a target sat a sub-pixel from its image (1.7%
+#: of a VOC map's pixels moved, always at boundaries). Kept so those cells can be
+#: reproduced. torch's own ``"nearest-exact"`` was measured and rejected: it
+#: still differs from PIL on 20% of pixels for Taskonomy's 512 -> 224 resize.
+TARGET_RESAMPLES = ("pil_nearest", "torch_nearest")
+DEFAULT_TARGET_RESAMPLE = "pil_nearest"
+#: The pre-#173 behaviour. Records produced with it carry no ``target_resample``
+#: key, so it alone is left out of fingerprints and ``describe()``.
+LEGACY_TARGET_RESAMPLE = "torch_nearest"
+
+
+def check_target_resample(method: str) -> str:
+    if method not in TARGET_RESAMPLES:
+        raise ValueError(f"target_resample must be one of {TARGET_RESAMPLES}, got {method!r}")
+    return method
+
+
+def resample_target(
+    channelled: torch.Tensor, size: tuple[int, int], method: str = DEFAULT_TARGET_RESAMPLE
+) -> torch.Tensor:
+    """Resize a ``(C, H, W)`` target to ``size = (height, width)``, nearest-neighbour.
+
+    Nearest-neighbour by design, for every method: interpolating a target
+    invents values across discontinuities. ``method`` chooses whose pixel
+    geometry it follows; see :data:`TARGET_RESAMPLES`. The PIL path goes through
+    float32 ``"F"`` images one channel at a time, which keeps ``NaN`` holes and
+    every integer label below 2**24 exactly.
+    """
+    check_target_resample(method)
+    height, width = size
+    if method == "torch_nearest":
+        # Exactly the pre-#173 call, so a legacy run reproduces bit for bit.
+        return torch.nn.functional.interpolate(
+            channelled[None], size=(height, width), mode="nearest"
+        )[0]
+    planes = []
+    for plane in channelled:
+        array = plane.detach().cpu().numpy().astype(np.float32, copy=False)
+        resized = Image.fromarray(array).resize((width, height), Image.Resampling.NEAREST)
+        planes.append(torch.from_numpy(np.array(resized, dtype=np.float32)))
+    return torch.stack(planes).to(channelled.dtype)
+
+
 class DenseFolderDataset(BaseDataset):
     """Images and their per-pixel targets, in two parallel folders.
 
@@ -336,6 +386,7 @@ class DenseFolderDataset(BaseDataset):
         target_loader: Callable[[Path], torch.Tensor] | None = None,
         extensions: tuple[str, ...] = (".jpg", ".jpeg", ".png", ".webp"),
         stems: Sequence[str] | None = None,
+        target_resample: str = DEFAULT_TARGET_RESAMPLE,
     ) -> None:
         """Index the folder pair.
 
@@ -362,6 +413,10 @@ class DenseFolderDataset(BaseDataset):
             a catastrophic mismatch and pairing rightly refuses. A stem missing
             from either folder raises, so a truncated split file cannot quietly
             shrink the run. Left ``None``, every stem must appear in both.
+        target_resample:
+            How the target follows the image's resize; see
+            :data:`TARGET_RESAMPLES`. ``"torch_nearest"`` reproduces every dense
+            cell published before #173.
         """
         self._init_geometry(
             root=root,
@@ -370,6 +425,7 @@ class DenseFolderDataset(BaseDataset):
             target_scale=target_scale,
             max_target=max_target,
             target_loader=target_loader,
+            target_resample=target_resample,
         )
         self.extensions = tuple(ext.lower() for ext in extensions)
 
@@ -424,6 +480,7 @@ class DenseFolderDataset(BaseDataset):
         target_scale: float,
         max_target: float | None,
         target_loader: Callable[[Path], torch.Tensor] | None,
+        target_resample: str = DEFAULT_TARGET_RESAMPLE,
     ) -> None:
         """Validate and store everything :meth:`target` and :meth:`_crop_image` read.
 
@@ -452,6 +509,7 @@ class DenseFolderDataset(BaseDataset):
         self.target_scale = target_scale
         self.max_target = max_target
         self._target_loader = target_loader
+        self.target_resample = check_target_resample(target_resample)
 
     # -- reading -------------------------------------------------------------
 
@@ -538,14 +596,14 @@ class DenseFolderDataset(BaseDataset):
 
         height, width = channelled.shape[-2:]
         scale = self.image_size / min(height, width)
-        resized = torch.nn.functional.interpolate(
-            channelled[None],
-            size=(
+        resized = resample_target(
+            channelled,
+            (
                 max(self.image_size, round(height * scale)),
                 max(self.image_size, round(width * scale)),
             ),
-            mode="nearest",
-        )[0]
+            self.target_resample,
+        )
 
         top = (resized.shape[-2] - self.image_size) // 2
         left = (resized.shape[-1] - self.image_size) // 2
@@ -605,6 +663,11 @@ class DenseFolderDataset(BaseDataset):
             f"{self.name}|{self.split}|{len(self.stems)}|{self.image_size}|"
             f"{self.target_scale}|{self.max_target}".encode()
         )
+        # Only when not the legacy method, so a pre-#173 cell re-run with
+        # target_resample="torch_nearest" reproduces its published fingerprint,
+        # and an aligned run can never share a board with it.
+        if self.target_resample != LEGACY_TARGET_RESAMPLE:
+            digest.update(f"|resample={self.target_resample}".encode())
         # strict=True: images and targets are paired by index everywhere in this
         # class, so unequal lengths mean the pairing is already wrong. Truncating
         # here would fold a *shorter* list into a fingerprint that still looks
@@ -619,4 +682,6 @@ class DenseFolderDataset(BaseDataset):
     def describe(self) -> dict:
         info = super().describe()
         info["image_size"] = self.image_size
+        if self.target_resample != LEGACY_TARGET_RESAMPLE:
+            info["target_resample"] = self.target_resample
         return info

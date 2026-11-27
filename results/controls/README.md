@@ -164,6 +164,49 @@ schedule would trade one optimiser artefact for another**, so 25b first has to
 choose a schedule for standardised features, by a rule that is the same for
 every backbone.
 
+## `target_alignment.json` — dense targets moved onto their images (#173)
+
+**Not records: one row of measurements per board**, from
+`scripts/measure_target_alignment.py`. No backbone is involved. Before #173,
+every dense target was resized with torch's left-aligned
+`interpolate(mode="nearest")`, while its image went through PIL's centre-aligned
+bicubic resize, so a target sat a sub-pixel from its image. Targets are now
+resampled with PIL's own nearest-neighbour (`target_resample="pil_nearest"`, the
+default). `--target-resample torch_nearest` keeps the old geometry.
+
+**Every published cell stays reproducible.** With `torch_nearest`, the
+evaluation split's fingerprint equals the published `dataset_fingerprint` on all
+nine boards whose targets are resized. With the default, it differs on all nine,
+so an aligned number can never join an unaligned board. The first run of this
+control found the three Taskonomy boards *not* differing: `TaskonomyDataset`
+computes its own fingerprint, and the fix had missed it. That is fixed and
+re-measured, and a test pins it.
+
+| board | target pixels changed | oracle ceiling, before → after |
+| --- | --- | --- |
+| `generic_segmentation` | 1.6% | — |
+| `semantic_segmentation` | 1.6% | — |
+| `scene_parsing` | 3.5% | — |
+| `instance_segmentation` | 0.8% (one of 200 items gains or loses an instance) | — |
+| `depth` | 57% | — |
+| `surface_normal` | 75% | — |
+| `edge` | 98% | 0.6330 → 0.6343 |
+| `keypoints2d` | 70% | 0.6953 → 0.6856 |
+| `occlusion_edge` | 59% | 0.5332 → 0.5345 |
+
+These cover the first 200 evaluation items of each board; the oracle uses a
+16x16 grid. On a label map, a sub-pixel shift changes only boundary pixels. On a
+smooth map (depth, normals, magnitudes), it changes almost every value a
+little, so a large fraction there is expected and is not a large error. The
+oracle ceilings move by at most 0.01. `corner` and `orientation` compute their
+target after the crop and never resample, so they are absent by construction.
+
+Why PIL and not torch's `nearest-exact`: measured on random label maps,
+`nearest-exact` still differs from PIL on 20% of pixels for Taskonomy's
+512 → 224 resize, while PIL's float-mode nearest matches PIL exactly and keeps
+`NaN` holes. A coordinate-encoded test (`tests/data/test_target_resample.py`)
+shows the old path biased left, and the new one centred on the image.
+
 ## `lr_sweep.jsonl` — one learning rate per board for standardised features (25b-1, #172)
 
 **320 records, on V100s.** 25a found standardised features underfit at

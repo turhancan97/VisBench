@@ -29,7 +29,13 @@ from visbench.data import (
     ImageFolderDataset,
     TaskonomyDataset,
 )
-from visbench.data.dense import load_label_map, load_mask, load_normal_map
+from visbench.data.dense import (
+    DEFAULT_TARGET_RESAMPLE,
+    TARGET_RESAMPLES,
+    load_label_map,
+    load_mask,
+    load_normal_map,
+)
 from visbench.data.derived import DerivedTargetDataset, OrientationResponse, ShiTomasiResponse
 from visbench.data.detection import VOC_CLASSES
 from visbench.data.instance import VOCInstanceDataset
@@ -138,7 +144,24 @@ def _dense_view_flags(parser: argparse.ArgumentParser, target_dir: str) -> None:
     """
     _dense_folder_flags(parser, target_dir)
     _image_size_flag(parser)
+    _target_resample_flag(parser)
     _head_shape_flags(parser)
+
+
+def _target_resample_flag(parser: argparse.ArgumentParser) -> None:
+    """How a dense target follows its image's resize (#173).
+
+    A data flag, since it decides which target pixels the probe is scored
+    against. ``torch_nearest`` reproduces every dense cell published before the
+    fix; the default puts each target exactly on its image.
+    """
+    parser.add_argument(
+        "--target-resample",
+        choices=TARGET_RESAMPLES,
+        default=DEFAULT_TARGET_RESAMPLE,
+        help="target resampling geometry (default: %(default)s, aligned with the image); "
+        "torch_nearest reproduces cells published before #173",
+    )
 
 
 def _dense_folder_flags(parser: argparse.ArgumentParser, target_dir: str) -> None:
@@ -336,6 +359,7 @@ def _dense_splits(
             image_size=args.image_size,
             target_loader=target_loader,
             stems=stems,
+            target_resample=args.target_resample,
             **extra,
         )
         if listing is not None or args.limit is None:
@@ -690,6 +714,7 @@ def _instance_view_flags(parser: argparse.ArgumentParser) -> None:
     rule, applied to the case where it is most tempting to break it.
     """
     _split_flags(parser, evaluate="val", train="train")
+    _target_resample_flag(parser)
     parser.add_argument("--image-dir", default="JPEGImages", help="image folder (VOC's name)")
     parser.add_argument(
         "--instance-dir",
@@ -809,6 +834,7 @@ def _instance_splits(args: argparse.Namespace) -> Splits:
             stems=stems,
             image_size=args.image_size,
             min_instance_pixels=args.min_instance_pixels,
+            target_resample=args.target_resample,
         )
         if listing is not None or args.limit is None:
             return dataset
@@ -953,6 +979,7 @@ def _taskonomy_view_flags(parser: argparse.ArgumentParser, *, domain: str) -> No
     """The split, resolution, partition and domain — plus the head's shape."""
     _split_flags(parser, evaluate="val", train="train")
     _image_size_flag(parser)
+    _target_resample_flag(parser)
     _head_shape_flags(parser)
     parser.add_argument(
         "--partition",
@@ -984,6 +1011,7 @@ def _taskonomy_splits(args: argparse.Namespace) -> Splits:
         "partition": args.partition,
         "image_size": args.image_size,
         "max_images": args.limit,
+        "target_resample": args.target_resample,
     }
     return Splits(
         evaluate=TaskonomyDataset(split=args.split, **common),
