@@ -18,7 +18,10 @@ synthesised with [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M).
 | `render.sh` | narration → Manim → one still per beat, for one or more scenes |
 | `assemble.sh` | joins the rendered scenes, in `script.md`'s order, into one file |
 
-Renders, audio and stills go to `video/build/`, which is gitignored.
+Renders, audio and stills go to `video/build/`, which is gitignored. The one
+still worth keeping, the GitHub social preview (`Thumbnail` at 1280x640), is
+committed as `assets/social-preview.png` -- the copy set in the repository's
+settings, so it survives a cleared build folder.
 
 ## Narration and subtitles
 
