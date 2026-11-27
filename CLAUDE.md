@@ -1784,8 +1784,9 @@ designed up front; extend it the same way, from a case that already runs.
 
 **Every issue below is closed; the tracker was empty as of 2026-08-06.** The
 fast suite **collects 2621 tests**, green on 2026-11-27 along with all three
-lint steps, mypy and the `-W` docs build; the slow suite is **116**, last fully
-green on `main` on 2026-09-11. Earlier fast counts, for dating a claim: 2605 at 25a, 2560 at v0.28.1, 2536 at 24b, 2512 at 24a, 2508 at 23c, 2486 at 23b, 2445 at 23a, 2433 at
+lint steps, mypy and the `-W` docs build; the slow suite **collects 118**, green
+on `main` on 2026-11-27 (116 passed, and the two BSDS500 agreement tests skip
+because that dataset is not at their path on the dgx nodes; #176). Earlier fast counts, for dating a claim: 2605 at 25a, 2560 at v0.28.1, 2536 at 24b, 2512 at 24a, 2508 at 23c, 2486 at 23b, 2445 at 23a, 2433 at
 22c, 2414 at 22b, 2397 at 21b, 2304 at v0.23.0, 1824 at the oracle gate — keep
 that list to a handful. **Quote the collected count, not "N passed"**: the skip
 count depends on which extras are installed (3 on CI, 8 on `.venv`, 0 with
@@ -2105,7 +2106,7 @@ with `ModuleNotFoundError`) and may have different dependency versions.
 source .venv/bin/activate       # or call .venv/bin/<tool> directly
 
 pytest                                              # 2621 fast tests
-pytest -m slow                                      # 116, real DINOv2/CLIP weights
+pytest -m slow                                      # 118, real DINOv2/CLIP weights
 ruff check visbench/ tests/ conftest.py examples/ scripts/
 ruff format --check visbench/ tests/ conftest.py examples/ scripts/
 mypy visbench/ examples/ --ignore-missing-imports   # reads [tool.mypy], py 3.12
